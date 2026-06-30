@@ -2,10 +2,98 @@
 <html>
 <head>
   <title>Mana Apprentice</title>
+  <link rel="stylesheet" href="style.css">
 </head>
+
+<div id="introPopup" class="popup">
+  <div class="popup-content">
+    <h2>Awakening</h2>
+
+    <p>
+      You wake up in the woods tired, thirsty, and hungry with no memory of how you got here...or even who you are.
+    </p>
+
+    <p>
+      The forest is quiet... unnaturally quiet. Something deep inside tells you that remaining here is a mistake. You need water, food, shelter.  Answers will have to wait, you're certain you're not safe here.
+    </p>
+
+    <button id="continueBtn">Continue</button>
+  </div>
+</div>
+
+<div id="clearingPopup" class="popup" style="display: none;">
+  <div class="popup-content">
+    <h2>A Clearing</h2>
+
+    <p>
+      You stumble through the thick forest, your mind in a fog, pushing past branches and bushes.  Suddenly the resistance ends as you fall into a clearing.
+    </p>
+
+    <p>
+      It isn't large but there's enough space to do more than catch your breath.  You can rest here.  With some work you might be able to create a camp.
+    </p>
+
+    <button id="clearingContinueBtn">Continue</button>
+  </div>
+</div>
+
 <body>
   <h1>Mana Apprentice</h1>
-  <p>Mana: 0</p>
-  <button>Study Magic</button>
+  <div class="game-container">
+  
+
+    <div class="left-panel">
+      <h2>Energy</h2>
+    
+      <div id="EnergyPanel">
+        <div id="EnergyAmount"></div>
+        <div id="EnergyPerClickDisplay" style="display: none;"></div>
+        <div id="EnergyPerSecondDisplay" style="display: none;"></div>
+      </div>
+    
+      <button id="studyBtn" style="display: none;">Rest</button>  
+
+      <button id="exploreBtn" class="actionButton">
+        <div class="progressFill"></div>
+        <Span>Explore</Span>
+      </button>
+
+      <button id="catchBreathBtn" class="actionButton">
+        <div class="progressFill"></div>
+        <span>Catch Breath</span>
+      </button>
+
+      <button id="restBtn" style="display:none;">Rest Here</button>
+
+      <button id="upgradeBtn" style="display: none;" class="upgrade-btn">
+        <div>Cardio</div>
+        <div id="EnergyFocusUpgradeText" class="subtext">
+          (+1 Energy/sec) - Cost: 10
+        </div>
+      </button>
+    </div>
+
+    <div class="right-panel" style="display: none;">
+      <h2>Health</h2>
+      
+      <div id="healthPanel">
+        <div id="healthAmount"></div>
+        <div id="healthPerClickDisplay"></div>
+        <div id="healthPerSecondDisplay"></div>
+      </div>
+    
+      <button id="exerciseBtn">Exercise</button>
+
+      <button id="habitBtn" class="habit-btn"
+        >Build Habits 
+        <div id="healthHabitUpgradeText" class="subtext">
+          (+1 health/sec) - Cost: 10
+        </div>
+      </button>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
 </body>
 </html>
+
