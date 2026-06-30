@@ -89,23 +89,26 @@ const actions = {
 
         button: null,
         progressBar: null,
+        metaProgressBar: null,
 
-        complete: function (){}
+        onStart: function(){},
+        onComplete: function (){}
     },
 
     catchBreath: {
         label: "Catch Breath",
         duration: 1,
-        cost: {
-            Energy: -10
-        },
+        cost: {},
         unlocked: true,
         running: false,
 
         button: null,
         progressBar: null,
+        metaProgressBar: null,
 
-        complete: function () {}
+        onStart: function(){},
+        onComplete: function () {
+        }
     }
 };
 
@@ -141,7 +144,6 @@ window.onload = function () {
             resource.display = document.getElementById(resourceName + "Amount");
             resource.perClickDisplay = document.getElementById(resourceName + "PerClickDisplay");
             resource.perSecondDisplay = document.getElementById(resourceName + "PerSecondDisplay");
-            console.log(resourceName, document.getElementById(resourceName + "Amount"));
         };
 
     };
@@ -152,7 +154,6 @@ window.onload = function () {
 
             upgradeUI.display = document.getElementById(upgradeName + "UpgradeText");
 
-            console.log(upgradeName, upgradeUI.display);
         }
     };
 
@@ -169,11 +170,14 @@ window.onload = function () {
         
     }
 
+  //Action onComplete 
+    actions.catchBreath.onComplete = function () {
+        addResource("Energy" ,resources.Energy.perClick);
+    }
+
 
   //Reusable Upgrade Function
     function buyUpgrade(upgradeName) {
-        console.log("Buying Upgrade:", upgradeName);
-        console.log(upgrades[upgradeName]);
         
         const upgrade = upgrades[upgradeName];
 
@@ -239,22 +243,23 @@ window.onload = function () {
 
     clearingContinueBtn.addEventListener("click", function() {
         clearingPopup.style.display = "none";
-        document.getElementById("catchBreathBtn").style.display = "none";
+
+        const catchBreathButton = document.querySelector('[data-action="catchBreath"]');
+        catchBreathButton.style.display = "none";
+
         restBtn.style.display = "inline-block";
         updateRestButton();
     });
 
-    actions.explore.complete = function () {
+    actions.explore.onComplete = function () {
         gameState.exploreCount++;
-        updateExploreMetaProgress();
-
        
         if (gameState.exploreCount === 1) {
-            addStoryEntry(storyLog.forest[0]);
+            addStoryEntry(storyLog.forest[1]);
         };
 
         if (gameState.exploreCount === 2) {
-            addStoryEntry(storyLog.forest[1]);
+            addStoryEntry(storyLog.forest[2]);
         };
 
         if (gameState.exploreCount === 3) {
@@ -270,6 +275,7 @@ window.onload = function () {
         }
     };
 
+
     function addStoryEntry (text) {
         const storyLogPanel = document.getElementById("storyLog")
 
@@ -281,7 +287,7 @@ window.onload = function () {
     }
 
     //Hook Actions
-    for (let actionName in actions) {
+    /*for (let actionName in actions) {
         const action = actions[actionName];
 
         action.button = document.getElementById(actionName + "Btn");
@@ -291,16 +297,16 @@ window.onload = function () {
         action.metaProgressBar = action.button.querySelector(".metaProgressFill");
 
         action.button.addEventListener("click", function () {
-            startAction(actionName);
+            runAction(actionName);
         });
-    }
+    }*/
 
   //Initial Hook Call and Resource Update
     hookStatsToUI();
     hookUpgradesToUi();
     updateResource("Energy");
     updateResource("health");
-    updateExploreMetaProgress();
+    hookActionButtons();
 
   //Gerneral Update Function
     function updateResource(resourceName) {
@@ -316,84 +322,129 @@ window.onload = function () {
     };
 
   //Action Function
-    function startAction(actionName) {
-        const action =actions[actionName];
+    function hookActionButtons() {
 
-        if(actionName === "explore") {
-            gameState.resting = false;
-            updateRestButton();
+        const buttons = document.querySelectorAll(".action-btn");
+
+        buttons.forEach(btn => {
+
+            const actionName = btn.dataset.action;
+            const action = actions[actionName];
+
+            if (!action) return;
+
+            action.button = btn;
+            action.progressBar = btn.querySelector(".progressFill");
+            action.metaProgressBar = btn.querySelector(".metaProgressFill");
+
+            btn.addEventListener("click", function () {
+                runAction(actionName);
+            });
+
+        });
+    }
+
+  //Progress Funtion
+    function runAction(actionName) {
+
+        console.log("RUN ACTION FIRED:", actionName);
+       
+        const action = actions[actionName];
+
+        console.log("ACTION FOUND:", action);
+
+        //alert("Action triggered: " + actionName);
+
+        if (!action || action.running) return;
+
+        // Check cost
+        for (let key in action.cost) {
+            const resource = resources[key];
+            if (resource.value < action.cost[key]) return;
         }
 
-        //Check Cost
-        for (let resourceName in action.cost) {
-
-            const costAmount = action.cost[resourceName];
-
-            if (resources[resourceName].value < costAmount) {
-                return; //not enough resources
-            }
-        }
-
-        // Spend Cost
-        for (let resourceName in action.cost) {
-            const costAmount = action.cost[resourceName];
-            addResource(resourceName, -costAmount);
+        // Pay cost
+        for (let key in action.cost) {
+            resources[key].value -= action.cost[key];
+            updateResource(key);
         }
 
         action.running = true;
 
-        if (action.button) {
-            action.button.disabled = true;
+        const duration = action.duration * 1000;
+        const startTime = Date.now();
+
+        if (action.onStart) {
+            action.onStart();
         }
 
-        startProgress(action)
+        const interval = setInterval(() => {
 
-        setTimeout(function () {
-            action.complete();
-            action.running = false;
-            if(action.button) {
-                action.button.disabled = false;
-            }
-        }, action.duration * 1000);
-
-    };
-
-  //Progress Funtion
-    function startProgress(action) {
-        const duration = action.duration * 1000;
-        let startTime = Date.now();
-
-        const interval = setInterval(function() {
             let elapsed = Date.now() - startTime;
             let progress = Math.min(elapsed / duration, 1);
 
+            // 1. Main progress bar
             if (action.progressBar) {
-                action.progressBar.style.width = (progress*100) + "%";
+                action.progressBar.style.width = (progress * 100) + "%";
             }
 
-            if (progress >=1) {
+            // 2. Meta progress (if exists)
+            if (action.metaProgressBar) {
+                updateMetaProgress(action, progress);
+            }
+
+            // 3. Finish
+            if (progress >= 1) {
+
                 clearInterval(interval);
+
+                action.running = false;
 
                 if (action.progressBar) {
                     action.progressBar.style.width = "0%";
                 }
+
+                if (action.onComplete) {
+                    action.onComplete();
+                }
             }
+
         }, 50);
     }
 
 
   //Meta Progress Function
-    function updateExploreMetaProgress() {
+    function updateMetaProgress(action, progress) {
 
-        const action = actions.explore;
+        const target = gameState.exploreRequired;
 
-        const progress = gameState.exploreCount / gameState.exploreRequired;
+        const current = gameState.exploreCount;
 
-        action.metaProgressBar.style.width = (progress * 100) + "%";
+        const interpolated =
+            (current + progress) / target;
+
+        if (action.metaProgressBar) {
+            action.metaProgressBar.style.width =
+                (interpolated * 100) + "%";
+        }
     }
 
+   function animateMetaBar (bar, target) {
+        let current = parseFloat(bar.style.width) || 0;
+
+        const interval = setInterval(() => {
+            current += (target*100 - current)*.01;
+            bar.style.width = current + "%";
+            if (Math.abs(current - target * 100) < 0.5) {
+                bar.style.width = (target * 100) + "%";
+                clearInterval(interval);
+            }
+
+        }, 16);
+   }
+
   //Event Listeners - What makes the buttons work
-    studyBtn.addEventListener("click", function () {
+    /*studyBtn.addEventListener("click", function () {
         addResource("Energy", resources.Energy.perClick)
     });
 
@@ -409,10 +460,15 @@ window.onload = function () {
 
     habitBtn.addEventListener("click", function () {
         buyUpgrade("healthHabit");
-    });
+    });*/
 
     continueBtn.addEventListener("click", function () {
         introPopup.style.display = "none";
+
+        if (gameState.exploreCount === 0) {
+            addStoryEntry(storyLog.forest[0]);
+        };
+
     });
 
     restBtn.addEventListener("click", function () {
@@ -447,3 +503,49 @@ window.onload = function () {
   updateResource("Energy");
   updateResource("health");
 };
+
+/*  //Progress Funtion
+    function startProgress(action) {
+        const duration = action.duration * 1000;
+        let startTime = Date.now();
+
+        const interval = setInterval(function() {
+            let elapsed = Date.now() - startTime;
+            let progress = Math.min(elapsed / duration, 1);
+
+            if (action.progressBar) {
+                action.progressBar.style.width = (progress*100) + "%";
+            }
+
+            if (action.metaProgressBar) {
+
+                const metaTarget = gameState.exploreCount / gameState.exploreRequired;
+
+                const metaProgress = (gameState.exploreCount + progress) / gameState.exploreRequired;
+
+                action.metaProgressBar.style.width = (metaProgress * 100) + "%";
+            }
+
+            if (progress >=1) {
+                clearInterval(interval);
+
+                if (action.progressBar) {
+                    action.progressBar.style.width = "0%";
+                }
+
+                updateExploreMetaProgress();
+            }
+        }, 50);
+    }
+
+    function updateExploreMetaProgress() {
+
+        const action = actions.explore; 
+
+        const target = gameState.exploreCount / gameState.exploreRequired;
+
+        animateMetaBar(action.metaProgressBar, target);
+    }
+
+
+*/
