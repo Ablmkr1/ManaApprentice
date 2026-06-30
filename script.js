@@ -1,6 +1,7 @@
 
 const introPopup = document.getElementById("introPopup");
 const continueBtn = document.getElementById("continueBtn");
+const game = {exploreCount: 0};
 
 const resources = {
     Energy: {
@@ -23,6 +24,7 @@ const resources = {
         perClickDisplay: null,
         perSecondDisplay: null,
     }
+    
 };
 
 const upgrades = {
@@ -49,7 +51,7 @@ const upgrades = {
 const actions = {
     explore: {
         label: "Explore",
-        duration: 5,
+        duration: 1,
         cost: {
             Energy: 10
         },
@@ -59,14 +61,14 @@ const actions = {
         button: null,
         progressBar: null,
 
-        complete: function () {}
+        complete: function (){}
     },
 
     catchBreath: {
         label: "Catch Breath",
         duration: 1,
         cost: {
-            Energy: -1
+            Energy: -10
         },
         unlocked: true,
         running: false,
@@ -155,7 +157,10 @@ window.onload = function () {
         discoveredBerryBush: false,
         discoveredDeadfall: false,
 
-        hasCamp: false
+        hasCamp: false,
+
+        exploreCount:0,
+        exploreRequired:3
     };
 
 
@@ -171,11 +176,17 @@ window.onload = function () {
     const restBtn = document.getElementById("restBtn");
     const clearingPopup = document.getElementById("clearingPopup");
     const clearingContinueBtn = document.getElementById("clearingContinueBtn");
+    const campPanel = document.getElementById("campPanel");
 
-  //Popup Function Clearing
+  //Discover Clearing Popup & Function & CampDisplay
     function showClearingPopup() {
         clearingPopup.style.display = "flex";
     };
+
+    function showCampPanel () {
+        campPanel.style.display = "flex";
+        
+    }
 
     clearingContinueBtn.addEventListener("click", function() {
         clearingPopup.style.display = "none";
@@ -185,12 +196,14 @@ window.onload = function () {
     });
 
     actions.explore.complete = function () {
-        if (!gameState.discoveredClearing) {
-
-            gameState.discoveredClearing = true;
+        gameState.exploreCount++;
+        updateExploreMetaProgress();
+        if (gameState.exploreCount >= gameState.exploreRequired && !gameState.discoveredClearning) {
+            gameState.discoveredClearning = true;
 
             showClearingPopup();
-        };
+            showCampPanel();
+        }
     };
 
 
@@ -202,6 +215,8 @@ window.onload = function () {
 
         action.progressBar = action.button.querySelector(".progressFill");
 
+        action.metaProgressBar = action.button.querySelector(".metaProgressFill");
+
         action.button.addEventListener("click", function () {
             startAction(actionName);
         });
@@ -212,6 +227,7 @@ window.onload = function () {
     hookUpgradesToUi();
     updateResource("Energy");
     updateResource("health");
+    updateExploreMetaProgress();
 
   //Gerneral Update Function
     function updateResource(resourceName) {
@@ -288,6 +304,16 @@ window.onload = function () {
         }, 50);
     }
 
+
+  //Meta Progress Function
+    function updateExploreMetaProgress() {
+
+        const action = actions.explore;
+
+        const progress = gameState.exploreCount / gameState.exploreRequired;
+
+        action.metaProgressBar.style.width = (progress * 100) + "%";
+    }
 
   //Event Listeners - What makes the buttons work
     studyBtn.addEventListener("click", function () {

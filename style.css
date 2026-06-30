@@ -26,7 +26,8 @@ button {
 }
 
 .left-panel,
-.right-panel {
+.right-panel,
+.camp-panel {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -93,4 +94,14 @@ button {
 .actionButton {
     position: relative;
     overflow: hidden;
+}
+
+.metaProgressFill {
+    position: absolute;
+    bottom: 6px;
+    left: 0;
+    height: 3px;
+    width: 0%;
+    background: dodgerblue;
+    opacity: 0.9;
 }
