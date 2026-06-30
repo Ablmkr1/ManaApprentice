@@ -40,9 +40,49 @@
 <body>
   <h1>Mana Apprentice</h1>
   <div class="game-container">
-  
 
-    <div class="left-panel">
+    <div class="character-panel">
+      <h2>Character</h2>
+
+      <div id="EnergyAmount"></div>
+    </div>
+
+
+
+    <div class="action-panel">
+      <h2>Actions</h2>
+
+      <button id="exploreBtn" class="actionButton">
+        <div class="progressFill"></div>
+        <div class="metaProgressFill"></div>
+        <Span>Explore</Span>
+      </button>
+
+      <button id="catchBreathBtn" class="actionButton">
+        <div class="progressFill"></div>
+        <span>Catch Breath</span>
+      </button>
+
+      <button id="restBtn" style="display:none;">Rest in Clearing</button>
+
+    </div>
+
+    <div class="story-panel">
+      <h2>World</h2>
+      <div id="storyLog" class="story-log"></div>
+
+
+    </div>  
+
+    <div class="resource-panel" style="display: none;">
+      <h2>Resources</h2>
+
+      <div id="waterAmount"></div>
+      <div id="foodAmount"></div>
+      <div id="woodAmount"></div>
+    </div>  
+
+    <div class="left-panel" style="display: none;">
       <h2>Energy</h2>
     
       <div id="EnergyPanel">
@@ -76,7 +116,15 @@
 
     <div id="campPanel" class="camp-panel" style="display: none;">
       <h2>Camp</h2>
-
+      <div id="waterAmount"></div>
+      <div id="waterPerClickDisplay" style="display: none;"></div>
+      <div id="waterPerSecondDisplay" style="display: none;"></div>
+      <div id="foodAmount"></div>
+      <div id="foodPerClickDisplay" style="display: none;"></div>
+      <div id="foodPerSecondDisplay" style="display: none;"></div>
+      <div id="woodAmount"></div>
+      <div id="woodPerClickDisplay" style="display: none;"></div>
+      <div id="woodPerSecondDisplay" style="display: none;"></div>
 
     </div>
 

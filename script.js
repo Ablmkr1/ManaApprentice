@@ -23,8 +23,37 @@ const resources = {
         display: null,
         perClickDisplay: null,
         perSecondDisplay: null,
+    },
+    water: {
+        label :"Water",
+        value: 0,
+        maxValue: 10,
+        perClick: 1,
+        perSecond: 0,
+        display: null,
+        perClickDisplay: null,
+        perSecondDisplay: null,
+    },
+    food: {
+        label :"Food",
+        value: 0,
+        maxValue: 10,
+        perClick: 1,
+        perSecond: 0,
+        display: null,
+        perClickDisplay: null,
+        perSecondDisplay: null,
+    },
+    wood: {
+        label :"Wood",
+        value: 0,
+        maxValue: 10,
+        perClick: 1,
+        perSecond: 0,
+        display: null,
+        perClickDisplay: null,
+        perSecondDisplay: null,
     }
-    
 };
 
 const upgrades = {
@@ -80,8 +109,28 @@ const actions = {
     }
 };
 
+const storyLog = {
+    forest: [
+        "You need water, food, shelter.",
+        "You stumble forward, mind in a daze...",
+        "The forest clears ahead..."
+    ],
+    clearing: [
+        "You can rest here."
+    ]
+
+}
+
 
 window.onload = function () {
+  
+
+  //UI Saftety Function
+    function safeSetText(el,text) {
+        if (el) {
+            el.textContent = text;
+        }
+    };
   
 
   //Hook to UI Function
@@ -92,7 +141,7 @@ window.onload = function () {
             resource.display = document.getElementById(resourceName + "Amount");
             resource.perClickDisplay = document.getElementById(resourceName + "PerClickDisplay");
             resource.perSecondDisplay = document.getElementById(resourceName + "PerSecondDisplay");
-
+            console.log(resourceName, document.getElementById(resourceName + "Amount"));
         };
 
     };
@@ -198,14 +247,38 @@ window.onload = function () {
     actions.explore.complete = function () {
         gameState.exploreCount++;
         updateExploreMetaProgress();
+
+       
+        if (gameState.exploreCount === 1) {
+            addStoryEntry(storyLog.forest[0]);
+        };
+
+        if (gameState.exploreCount === 2) {
+            addStoryEntry(storyLog.forest[1]);
+        };
+
+        if (gameState.exploreCount === 3) {
+            addStoryEntry(storyLog.clearing[0]);
+        };
+
         if (gameState.exploreCount >= gameState.exploreRequired && !gameState.discoveredClearning) {
             gameState.discoveredClearning = true;
 
             showClearingPopup();
             showCampPanel();
+            hookStatsToUI();
         }
     };
 
+    function addStoryEntry (text) {
+        const storyLogPanel = document.getElementById("storyLog")
+
+        const entry = document.createElement("div");
+        entry.classList.add("story-entry");
+        entry.textContent = text;
+        storyLogPanel.appendChild(entry);
+        storyLogPanel.scrollTop = storyLogPanel.scrollHeight;
+    }
 
     //Hook Actions
     for (let actionName in actions) {
@@ -233,9 +306,13 @@ window.onload = function () {
     function updateResource(resourceName) {
         const resource = resources[resourceName];
 
-        resource.display.textContent = resource.label + ": " + resource.value + " / " + resource.maxValue;
-        resource.perClickDisplay.textContent = "+" + resource.perClick + " /Click";
-        resource.perSecondDisplay.textContent = "+" + resource.perSecond + " /Sec";
+        safeSetText(resource.display, resource.label + ": " + resource.value + " / " + resource.maxValue);
+        safeSetText(resource.perClickDisplay, "+" + resource.perClick + "/Click");
+        safeSetText(resource.perSecondDisplay, "+" + resource.perSecond + "/Sec");
+
+        //resource.display.textContent = resource.label + ": " + resource.value + " / " + resource.maxValue;
+        //resource.perClickDisplay.textContent = "+" + resource.perClick + " /Click";
+        //resource.perSecondDisplay.textContent = "+" + resource.perSecond + " /Sec";
     };
 
   //Action Function
@@ -346,9 +423,9 @@ window.onload = function () {
   //Rest Button Text Toggle
     function updateRestButton() {
         if (gameState.resting) {
-            restBtn.textContent = "Leave Camp";
+            restBtn.textContent = "Leave Clearing";
         } else {
-            restBtn.textContent = "Rest at Camp";
+            restBtn.textContent = "Rest in Clearing";
         }
     };
 
