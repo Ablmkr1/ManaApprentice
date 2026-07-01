@@ -8,7 +8,7 @@ const resources = {
         label: "Energy",
         value: 0,
         maxValue: 10,
-        perClick: 1,
+        perClick: 10,
         perSecond: 0,
         display: null,
         perClickDisplay: null,
@@ -112,18 +112,6 @@ const actions = {
     }
 };
 
-const storyLog = {
-    forest: [
-        "You need water, food, shelter.",
-        "You stumble forward, mind in a daze...",
-        "The forest clears ahead..."
-    ],
-    clearing: [
-        "You can rest here."
-    ]
-
-}
-
 
 window.onload = function () {
   
@@ -205,16 +193,64 @@ window.onload = function () {
     const gameState = {
         resting: false,
 
+        restStartTime: null, 
+
+        exploration: {
+            currentStage: "findClearing",
+            count: 0
+        },
+
         discoveredClearning: false,
-        discoveredRiver: false,
+        discoveredStream: false,
         discoveredBerryBush: false,
         discoveredDeadfall: false,
 
         hasCamp: false,
 
-        exploreCount:0,
-        exploreRequired:3
+        //exploreCount:0,
+        //exploreRequiredClearing:3
     };
+
+
+  //Exploration Engine
+    const explorationStages = {
+        findClearing: {
+            required: 3,
+            story: [
+                "You stumble forward, mind in a daze...",
+                "The forest clears ahead...",
+                "You can rest here.",
+                "You need water, food, shelter."
+            ],
+            onComplete: function () {
+                gameState.discoveredClearning = true;
+                showClearingPopup();
+                showCampPanel();
+
+            },
+            nextStage: "findStream"
+        },
+
+        findStream: {
+            required: 2,
+            story: [
+                "You hear something that makes your thirst grow.",
+                "Your stomach rumbles."
+            ],
+            onComplete: function () {
+                resources.Energy.maxValue += 10;
+                updateResource("Energy");
+                showStreamPopup();
+            },
+            nextStage: null
+        },   
+
+    };
+
+    function getCurrentExploreStage () {
+        return explorationStages [gameState.exploration.currentStage];
+    }
+
 
 
 
@@ -230,11 +266,17 @@ window.onload = function () {
     const clearingPopup = document.getElementById("clearingPopup");
     const clearingContinueBtn = document.getElementById("clearingContinueBtn");
     const campPanel = document.getElementById("campPanel");
+    const streamPopup = document.getElementById("streamPopup");
+    const streamContinueBtn = document.getElementById("streamContinueBtn")
 
   //Discover Clearing Popup & Function & CampDisplay
     function showClearingPopup() {
         clearingPopup.style.display = "flex";
     };
+
+    function showStreamPopup () {
+        streamPopup.style.display = "flex";
+    }
 
     function showCampPanel () {
         campPanel.style.display = "flex";
@@ -245,35 +287,52 @@ window.onload = function () {
         clearingPopup.style.display = "none";
 
         const catchBreathButton = document.querySelector('[data-action="catchBreath"]');
-        catchBreathButton.style.display = "none";
+        
+        if (catchBreathButton) {
+            catchBreathButton.style.display ="none";
+        }
 
         restBtn.style.display = "inline-block";
         updateRestButton();
+
+
+
     });
 
+    streamContinueBtn.addEventListener("click", function() {
+        streamPopup.style.display = "none";
+    });
+
+
     actions.explore.onComplete = function () {
-        gameState.exploreCount++;
+        const stage = getCurrentExploreStage();
+        
+        gameState.exploration.count++;
+
+        const storyIndex = gameState.exploration.count - 1;
        
-        if (gameState.exploreCount === 1) {
-            addStoryEntry(storyLog.forest[1]);
-        };
-
-        if (gameState.exploreCount === 2) {
-            addStoryEntry(storyLog.forest[2]);
-        };
-
-        if (gameState.exploreCount === 3) {
-            addStoryEntry(storyLog.clearing[0]);
-        };
-
-        if (gameState.exploreCount >= gameState.exploreRequired && !gameState.discoveredClearning) {
-            gameState.discoveredClearning = true;
-
-            showClearingPopup();
-            showCampPanel();
-            hookStatsToUI();
+        if (stage.story[storyIndex]) {
+            addStoryEntry(stage.story[storyIndex]);
         }
+
+        if (gameState.exploration.count >= stage.required) {
+            stage.onComplete();
+
+            if (stage.nextStage) {
+                resetExploreMetaProgress(stage.nextStage);
+            }
+        }
+
     };
+
+    function resetExploreMetaProgress (nextStageName) {
+        gameState.exploration.currentStage = nextStageName
+        gameState.exploration.count = 0;
+
+        if (actions.explore.metaProgressBar) {
+            actions.explore.metaProgressBar.style.width = "0%";
+        }
+    }
 
 
     function addStoryEntry (text) {
@@ -416,17 +475,15 @@ window.onload = function () {
   //Meta Progress Function
     function updateMetaProgress(action, progress) {
 
-        const target = gameState.exploreRequired;
+        const stage = getCurrentExploreStage();
+        
+        const target = stage.required;
 
-        const current = gameState.exploreCount;
+        const current = gameState.exploration.count;
 
-        const interpolated =
-            (current + progress) / target;
+        const interpolated = (current + progress) / target;
 
-        if (action.metaProgressBar) {
-            action.metaProgressBar.style.width =
-                (interpolated * 100) + "%";
-        }
+        if (action.metaProgressBar) {action.metaProgressBar.style.width = (interpolated * 100) + "%";}
     }
 
    function animateMetaBar (bar, target) {
@@ -465,23 +522,33 @@ window.onload = function () {
     continueBtn.addEventListener("click", function () {
         introPopup.style.display = "none";
 
-        if (gameState.exploreCount === 0) {
-            addStoryEntry(storyLog.forest[0]);
-        };
+        addStoryEntry(explorationStages.findClearing.story[3]);
 
     });
 
     restBtn.addEventListener("click", function () {
         gameState.resting = !gameState.resting;
+
+        if (gameState.resting) {
+            gameState.restStartTime = Date.now();
+        } else {
+            gameState.restStartTime = null;
+
+            const restProgressFill = restBtn.querySelector(".restProgressFill");
+            restProgressFill.style.width ="0%";
+        }
+
         updateRestButton();
     });
 
   //Rest Button Text Toggle
     function updateRestButton() {
+        const restButtonText = restBtn.querySelector("span");
+
         if (gameState.resting) {
-            restBtn.textContent = "Leave Clearing";
+            restBtn.classList.add("running");
         } else {
-            restBtn.textContent = "Rest in Clearing";
+            restBtn.classList.remove("running");
         }
     };
 
@@ -489,16 +556,38 @@ window.onload = function () {
   //Passive Interval Function - Drives the passive resource updates
     function gameTick() {
         for (let resourceName in resources) {
-            addResource(resourceName, resources[resourceName].perSecond);
+            addResource(resourceName, resources[resourceName].perSecond / 20);
         };
 
         if(gameState.resting) {
-            addResource("Energy",1)
+            const restDuration = 1000
+            const restProgressFill = restBtn.querySelector(".restProgressFill");
+
+            if (resources.Energy.value >= resources.Energy.maxValue) {
+                gameState.resting = false;
+                gameState.restStartTime = null;
+                restProgressFill.style.width = "0%"
+                updateRestButton();
+                return;
+            }
+
+            const elapsed = Date.now() - gameState.restStartTime;
+            const progress = Math.min(elapsed/restDuration, 1);
+
+            restProgressFill.style.width = (progress * 100) + "%";
+
+            if (progress >= 1) {
+                addResource("Energy",1);
+                gameState.restStartTime = Date.now();
+                restProgressFill.style.width = "0%";
+
+            }
+
         };
 
     };
 
-  setInterval (gameTick,1000);
+  setInterval (gameTick,50);
   
   updateResource("Energy");
   updateResource("health");
@@ -519,9 +608,9 @@ window.onload = function () {
 
             if (action.metaProgressBar) {
 
-                const metaTarget = gameState.exploreCount / gameState.exploreRequired;
+                const metaTarget = gameState.exploreCount / gameState.exploreRequiredClearing;
 
-                const metaProgress = (gameState.exploreCount + progress) / gameState.exploreRequired;
+                const metaProgress = (gameState.exploreCount + progress) / gameState.exploreRequiredClearing;
 
                 action.metaProgressBar.style.width = (metaProgress * 100) + "%";
             }
@@ -542,7 +631,7 @@ window.onload = function () {
 
         const action = actions.explore; 
 
-        const target = gameState.exploreCount / gameState.exploreRequired;
+        const target = gameState.exploreCount / gameState.exploreRequiredClearing;
 
         animateMetaBar(action.metaProgressBar, target);
     }

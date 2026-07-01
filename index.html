@@ -37,6 +37,22 @@
   </div>
 </div>
 
+<div id="streamPopup" class="popup" style="display: none;">
+  <div class="popup-content">
+    <h2>A Stream</h2>
+
+    <p>
+      You recognize the sound now that you see it, a small stream runs next to the clearing. As long as you're nearby you'll never be thristy again.
+    </p>
+
+    <p>
+      Your throat is soothed and you feel you can push yourself further now. The rumbles in your stomage tell you your next task.
+    </p>
+
+    <button id="streamContinueBtn">Continue</button>
+  </div>
+</div>
+
 <body>
   <h1>Mana Apprentice</h1>
   <div class="game-container">
@@ -63,7 +79,10 @@
         <span>Catch Breath</span>
       </button>
 
-      <button id="restBtn" style="display:none;">Rest in Clearing</button>
+      <button id="restBtn" class="action-btn rest-button" style="display:none;">
+          <div class="restProgressFill"></div>
+          <span>Rest in Clearing</span>
+      </button>
 
     </div>
 
@@ -83,7 +102,7 @@
     </div>  
 
     <div id="campPanel" class="camp-panel" style="display: none;">
-      <h2>Camp</h2>
+      <h2>Clearing</h2>
 
 
     </div>
