@@ -242,8 +242,22 @@ window.onload = function () {
                 updateResource("Energy");
                 showStreamPopup();
             },
-            nextStage: null
+            nextStage: "findBerryBush"
         },   
+
+        findBerryBush: {
+            required: 2,
+            story: [
+                "Your hunger grows sharper.",
+                "What's hanging from that bush across the stream?"
+            ],
+            onComplete: function () {
+                resources.Energy.maxValue += 10;
+                updateResource("Energy");
+                //showStreamPopup();
+            },
+            nextStage: "Null"
+        }
 
     };
 
