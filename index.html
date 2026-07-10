@@ -2,69 +2,29 @@
 <html>
   <head>
     <title>Mana Apprentice</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="style.css" />
   </head>
 
   <body>
     <h1>Mana Apprentice</h1>
-    <div class="game-container">
-      <div id="introPopup" class="popup">
-        <div class="popup-content">
-          <h2>Awakening</h2>
+    <header class="top-bar">
+      <div class="brand">Mana Apprentice</div>
 
-          <p>You wake up in the woods tired, thirsty, and hungry with no memory of how you got here...or even who you are.</p>
-
-          <p>
-            The forest is quiet... unnaturally quiet. Something deep inside tells you that remaining here is a mistake. You need water, food, shelter.
-            Answers will have to wait, you're certain you're not safe here.
-          </p>
-
-          <button id="continueBtn">Continue</button>
-        </div>
+      <div class="resource-strip">
+        <div id="energyAmount" class="resource-pill"></div>
+        <div id="waterAmount" class="resource-pill" style="display: none"></div>
+        <div id="foodAmount" class="resource-pill" style="display: none"></div>
+        <div id="woodAmount" class="resource-pill" style="display: none"></div>
+        <div id="fiberAmount" class="resource-pill" style="display: none"></div>
+        <div id="trapAmount" class="resource-pill" style="display: none"></div>
+        <div id="peltAmount" class="resource-pill" style="display: none"></div>
       </div>
+    </header>
 
-      <div id="clearingPopup" class="popup" style="display: none">
-        <div class="popup-content">
-          <h2>A Clearing</h2>
-
-          <p>
-            You stumble through the thick forest, your mind in a fog, pushing past branches and bushes. Suddenly the resistance ends as you fall into
-            a clearing.
-          </p>
-
-          <p>
-            It isn't large but there's enough space to do more than catch your breath. You can rest here. With some work you might be able to create a
-            camp.
-          </p>
-
-          <button id="clearingContinueBtn">Continue</button>
-        </div>
-      </div>
-
-      <div id="streamPopup" class="popup" style="display: none">
-        <div class="popup-content">
-          <h2>A Stream</h2>
-
-          <p>
-            You recognize the sound now that you see it, a small stream runs next to the clearing. As long as you're nearby you'll never be thirsty
-            again.
-          </p>
-
-          <p>Your throat is soothed and you feel you can push yourself further now. The rumbles in your stomach tell you your next task.</p>
-
-          <button id="streamContinueBtn">Continue</button>
-        </div>
-      </div>
-
-      <div class="character-panel">
-        <h2>Character</h2>
-
-        <div id="energyAmount"></div>
-      </div>
-
-      <div class="action-panel">
+    <main class="game-shell">
+      <section class="primary-play">
         <h2>Actions</h2>
-
         <button class="action-btn" data-action="explore">
           <div class="progressFill"></div>
           <div class="metaProgressFill"></div>
@@ -86,6 +46,16 @@
           <span>Gather Wood</span>
         </button>
 
+        <button id="gatherFoodBtn" class="action-btn" data-action="gatherFood" style="display: none">
+          <div class="progressFill"></div>
+          <span>Gather Food</span>
+        </button>
+
+        <button id="gatherWaterBtn" class="action-btn" data-action="gatherWater" style="display: none">
+          <div class="progressFill"></div>
+          <span>Gather Water</span>
+        </button>
+
         <button class="action-btn" data-action="packFood" style="display: none">
           <div class="progressFill"></div>
           <span>Pack Food</span>
@@ -96,14 +66,9 @@
           <span>Pack Water</span>
         </button>
 
-        <button class="action-btn" data-action="beginExpedition" style="display: none">
+        <button class="action-btn" data-action="packTrap" style="display: none">
           <div class="progressFill"></div>
-          <span>Begin Expedition</span>
-        </button>
-
-        <button class="action-btn" data-action="travel" style="display: none">
-          <div class="progressFill"></div>
-          <span>Travel</span>
+          <span>Pack Trap</span>
         </button>
 
         <button class="action-btn" data-action="exploreLocation" style="display: none">
@@ -116,49 +81,146 @@
           <span>Gather Fiber</span>
         </button>
 
-        <button class="action-btn" data-action="returnToCamp" style="display: none">
+        <button class="action-btn" data-action="setTrap" style="display: none">
           <div class="progressFill"></div>
-          <span>Return to Camp</span>
+          <span>Set Trap</span>
         </button>
-      </div>
 
-      <div class="story-panel">
-        <h2>World</h2>
-        <div id="storyLog" class="story-log"></div>
-      </div>
+        <button class="action-btn" data-action="checkTrap" style="display: none">
+          <div class="progressFill"></div>
+          <span>Check Trap</span>
+        </button>
+      </section>
 
-      <div id="resourcePanel" class="resource-panel" style="display: none">
-        <h2>Resources</h2>
+      <section class="character-panel">
+        <h2>Character</h2>
 
-        <div id="waterAmount" style="display: none"></div>
-        <div id="foodAmount" style="display: none"></div>
-        <div id="woodAmount" style="display: none"></div>
-        <div id="fiberAmount" style="display: none"></div>
-      </div>
+        <div class="character-stats">
+          <div id="characterEnergyAmount" class="character-stat">Energy: 0 / 10</div>
+        </div>
 
-      <div id="campPanel" class="camp-panel" style="display: none">
-        <h2>Clearing</h2>
+        <div id="gearSection" class="gear-section" style="display: none">
+          <h3>Gear</h3>
 
+          <div id="gearList" class="gear-list">
+            <div id="crudeSatchel" style="display: none">Crude Satchel</div>
+            <div id="waterskin" style="display: none">Waterskin</div>
+            <div id="crudeBackpack" style="display: none">Crude Backpack</div>
+          </div>
+
+          <button id="crudeSatchelBtn" style="display: none">Crude Satchel (10 Fiber)</button>
+          <button id="waterskinBtn" style="display: none">Waterskin (3 Pelt)</button>
+          <button id="crudeBackpackBtn" style="display: none">Crude Backpack (6 Pelt, 10 Fiber)</button>
+        </div>
+
+        <div class="inventory-section">
+          <h3>Inventory</h3>
+          <div class="inventory-list">
+            <div id="carriedAmount" class="inventory-stat">Carried: 0 / 5 (empty)</div>
+            <div id="carriedWaterAmount" class="inventory-stat">Water: 0 / 10</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="campPanel" class="context-section" style="display: none">
+        <h2 id="campPanelTitle">Clearing</h2>
         <div id="smallFire" style="display: none">Small Fire</div>
         <div id="crudeLeanTo" style="display: none">Crude Lean-To</div>
-        <button id="smallFireBtn" style="display: none">Small Fire 10 Wood</button>
-        <button id="crudeLeanToBtn" style="display: none">Crude Lean-To 10 Wood</button>
-      </div>
+        <button id="smallFireBtn" style="display: none">Small Fire (10 Wood)</button>
+        <button id="crudeLeanToBtn" style="display: none">Crude Lean-To (10 Wood)</button>
+        <button class="action-btn" data-action="makeTrap" style="display: none">
+          <div class="progressFill"></div>
+          <span>Make Trap</span>
+        </button>
+      </section>
 
-      <div id="expeditionPanel" class="expedition-panel" style="display: none">
+      <section id="expeditionPanel" class="context-section" style="display: none">
         <h2>Expedition</h2>
 
-        <div id="expeditionDistanceAmount">Distance: 0 / 100</div>
-        <div id="packedFoodAmount">Packed Food: 0 / 5</div>
-        <div id="packedWaterAmount">Packed Water: 0 / 10</div>
+        <div class="expedition-stats">
+          <div id="expeditionDistanceAmount" class="expedition-stat">Distance: 0 / 100</div>
+        </div>
+
+        <button class="action-btn" data-action="beginExpedition" style="display: none">
+          <div class="progressFill"></div>
+          <span>Prepare for Expedition</span>
+        </button>
+
+        <button class="action-btn" data-action="travel" style="display: none">
+          <div class="progressFill"></div>
+          <span>Travel</span>
+        </button>
+
         <button class="action-btn" data-action="travelToMysteriousPlants" style="display: none">
           <div class="progressFill"></div>
           <span>Travel to Mysterious Plants</span>
         </button>
-      </div>
 
+        <button class="action-btn" data-action="travelToStrangeTrails" style="display: none">
+          <div class="progressFill"></div>
+          <span>Travel to Strange Trails</span>
+        </button>
+
+        <button class="action-btn" data-action="returnToCamp" style="display: none">
+          <div class="progressFill"></div>
+          <span>Return to Camp</span>
+        </button>
+      </section>
+
+      <section class="world-feed">
+        <h2>World</h2>
+        <div id="storyLog" class="story-log"></div>
+      </section>
+    </main>
+
+    <div id="introPopup" class="popup">
+      <div class="popup-content">
+        <h2>Awakening</h2>
+
+        <p>You wake up in the woods tired, thirsty, and hungry with no memory of how you got here...or even who you are.</p>
+
+        <p>
+          The forest is quiet... unnaturally quiet. Something deep inside tells you that remaining here is a mistake. You need water, food, shelter.
+          Answers will have to wait, you're certain you're not safe here.
+        </p>
+
+        <button id="continueBtn">Continue</button>
+      </div>
     </div>
-    
+
+    <div id="clearingPopup" class="popup" style="display: none">
+      <div class="popup-content">
+        <h2>A Clearing</h2>
+
+        <p>
+          You stumble through the thick forest, your mind in a fog, pushing past branches and bushes. Suddenly the resistance ends as you fall into a
+          clearing.
+        </p>
+
+        <p>
+          It isn't large but there's enough space to do more than catch your breath. You can rest here. With some work you might be able to create a
+          camp.
+        </p>
+
+        <button id="clearingContinueBtn">Continue</button>
+      </div>
+    </div>
+
+    <div id="streamPopup" class="popup" style="display: none">
+      <div class="popup-content">
+        <h2>A Stream</h2>
+
+        <p>
+          You recognize the sound now that you see it, a small stream runs next to the clearing. As long as you're nearby you'll never be thirsty
+          again.
+        </p>
+
+        <p>Your throat is soothed and you feel you can push yourself further now. The rumbles in your stomach tell you your next task.</p>
+
+        <button id="streamContinueBtn">Continue</button>
+      </div>
+    </div>
+
     <script src="state.js"></script>
     <script src="expeditionData.js"></script>
     <script src="content.js"></script>

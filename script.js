@@ -20,6 +20,7 @@ window.onload = function () {
   updateResource("energy");
   hookActionButtonsToUI(runAction);
   hookCampUpgradestoUI();
+  hookGearUpgradesToUI();
 
   ui.continueBtn.addEventListener("click", function () {
     ui.introPopup.style.display = "none";
@@ -28,18 +29,11 @@ window.onload = function () {
   });
 
   ui.restBtn.addEventListener("click", function () {
-    gameState.resting = !gameState.resting;
-
     if (gameState.resting) {
-      gameState.restStartTime = Date.now();
+      stopResting();
     } else {
-      gameState.restStartTime = null;
-
-      const restProgressFill = ui.restBtn.querySelector(".restProgressFill");
-      restProgressFill.style.width = "0%";
+      startResting();
     }
-
-    updateRestButton();
   });
 
   setInterval(gameTick, 50);
@@ -65,10 +59,8 @@ function gameTick() {
     const restProgressFill = ui.restBtn.querySelector(".restProgressFill");
 
     if (resources.energy.value >= resources.energy.maxValue) {
-      gameState.resting = false;
-      gameState.restStartTime = null;
-      restProgressFill.style.width = "0%";
-      updateRestButton();
+      stopResting();
+      resumeAutoActionAfterRest();
       return;
     }
 
@@ -84,4 +76,25 @@ function gameTick() {
     }
   }
   processTravelTick();
+}
+
+function startResting() {
+  if (resources.energy.value >= resources.energy.maxValue) return;
+
+  gameState.resting = true;
+  gameState.restStartTime = Date.now();
+  updateRestButton();
+}
+
+function stopResting() {
+  gameState.resting = false;
+  gameState.restStartTime = null;
+
+  const restProgressFill = ui.restBtn.querySelector(".restProgressFill");
+
+  if (restProgressFill) {
+    restProgressFill.style.width = "0%";
+  }
+
+  updateRestButton();
 }

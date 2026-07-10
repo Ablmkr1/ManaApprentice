@@ -50,6 +50,26 @@ const resources = {
     perClickDisplay: null,
     perSecondDisplay: null,
   },
+  trap: {
+    label: "Trap",
+    value: 5,
+    maxValue: 5,
+    perClick: 0,
+    perSecond: 0,
+    display: null,
+    perClickDisplay: null,
+    perSecondDisplay: null,
+  },
+  pelt: {
+    label: "Pelt",
+    value: 0,
+    maxValue: 20,
+    perClick: 0,
+    perSecond: 0,
+    display: null,
+    perClickDisplay: null,
+    perSecondDisplay: null,
+  },
 };
 
 const actions = {
@@ -93,6 +113,43 @@ const actions = {
     },
     unlocked: false,
     running: false,
+    auto: { resource: "wood", resumeAfterRest: true },
+
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+
+    onStart: function () {},
+    onComplete: function () {},
+  },
+
+  gatherFood: {
+    label: "Gather Food",
+    duration: 1,
+    cost: {
+      energy: 5,
+    },
+    unlocked: false,
+    running: false,
+    auto: { resource: "food", resumeAfterRest: true },
+
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+
+    onStart: function () {},
+    onComplete: function () {},
+  },
+
+  gatherWater: {
+    label: "Gather Water",
+    duration: 1,
+    cost: {
+      energy: 2,
+    },
+    unlocked: false,
+    running: false,
+    auto: { resource: "water", resumeAfterRest: true },
 
     button: null,
     progressBar: null,
@@ -146,7 +203,7 @@ const actions = {
   },
 
   beginExpedition: {
-    label: "Begin Expedition",
+    label: "Prepare for Expedition",
     duration: 1,
     cost: {},
     unlocked: false,
@@ -211,6 +268,75 @@ const actions = {
     onStart: function () {},
     onComplete: function () {},
   },
+  travelToStrangeTrails: {
+    label: "Travel to Strange Trails",
+    duration: 1,
+    cost: {},
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+
+  makeTrap: {
+    label: "Make Trap",
+    duration: 1,
+    cost: {
+      energy: 10,
+      wood: 5,
+      fiber: 2,
+    },
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+  packTrap: {
+    label: "Pack Trap",
+    duration: 0.1,
+    cost: {
+      trap: 1,
+    },
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+  setTrap: {
+    label: "Set Trap",
+    duration: 1,
+    cost: {},
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+  checkTrap: {
+    label: "Check Trap",
+    duration: 5,
+    cost: {
+      energy: 5
+    },
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
 };
 
 //State Engine
@@ -218,8 +344,12 @@ const gameState = {
   phase: "clearing",
 
   resting: false,
-
   restStartTime: null,
+
+  autoAction: {
+    actionName: null,
+    pausedForRest: false,
+  },
 
   exploration: {
     currentStage: "findClearing",
@@ -249,6 +379,7 @@ const gameState = {
     carriedItems: {
       food: 0,
       fiber: 0,
+      trap: 0,
     },
     carryCapacity: 5,
 

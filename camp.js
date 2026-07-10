@@ -19,6 +19,11 @@ function applyUnlock(unlock) {
     return;
   }
 
+  if (unlock.type === "gearUpgrade") {
+    unlockGearUpgrade(unlock.id);
+    return;
+  }
+
   console.warn("Unknown unlock type:", unlock.type);
 }
 
@@ -55,6 +60,14 @@ function setCampActionsAvailable(available) {
       unlockAction("gatherWood");
     }
 
+    if (gameState.discoveredBerryBush) {
+      unlockAction("gatherFood");
+    }
+
+    if (gameState.discoveredStream) {
+      unlockAction("gatherWater");
+    }
+
     if (gameState.phase === "clearing") {
       unlockAction("explore");
     }
@@ -62,6 +75,8 @@ function setCampActionsAvailable(available) {
     ui.restBtn.style.display = "inline-block";
   } else {
     lockAction("gatherWood");
+    lockAction("gatherFood");
+    lockAction("gatherWater");
     lockAction("explore");
     ui.restBtn.style.display = "none";
   }
@@ -119,8 +134,6 @@ function setPhase(phaseName) {
 
     applyUnlocks([
       { type: "panel", id: "expedition" },
-      { type: "action", id: "packFood" },
-      { type: "action", id: "packWater" },
       { type: "action", id: "beginExpedition" },
     ]);
 
@@ -143,6 +156,65 @@ function checkClearingComplete() {
 
   if (gameState.phase === "clearing" && hasSmallFire && hasCrudeLeanTo) {
     setPhase("expedition");
+    safeSetText(ui.campPanelTitle, "Camp");
     addStoryEntry("With fire and shelter established, the clearing feels less like a refuge and more like a camp. It is time to range farther.");
   }
+}
+
+function hookGearUpgradesToUI() {
+  for (let upgradeName in gearUpgrades) {
+    const upgrade = gearUpgrades[upgradeName];
+
+    upgrade.button = document.getElementById(upgradeName + "Btn");
+    upgrade.display = document.getElementById(upgradeName);
+
+    if (upgrade.button) {
+      upgrade.button.addEventListener("click", function () {
+        buyGearUpgrade(upgradeName);
+      });
+    }
+
+    updateGearUpgradeUI(upgradeName);
+  }
+}
+
+function updateGearUpgradeUI(upgradeName) {
+  const upgrade = gearUpgrades[upgradeName];
+
+  if (!upgrade) return;
+
+  showElement(ui.gearSection);
+
+  if (upgrade.button) {
+    upgrade.button.style.display = upgrade.unlocked && !upgrade.purchased ? "inline-block" : "none";
+  }
+
+  if (upgrade.display) {
+    upgrade.display.style.display = upgrade.purchased ? "block" : "none";
+  }
+}
+
+function unlockGearUpgrade(upgradeName) {
+  const upgrade = gearUpgrades[upgradeName];
+
+  if (!upgrade) {
+    console.warn("Unknown gear upgrade:", upgradeName);
+    return;
+  }
+
+  upgrade.unlocked = true;
+  updateGearUpgradeUI(upgradeName);
+}
+
+function buyGearUpgrade(upgradeName) {
+  const upgrade = gearUpgrades[upgradeName];
+
+  if (!upgrade || !upgrade.unlocked || upgrade.purchased) return;
+  if (!spendCost(upgrade.cost)) return;
+
+  upgrade.onComplete();
+  upgrade.purchased = true;
+  upgrade.unlocked = false;
+
+  updateGearUpgradeUI(upgradeName);
 }

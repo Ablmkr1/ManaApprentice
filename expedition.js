@@ -15,6 +15,8 @@ function updateLocationActions() {
 
   lockAction("exploreLocation");
   lockAction("gatherFiber");
+  lockAction("setTrap");
+  lockAction("checkTrap");
 
   if (!locationName) return;
 
@@ -27,9 +29,27 @@ function updateLocationActions() {
     return;
   }
 
-  if (locationName === "mysteriousPlants" && location.explored) {
-    unlockAction("gatherFiber");
+  if (location.availableActions) {
+    location.availableActions.forEach((actionName) => {
+      if (canUseLocationAction(locationName, actionName)) {
+        unlockAction(actionName);
+      }
+    });
   }
+}
+
+function canUseLocationAction(locationName, actionName) {
+  const location = expeditionLocations[locationName];
+
+  if (actionName === "setTrap") {
+    return location.traps && location.traps.installed < location.traps.max && gameState.expedition.carriedItems.trap > 0;
+  }
+
+  if (actionName === "checkTrap") {
+    return location.traps && location.traps.installed > 0;
+  }
+
+  return true;
 }
 
 // Check Expedition Modifiers Cost
@@ -76,6 +96,24 @@ function addCarriedItem(itemName, amount) {
   refreshExpeditionUI();
 
   return true;
+}
+
+function addCarriedItemUpToCapacity(itemName, amount) {
+  const availableSpace = gameState.expedition.carryCapacity - getCarriedTotal();
+  const amountToCarry = Math.min(amount, availableSpace);
+
+  if (amountToCarry <= 0) return 0;
+
+  const carriedItems = gameState.expedition.carriedItems;
+
+  if (!carriedItems[itemName]) {
+    carriedItems[itemName] = 0;
+  }
+
+  carriedItems[itemName] += amountToCarry;
+  refreshExpeditionUI();
+
+  return amountToCarry;
 }
 
 function removeCarriedItem(itemName, amount) {
@@ -156,8 +194,11 @@ function transferCarriedItemsToCamp() {
 
   for (let itemName in carriedItems) {
     addResource(itemName, carriedItems[itemName]);
-    if (itemName === "fiber") {
-      unlockResource("fiber");
+    unlockResource(itemName);
+
+    if (itemName === "pelt") {
+      unlockGearUpgrade("waterskin");
+      unlockGearUpgrade("crudeBackpack");
     }
   }
 
@@ -252,9 +293,8 @@ function endExpedition(reason) {
 
   lockAction("returnToCamp");
   lockAction("travel");
-  unlockAction("packFood");
-  unlockAction("packWater");
   unlockAction("beginExpedition");
+  setPackingActionsAvailable(false);
   updateDestinationActions();
 
   if (reason === "completed") {
@@ -294,8 +334,8 @@ function exploreCurrentLocation() {
 
     addStoryEntry(location.label + " understood: " + location.exploredLabel + ".");
 
-    if (location.onExplored) {
-      location.onExplored();
+    if (location.unlocks) {
+      applyUnlocks(location.unlocks);
     }
 
     updateLocationActions();
@@ -313,6 +353,7 @@ function toggleTraveling() {
     expedition.travelStartTime = Date.now();
     addStoryEntry("You press onward.");
     clearCurrentLocation();
+    setPackingActionsAvailable(false);
   } else {
     expedition.travelStartTime = null;
     addStoryEntry("You pause your expedition.");
@@ -398,21 +439,28 @@ function checkDestinationArrival() {
 }
 
 function updateDestinationActions() {
-  const mysteriousPlants = expeditionLocations.mysteriousPlants;
-  const action = actions.travelToMysteriousPlants;
+  updateDestinationAction("mysteriousPlants", "travelToMysteriousPlants");
+  updateDestinationAction("strangeTrails", "travelToStrangeTrails");
+}
 
-  if (action && action.button) {
+function updateDestinationAction(locationName, actionName) {
+  const location = expeditionLocations[locationName];
+  const action = actions[actionName];
+
+  if (!location || !action) return;
+
+  if (action.button) {
     const label = action.button.querySelector("span");
 
     if (label) {
-      label.textContent = "Travel to " + getLocationLabel("mysteriousPlants");
+      label.textContent = "Travel to " + getLocationLabel(locationName);
     }
   }
 
-  if (!gameState.expedition.active && mysteriousPlants.discovered) {
-    unlockAction("travelToMysteriousPlants");
+  if (!gameState.expedition.active && location.discovered) {
+    unlockAction(actionName);
   } else {
-    lockAction("travelToMysteriousPlants");
+    lockAction(actionName);
   }
 }
 
@@ -426,36 +474,6 @@ function getLocationLabel(locationName) {
   }
 
   return location.label;
-}
-
-function startDestinationTravel(locationName) {
-  const location = expeditionLocations[locationName];
-
-  if (!location || !location.discovered) return;
-
-  const expedition = gameState.expedition;
-
-  expedition.active = true;
-  expedition.destination = locationName;
-  expedition.distance = 0;
-  expedition.completed = false;
-  expedition.returning = false;
-
-  clearCurrentLocation();
-
-  lockAction("packFood");
-  lockAction("packWater");
-  lockAction("beginExpedition");
-  lockAction("travelToMysteriousPlants");
-
-  unlockAction("travel");
-  unlockAction("returnToCamp");
-
-  setCampActionsAvailable(false);
-  updateDestinationActions();
-
-  addStoryEntry("You set out toward " + location.label + ".");
-  refreshExpeditionUI();
 }
 
 function checkExpeditionDiscovery() {
@@ -505,4 +523,76 @@ function spendCarriedCost(cost) {
 
 function refreshExpeditionUI() {
   updateExpeditionUI(getCarriedTotal(), getCarriedSummary());
+}
+
+//Helper to Toggle Packing Buttons
+function setPackingActionsAvailable(available) {
+  if (!available) {
+    lockAction("packFood");
+    lockAction("packWater");
+    lockAction("packTrap");
+    return;
+  }
+
+  if (gameState.expedition.distance > 0 || gameState.expedition.traveling) {
+    return;
+  }
+
+  unlockAction("packFood");
+  unlockAction("packWater");
+
+  if (resources.trap.display && resources.trap.display.style.display !== "none") {
+    unlockAction("packTrap");
+  }
+}
+
+function prepareExpedition() {
+  const expedition = gameState.expedition;
+
+  expedition.active = true;
+  expedition.returning = false;
+  expedition.completed = false;
+  expedition.distance = 0;
+
+  clearCurrentLocation();
+
+  lockAction("beginExpedition");
+  unlockAction("travel");
+  unlockAction("returnToCamp");
+
+  setCampActionsAvailable(false);
+  setPackingActionsAvailable(true);
+  updateDestinationActions();
+
+  addStoryEntry("You sort through your supplies and prepare to leave the clearing.");
+  refreshExpeditionUI();
+}
+
+function prepareDestinationTravel(locationName) {
+  const location = expeditionLocations[locationName];
+
+  if (!location || !location.discovered) return;
+
+  const expedition = gameState.expedition;
+
+  expedition.active = true;
+  expedition.destination = locationName;
+  expedition.distance = 0;
+  expedition.completed = false;
+  expedition.returning = false;
+
+  clearCurrentLocation();
+
+  lockAction("beginExpedition");
+  lockAction("travelToMysteriousPlants");
+  lockAction("travelToStrangeTrails");
+
+  unlockAction("travel");
+  unlockAction("returnToCamp");
+
+  setCampActionsAvailable(false);
+  setPackingActionsAvailable(true);
+
+  addStoryEntry("You prepare to travel to " + getLocationLabel(locationName) + ".");
+  refreshExpeditionUI();
 }

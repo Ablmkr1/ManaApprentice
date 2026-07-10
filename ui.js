@@ -14,17 +14,23 @@ function hookDomToUI() {
   ui.waterAmount = document.getElementById("waterAmount");
   ui.foodAmount = document.getElementById("foodAmount");
   ui.woodAmount = document.getElementById("woodAmount");
-  ui.resourcePanel = document.getElementById("resourcePanel");
   ui.smallFire = document.getElementById("smallFire");
   ui.crudeLeanTo = document.getElementById("crudeLeanTo");
   ui.smallFireBtn = document.getElementById("smallFireBtn");
   ui.crudeLeanToBtn = document.getElementById("crudeLeanToBtn");
   ui.expeditionPanel = document.getElementById("expeditionPanel");
   ui.expeditionDistanceAmount = document.getElementById("expeditionDistanceAmount");
-  ui.packedFoodAmount = document.getElementById("packedFoodAmount");
-  ui.packedWaterAmount = document.getElementById("packedWaterAmount");
   ui.fiberAmount = document.getElementById("fiberAmount");
   ui.storyLog = document.getElementById("storyLog");
+  ui.trapAmount = document.getElementById("trapAmount");
+  ui.peltAmount = document.getElementById("peltAmount");
+  ui.carriedAmount = document.getElementById("carriedAmount");
+  ui.carriedWaterAmount = document.getElementById("carriedWaterAmount");
+  ui.characterEnergyAmount = document.getElementById("characterEnergyAmount");
+  ui.campPanelTitle = document.getElementById("campPanelTitle");
+  ui.gearSection = document.getElementById("gearSection");
+  ui.crudeSatchel = document.getElementById("crudeSatchel");
+  ui.crudeSatchelBtn = document.getElementById("crudeSatchelBtn");
 }
 
 //Hook Ui Maps Functions
@@ -34,10 +40,11 @@ function hookUIMaps() {
     food: ui.foodAmount,
     wood: ui.woodAmount,
     fiber: ui.fiberAmount,
+    trap: ui.trapAmount,
+    pelt: ui.peltAmount,
   };
 
   panelElements = {
-    resources: ui.resourcePanel,
     camp: ui.campPanel,
     expedition: ui.expeditionPanel,
   };
@@ -78,7 +85,14 @@ function hookStatsToUI() {
 function updateResource(resourceName) {
   const resource = resources[resourceName];
 
-  safeSetText(resource.display, resource.label + ": " + Math.floor(resource.value * 10) / 10 + " / " + resource.maxValue);
+  const text = resource.label + ": " + Math.floor(resource.value * 10) / 10 + " / " + resource.maxValue;
+
+  safeSetText(resource.display, text);
+
+  if (resourceName === "energy") {
+    safeSetText(ui.characterEnergyAmount, text);
+  }
+
   safeSetText(resource.perClickDisplay, "+" + resource.perClick + "/Click");
   safeSetText(resource.perSecondDisplay, "+" + resource.perSecond + "/Sec");
 }
@@ -92,8 +106,7 @@ function unlockResource(resourceName) {
     return;
   }
 
-  showElement(ui.resourcePanel);
-  showElement(resourceElement);
+  showElement(resourceElement, "block");
 }
 
 function unlockPanel(panelName) {
@@ -126,9 +139,8 @@ function updateExpeditionUI(carriedTotal, carriedSummary) {
 
   safeSetText(ui.expeditionDistanceAmount, "Distance: " + expedition.distance + " / " + expedition.targetDistance);
 
-  safeSetText(ui.packedFoodAmount, "Carried: " + carriedTotal + " / " + expedition.carryCapacity + " (" + carriedSummary + ")");
-
-  safeSetText(ui.packedWaterAmount, "Packed Water: " + expedition.water + " / " + expedition.waterCapacity);
+  safeSetText(ui.carriedAmount, "Carried: " + carriedTotal + " / " + expedition.carryCapacity + " (" + carriedSummary + ")");
+  safeSetText(ui.carriedWaterAmount, "Water: " + expedition.water + " / " + expedition.waterCapacity);
 }
 
 //Add story event helper

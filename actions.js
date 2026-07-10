@@ -7,6 +7,14 @@ function hookActionCompletions() {
     addResource("wood", 1);
   };
 
+  actions.gatherFood.onComplete = function () {
+    addResource("food", 1);
+  };
+
+  actions.gatherWater.onComplete = function () {
+    addResource("water", 1);
+  };
+
   actions.exploreLocation.onComplete = function () {
     exploreCurrentLocation();
   };
@@ -22,7 +30,11 @@ function hookActionCompletions() {
   };
 
   actions.travelToMysteriousPlants.onComplete = function () {
-    startDestinationTravel("mysteriousPlants");
+    prepareDestinationTravel("mysteriousPlants");
+  };
+
+  actions.travelToStrangeTrails.onComplete = function () {
+    prepareDestinationTravel("strangeTrails");
   };
 
   actions.travel.onComplete = function () {
@@ -30,7 +42,60 @@ function hookActionCompletions() {
   };
 
   actions.beginExpedition.onComplete = function () {
-    startExpedition();
+    prepareExpedition();
+  };
+
+  actions.makeTrap.onComplete = function () {
+    addResource("trap", 1);
+  };
+
+  actions.packTrap.onComplete = function () {
+    if (!addCarriedItem("trap", 1)) {
+      addResource("trap", 1);
+      addStoryEntry("Your pack is too full to carry the trap.");
+    }
+  };
+
+  actions.setTrap.onComplete = function () {
+    const location = expeditionLocations.strangeTrails;
+
+    if (!removeCarriedItem("trap", 1)) {
+      addStoryEntry("You need to bring a trap from camp.");
+      updateLocationActions();
+      return;
+    }
+
+    location.traps.installed++;
+    addStoryEntry("You set the trap along the animal trails.");
+
+    updateLocationActions();
+  };
+
+  actions.checkTrap.onComplete = function () {
+    const location = expeditionLocations.strangeTrails;
+    const traps = location.traps;
+
+    let peltsFound = 0;
+
+    for (let i = 0; i < traps.installed; i++) {
+      if (Math.random() < traps.successChance) {
+        peltsFound++;
+      }
+    }
+
+    if (peltsFound > 0) {
+      const peltsCarried = addCarriedItemUpToCapacity(traps.reward, peltsFound);
+
+      if (peltsCarried === peltsFound) {
+        addStoryEntry("You found " + peltsFound + " pelt" + (peltsFound === 1 ? "" : "s") + " in your traps.");
+      } else if (peltsCarried > 0) {
+        addStoryEntry("You found " + peltsFound + " pelts, but could only carry " + peltsCarried + ".");
+      } else {
+        addStoryEntry("You found " + peltsFound + " pelts, but your hands are full.");
+      }
+    }
+
+    updateLocationActions();
   };
 
   actions.explore.onComplete = function () {
@@ -125,50 +190,72 @@ function lockAction(actionName) {
   updateActionButton(actionName);
 }
 
+//Action Helpers
+function isAutoAction(actionName) {
+  return !!actions[actionName] && !!actions[actionName].auto;
+}
+
+function isAutoActionActive(actionName) {
+  return gameState.autoAction.actionName === actionName;
+}
+
+function shouldStopAutoAction(actionName) {
+  const action = actions[actionName];
+
+  if (!action || !action.auto) return true;
+
+  const targetResource = resources[action.auto.resource];
+
+  if (targetResource && targetResource.value >= targetResource.maxValue) {
+    return true;
+  }
+
+  return false;
+}
+
+function pauseAutoActionForRest(actionName) {
+  gameState.autoAction.actionName = actionName;
+  gameState.autoAction.pausedForRest = true;
+  startResting();
+}
+
+function stopAutoAction() {
+  gameState.autoAction.actionName = null;
+  gameState.autoAction.pausedForRest = false;
+}
+
+function resumeAutoActionAfterRest() {
+  const actionName = gameState.autoAction.actionName;
+
+  if (!actionName || !gameState.autoAction.pausedForRest) return;
+
+  gameState.autoAction.pausedForRest = false;
+
+  if (shouldStopAutoAction(actionName)) {
+    stopAutoAction();
+    return;
+  }
+
+  startActionExecution(actionName);
+}
+
 // Progress Function
 function runAction(actionName) {
   const action = actions[actionName];
 
-  // alert("Action triggered: " + actionName);
-  if (!action || !action.unlocked || action.running) return;
+  if (!action || !action.unlocked) return;
 
-  // Check and Pay Cost
-  if (!spendCost(action.cost)) return;
+  if (isAutoAction(actionName)) {
+    if (isAutoActionActive(actionName) && !gameState.autoAction.pausedForRest) {
+      stopAutoAction();
+      return;
+    }
 
-  action.running = true;
-
-  const duration = action.duration * 1000;
-  const startTime = Date.now();
-
-  if (action.onStart) {
-    action.onStart();
+    gameState.autoAction.actionName = actionName;
+    gameState.autoAction.pausedForRest = false;
   }
 
-  const interval = setInterval(() => {
-    let elapsed = Date.now() - startTime;
-    let progress = Math.min(elapsed / duration, 1);
-
-    // 1. Main progress bar
-    setProgressBar(action, progress);
-
-    // 2. Meta progress (if exists)
-    if (action.metaProgressBar) {
-      updateMetaProgress(action, progress);
-    }
-
-    // 3. Finish
-    if (progress >= 1) {
-      clearInterval(interval);
-
-      action.running = false;
-
-      resetProgressBar(action);
-
-      if (action.onComplete) {
-        action.onComplete();
-      }
-    }
-  }, 50);
+  startActionExecution(actionName);
 }
 
 // Meta Progress Function
@@ -197,4 +284,72 @@ function animateMetaBar(bar, target) {
       clearInterval(interval);
     }
   }, 16);
+}
+
+function startActionExecution(actionName) {
+  const action = actions[actionName];
+
+  if (!action || !action.unlocked || action.running) return;
+
+  if (isAutoAction(actionName) && shouldStopAutoAction(actionName)) {
+    stopAutoAction();
+    return;
+  }
+
+  if (!spendCost(action.cost)) {
+    if (isAutoAction(actionName) && action.auto.resumeAfterRest) {
+      pauseAutoActionForRest(actionName);
+    }
+
+    return;
+  }
+
+  action.running = true;
+
+  const duration = action.duration * 1000;
+  const startTime = Date.now();
+
+  if (action.onStart) {
+    action.onStart();
+  }
+
+  const interval = setInterval(() => {
+    let elapsed = Date.now() - startTime;
+    let progress = Math.min(elapsed / duration, 1);
+
+    setProgressBar(action, progress);
+
+    if (action.metaProgressBar) {
+      updateMetaProgress(action, progress);
+    }
+
+    if (progress >= 1) {
+      clearInterval(interval);
+
+      action.running = false;
+      resetProgressBar(action);
+
+      if (action.onComplete) {
+        action.onComplete();
+      }
+
+      continueAutoAction(actionName);
+    }
+  }, 50);
+}
+
+function continueAutoAction(actionName) {
+  if (!isAutoActionActive(actionName)) return;
+
+  if (shouldStopAutoAction(actionName)) {
+    stopAutoAction();
+    return;
+  }
+
+  if (!canAffordCost(actions[actionName].cost)) {
+    pauseAutoActionForRest(actionName);
+    return;
+  }
+
+  startActionExecution(actionName);
 }
