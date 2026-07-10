@@ -5,66 +5,57 @@
     <link rel="stylesheet" href="style.css" />
   </head>
 
-  <div id="introPopup" class="popup">
-    <div class="popup-content">
-      <h2>Awakening</h2>
-
-      <p>
-        You wake up in the woods tired, thirsty, and hungry with no memory of
-        how you got here...or even who you are.
-      </p>
-
-      <p>
-        The forest is quiet... unnaturally quiet. Something deep inside tells
-        you that remaining here is a mistake. You need water, food, shelter.
-        Answers will have to wait, you're certain you're not safe here.
-      </p>
-
-      <button id="continueBtn">Continue</button>
-    </div>
-  </div>
-
-  <div id="clearingPopup" class="popup" style="display: none">
-    <div class="popup-content">
-      <h2>A Clearing</h2>
-
-      <p>
-        You stumble through the thick forest, your mind in a fog, pushing past
-        branches and bushes. Suddenly the resistance ends as you fall into a
-        clearing.
-      </p>
-
-      <p>
-        It isn't large but there's enough space to do more than catch your
-        breath. You can rest here. With some work you might be able to create a
-        camp.
-      </p>
-
-      <button id="clearingContinueBtn">Continue</button>
-    </div>
-  </div>
-
-  <div id="streamPopup" class="popup" style="display: none">
-    <div class="popup-content">
-      <h2>A Stream</h2>
-
-      <p>
-        You recognize the sound now that you see it, a small stream runs next to
-        the clearing. As long as you're nearby you'll never be thristy again.
-      </p>
-
-      <p>
-        Your throat is soothed and you feel you can push yourself further now.
-        The rumbles in your stomage tell you your next task.
-      </p>
-
-      <button id="streamContinueBtn">Continue</button>
-    </div>
-  </div>
-
   <body>
     <h1>Mana Apprentice</h1>
     <div class="game-container">
+      <div id="introPopup" class="popup">
+        <div class="popup-content">
+          <h2>Awakening</h2>
+
+          <p>You wake up in the woods tired, thirsty, and hungry with no memory of how you got here...or even who you are.</p>
+
+          <p>
+            The forest is quiet... unnaturally quiet. Something deep inside tells you that remaining here is a mistake. You need water, food, shelter.
+            Answers will have to wait, you're certain you're not safe here.
+          </p>
+
+          <button id="continueBtn">Continue</button>
+        </div>
+      </div>
+
+      <div id="clearingPopup" class="popup" style="display: none">
+        <div class="popup-content">
+          <h2>A Clearing</h2>
+
+          <p>
+            You stumble through the thick forest, your mind in a fog, pushing past branches and bushes. Suddenly the resistance ends as you fall into
+            a clearing.
+          </p>
+
+          <p>
+            It isn't large but there's enough space to do more than catch your breath. You can rest here. With some work you might be able to create a
+            camp.
+          </p>
+
+          <button id="clearingContinueBtn">Continue</button>
+        </div>
+      </div>
+
+      <div id="streamPopup" class="popup" style="display: none">
+        <div class="popup-content">
+          <h2>A Stream</h2>
+
+          <p>
+            You recognize the sound now that you see it, a small stream runs next to the clearing. As long as you're nearby you'll never be thirsty
+            again.
+          </p>
+
+          <p>Your throat is soothed and you feel you can push yourself further now. The rumbles in your stomach tell you your next task.</p>
+
+          <button id="streamContinueBtn">Continue</button>
+        </div>
+      </div>
+
       <div class="character-panel">
         <h2>Character</h2>
 
@@ -85,21 +76,12 @@
           <span>Catch Breath</span>
         </button>
 
-        <button
-          id="restBtn"
-          class="action-btn rest-button"
-          style="display: none"
-        >
+        <button id="restBtn" class="action-btn rest-button" style="display: none">
           <div class="restProgressFill"></div>
           <span>Rest in Clearing</span>
         </button>
 
-        <button
-          id="gatherWoodBtn"
-          class="action-btn"
-          data-action="gatherWood"
-          style="display: none"
-        >
+        <button id="gatherWoodBtn" class="action-btn" data-action="gatherWood" style="display: none">
           <div class="progressFill"></div>
           <span>Gather Wood</span>
         </button>
@@ -109,20 +91,12 @@
           <span>Pack Food</span>
         </button>
 
-        <button
-          class="action-btn"
-          data-action="packWater"
-          style="display: none"
-        >
+        <button class="action-btn" data-action="packWater" style="display: none">
           <div class="progressFill"></div>
           <span>Pack Water</span>
         </button>
 
-        <button
-          class="action-btn"
-          data-action="beginExpedition"
-          style="display: none"
-        >
+        <button class="action-btn" data-action="beginExpedition" style="display: none">
           <div class="progressFill"></div>
           <span>Begin Expedition</span>
         </button>
@@ -132,29 +106,17 @@
           <span>Travel</span>
         </button>
 
-        <button
-          class="action-btn"
-          data-action="exploreLocation"
-          style="display: none"
-        >
+        <button class="action-btn" data-action="exploreLocation" style="display: none">
           <div class="progressFill"></div>
           <span>Explore Location</span>
         </button>
 
-        <button
-          class="action-btn"
-          data-action="gatherFiber"
-          style="display: none"
-        >
+        <button class="action-btn" data-action="gatherFiber" style="display: none">
           <div class="progressFill"></div>
           <span>Gather Fiber</span>
         </button>
 
-        <button
-          class="action-btn"
-          data-action="returnToCamp"
-          style="display: none"
-        >
+        <button class="action-btn" data-action="returnToCamp" style="display: none">
           <div class="progressFill"></div>
           <span>Return to Camp</span>
         </button>
@@ -179,12 +141,8 @@
 
         <div id="smallFire" style="display: none">Small Fire</div>
         <div id="crudeLeanTo" style="display: none">Crude Lean-To</div>
-        <button id="smallFireBtn" style="display: none">
-          Small Fire 10 Wood
-        </button>
-        <button id="crudeLeanToBtn" style="display: none">
-          Crude Lean-To 10 Wood
-        </button>
+        <button id="smallFireBtn" style="display: none">Small Fire 10 Wood</button>
+        <button id="crudeLeanToBtn" style="display: none">Crude Lean-To 10 Wood</button>
       </div>
 
       <div id="expeditionPanel" class="expedition-panel" style="display: none">
@@ -193,36 +151,22 @@
         <div id="expeditionDistanceAmount">Distance: 0 / 100</div>
         <div id="packedFoodAmount">Packed Food: 0 / 5</div>
         <div id="packedWaterAmount">Packed Water: 0 / 10</div>
-        <button
-          class="action-btn"
-          data-action="travelToMysteriousPlants"
-          style="display: none"
-        >
+        <button class="action-btn" data-action="travelToMysteriousPlants" style="display: none">
           <div class="progressFill"></div>
           <span>Travel to Mysterious Plants</span>
         </button>
       </div>
 
-      <div class="right-panel" style="display: none">
-        <h2>Health</h2>
-
-        <div id="healthPanel">
-          <div id="healthAmount"></div>
-          <div id="healthPerClickDisplay"></div>
-          <div id="healthPerSecondDisplay"></div>
-        </div>
-
-        <button id="exerciseBtn">Exercise</button>
-
-        <button id="habitBtn" class="habit-btn">
-          Build Habits
-          <div id="healthHabitUpgradeText" class="subtext">
-            (+1 health/sec) - Cost: 10
-          </div>
-        </button>
-      </div>
     </div>
-
+    
+    <script src="state.js"></script>
+    <script src="expeditionData.js"></script>
+    <script src="content.js"></script>
+    <script src="ui.js"></script>
+    <script src="resources.js"></script>
+    <script src="camp.js"></script>
+    <script src="expedition.js"></script>
+    <script src="actions.js"></script>
     <script src="script.js"></script>
   </body>
 </html>
