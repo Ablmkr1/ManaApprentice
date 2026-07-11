@@ -90,6 +90,7 @@ const explorationStages = {
     unlocks: [
       { type: "resource", id: "food" },
       { type: "action", id: "gatherFood" },
+      { type: "storageUpgrade", id: "foodStorage" },
     ],
     onComplete: function () {
       gameState.discoveredBerryBush = true;
@@ -106,6 +107,7 @@ const explorationStages = {
       { type: "action", id: "gatherWood" },
       { type: "campUpgrade", id: "smallFire" },
       { type: "campUpgrade", id: "crudeLeanTo" },
+      { type: "storageUpgrade", id: "woodStorage" },
     ],
     onComplete: function () {
       gameState.discoveredDeadfall = true;
@@ -212,6 +214,101 @@ const campUpgrades = {
       resources.energy.maxValue += 20;
       updateResource("energy");
     },
+  },
+};
+
+// Camp Storage Upgrade Engine
+const storageUpgrades = {
+  woodStorage: {
+    label: "Wood Storage",
+    resource: "wood",
+    tier: 0,
+    maxTier: 4,
+    maxValueIncrease: 20,
+    unlocked: false,
+    button: null,
+    display: null,
+    costs: [{ wood: 10 }, { wood: 20, fiber: 5 }, { wood: 30, fiber: 10 }, { wood: 40, stone: 10 }],
+  },
+  foodStorage: {
+    label: "Food Storage",
+    resource: "food",
+    tier: 0,
+    maxTier: 4,
+    maxValueIncrease: 10,
+    unlocked: false,
+    button: null,
+    display: null,
+    costs: [
+      { wood: 10 },
+      { wood: 20, fiber: 5 },
+      { wood: 20, fiber: 10, pelt: 2 },
+      { wood: 30, fiber: 10, stone: 5 },
+    ],
+  },
+  fiberStorage: {
+    label: "Fiber Storage",
+    resource: "fiber",
+    tier: 0,
+    maxTier: 4,
+    maxValueIncrease: 20,
+    unlocked: false,
+    button: null,
+    display: null,
+    costs: [
+      { wood: 10, fiber: 5 },
+      { wood: 20, fiber: 10 },
+      { wood: 20, fiber: 20, pelt: 2 },
+      { wood: 30, fiber: 20, pelt: 5 },
+    ],
+  },
+  waterStorage: {
+    label: "Water Storage",
+    resource: "water",
+    tier: 0,
+    maxTier: 4,
+    maxValueIncrease: 10,
+    unlocked: false,
+    button: null,
+    display: null,
+    costs: [
+      { pelt: 2, fiber: 5 },
+      { pelt: 4, fiber: 10, wood: 10 },
+      { pelt: 6, fiber: 15, wood: 20 },
+      { pelt: 8, fiber: 20, stone: 10 },
+    ],
+  },
+  peltStorage: {
+    label: "Pelt Storage",
+    resource: "pelt",
+    tier: 0,
+    maxTier: 4,
+    maxValueIncrease: 10,
+    unlocked: false,
+    button: null,
+    display: null,
+    costs: [
+      { wood: 10, pelt: 2 },
+      { wood: 20, pelt: 5 },
+      { fiber: 10, pelt: 10 },
+      { fiber: 20, pelt: 15, stone: 5 },
+    ],
+  },
+  stoneStorage: {
+    label: "Stone Storage",
+    resource: "stone",
+    tier: 0,
+    maxTier: 4,
+    maxValueIncrease: 20,
+    unlocked: false,
+    button: null,
+    display: null,
+    costs: [
+      { wood: 10, stone: 5 },
+      { wood: 20, stone: 10 },
+      { wood: 20, stone: 20 },
+      { wood: 30, stone: 30, pelt: 5 },
+    ],
   },
 };
 

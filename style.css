@@ -84,7 +84,9 @@ h1 {
 .character-stats,
 .ivnentory-list,
 .gear-list,
-.gear-section {
+.gear-section,
+.storage-list,
+.storage-section {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -92,7 +94,8 @@ h1 {
 
 .character-stat,
 .ivnentory-list,
-.gear-list > div {
+.gear-list > div,
+.storage-list > div {
   padding: 8px 10px;
   border: 1px solid #d8ccb8;
   border-radius: 6px;
@@ -106,7 +109,8 @@ h1 {
 }
 
 .inventory-section h3,
-.gear-section h3 {
+.gear-section h3,
+.storage-section h3 {
   margin: 4px 0 0;
   font-size: 14px;
 }

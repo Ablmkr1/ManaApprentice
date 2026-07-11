@@ -24,6 +24,11 @@ function applyUnlock(unlock) {
     return;
   }
 
+  if (unlock.type === "storageUpgrade") {
+    unlockStorageUpgrade(unlock.id);
+    return;
+  }
+
   console.warn("Unknown unlock type:", unlock.type);
 }
 
@@ -52,6 +57,78 @@ function hookCampUpgradestoUI() {
 function updateCampUpgradeUI(upgradeName) {
   const upgrade = campUpgrades[upgradeName];
   updateCampUpgradeDisplay(upgrade);
+}
+
+function hookStorageUpgradesToUI() {
+  for (let upgradeName in storageUpgrades) {
+    const upgrade = storageUpgrades[upgradeName];
+
+    upgrade.button = document.getElementById(upgradeName + "Btn");
+    upgrade.display = document.getElementById(upgradeName);
+
+    if (upgrade.button) {
+      upgrade.button.addEventListener("click", function () {
+        buyStorageUpgrade(upgradeName);
+      });
+    }
+
+    updateStorageUpgradeUI(upgradeName);
+  }
+}
+
+function updateStorageUpgradeUI(upgradeName) {
+  const upgrade = storageUpgrades[upgradeName];
+
+  if (!upgrade) return;
+
+  updateStorageSectionVisibility();
+
+  if (upgrade.display) {
+    upgrade.display.style.display = upgrade.unlocked || upgrade.tier > 0 ? "block" : "none";
+    upgrade.display.textContent = upgrade.label + " " + upgrade.tier + "/" + upgrade.maxTier;
+  }
+
+  if (upgrade.button) {
+    if (!upgrade.unlocked || upgrade.tier >= upgrade.maxTier) {
+      upgrade.button.style.display = "none";
+      return;
+    }
+
+    upgrade.button.style.display = "inline-block";
+    upgrade.button.textContent = getStorageUpgradeButtonText(upgrade);
+  }
+}
+
+function updateStorageSectionVisibility() {
+  if (!ui.storageSection) return;
+
+  for (let upgradeName in storageUpgrades) {
+    const upgrade = storageUpgrades[upgradeName];
+
+    if (upgrade.unlocked || upgrade.tier > 0) {
+      showElement(ui.storageSection, "block");
+      return;
+    }
+  }
+
+  hideElement(ui.storageSection);
+}
+
+function getStorageUpgradeButtonText(upgrade) {
+  const nextTier = upgrade.tier + 1;
+  return upgrade.label + " " + nextTier + "/" + upgrade.maxTier + " (" + formatCost(upgrade.costs[upgrade.tier]) + ")";
+}
+
+function formatCost(cost) {
+  const parts = [];
+
+  for (let resourceName in cost) {
+    const resource = resources[resourceName];
+    const label = resource ? resource.label : resourceName;
+    parts.push(cost[resourceName] + " " + label);
+  }
+
+  return parts.join(", ");
 }
 
 function setCampActionsAvailable(available) {
@@ -110,6 +187,33 @@ function unlockCampUpgrade(upgradeName) {
 
   upgrade.unlocked = true;
   updateCampUpgradeUI(upgradeName);
+}
+
+function unlockStorageUpgrade(upgradeName) {
+  const upgrade = storageUpgrades[upgradeName];
+
+  if (!upgrade) {
+    console.warn("Unknown storage upgrade:", upgradeName);
+    return;
+  }
+
+  upgrade.unlocked = true;
+  updateStorageUpgradeUI(upgradeName);
+}
+
+function buyStorageUpgrade(upgradeName) {
+  const upgrade = storageUpgrades[upgradeName];
+
+  if (!upgrade || !upgrade.unlocked || upgrade.tier >= upgrade.maxTier) return;
+
+  const cost = upgrade.costs[upgrade.tier];
+
+  if (!spendCost(cost)) return;
+
+  upgrade.tier++;
+  resources[upgrade.resource].maxValue += upgrade.maxValueIncrease;
+  updateResource(upgrade.resource);
+  updateStorageUpgradeUI(upgradeName);
 }
 
 // Lock Camp Upgrade Function

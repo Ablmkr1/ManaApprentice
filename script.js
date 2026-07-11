@@ -20,6 +20,7 @@ window.onload = function () {
   updateResource("energy");
   hookActionButtonsToUI(runAction);
   hookCampUpgradestoUI();
+  hookStorageUpgradesToUI();
   hookGearUpgradesToUI();
 
   ui.continueBtn.addEventListener("click", function () {

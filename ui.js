@@ -36,6 +36,7 @@ function hookDomToUI() {
   ui.locationDescription = document.getElementById("locationDescription");
   ui.stoneAmount = document.getElementById("stoneAmount");
   ui.inventorySection = document.getElementById("inventorySection");
+  ui.storageSection = document.getElementById("storageSection");
 }
 
 //Hook Ui Maps Functions

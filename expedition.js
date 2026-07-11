@@ -205,19 +205,28 @@ function transferCarriedItemsToCamp() {
   const carriedItems = gameState.expedition.carriedItems;
 
   for (let itemName in carriedItems) {
+    if (carriedItems[itemName] <= 0) continue;
+
     addResource(itemName, carriedItems[itemName]);
     unlockResource(itemName);
+
+    if (itemName === "fiber") {
+      unlockStorageUpgrade("fiberStorage");
+    }
 
     if (itemName === "pelt") {
       unlockGearUpgrade("waterskin");
       unlockGearUpgrade("crudeBackpack");
       unlockGearUpgrade("smellyShoes");
       unlockCampUpgrade("uncomfortableCot");
+      unlockStorageUpgrade("waterStorage");
+      unlockStorageUpgrade("peltStorage");
     }
 
     if (itemName === "stone") {
       unlockCampUpgrade("stoneFirePit");
       unlockCampUpgrade("damStream");
+      unlockStorageUpgrade("stoneStorage");
     }
   }
 
