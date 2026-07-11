@@ -25,6 +25,12 @@ function hookActionCompletions() {
     }
   };
 
+  actions.gatherStone.onComplete = function () {
+    if (!addCarriedItem("stone", 1)) {
+      addStoryEntry("The stones are too heavy to carry more.");
+    }
+  };
+
   actions.returnToCamp.onComplete = function () {
     endExpedition("returned");
   };
@@ -35,6 +41,10 @@ function hookActionCompletions() {
 
   actions.travelToStrangeTrails.onComplete = function () {
     prepareDestinationTravel("strangeTrails");
+  };
+
+  actions.travelToCreepyCave.onComplete = function () {
+    prepareDestinationTravel("creepyCave");
   };
 
   actions.travel.onComplete = function () {
@@ -122,6 +132,14 @@ function hookActionCompletions() {
 
       if (stage.nextStage) {
         resetExploreMetaProgress(stage.nextStage);
+      } else {
+        gameState.exploration.count = 0;
+
+        if (actions.explore.metaProgressBar) {
+          actions.explore.metaProgressBar.style.width = "0%";
+        }
+
+        lockAction("explore");
       }
     }
   };
@@ -260,11 +278,27 @@ function runAction(actionName) {
 
 // Meta Progress Function
 function updateMetaProgress(action, progress) {
-  const stage = getCurrentExploreStage();
+  let target = 1;
+  let current = 0;
 
-  const target = stage.required;
+  if (action === actions.explore) {
+    const stage = getCurrentExploreStage();
 
-  const current = gameState.exploration.count;
+    if (!stage) return;
+
+    target = stage.required;
+    current = gameState.exploration.count;
+  }
+
+  if (action === actions.exploreLocation) {
+    const locationName = gameState.expedition.currentLocation;
+    const location = expeditionLocations[locationName];
+
+    if (!location) return;
+
+    target = location.explorationRequired;
+    current = location.explorationProgress;
+  }
 
   const interpolated = (current + progress) / target;
 

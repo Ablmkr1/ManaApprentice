@@ -31,6 +31,10 @@ function hookDomToUI() {
   ui.gearSection = document.getElementById("gearSection");
   ui.crudeSatchel = document.getElementById("crudeSatchel");
   ui.crudeSatchelBtn = document.getElementById("crudeSatchelBtn");
+  ui.campContent = document.getElementById("campContent");
+  ui.locationContent = document.getElementById("locationContent");
+  ui.locationDescription = document.getElementById("locationDescription");
+  ui.stoneAmount = document.getElementById("stoneAmount");
 }
 
 //Hook Ui Maps Functions
@@ -42,6 +46,7 @@ function hookUIMaps() {
     fiber: ui.fiberAmount,
     trap: ui.trapAmount,
     pelt: ui.peltAmount,
+    stone: ui.stoneAmount,
   };
 
   panelElements = {

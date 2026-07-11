@@ -1,6 +1,6 @@
 body {
   margin: 0;
-  padding: 72px 0 32px;
+  padding: 56px 0 20px;
   font-family: system-ui, sans-serif;
   background: #efe7d7;
   color: #2b241c;
@@ -45,10 +45,10 @@ body {
 
 .game-shell {
   width: min(1120px, calc(100% - 24px));
-  margin: 24px auto;
+  margin: 14px auto;
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
-  gap: 20px;
+  gap: 12px;
 }
 
 .primary-play,
@@ -58,23 +58,24 @@ body {
   background: #f8f1e5;
   border: 1px solid #c8bda8;
   border-radius: 8px;
-  padding: 16px;
+  padding: 12px;
   box-shadow: 0 8px 24px rgba(43, 36, 28, 0.08);
 
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .primary-play h2,
 .character-panel h2,
 .world-feed h2,
 .context-section h2 {
-  margin: 0 0 4px;
+  margin: 0;
+  font-size: 18px;
 }
 
 .character-stats,
-.iventory-list,
+.ivnentory-list,
 .gear-list,
 .gear-section {
   display: flex;
@@ -83,7 +84,7 @@ body {
 }
 
 .character-stat,
-.iventory-list,
+.ivnentory-list,
 .gear-list > div {
   padding: 8px 10px;
   border: 1px solid #d8ccb8;
@@ -99,8 +100,8 @@ body {
 
 .inventory-section h3,
 .gear-section h3 {
-  margin: 8px 0 0;
-  font-size: 15px;
+  margin: 4px 0 0;
+  font-size: 14px;
 }
 
 @media (max-width: 760px) {
@@ -123,8 +124,8 @@ body {
 }
 
 button {
-  padding: 10px 20px;
-  font-size: 14px;
+  padding: 8px 14px;
+  font-size: 13px;
   cursor: pointer;
 }
 
@@ -145,24 +146,27 @@ button {
 }
 
 .story-entry {
-  margin-bottom: 6px;
+  margin-bottom: 3px;
+  font-size: 13px;
   color: black;
 }
 
 .story-log {
-  height: 200px; /* or whatever fits your UI */
+  height: 140px; /* or whatever fits your UI */
   overflow-y: auto; /* enables vertical scrolling */
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 
-  padding: 10px;
+  padding: 8px;
   border: 1px solid #333;
 }
 
 .popup {
   position: fixed;
   inset: 0;
+
+  z-index: 1000;
 
   background: rgba(0, 0, 0, 0.7);
 
@@ -172,6 +176,9 @@ button {
 }
 
 .popup-content {
+  position: relative;
+  z-index: 1001;
+
   width: 500px;
   max-width: 90%;
 
@@ -193,6 +200,7 @@ button {
   position: relative;
   overflow: hidden;
   z-index: 2;
+  min-height: 34px;
 }
 
 .progressFill {

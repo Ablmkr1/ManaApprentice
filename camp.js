@@ -156,7 +156,7 @@ function checkClearingComplete() {
 
   if (gameState.phase === "clearing" && hasSmallFire && hasCrudeLeanTo) {
     setPhase("expedition");
-    safeSetText(ui.campPanelTitle, "Camp");
+    updatePlacePanel();
     addStoryEntry("With fire and shelter established, the clearing feels less like a refuge and more like a camp. It is time to range farther.");
   }
 }

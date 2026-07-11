@@ -70,6 +70,16 @@ const resources = {
     perClickDisplay: null,
     perSecondDisplay: null,
   },
+  stone: {
+    label: "Stone",
+    value: 0,
+    maxValue: 20,
+    perClick: 0,
+    perSecond: 0,
+    display: null,
+    perClickDisplay: null,
+    perSecondDisplay: null,
+  },
 };
 
 const actions = {
@@ -281,6 +291,19 @@ const actions = {
     onComplete: function () {},
   },
 
+  travelToCreepyCave: {
+    label: "Travel to Creepy Cave",
+    duration: 1,
+    cost: {},
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+
   makeTrap: {
     label: "Make Trap",
     duration: 1,
@@ -327,7 +350,21 @@ const actions = {
     label: "Check Trap",
     duration: 5,
     cost: {
-      energy: 5
+      energy: 5,
+    },
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+  gatherStone: {
+    label: "Gather Stone",
+    duration: 1,
+    cost: {
+      energy: 2,
     },
     unlocked: false,
     running: false,
@@ -341,7 +378,7 @@ const actions = {
 
 //State Engine
 const gameState = {
-  phase: "clearing",
+  phase: "lost",
 
   resting: false,
   restStartTime: null,

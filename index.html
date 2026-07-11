@@ -19,79 +19,11 @@
         <div id="fiberAmount" class="resource-pill" style="display: none"></div>
         <div id="trapAmount" class="resource-pill" style="display: none"></div>
         <div id="peltAmount" class="resource-pill" style="display: none"></div>
+        <div id="stoneAmount" class="resource-pill" style="display: none"></div>
       </div>
     </header>
 
     <main class="game-shell">
-      <section class="primary-play">
-        <h2>Actions</h2>
-        <button class="action-btn" data-action="explore">
-          <div class="progressFill"></div>
-          <div class="metaProgressFill"></div>
-          <span>Explore</span>
-        </button>
-
-        <button class="action-btn" data-action="catchBreath">
-          <div class="progressFill"></div>
-          <span>Catch Breath</span>
-        </button>
-
-        <button id="restBtn" class="action-btn rest-button" style="display: none">
-          <div class="restProgressFill"></div>
-          <span>Rest in Clearing</span>
-        </button>
-
-        <button id="gatherWoodBtn" class="action-btn" data-action="gatherWood" style="display: none">
-          <div class="progressFill"></div>
-          <span>Gather Wood</span>
-        </button>
-
-        <button id="gatherFoodBtn" class="action-btn" data-action="gatherFood" style="display: none">
-          <div class="progressFill"></div>
-          <span>Gather Food</span>
-        </button>
-
-        <button id="gatherWaterBtn" class="action-btn" data-action="gatherWater" style="display: none">
-          <div class="progressFill"></div>
-          <span>Gather Water</span>
-        </button>
-
-        <button class="action-btn" data-action="packFood" style="display: none">
-          <div class="progressFill"></div>
-          <span>Pack Food</span>
-        </button>
-
-        <button class="action-btn" data-action="packWater" style="display: none">
-          <div class="progressFill"></div>
-          <span>Pack Water</span>
-        </button>
-
-        <button class="action-btn" data-action="packTrap" style="display: none">
-          <div class="progressFill"></div>
-          <span>Pack Trap</span>
-        </button>
-
-        <button class="action-btn" data-action="exploreLocation" style="display: none">
-          <div class="progressFill"></div>
-          <span>Explore Location</span>
-        </button>
-
-        <button class="action-btn" data-action="gatherFiber" style="display: none">
-          <div class="progressFill"></div>
-          <span>Gather Fiber</span>
-        </button>
-
-        <button class="action-btn" data-action="setTrap" style="display: none">
-          <div class="progressFill"></div>
-          <span>Set Trap</span>
-        </button>
-
-        <button class="action-btn" data-action="checkTrap" style="display: none">
-          <div class="progressFill"></div>
-          <span>Check Trap</span>
-        </button>
-      </section>
-
       <section class="character-panel">
         <h2>Character</h2>
 
@@ -106,11 +38,13 @@
             <div id="crudeSatchel" style="display: none">Crude Satchel</div>
             <div id="waterskin" style="display: none">Waterskin</div>
             <div id="crudeBackpack" style="display: none">Crude Backpack</div>
+            <div id="smellyShoes" style="display: none">Smelly Shoes</div>
           </div>
 
           <button id="crudeSatchelBtn" style="display: none">Crude Satchel (10 Fiber)</button>
           <button id="waterskinBtn" style="display: none">Waterskin (3 Pelt)</button>
-          <button id="crudeBackpackBtn" style="display: none">Crude Backpack (6 Pelt, 10 Fiber)</button>
+          <button id="crudeBackpackBtn" style="display: none">Crude Backpack (6 Pelt, 10 Fiber, 5 Wood)</button>
+          <button id="smellyShoesBtn" style="display: none">Smelly Shoes (10 Pelt)</button>
         </div>
 
         <div class="inventory-section">
@@ -122,16 +56,90 @@
         </div>
       </section>
 
-      <section id="campPanel" class="context-section" style="display: none">
-        <h2 id="campPanelTitle">Clearing</h2>
-        <div id="smallFire" style="display: none">Small Fire</div>
-        <div id="crudeLeanTo" style="display: none">Crude Lean-To</div>
-        <button id="smallFireBtn" style="display: none">Small Fire (10 Wood)</button>
-        <button id="crudeLeanToBtn" style="display: none">Crude Lean-To (10 Wood)</button>
-        <button class="action-btn" data-action="makeTrap" style="display: none">
-          <div class="progressFill"></div>
-          <span>Make Trap</span>
-        </button>
+      <section id="campPanel" class="context-section">
+        <h2 id="campPanelTitle">Lost in the Woods</h2>
+
+        <div id="campContent">
+          <div id="smallFire" style="display: none">Small Fire</div>
+          <div id="crudeLeanTo" style="display: none">Crude Lean-To</div>
+          <div id="lessCrudeShelter" style="display: none">Less Crude Shelter</div>
+          <div id="uncomfortableCot" style="display: none">Uncomfortable Cot</div>
+          <div id="stoneFirePit" style="display: none">Stone Fire Pit</div>
+          <div id="damStream" style="display: none">Dam Stream</div>
+
+          <button class="action-btn" data-action="explore">
+            <div class="progressFill"></div>
+            <div class="metaProgressFill"></div>
+            <span>Explore</span>
+          </button>
+
+          <button class="action-btn" data-action="catchBreath">
+            <div class="progressFill"></div>
+            <span>Catch Breath</span>
+          </button>
+
+          <button id="restBtn" class="action-btn rest-button" style="display: none">
+            <div class="restProgressFill"></div>
+            <span>Rest in Clearing</span>
+          </button>
+
+          <button id="gatherWoodBtn" class="action-btn" data-action="gatherWood" style="display: none">
+            <div class="progressFill"></div>
+            <span>Gather Wood</span>
+          </button>
+
+          <button id="gatherFoodBtn" class="action-btn" data-action="gatherFood" style="display: none">
+            <div class="progressFill"></div>
+            <span>Gather Food</span>
+          </button>
+
+          <button id="gatherWaterBtn" class="action-btn" data-action="gatherWater" style="display: none">
+            <div class="progressFill"></div>
+            <span>Gather Water</span>
+          </button>
+
+          <button id="smallFireBtn" style="display: none">Small Fire (10 Wood)</button>
+          <button id="crudeLeanToBtn" style="display: none">Crude Lean-To (10 Wood)</button>
+          <button id="lessCrudeShelterBtn" style="display: none">Less Crude Shelter (10 Wood, 10 Fiber)</button>
+          <button id="uncomfortableCotBtn" style="display: none">Uncomfortable Cot (10 Wood, 10 Fiber, 5 Pelt)</button>
+          <button id="stoneFirePitBtn" style="display: none">Stone Fire Pit (10 Wood, 10 Stone)</button>
+          <button id="damStreamBtn" style="display: none">Dam Stream (20 Wood, 20 Stone)</button>
+
+          <button class="action-btn" data-action="makeTrap" style="display: none">
+            <div class="progressFill"></div>
+            <span>Make Trap</span>
+          </button>
+        </div>
+
+        <div id="locationContent" style="display: none">
+          <div id="locationDescription"></div>
+
+          <button class="action-btn" data-action="exploreLocation" style="display: none">
+            <div class="progressFill"></div>
+            <div class="metaProgressFill"></div>
+            <span>Explore Location</span>
+          </button>
+
+          <button class="action-btn" data-action="gatherFiber" style="display: none">
+            <div class="progressFill"></div>
+            <span>Gather Fiber</span>
+          </button>
+
+          <button class="action-btn" data-action="setTrap" style="display: none">
+            <div class="progressFill"></div>
+            <span>Set Trap</span>
+          </button>
+
+          <button class="action-btn" data-action="checkTrap" style="display: none">
+            <div class="progressFill"></div>
+            <span>Check Trap</span>
+          </button>
+
+          <button class="action-btn" data-action="gatherStone" style="display: none">
+            <div class="progressFill"></div>
+            <span>Gather Stone</span>
+          </button>
+        </div>
       </section>
 
       <section id="expeditionPanel" class="context-section" style="display: none">
@@ -161,9 +169,34 @@
           <span>Travel to Strange Trails</span>
         </button>
 
+        <button class="action-btn" data-action="travelToCreepyCave" style="display: none">
+          <div class="progressFill"></div>
+          <span>Travel to Creepy Cave</span>
+        </button>
+
         <button class="action-btn" data-action="returnToCamp" style="display: none">
           <div class="progressFill"></div>
           <span>Return to Camp</span>
+        </button>
+
+        <button class="action-btn" data-action="packFood" style="display: none">
+          <div class="progressFill"></div>
+          <span>Pack Food</span>
+        </button>
+
+        <button class="action-btn" data-action="packWater" style="display: none">
+          <div class="progressFill"></div>
+          <span>Pack Water</span>
+        </button>
+
+        <button class="action-btn" data-action="packTrap" style="display: none">
+          <div class="progressFill"></div>
+          <span>Pack Trap</span>
+        </button>
+
+        <button class="action-btn" data-action="exploreLocation" style="display: none">
+          <div class="progressFill"></div>
+          <span>Explore Location</span>
         </button>
       </section>
 

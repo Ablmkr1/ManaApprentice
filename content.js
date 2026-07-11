@@ -15,7 +15,10 @@ const expeditionLocations = {
       "Twisted together, the fibers might make crude cord.",
     ],
     availableActions: ["gatherFiber"],
-    unlocks: [{ type: "gearUpgrade", id: "crudeSatchel" }],
+    unlocks: [
+      { type: "gearUpgrade", id: "crudeSatchel" },
+      { type: "campUpgrade", id: "lessCrudeShelter" },
+    ],
   },
 
   strangeTrails: {
@@ -39,6 +42,15 @@ const expeditionLocations = {
       { type: "action", id: "makeTrap" },
     ],
   },
+
+  creepyCave: {
+    label: "Creepy Cave",
+    distance: 60,
+    discovered: false,
+    explored: true,
+    onDiscoverStory: "A dark opening cuts into the hillside. Loose stone is scattered around the cave mouth.",
+    availableActions: ["gatherStone"],
+  },
 };
 
 // Exploration Engine
@@ -49,6 +61,8 @@ const explorationStages = {
     unlocks: [{ type: "panel", id: "camp" }],
     onComplete: function () {
       gameState.discoveredClearing = true;
+      setPhase("clearing");
+      updatePlacePanel();
       showClearingPopup();
     },
     nextStage: "findStream",
@@ -129,6 +143,76 @@ const campUpgrades = {
       updateResource("energy");
     },
   },
+  lessCrudeShelter: {
+    label: "Less Crude Shelter",
+    cost: {
+      wood: 10,
+      fiber: 10,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      resources.energy.restPerSecond += 2;
+
+      if (campUpgrades.crudeLeanTo.display) {
+        campUpgrades.crudeLeanTo.display.style.display = "none";
+      }
+    },
+  },
+
+  uncomfortableCot: {
+    label: "Uncomfortable Cot",
+    cost: {
+      wood: 10,
+      fiber: 10,
+      pelt: 5,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      resources.energy.maxValue += 20;
+      updateResource("energy");
+    },
+  },
+  stoneFirePit: {
+    label: "Stone Fire Pit",
+    cost: {
+      wood: 10,
+      stone: 10,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      resources.energy.maxValue += 20;
+      updateResource("energy");
+
+      if (campUpgrades.smallFire.display) {
+        campUpgrades.smallFire.display.style.display = "none";
+      }
+    },
+  },
+
+  damStream: {
+    label: "Dam Stream",
+    cost: {
+      wood: 20,
+      stone: 20,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      resources.energy.maxValue += 20;
+      updateResource("energy");
+    },
+  },
 };
 
 //Player Gear System
@@ -167,6 +251,7 @@ const gearUpgrades = {
     cost: {
       pelt: 6,
       fiber: 10,
+      wood: 5,
     },
     unlocked: false,
     purchased: false,
@@ -179,6 +264,20 @@ const gearUpgrades = {
         gearUpgrades.crudeSatchel.display.style.display = "none";
       }
 
+      refreshExpeditionUI();
+    },
+  },
+
+  smellyShoes: {
+    label: "Smelly Shoes (+1 Travel Distance)",
+    cost: {
+      pelt: 10,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
       refreshExpeditionUI();
     },
   },

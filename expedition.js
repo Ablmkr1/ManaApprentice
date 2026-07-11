@@ -2,12 +2,14 @@ function setCurrentLocation(locationName) {
   gameState.expedition.currentLocation = locationName;
 
   updateLocationActions();
+  updatePlacePanel();
 }
 
 function clearCurrentLocation() {
   gameState.expedition.currentLocation = null;
 
   updateLocationActions();
+  updatePlacePanel();
 }
 
 function updateLocationActions() {
@@ -17,6 +19,7 @@ function updateLocationActions() {
   lockAction("gatherFiber");
   lockAction("setTrap");
   lockAction("checkTrap");
+  lockAction("gatherStone");
 
   if (!locationName) return;
 
@@ -73,18 +76,26 @@ function getCarriedTotal() {
   let total = 0;
 
   for (let itemName in carriedItems) {
-    total += carriedItems[itemName];
+    total += carriedItems[itemName] * getCarriedItemWeight(itemName);
   }
 
   return total;
 }
 
-function hasCarrySpace(amount) {
-  return getCarriedTotal() + amount <= gameState.expedition.carryCapacity;
+const carriedItemWeights = {
+  stone: 2,
+};
+
+function getCarriedItemWeight(itemName) {
+  return carriedItemWeights[itemName] || 1;
+}
+
+function hasCarrySpace(itemName, amount) {
+  return getCarriedTotal() + amount * getCarriedItemWeight(itemName) <= gameState.expedition.carryCapacity;
 }
 
 function addCarriedItem(itemName, amount) {
-  if (!hasCarrySpace(amount)) return false;
+  if (!hasCarrySpace(itemName, amount)) return false;
 
   const carriedItems = gameState.expedition.carriedItems;
 
@@ -99,8 +110,9 @@ function addCarriedItem(itemName, amount) {
 }
 
 function addCarriedItemUpToCapacity(itemName, amount) {
+  const itemWeight = getCarriedItemWeight(itemName);
   const availableSpace = gameState.expedition.carryCapacity - getCarriedTotal();
-  const amountToCarry = Math.min(amount, availableSpace);
+  const amountToCarry = Math.min(amount, Math.floor(availableSpace / itemWeight));
 
   if (amountToCarry <= 0) return 0;
 
@@ -199,6 +211,13 @@ function transferCarriedItemsToCamp() {
     if (itemName === "pelt") {
       unlockGearUpgrade("waterskin");
       unlockGearUpgrade("crudeBackpack");
+      unlockGearUpgrade("smellyShoes");
+      unlockCampUpgrade("uncomfortableCot");
+    }
+
+    if (itemName === "stone") {
+      unlockCampUpgrade("stoneFirePit");
+      unlockCampUpgrade("damStream");
     }
   }
 
@@ -218,6 +237,10 @@ function resolveExpeditionStep() {
     duration: 1,
     modifiersUsed: [],
   };
+
+  if (gearUpgrades.smellyShoes && gearUpgrades.smellyShoes.purchased) {
+    step.distance += 1;
+  }
 
   const affordableModifiers = getAffordableExpeditionModifiers();
 
@@ -307,6 +330,7 @@ function endExpedition(reason) {
   }
 
   refreshExpeditionUI();
+  updatePlacePanel();
 }
 
 // Explore Current Location Function
@@ -329,6 +353,10 @@ function exploreCurrentLocation() {
 
   if (location.explorationProgress >= location.explorationRequired) {
     location.explored = true;
+
+    if (actions.exploreLocation.metaProgressBar) {
+      actions.exploreLocation.metaProgressBar.style.width = "0%";
+    }
 
     updateDestinationActions();
 
@@ -360,6 +388,7 @@ function toggleTraveling() {
   }
 
   updateTravelButton(gameState.expedition.traveling);
+  updatePlacePanel();
 }
 
 function stopTraveling() {
@@ -369,6 +398,7 @@ function stopTraveling() {
   expedition.travelStartTime = null;
 
   updateTravelButton(gameState.expedition.traveling);
+  updatePlacePanel();
 }
 
 function processTravelTick() {
@@ -441,6 +471,7 @@ function checkDestinationArrival() {
 function updateDestinationActions() {
   updateDestinationAction("mysteriousPlants", "travelToMysteriousPlants");
   updateDestinationAction("strangeTrails", "travelToStrangeTrails");
+  updateDestinationAction("creepyCave", "travelToCreepyCave");
 }
 
 function updateDestinationAction(locationName, actionName) {
@@ -474,6 +505,58 @@ function getLocationLabel(locationName) {
   }
 
   return location.label;
+}
+
+function updatePlacePanel() {
+  const expedition = gameState.expedition;
+
+  if (expedition.traveling) {
+    safeSetText(ui.campPanelTitle, "Traveling");
+    safeSetText(ui.locationDescription, "You are moving through the wilds.");
+    hideElement(ui.campContent);
+    showElement(ui.locationContent, "block");
+    return;
+  }
+
+  if (expedition.currentLocation) {
+    const location = expeditionLocations[expedition.currentLocation];
+
+    safeSetText(ui.campPanelTitle, getLocationLabel(expedition.currentLocation));
+    safeSetText(ui.locationDescription, getLocationPanelText(location));
+    hideElement(ui.campContent);
+    showElement(ui.locationContent, "block");
+    return;
+  }
+
+  const restLabel = ui.restBtn ? ui.restBtn.querySelector("span") : null;
+
+  if (gameState.phase === "expedition") {
+    safeSetText(ui.campPanelTitle, "Camp");
+    safeSetText(restLabel, "Rest at Camp");
+  } else if (gameState.phase === "clearing") {
+    safeSetText(ui.campPanelTitle, "Clearing");
+    safeSetText(restLabel, "Rest in Clearing");
+  } else {
+    safeSetText(ui.campPanelTitle, "Lost in the Woods");
+    safeSetText(restLabel, "Rest");
+  }
+
+  showElement(ui.campContent, "block");
+  hideElement(ui.locationContent);
+}
+
+function getLocationPanelText(location) {
+  if (!location) return "";
+
+  if (location.explored && location.exploredLabel === "Fibrous Plants") {
+    return "Fibrous plants grow in dense clumps here.";
+  }
+
+  if (location.explored && location.exploredLabel === "Animal Trails") {
+    return "Game trails cross through the grass. Your traps can be checked here.";
+  }
+
+  return location.onDiscoverStory || "";
 }
 
 function checkExpeditionDiscovery() {
@@ -566,6 +649,7 @@ function prepareExpedition() {
 
   addStoryEntry("You sort through your supplies and prepare to leave the clearing.");
   refreshExpeditionUI();
+  updatePlacePanel();
 }
 
 function prepareDestinationTravel(locationName) {
@@ -595,4 +679,5 @@ function prepareDestinationTravel(locationName) {
 
   addStoryEntry("You prepare to travel to " + getLocationLabel(locationName) + ".");
   refreshExpeditionUI();
+  updatePlacePanel();
 }
