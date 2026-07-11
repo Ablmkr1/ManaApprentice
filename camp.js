@@ -128,6 +128,7 @@ function lockCampUpgrade(upgradeName) {
 // Phase Helper
 function setPhase(phaseName) {
   gameState.phase = phaseName;
+  updateCharacterPanelLocks();
 
   if (phaseName === "expedition") {
     lockAction("explore");
@@ -183,7 +184,9 @@ function updateGearUpgradeUI(upgradeName) {
 
   if (!upgrade) return;
 
-  showElement(ui.gearSection);
+  if (gameState.phase === "expedition") {
+    showElement(ui.gearSection);
+  }
 
   if (upgrade.button) {
     upgrade.button.style.display = upgrade.unlocked && !upgrade.purchased ? "inline-block" : "none";
@@ -204,6 +207,7 @@ function unlockGearUpgrade(upgradeName) {
 
   upgrade.unlocked = true;
   updateGearUpgradeUI(upgradeName);
+  updateCharacterPanelLocks();
 }
 
 function buyGearUpgrade(upgradeName) {
@@ -217,4 +221,5 @@ function buyGearUpgrade(upgradeName) {
   upgrade.unlocked = false;
 
   updateGearUpgradeUI(upgradeName);
+  updateCharacterPanelLocks();
 }

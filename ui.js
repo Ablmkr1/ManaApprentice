@@ -35,6 +35,7 @@ function hookDomToUI() {
   ui.locationContent = document.getElementById("locationContent");
   ui.locationDescription = document.getElementById("locationDescription");
   ui.stoneAmount = document.getElementById("stoneAmount");
+  ui.inventorySection = document.getElementById("inventorySection");
 }
 
 //Hook Ui Maps Functions
@@ -221,4 +222,31 @@ function hookActionButtonsToUI(onActionClick) {
       onActionClick(actionName);
     });
   });
+}
+
+function updateCharacterPanelLocks() {
+  const campUnlocked = gameState.phase === "expedition";
+
+  if (campUnlocked) {
+    showElement(ui.inventorySection, "block");
+
+    if (hasUnlockedOrPurchasedGear()) {
+      showElement(ui.gearSection, "block");
+    }
+  } else {
+    hideElement(ui.inventorySection);
+    hideElement(ui.gearSection);
+  }
+}
+
+function hasUnlockedOrPurchasedGear() {
+  for (let gearName in gearUpgrades) {
+    const gear = gearUpgrades[gearName];
+
+    if (gear.unlocked || gear.purchased) {
+      return true;
+    }
+  }
+
+  return false;
 }

@@ -1,16 +1,23 @@
 body {
   margin: 0;
-  padding: 56px 0 20px;
+  padding: 4px 0 20px;
   font-family: system-ui, sans-serif;
   background: #efe7d7;
   color: #2b241c;
+}
+
+h1 {
+  margin: 0px auto 4px;
+  width: min(1120px, calc(100% - 24px));
+  font-size: 20px;
+  line-height: 1.1;
 }
 
 .top-bar {
   position: sticky;
   top: 0;
   z-index: 10;
-  min-height: 56px;
+  min-height: 30px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -28,24 +35,24 @@ body {
 
 .resource-strip {
   display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  scrollbar-width: thin;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
 }
 
 .resource-pill {
-  flex: 0 0 auto;
-  padding: 6px 10px;
+  flex: 0 1 auto;
+  padding: 5px 8px;
   border: 1px solid rgba(255, 250, 240, 0.24);
   border-radius: 999px;
   background: rgba(255, 250, 240, 0.12);
-  font-size: 14px;
+  font-size: 13px;
   white-space: nowrap;
 }
 
 .game-shell {
   width: min(1120px, calc(100% - 24px));
-  margin: 14px auto;
+  margin: 10px auto;
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
   gap: 12px;
