@@ -87,7 +87,7 @@ const actions = {
     label: "Explore",
     duration: 1,
     cost: {
-      energy: 10,
+      energy: 5,
     },
     unlocked: true,
     running: false,
@@ -229,7 +229,7 @@ const actions = {
     label: "Explore Location",
     duration: 1,
     cost: {
-      energy: 10,
+      energy: 6,
     },
     unlocked: false,
     running: false,
