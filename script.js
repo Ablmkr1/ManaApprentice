@@ -22,6 +22,7 @@ window.onload = function () {
   hookCampUpgradestoUI();
   hookStorageUpgradesToUI();
   hookGearUpgradesToUI();
+  hookSaveControls();
 
   ui.continueBtn.addEventListener("click", function () {
     ui.introPopup.style.display = "none";
@@ -37,8 +38,34 @@ window.onload = function () {
     }
   });
 
+  tryLoadGame();
+  setInterval(trySaveGame, 5000);
+  window.addEventListener("beforeunload", trySaveGame);
+
   setInterval(gameTick, 50);
 };
+
+function hookSaveControls() {
+  if (ui.saveGameBtn) {
+    ui.saveGameBtn.addEventListener("click", function () {
+      trySaveGame();
+    });
+  }
+
+  if (ui.loadGameBtn) {
+    ui.loadGameBtn.addEventListener("click", function () {
+      tryLoadGame();
+    });
+  }
+
+  if (ui.resetSaveBtn) {
+    ui.resetSaveBtn.addEventListener("click", function () {
+      if (!window.confirm("Reset your saved game?")) return;
+
+      resetSave();
+    });
+  }
+}
 
 // Rest Button Text Toggle
 function updateRestButton() {

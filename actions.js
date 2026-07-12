@@ -89,7 +89,7 @@ function hookActionCompletions() {
     }
 
     site.installed = true;
-    site.checkedThisVisit = false;
+    site.checkedThisVisit = true;
 
     addStoryEntry("You set a trap along the trail.");
     updateTrapSitesUI(location);

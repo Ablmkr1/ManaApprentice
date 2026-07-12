@@ -210,35 +210,50 @@ function getCarriedSummary() {
 
 function applyReturnPenalty() {
   const expedition = gameState.expedition;
-  const penalty = expedition.returnPenalty;
+  const dropChance = expedition.returnPenalty;
 
-  if (penalty <= 0) return;
+  if (dropChance <= 0) return;
 
   const carriedItems = expedition.carriedItems;
   let lostSomething = false;
 
+  if (carriedItems.food && carriedItems.food > 0) {
+    delete carriedItems.food;
+    lostSomething = true;
+  }
+
+  if (expedition.water > 0) {
+    expedition.water = 0;
+    lostSomething = true;
+  }
+
   for (let itemName in carriedItems) {
+    if (itemName === "food") continue;
+
     const currentAmount = carriedItems[itemName];
+    let keptAmount = 0;
 
-    if (currentAmount <= 0) continue;
+    for (let i = 0; i < currentAmount; i++) {
+      if (Math.random() >= dropChance) {
+        keptAmount++;
+      }
+    }
 
-    const remainingAmount = formatCarryAmount(currentAmount * (1 - penalty));
-
-    if (remainingAmount < currentAmount) {
+    if (keptAmount < currentAmount) {
       lostSomething = true;
     }
 
-    if (remainingAmount <= 0) {
+    if (keptAmount <= 0) {
       delete carriedItems[itemName];
     } else {
-      carriedItems[itemName] = remainingAmount;
+      carriedItems[itemName] = keptAmount;
     }
   }
 
   expedition.returnPenalty = 0;
 
   if (lostSomething) {
-    addStoryEntry("Some supplies are lost on the hard return to camp.");
+    addStoryEntry("Food and water are spent on the hard return, and some supplies are lost along the way.");
   }
 }
 
@@ -300,7 +315,10 @@ function resolveExpeditionStep() {
     step.distance += 0.5;
   }
 
-  const affordableModifiers = getAffordableExpeditionModifiers();
+  const expedition = gameState.expedition;
+  const canUseTravelModifiers = !expedition.returning || canAffordCost({ energy: step.energyCost });
+
+  const affordableModifiers = canUseTravelModifiers ? getAffordableExpeditionModifiers() : [];
 
   for (let i = 0; i < affordableModifiers.length; i++) {
     const modifierName = affordableModifiers[i];
@@ -619,10 +637,26 @@ function updatePlacePanel() {
   const expedition = gameState.expedition;
 
   if (expedition.traveling) {
-    safeSetText(ui.campPanelTitle, "Traveling");
-    safeSetText(ui.locationDescription, "You are moving through the wilds.");
+    if (expedition.returning) {
+      safeSetText(ui.campPanelTitle, "Returning to Camp");
+      safeSetText(ui.locationDescription, "You are making your way back to camp.");
+    } else {
+      safeSetText(ui.campPanelTitle, "Traveling");
+      safeSetText(ui.locationDescription, "You are moving through the wilds.");
+    }
+
     hideElement(ui.campContent);
     showElement(ui.locationContent, "block");
+    updateTrapSitesUI(null);
+    return;
+  }
+
+  if (expedition.returning) {
+    safeSetText(ui.campPanelTitle, "Returning to Camp");
+    safeSetText(ui.locationDescription, "You are on the trail back to camp.");
+    hideElement(ui.campContent);
+    showElement(ui.locationContent, "block");
+    updateTrapSitesUI(null);
     return;
   }
 
@@ -738,7 +772,7 @@ function getTrapSiteLabel(site, index) {
   }
 
   if (site.checkedThisVisit) {
-    return siteName + ": Checked";
+    return siteName + ": Empty";
   }
 
   return siteName + ": Ready to Check";

@@ -182,7 +182,7 @@ const campUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      resources.energy.restPerSecond += 2;
+      resources.energy.restPerSecond += 1;
 
       if (campUpgrades.crudeLeanTo.display) {
         campUpgrades.crudeLeanTo.display.style.display = "none";
@@ -350,7 +350,7 @@ const gearUpgrades = {
     },
   },
   waterskin: {
-    label: "Waterskin (+10 Water Capacity)",
+    label: "Waterskin (10 Water Capacity)",
     cost: {
       pelt: 3,
     },
@@ -387,9 +387,9 @@ const gearUpgrades = {
   },
 
   smellyShoes: {
-    label: "Smelly Shoes (50% Travel Distance)",
+    label: "Smelly Shoes (+50% Travel Distance)",
     cost: {
-      pelt: 10,
+      pelt: 5,
     },
     unlocked: false,
     purchased: false,

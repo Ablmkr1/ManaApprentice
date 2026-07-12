@@ -309,8 +309,8 @@ const actions = {
     duration: 1,
     cost: {
       energy: 10,
-      wood: 5,
-      fiber: 2,
+      wood: 2,
+      fiber: 5,
     },
     unlocked: false,
     running: false,

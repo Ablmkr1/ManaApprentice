@@ -40,6 +40,9 @@ function hookDomToUI() {
   ui.trapSitesList = document.getElementById("trapSitesList");
   ui.expeditionDistanceBar = document.getElementById("expeditionDistanceBar");
   ui.expeditionDistanceFill = document.getElementById("expeditionDistanceFill");
+  ui.saveGameBtn = document.getElementById("saveGameBtn");
+  ui.loadGameBtn = document.getElementById("loadGameBtn");
+  ui.resetSaveBtn = document.getElementById("resetSaveBtn");
 }
 
 //Hook Ui Maps Functions
