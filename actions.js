@@ -35,24 +35,14 @@ function hookActionCompletions() {
     endExpedition("returned");
   };
 
-  actions.travelToMysteriousPlants.onComplete = function () {
-    prepareDestinationTravel("mysteriousPlants");
-  };
-
-  actions.travelToStrangeTrails.onComplete = function () {
-    prepareDestinationTravel("strangeTrails");
-  };
-
-  actions.travelToCreepyCave.onComplete = function () {
-    prepareDestinationTravel("creepyCave");
-  };
+  hookDestinationTravelCompletions();
 
   actions.travel.onComplete = function () {
     toggleTraveling();
   };
 
   actions.beginExpedition.onComplete = function () {
-    prepareExpedition();
+    prepareOpenExpedition();
   };
 
   actions.makeTrap.onComplete = function () {
@@ -66,8 +56,31 @@ function hookActionCompletions() {
     }
   };
 
+  actions.scoutTrapSite.onComplete = function () {
+    const locationName = gameState.expedition.currentLocation;
+    const site = getFirstHiddenTrapSite(locationName);
+
+    if (!site) {
+      updateLocationActions();
+      return;
+    }
+
+    site.discovered = true;
+
+    addStoryEntry("You find a narrow trail suitable for a trap.");
+    updateTrapSitesUI(expeditionLocations[locationName]);
+    updateLocationActions();
+  };
+
   actions.setTrap.onComplete = function () {
-    const location = expeditionLocations.strangeTrails;
+    const locationName = gameState.expedition.currentLocation;
+    const location = expeditionLocations[locationName];
+    const site = getFirstOpenTrapSite(locationName);
+
+    if (!location || !site) {
+      updateLocationActions();
+      return;
+    }
 
     if (!removeCarriedItem("trap", 1)) {
       addStoryEntry("You need to bring a trap from camp.");
@@ -75,36 +88,40 @@ function hookActionCompletions() {
       return;
     }
 
-    location.traps.installed++;
-    addStoryEntry("You set the trap along the animal trails.");
+    site.installed = true;
+    site.checkedThisVisit = false;
 
+    addStoryEntry("You set a trap along the trail.");
+    updateTrapSitesUI(location);
     updateLocationActions();
   };
 
   actions.checkTrap.onComplete = function () {
-    const location = expeditionLocations.strangeTrails;
-    const traps = location.traps;
+    const locationName = gameState.expedition.currentLocation;
+    const location = expeditionLocations[locationName];
+    const trapSiteData = getTrapSiteData(locationName);
+    const site = getFirstUncheckedInstalledTrapSite(locationName);
 
-    let peltsFound = 0;
-
-    for (let i = 0; i < traps.installed; i++) {
-      if (Math.random() < traps.successChance) {
-        peltsFound++;
-      }
+    if (!location || !trapSiteData || !site) {
+      updateLocationActions();
+      return;
     }
 
-    if (peltsFound > 0) {
-      const peltsCarried = addCarriedItemUpToCapacity(traps.reward, peltsFound);
+    site.checkedThisVisit = true;
 
-      if (peltsCarried === peltsFound) {
-        addStoryEntry("You found " + peltsFound + " pelt" + (peltsFound === 1 ? "" : "s") + " in your traps.");
-      } else if (peltsCarried > 0) {
-        addStoryEntry("You found " + peltsFound + " pelts, but could only carry " + peltsCarried + ".");
+    if (Math.random() < trapSiteData.successChance) {
+      const peltsCarried = addCarriedItemUpToCapacity(trapSiteData.reward, 1);
+
+      if (peltsCarried === 1) {
+        addStoryEntry("You find a pelt in the trap.");
       } else {
-        addStoryEntry("You found " + peltsFound + " pelts, but your hands are full.");
+        addStoryEntry("You find a pelt, but your hands are full.");
       }
+    } else {
+      addStoryEntry("The trap is empty.");
     }
 
+    updateTrapSitesUI(location);
     updateLocationActions();
   };
 
@@ -161,6 +178,25 @@ function hookActionCompletions() {
     expedition.water++;
     refreshExpeditionUI();
   };
+}
+
+function hookDestinationTravelCompletions() {
+  for (let locationName in expeditionLocations) {
+    const location = expeditionLocations[locationName];
+
+    if (!location.travelAction) continue;
+
+    const action = actions[location.travelAction];
+
+    if (!action) {
+      console.warn("Unknown destination travel action:", location.travelAction);
+      continue;
+    }
+
+    action.onComplete = function () {
+      prepareDestinationTravel(locationName);
+    };
+  }
 }
 
 // Get Explore Function
@@ -261,7 +297,7 @@ function resumeAutoActionAfterRest() {
 function runAction(actionName) {
   const action = actions[actionName];
 
-  if (!action || !action.unlocked) return;
+  if (!action || !action.unlocked || !canUseAction(actionName)) return;
 
   if (isAutoAction(actionName)) {
     if (isAutoActionActive(actionName) && !gameState.autoAction.pausedForRest) {

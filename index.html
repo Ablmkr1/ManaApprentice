@@ -1,13 +1,13 @@
 <!doctype html>
 <html>
   <head>
-    <title>Mana Apprentice</title>
+    <title>Lost Wizard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="style.css" />
   </head>
 
   <body>
-    <h1>Mana Apprentice</h1>
+    <h1>Lost Wizard</h1>
     <header class="top-bar">
       <div class="resource-strip">
         <div id="energyAmount" class="resource-pill"></div>
@@ -130,6 +130,7 @@
 
         <div id="locationContent" style="display: none">
           <div id="locationDescription"></div>
+          <div id="trapSitesList" class="trap-sites-list" style="display: none"></div>
 
           <button class="action-btn" data-action="exploreLocation" style="display: none">
             <div class="progressFill"></div>
@@ -140,6 +141,11 @@
           <button class="action-btn" data-action="gatherFiber" style="display: none">
             <div class="progressFill"></div>
             <span>Gather Fiber</span>
+          </button>
+
+          <button class="action-btn" data-action="scoutTrapSite" style="display: none">
+            <div class="progressFill"></div>
+            <span>Scout Trail</span>
           </button>
 
           <button class="action-btn" data-action="setTrap" style="display: none">
@@ -163,7 +169,10 @@
         <h2>Expedition</h2>
 
         <div class="expedition-stats">
-          <div id="expeditionDistanceAmount" class="expedition-stat">Distance: 0 / 100</div>
+          <div id="expeditionDistanceBar" class="expedition-stat expedition-distance-bar">
+            <div id="expeditionDistanceFill" class="expedition-distance-fill"></div>
+            <span id="expeditionDistanceAmount" class="expedition-distance-label">Distance: 0 / 100</span>
+          </div>
         </div>
 
         <button class="action-btn" data-action="beginExpedition" style="display: none">
@@ -209,11 +218,6 @@
         <button class="action-btn" data-action="packTrap" style="display: none">
           <div class="progressFill"></div>
           <span>Pack Trap</span>
-        </button>
-
-        <button class="action-btn" data-action="exploreLocation" style="display: none">
-          <div class="progressFill"></div>
-          <span>Explore Location</span>
         </button>
       </section>
 

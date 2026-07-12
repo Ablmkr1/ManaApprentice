@@ -119,7 +119,7 @@ const actions = {
     label: "Gather Wood",
     duration: 1,
     cost: {
-      energy: 5,
+      energy: 4,
     },
     unlocked: false,
     running: false,
@@ -135,9 +135,9 @@ const actions = {
 
   gatherFood: {
     label: "Gather Food",
-    duration: 1,
+    duration: 1.5,
     cost: {
-      energy: 5,
+      energy: 3,
     },
     unlocked: false,
     running: false,
@@ -348,7 +348,21 @@ const actions = {
   },
   checkTrap: {
     label: "Check Trap",
-    duration: 5,
+    duration: 1,
+    cost: {
+      energy: 5,
+    },
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+  scoutTrapSite: {
+    label: "Scout Trail",
+    duration: 1,
     cost: {
       energy: 5,
     },

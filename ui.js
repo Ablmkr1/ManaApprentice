@@ -37,6 +37,9 @@ function hookDomToUI() {
   ui.stoneAmount = document.getElementById("stoneAmount");
   ui.inventorySection = document.getElementById("inventorySection");
   ui.storageSection = document.getElementById("storageSection");
+  ui.trapSitesList = document.getElementById("trapSitesList");
+  ui.expeditionDistanceBar = document.getElementById("expeditionDistanceBar");
+  ui.expeditionDistanceFill = document.getElementById("expeditionDistanceFill");
 }
 
 //Hook Ui Maps Functions
@@ -102,6 +105,13 @@ function updateResource(resourceName) {
 
   safeSetText(resource.perClickDisplay, "+" + resource.perClick + "/Click");
   safeSetText(resource.perSecondDisplay, "+" + resource.perSecond + "/Sec");
+  updateAllActionButtons();
+}
+
+function updateAllActionButtons() {
+  for (let actionName in actions) {
+    updateActionButton(actionName);
+  }
 }
 
 //UI Unlock Resource and Panels
@@ -146,6 +156,13 @@ function updateExpeditionUI(carriedTotal, carriedSummary) {
 
   safeSetText(ui.expeditionDistanceAmount, "Distance: " + expedition.distance + " / " + expedition.targetDistance);
 
+  const distanceProgress = expedition.targetDistance > 0 ? expedition.distance / expedition.targetDistance : 0;
+  const clampedDistanceProgress = Math.min(Math.max(distanceProgress, 0), 1);
+
+  if (ui.expeditionDistanceFill) {
+    ui.expeditionDistanceFill.style.width = clampedDistanceProgress * 100 + "%";
+  }
+
   safeSetText(ui.carriedAmount, "Carried: " + carriedTotal + " / " + expedition.carryCapacity + " (" + carriedSummary + ")");
   safeSetText(ui.carriedWaterAmount, "Water: " + expedition.water + " / " + expedition.waterCapacity);
 }
@@ -178,6 +195,45 @@ function updateActionButton(actionName) {
   if (!action || !action.button) return;
 
   action.button.style.display = action.unlocked ? "inline-block" : "none";
+
+  if (!action.unlocked) {
+    action.button.disabled = true;
+    return;
+  }
+
+  action.button.disabled = !canUseAction(actionName);
+}
+
+function canUseAction(actionName) {
+  const action = actions[actionName];
+
+  if (!action) return false;
+
+  if (action.running) return true;
+
+  if (!canAffordCost(action.cost)) return false;
+
+  if (!isActionContextAvailable(actionName)) return false;
+
+  return true;
+}
+
+function isActionContextAvailable(actionName) {
+  const locationName = gameState.expedition.currentLocation;
+
+  if (actionName === "scoutTrapSite") {
+    return !!locationName && !!getFirstHiddenTrapSite(locationName);
+  }
+
+  if (actionName === "setTrap") {
+    return !!locationName && hasOpenTrapSite(locationName) && gameState.expedition.carriedItems.trap > 0;
+  }
+
+  if (actionName === "checkTrap") {
+    return !!locationName && hasUncheckedInstalledTrapSite(locationName);
+  }
+
+  return true;
 }
 
 function setProgressBar(action, progress) {

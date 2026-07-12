@@ -82,7 +82,7 @@ h1 {
 }
 
 .character-stats,
-.ivnentory-list,
+.inventory-list,
 .gear-list,
 .gear-section,
 .storage-list,
@@ -93,7 +93,7 @@ h1 {
 }
 
 .character-stat,
-.ivnentory-list,
+.inventory-list,
 .gear-list > div,
 .storage-list > div {
   padding: 8px 10px;
@@ -254,4 +254,49 @@ button {
   width: 0%;
   background: limegreen;
   z-index: 1;
+}
+
+.trap-sites-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.trap-site-row {
+  padding: 8px 10px;
+  border: 1px solid #d8ccb8;
+  border-radius: 6px;
+  background: rgba(255, 250, 240, 0.65);
+  font-size: 14px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.action-btn:disabled .progressFill,
+.action-btn:disabled .metaProgressFill,
+.action-btn:disabled .restProgressFill {
+  width: 0% !important;
+}
+
+.expedition-distance-bar {
+  position: relative;
+  overflow: hidden;
+  min-height: 18px;
+}
+
+.expedition-distance-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0%;
+  background: rgba(43, 36, 28, 0.18);
+  transition: width 0.12s linear;
+  z-index: 1;
+}
+
+.expedition-distance-label {
+  position: relative;
+  z-index: 2;
 }

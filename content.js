@@ -3,6 +3,7 @@ const expeditionLocations = {
   mysteriousPlants: {
     label: "Mysterious Plants",
     exploredLabel: "Fibrous Plants",
+    travelAction: "travelToMysteriousPlants",
     distance: 10,
     discovered: false,
     explored: false,
@@ -14,6 +15,10 @@ const expeditionLocations = {
       "Their stalks split into long, stringy fibers.",
       "Twisted together, the fibers might make crude cord.",
     ],
+    panelText: {
+      discovered: "Clusters of unfamiliar plants grow beside the path, their pale stems twisting around one another.",
+      explored: "Fibrous plants grow in dense clumps here.",
+    },
     availableActions: ["gatherFiber"],
     unlocks: [
       { type: "gearUpgrade", id: "crudeSatchel" },
@@ -24,6 +29,7 @@ const expeditionLocations = {
   strangeTrails: {
     label: "Strange Trails",
     exploredLabel: "Animal Trails",
+    travelAction: "travelToStrangeTrails",
     distance: 30,
     discovered: false,
     explored: false,
@@ -35,20 +41,40 @@ const expeditionLocations = {
       "The strange markings almost seem connected.",
       "You catch sight of a rabbit. These are small animal trails. You'll need to make a trap if you want to catch them.",
     ],
-    traps: { installed: 0, max: 5, reward: "pelt", successChance: 0.5 },
-    availableActions: ["setTrap", "checkTrap"],
+    panelText: {
+      discovered: "There's something strange about that bush...and that grass...",
+      explored: "Game trails cross through the grass. Your traps can be checked here.",
+    },
+    trapSites: {
+      reward: "pelt",
+      successChance: 0.5,
+      sites: [
+        { label: "Beside the Split Tree", discovered: false, installed: false, checkedThisVisit: false },
+        { label: "Through the Thorn Bush", discovered: false, installed: false, checkedThisVisit: false },
+        { label: "Under the Fallen Log", discovered: false, installed: false, checkedThisVisit: false },
+        { label: "Along the Muddy Bend", discovered: false, installed: false, checkedThisVisit: false },
+        { label: "Near the Hollow Stump", discovered: false, installed: false, checkedThisVisit: false },
+      ],
+    },
+    availableActions: ["scoutTrapSite", "setTrap", "checkTrap"],
     unlocks: [
       { type: "resource", id: "trap" },
       { type: "action", id: "makeTrap" },
+      { type: "action", id: "scoutTrapSite" },
     ],
   },
 
   creepyCave: {
     label: "Creepy Cave",
+    travelAction: "travelToCreepyCave",
     distance: 60,
     discovered: false,
     explored: true,
     onDiscoverStory: "A dark opening cuts into the hillside. Loose stone is scattered around the cave mouth.",
+    panelText: {
+      discovered: "A dark opening cuts into the hillside. Loose stone is scattered around the cave mouth.",
+      explored: "Loose stone litters the cave mouth.",
+    },
     availableActions: ["gatherStone"],
   },
 };
@@ -101,7 +127,7 @@ const explorationStages = {
   },
   findWoodPile: {
     required: 1,
-    story: ["Your hunger grows sharper.", "What's hanging from that bush across the stream?"],
+    story: ["Huh, it's a stick?", "Even more sticks, if you collected them you might be able to use them."],
     unlocks: [
       { type: "resource", id: "wood" },
       { type: "action", id: "gatherWood" },
@@ -239,12 +265,7 @@ const storageUpgrades = {
     unlocked: false,
     button: null,
     display: null,
-    costs: [
-      { wood: 10 },
-      { wood: 20, fiber: 5 },
-      { wood: 20, fiber: 10, pelt: 2 },
-      { wood: 30, fiber: 10, stone: 5 },
-    ],
+    costs: [{ wood: 10 }, { wood: 20, fiber: 5 }, { wood: 20, fiber: 10, pelt: 2 }, { wood: 30, fiber: 10, stone: 5 }],
   },
   fiberStorage: {
     label: "Fiber Storage",
@@ -366,7 +387,7 @@ const gearUpgrades = {
   },
 
   smellyShoes: {
-    label: "Smelly Shoes (+1 Travel Distance)",
+    label: "Smelly Shoes (50% Travel Distance)",
     cost: {
       pelt: 10,
     },
