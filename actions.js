@@ -32,7 +32,7 @@ function hookActionCompletions() {
   };
 
   actions.returnToCamp.onComplete = function () {
-    endExpedition("returned");
+    beginReturnToCamp("manual");
   };
 
   hookDestinationTravelCompletions();

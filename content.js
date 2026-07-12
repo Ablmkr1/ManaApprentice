@@ -82,7 +82,7 @@ const expeditionLocations = {
 // Exploration Engine
 const explorationStages = {
   findClearing: {
-    required: 1,
+    required: 3,
     story: ["You stumble forward, mind in a daze...", "The forest clears ahead...", "You can rest here.", "You need water, food, shelter."],
     unlocks: [{ type: "panel", id: "camp" }],
     onComplete: function () {
@@ -95,7 +95,7 @@ const explorationStages = {
   },
 
   findStream: {
-    required: 1,
+    required: 2,
     story: ["You hear something that makes your thirst grow.", "Your stomach rumbles."],
     unlocks: [
       { type: "resource", id: "water" },
@@ -111,7 +111,7 @@ const explorationStages = {
   },
 
   findBerryBush: {
-    required: 1,
+    required: 2,
     story: ["Your hunger grows sharper.", "What's hanging from that bush across the stream?"],
     unlocks: [
       { type: "resource", id: "food" },
@@ -126,7 +126,7 @@ const explorationStages = {
     nextStage: "findWoodPile",
   },
   findWoodPile: {
-    required: 1,
+    required: 2,
     story: ["Huh, it's a stick?", "Even more sticks, if you collected them you might be able to use them."],
     unlocks: [
       { type: "resource", id: "wood" },

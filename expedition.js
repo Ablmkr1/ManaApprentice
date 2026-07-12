@@ -208,6 +208,40 @@ function getCarriedSummary() {
   return parts.join(", ");
 }
 
+function applyReturnPenalty() {
+  const expedition = gameState.expedition;
+  const penalty = expedition.returnPenalty;
+
+  if (penalty <= 0) return;
+
+  const carriedItems = expedition.carriedItems;
+  let lostSomething = false;
+
+  for (let itemName in carriedItems) {
+    const currentAmount = carriedItems[itemName];
+
+    if (currentAmount <= 0) continue;
+
+    const remainingAmount = formatCarryAmount(currentAmount * (1 - penalty));
+
+    if (remainingAmount < currentAmount) {
+      lostSomething = true;
+    }
+
+    if (remainingAmount <= 0) {
+      delete carriedItems[itemName];
+    } else {
+      carriedItems[itemName] = remainingAmount;
+    }
+  }
+
+  expedition.returnPenalty = 0;
+
+  if (lostSomething) {
+    addStoryEntry("Some supplies are lost on the hard return to camp.");
+  }
+}
+
 // Cargo Helpers
 function transferCarriedItemsToCamp() {
   const carriedItems = gameState.expedition.carriedItems;
@@ -295,12 +329,49 @@ function resolveExpeditionStep() {
 
   spendCost({ energy: finalEnergyCost });
 
-  gameState.expedition.distance += step.distance;
-
   return {
     success: true,
     step,
   };
+}
+
+function applyExpeditionStep(step) {
+  const expedition = gameState.expedition;
+
+  if (expedition.returning) {
+    expedition.distance = Math.max(0, expedition.distance - step.distance);
+    return;
+  }
+
+  expedition.distance += step.distance;
+}
+
+function beginReturnToCamp(reason) {
+  const expedition = gameState.expedition;
+
+  if (!expedition.active) return;
+
+  expedition.returning = true;
+
+  expedition.returnPenalty = reason === "exhausted" ? 0.25 : 0;
+
+  expedition.destination = null;
+  expedition.currentLocation = null;
+
+  lockAction("returnToCamp");
+  updateLocationActions();
+  setPackingActionsAvailable(false);
+
+  if (reason === "manual") {
+    addStoryEntry("You turn back toward camp.");
+  }
+
+  if (reason === "exhausted") {
+    addStoryEntry("Your strength gives out. You turn back toward camp with what you can carry.");
+  }
+
+  refreshExpeditionUI();
+  updatePlacePanel();
 }
 
 // End Expedition Function
@@ -312,6 +383,7 @@ function endExpedition(reason) {
   expedition.active = false;
   expedition.returning = false;
 
+  applyReturnPenalty();
   transferCarriedItemsToCamp();
   clearCurrentLocationActions();
   setCampActionsAvailable(true);
@@ -425,11 +497,31 @@ function processTravelTick() {
   const result = resolveExpeditionStep();
 
   updateResource("energy");
-  refreshExpeditionUI();
 
   if (!result.success && result.reason === "notEnoughEnergy") {
+    if (!expedition.returning) {
+      stopTraveling();
+      beginReturnToCamp("exhausted");
+      return;
+    }
+
+    applyExpeditionStep(result.step);
+    refreshExpeditionUI();
+
+    if (expedition.distance <= 0) {
+      stopTraveling();
+      endExpedition("returned");
+    }
+
+    return;
+  }
+
+  applyExpeditionStep(result.step);
+  refreshExpeditionUI();
+
+  if (expedition.returning && expedition.distance <= 0) {
     stopTraveling();
-    endExpedition("exhausted");
+    endExpedition("returned");
     return;
   }
 
@@ -783,6 +875,7 @@ function enterExpeditionPreparation() {
   expedition.returning = false;
   expedition.completed = false;
   expedition.distance = 0;
+  expedition.returnPenalty = 0;
 
   resetTrapSiteChecks();
   clearCurrentLocation();
