@@ -339,7 +339,22 @@ button:disabled {
 }
 
 .crafting-actions button {
+  position: relative;
+  overflow: hidden;
   min-height: 36px;
   white-space: nowrap;
   flex: 0 1 auto;
+}
+
+.crafting-actions button span {
+  position: relative;
+  z-index: 2;
+}
+
+.crafting-actions button.running {
+  opacity: 1;
+}
+
+.crafting-actions button.running .progressFill {
+  opacity: 1;
 }

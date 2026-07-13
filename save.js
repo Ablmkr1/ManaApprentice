@@ -1,5 +1,5 @@
 const SAVE_KEY = "manaApprenticeSaveV1";
-const SAVE_VERSION = 3;
+const SAVE_VERSION = 4;
 const FIRST_SAVE_VERSION = 1;
 let saveSuppressed = false;
 
@@ -15,6 +15,7 @@ function createSaveData() {
     campUpgrades: createUpgradeSaveData(getCampUpgradeDefinitions(), ["unlocked", "purchased"]),
     storageUpgrades: createUpgradeSaveData(getStorageUpgradeDefinitions(), ["unlocked", "tier"]),
     gearUpgrades: createUpgradeSaveData(getGearUpgradeDefinitions(), ["unlocked", "purchased"]),
+    resourceCrafts: createUpgradeSaveData(getResourceCraftDefinitions(), ["unlocked"]),
     expeditionLocations: createExpeditionLocationSaveData(),
     recipes: createRecipeSaveData(),
   };
@@ -189,6 +190,7 @@ function migrateSaveData(saveData) {
 function getSaveMigration(version) {
   if (version === 1) return migrateV1ToV2;
   if (version === 2) return migrateV2ToV3;
+  if (version === 3) return migrateV3ToV4;
 
   return null;
 }
@@ -200,6 +202,18 @@ function migrateV1ToV2(saveData) {
 function migrateV2ToV3(saveData) {
   saveData.recipes = {};
   saveData.version = 3;
+}
+
+function migrateV3ToV4(saveData) {
+  saveData.resourceCrafts = {};
+
+  if (saveData.actions && saveData.actions.makeTrap && saveData.actions.makeTrap.unlocked) {
+    saveData.resourceCrafts.trap = {
+      unlocked: true,
+    };
+  }
+
+  saveData.version = 4;
 }
 
 function normalizeSaveData(saveData) {
@@ -216,6 +230,7 @@ function normalizeSaveData(saveData) {
   saveData.campUpgrades = ensureObject(saveData.campUpgrades);
   saveData.storageUpgrades = ensureObject(saveData.storageUpgrades);
   saveData.gearUpgrades = ensureObject(saveData.gearUpgrades);
+  saveData.resourceCrafts = ensureObject(saveData.resourceCrafts);
   saveData.expeditionLocations = ensureObject(saveData.expeditionLocations);
 
   return saveData;
@@ -440,6 +455,7 @@ function loadGame() {
   applyUpgradeSaveData(getCampUpgradeDefinitions(), saveData.campUpgrades, ["unlocked", "purchased"], updateCampUpgradeUI);
   applyUpgradeSaveData(getStorageUpgradeDefinitions(), saveData.storageUpgrades, ["unlocked", "tier"], updateStorageUpgradeUI);
   applyUpgradeSaveData(getGearUpgradeDefinitions(), saveData.gearUpgrades, ["unlocked", "purchased"], updateGearUpgradeUI);
+  applyUpgradeSaveData(getResourceCraftDefinitions(), saveData.resourceCrafts, ["unlocked"], updateResourceCraftUI);
   applyExpeditionLocationSaveData(saveData.expeditionLocations);
   applyRecipeSaveData(saveData.recipes);
   checkRecipeDiscoveries();

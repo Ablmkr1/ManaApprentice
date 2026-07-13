@@ -318,3 +318,26 @@ function hasUnlockedOrPurchasedGear() {
 
   return false;
 }
+
+function prepareCraftButton(button) {
+  if (!button) return;
+
+  let progressFill = button.querySelector(".progressFill");
+
+  if (!progressFill) {
+    progressFill = document.createElement("div");
+    progressFill.classList.add("progressFill");
+    button.prepend(progressFill);
+  }
+
+  if (!button.querySelector("span")) {
+    const labelText = button.textContent.trim();
+
+    button.textContent = "";
+    button.appendChild(progressFill);
+
+    const label = document.createElement("span");
+    label.textContent = labelText;
+    button.appendChild(label);
+  }
+}

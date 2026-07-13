@@ -22,6 +22,7 @@ window.onload = function () {
   hookCampUpgradestoUI();
   hookStorageUpgradesToUI();
   hookGearUpgradesToUI();
+  hookResourceCraftsToUI();
   hookSaveControls();
 
   ui.continueBtn.addEventListener("click", function () {
@@ -105,6 +106,7 @@ function gameTick() {
       restProgressFill.style.width = "0%";
     }
   }
+  processCraftingTick();
   processTravelTick();
 }
 

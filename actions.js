@@ -43,10 +43,6 @@ function hookActionCompletions() {
     prepareOpenExpedition();
   };
 
-  getAction("makeTrap").onComplete = function () {
-    addResource("trap", 1);
-  };
-
   getAction("packTrap").onComplete = function () {
     if (!addCarriedItem("trap", 1)) {
       addResource("trap", 1);

@@ -8,6 +8,10 @@ function addResource(resourceName, amount) {
   }
 
   updateResource(resourceName);
+
+  if (typeof updateCraftingButtons === "function") {
+    updateCraftingButtons();
+  }
 }
 
 // Can Afford Cost Function
@@ -34,6 +38,10 @@ function spendCost(cost) {
   for (let resourceName in cost) {
     getResource(resourceName).value -= cost[resourceName];
     updateResource(resourceName);
+  }
+
+  if (typeof updateCraftingButtons === "function") {
+    updateCraftingButtons();
   }
 
   return true;

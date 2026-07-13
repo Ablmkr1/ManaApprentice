@@ -94,7 +94,7 @@ const recipes = {
     story: "The animal trails suggest a crude design: bait, tension, and patience.",
     unlocks: [
       { type: "resource", id: "trap" },
-      { type: "action", id: "makeTrap" },
+      { type: "resourceCraft", id: "trap" },
       { type: "action", id: "scoutTrapSite" },
     ],
   },
@@ -227,6 +227,7 @@ const explorationStages = {
 const campUpgrades = {
   smallFire: {
     label: "Small Fire",
+    duration: 3,
     cost: {
       wood: 5,
     },
@@ -240,6 +241,7 @@ const campUpgrades = {
   },
   crudeLeanTo: {
     label: "Crude Lean-To",
+    duration: 4,
     cost: {
       wood: 10,
     },
@@ -254,6 +256,7 @@ const campUpgrades = {
   },
   lessCrudeShelter: {
     label: "Less Crude Shelter",
+    duration: 6,
     cost: {
       wood: 10,
       fiber: 10,
@@ -273,6 +276,7 @@ const campUpgrades = {
 
   uncomfortableCot: {
     label: "Uncomfortable Cot",
+    duration: 5,
     cost: {
       wood: 10,
       fiber: 10,
@@ -289,6 +293,7 @@ const campUpgrades = {
   },
   stoneFirePit: {
     label: "Stone Fire Pit",
+    duration: 6,
     cost: {
       wood: 10,
       stone: 10,
@@ -309,6 +314,7 @@ const campUpgrades = {
 
   damStream: {
     label: "Dam Stream",
+    duration: 15,
     cost: {
       wood: 20,
       stone: 20,
@@ -329,6 +335,7 @@ const storageUpgrades = {
   woodStorage: {
     label: "Wood Storage",
     resource: "wood",
+    duration: 5,
     tier: 0,
     maxTier: 4,
     maxValueIncrease: 20,
@@ -340,6 +347,7 @@ const storageUpgrades = {
   foodStorage: {
     label: "Food Storage",
     resource: "food",
+    duration: 5,
     tier: 0,
     maxTier: 4,
     maxValueIncrease: 10,
@@ -351,6 +359,7 @@ const storageUpgrades = {
   fiberStorage: {
     label: "Fiber Storage",
     resource: "fiber",
+    duration: 5,
     tier: 0,
     maxTier: 4,
     maxValueIncrease: 20,
@@ -367,6 +376,7 @@ const storageUpgrades = {
   waterStorage: {
     label: "Water Storage",
     resource: "water",
+    duration: 5,
     tier: 0,
     maxTier: 4,
     maxValueIncrease: 10,
@@ -383,6 +393,7 @@ const storageUpgrades = {
   peltStorage: {
     label: "Pelt Storage",
     resource: "pelt",
+    duration: 5,
     tier: 0,
     maxTier: 4,
     maxValueIncrease: 10,
@@ -399,6 +410,7 @@ const storageUpgrades = {
   stoneStorage: {
     label: "Stone Storage",
     resource: "stone",
+    duration: 5,
     tier: 0,
     maxTier: 4,
     maxValueIncrease: 20,
@@ -418,6 +430,7 @@ const storageUpgrades = {
 const gearUpgrades = {
   crudeSatchel: {
     label: "Crude Satchel (10 Inventory)",
+    duration: 5,
     cost: {
       fiber: 10,
     },
@@ -432,6 +445,7 @@ const gearUpgrades = {
   },
   waterskin: {
     label: "Waterskin (10 Water Capacity)",
+    duration: 6,
     cost: {
       pelt: 3,
     },
@@ -447,6 +461,7 @@ const gearUpgrades = {
 
   crudeBackpack: {
     label: "Crude Backpack (Inventory 20)",
+    duration: 10,
     cost: {
       pelt: 6,
       fiber: 10,
@@ -469,6 +484,7 @@ const gearUpgrades = {
 
   smellyShoes: {
     label: "Smelly Shoes (+50% Travel Distance)",
+    duration: 7,
     cost: {
       pelt: 5,
     },
@@ -479,5 +495,23 @@ const gearUpgrades = {
     onComplete() {
       refreshExpeditionUI();
     },
+  },
+};
+
+const resourceCrafts = {
+  trap: {
+    label: "Trap",
+    duration: 1,
+    cost: {
+      energy: 10,
+      wood: 2,
+      fiber: 5,
+    },
+    produces: {
+      resource: "trap",
+      amount: 1,
+    },
+    unlocked: false,
+    button: null,
   },
 };

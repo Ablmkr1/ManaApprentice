@@ -3,9 +3,9 @@ const resources = {
     label: "Energy",
     value: 0,
     maxValue: 10,
-    perClick: 1,
+    perClick: 10,
     perSecond: 0,
-    restPerSecond: 1,
+    restPerSecond: 10,
     display: null,
     perClickDisplay: null,
     perSecondDisplay: null,
@@ -267,22 +267,6 @@ const actions = {
     onComplete: function () {},
   },
 
-  makeTrap: {
-    label: "Make Trap",
-    duration: 1,
-    cost: {
-      energy: 10,
-      wood: 2,
-      fiber: 5,
-    },
-    unlocked: false,
-    running: false,
-    button: null,
-    progressBar: null,
-    metaProgressBar: null,
-    onStart: function () {},
-    onComplete: function () {},
-  },
   packTrap: {
     label: "Pack Trap",
     duration: 0.1,
@@ -363,6 +347,14 @@ const gameState = {
   autoAction: {
     actionName: null,
     pausedForRest: false,
+  },
+
+  crafting: {
+    active: false,
+    type: null,
+    id: null,
+    startTime: null,
+    duration: 0,
   },
 
   exploration: {
