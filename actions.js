@@ -1,62 +1,60 @@
 function hookActionCompletions() {
-  actions.catchBreath.onComplete = function () {
-    addResource("energy", resources.energy.perClick);
+  getAction("catchBreath").onComplete = function () {
+    addResource("energy", getResource("energy").perClick);
   };
 
-  actions.gatherWood.onComplete = function () {
+  getAction("gatherWood").onComplete = function () {
     addResource("wood", 1);
   };
 
-  actions.gatherFood.onComplete = function () {
+  getAction("gatherFood").onComplete = function () {
     addResource("food", 1);
   };
 
-  actions.gatherWater.onComplete = function () {
+  getAction("gatherWater").onComplete = function () {
     addResource("water", 1);
   };
 
-  actions.exploreLocation.onComplete = function () {
+  getAction("exploreLocation").onComplete = function () {
     exploreCurrentLocation();
   };
 
-  actions.gatherFiber.onComplete = function () {
+  getAction("gatherFiber").onComplete = function () {
     if (!addCarriedItem("fiber", 1)) {
       addStoryEntry("Your hands are full. You cannot carry more.");
     }
   };
 
-  actions.gatherStone.onComplete = function () {
+  getAction("gatherStone").onComplete = function () {
     if (!addCarriedItem("stone", 1)) {
       addStoryEntry("The stones are too heavy to carry more.");
     }
   };
 
-  actions.returnToCamp.onComplete = function () {
+  getAction("returnToCamp").onComplete = function () {
     beginReturnToCamp("manual");
   };
 
-  hookDestinationTravelCompletions();
-
-  actions.travel.onComplete = function () {
+  getAction("travel").onComplete = function () {
     toggleTraveling();
   };
 
-  actions.beginExpedition.onComplete = function () {
+  getAction("beginExpedition").onComplete = function () {
     prepareOpenExpedition();
   };
 
-  actions.makeTrap.onComplete = function () {
+  getAction("makeTrap").onComplete = function () {
     addResource("trap", 1);
   };
 
-  actions.packTrap.onComplete = function () {
+  getAction("packTrap").onComplete = function () {
     if (!addCarriedItem("trap", 1)) {
       addResource("trap", 1);
       addStoryEntry("Your pack is too full to carry the trap.");
     }
   };
 
-  actions.scoutTrapSite.onComplete = function () {
+  getAction("scoutTrapSite").onComplete = function () {
     const locationName = gameState.expedition.currentLocation;
     const site = getFirstHiddenTrapSite(locationName);
 
@@ -68,13 +66,13 @@ function hookActionCompletions() {
     site.discovered = true;
 
     addStoryEntry("You find a narrow trail suitable for a trap.");
-    updateTrapSitesUI(expeditionLocations[locationName]);
+    updateTrapSitesUI(getExpeditionLocation(locationName));
     updateLocationActions();
   };
 
-  actions.setTrap.onComplete = function () {
+  getAction("setTrap").onComplete = function () {
     const locationName = gameState.expedition.currentLocation;
-    const location = expeditionLocations[locationName];
+    const location = getExpeditionLocation(locationName);
     const site = getFirstOpenTrapSite(locationName);
 
     if (!location || !site) {
@@ -96,9 +94,9 @@ function hookActionCompletions() {
     updateLocationActions();
   };
 
-  actions.checkTrap.onComplete = function () {
+  getAction("checkTrap").onComplete = function () {
     const locationName = gameState.expedition.currentLocation;
-    const location = expeditionLocations[locationName];
+    const location = getExpeditionLocation(locationName);
     const trapSiteData = getTrapSiteData(locationName);
     const site = getFirstUncheckedInstalledTrapSite(locationName);
 
@@ -125,7 +123,7 @@ function hookActionCompletions() {
     updateLocationActions();
   };
 
-  actions.explore.onComplete = function () {
+  getAction("explore").onComplete = function () {
     const stage = getCurrentExploreStage();
 
     if (!stage) return;
@@ -152,8 +150,8 @@ function hookActionCompletions() {
       } else {
         gameState.exploration.count = 0;
 
-        if (actions.explore.metaProgressBar) {
-          actions.explore.metaProgressBar.style.width = "0%";
+        if (getAction("explore").metaProgressBar) {
+          getAction("explore").metaProgressBar.style.width = "0%";
         }
 
         lockAction("explore");
@@ -161,13 +159,13 @@ function hookActionCompletions() {
     }
   };
 
-  actions.packFood.onComplete = function () {
+  getAction("packFood").onComplete = function () {
     if (!addCarriedItem("food", 1)) {
       addResource("food", 1);
     }
   };
 
-  actions.packWater.onComplete = function () {
+  getAction("packWater").onComplete = function () {
     const expedition = gameState.expedition;
 
     if (expedition.water >= expedition.waterCapacity) {
@@ -180,28 +178,9 @@ function hookActionCompletions() {
   };
 }
 
-function hookDestinationTravelCompletions() {
-  for (let locationName in expeditionLocations) {
-    const location = expeditionLocations[locationName];
-
-    if (!location.travelAction) continue;
-
-    const action = actions[location.travelAction];
-
-    if (!action) {
-      console.warn("Unknown destination travel action:", location.travelAction);
-      continue;
-    }
-
-    action.onComplete = function () {
-      prepareDestinationTravel(locationName);
-    };
-  }
-}
-
 // Get Explore Function
 function getCurrentExploreStage() {
-  const stage = explorationStages[gameState.exploration.currentStage];
+  const stage = getExplorationStage(gameState.exploration.currentStage);
 
   if (!stage) {
     console.warn("Unknown exploration stage:", gameState.exploration.currentStage);
@@ -215,13 +194,13 @@ function resetExploreMetaProgress(nextStageName) {
   gameState.exploration.currentStage = nextStageName;
   gameState.exploration.count = 0;
 
-  if (actions.explore.metaProgressBar) {
-    actions.explore.metaProgressBar.style.width = "0%";
+  if (getAction("explore").metaProgressBar) {
+    getAction("explore").metaProgressBar.style.width = "0%";
   }
 }
 
 function unlockAction(actionName) {
-  const action = actions[actionName];
+  const action = getAction(actionName);
 
   if (!action) {
     console.warn("Unknown Action:", actionName);
@@ -230,10 +209,11 @@ function unlockAction(actionName) {
 
   action.unlocked = true;
   updateActionButton(actionName);
+  updateCraftingSectionVisibility();
 }
 
 function lockAction(actionName) {
-  const action = actions[actionName];
+  const action = getAction(actionName);
 
   if (!action) {
     console.warn("Unknown Action:", actionName);
@@ -242,11 +222,12 @@ function lockAction(actionName) {
 
   action.unlocked = false;
   updateActionButton(actionName);
+  updateCraftingSectionVisibility()
 }
 
 //Action Helpers
 function isAutoAction(actionName) {
-  return !!actions[actionName] && !!actions[actionName].auto;
+  return !!getAction(actionName) && !!getAction(actionName).auto;
 }
 
 function isAutoActionActive(actionName) {
@@ -254,11 +235,11 @@ function isAutoActionActive(actionName) {
 }
 
 function shouldStopAutoAction(actionName) {
-  const action = actions[actionName];
+  const action = getAction(actionName);
 
   if (!action || !action.auto) return true;
 
-  const targetResource = resources[action.auto.resource];
+  const targetResource = getResource(action.auto.resource);
 
   if (targetResource && targetResource.value >= targetResource.maxValue) {
     return true;
@@ -295,7 +276,7 @@ function resumeAutoActionAfterRest() {
 
 // Progress Function
 function runAction(actionName) {
-  const action = actions[actionName];
+  const action = getAction(actionName);
 
   if (!action || !action.unlocked || !canUseAction(actionName)) return;
 
@@ -317,7 +298,7 @@ function updateMetaProgress(action, progress) {
   let target = 1;
   let current = 0;
 
-  if (action === actions.explore) {
+  if (action === getAction("explore")) {
     const stage = getCurrentExploreStage();
 
     if (!stage) return;
@@ -326,9 +307,9 @@ function updateMetaProgress(action, progress) {
     current = gameState.exploration.count;
   }
 
-  if (action === actions.exploreLocation) {
+  if (action === getAction("exploreLocation")) {
     const locationName = gameState.expedition.currentLocation;
-    const location = expeditionLocations[locationName];
+    const location = getExpeditionLocation(locationName);
 
     if (!location) return;
 
@@ -357,7 +338,7 @@ function animateMetaBar(bar, target) {
 }
 
 function startActionExecution(actionName) {
-  const action = actions[actionName];
+  const action = getAction(actionName);
 
   if (!action || !action.unlocked || action.running) return;
 
@@ -403,6 +384,7 @@ function startActionExecution(actionName) {
         action.onComplete();
       }
 
+      checkRecipeDiscoveries();
       continueAutoAction(actionName);
     }
   }, 50);
@@ -416,7 +398,7 @@ function continueAutoAction(actionName) {
     return;
   }
 
-  if (!canAffordCost(actions[actionName].cost)) {
+  if (!canAffordCost(getAction(actionName).cost)) {
     pauseAutoActionForRest(actionName);
     return;
   }

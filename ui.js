@@ -43,6 +43,8 @@ function hookDomToUI() {
   ui.saveGameBtn = document.getElementById("saveGameBtn");
   ui.loadGameBtn = document.getElementById("loadGameBtn");
   ui.resetSaveBtn = document.getElementById("resetSaveBtn");
+  ui.destinationActions = document.getElementById("destinationActions");
+  ui.craftingSection = document.getElementById("craftingSection");
 }
 
 //Hook Ui Maps Functions
@@ -85,8 +87,10 @@ function hideElement(el) {
 
 //Hook to UI Function
 function hookStatsToUI() {
-  for (let resourceName in resources) {
-    const resource = resources[resourceName];
+  const resourceDefinitions = getResourceDefinitions();
+
+  for (let resourceName in resourceDefinitions) {
+    const resource = resourceDefinitions[resourceName];
 
     resource.display = document.getElementById(resourceName + "Amount");
     resource.perClickDisplay = document.getElementById(resourceName + "PerClickDisplay");
@@ -96,7 +100,7 @@ function hookStatsToUI() {
 
 //Update Resource UI
 function updateResource(resourceName) {
-  const resource = resources[resourceName];
+  const resource = getResource(resourceName);
 
   const text = resource.label + ": " + Math.floor(resource.value * 10) / 10 + " / " + resource.maxValue;
 
@@ -112,7 +116,9 @@ function updateResource(resourceName) {
 }
 
 function updateAllActionButtons() {
-  for (let actionName in actions) {
+  const actionDefinitions = getActionDefinitions();
+
+  for (let actionName in actionDefinitions) {
     updateActionButton(actionName);
   }
 }
@@ -193,7 +199,7 @@ function updateCampUpgradeDisplay(upgrade) {
 }
 
 function updateActionButton(actionName) {
-  const action = actions[actionName];
+  const action = getAction(actionName);
 
   if (!action || !action.button) return;
 
@@ -208,7 +214,7 @@ function updateActionButton(actionName) {
 }
 
 function canUseAction(actionName) {
-  const action = actions[actionName];
+  const action = getAction(actionName);
 
   if (!action) return false;
 
@@ -252,7 +258,7 @@ function resetProgressBar(action) {
 }
 
 function updateTravelButton(isTraveling) {
-  const travelButton = actions.travel.button;
+  const travelButton = getAction("travel").button;
 
   if (!travelButton) return;
 
@@ -269,7 +275,7 @@ function hookActionButtonsToUI(onActionClick) {
 
   buttons.forEach((btn) => {
     const actionName = btn.dataset.action;
-    const action = actions[actionName];
+    const action = getAction(actionName);
 
     if (!action) return;
 
@@ -300,10 +306,12 @@ function updateCharacterPanelLocks() {
 }
 
 function hasUnlockedOrPurchasedGear() {
-  for (let gearName in gearUpgrades) {
-    const gear = gearUpgrades[gearName];
+  const gearUpgradeDefinitions = getGearUpgradeDefinitions();
 
-    if (gear.unlocked || gear.purchased) {
+  for (let gearName in gearUpgradeDefinitions) {
+    const gear = getGearUpgrade(gearName);
+
+    if (gear.purchased) {
       return true;
     }
   }

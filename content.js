@@ -20,10 +20,6 @@ const expeditionLocations = {
       explored: "Fibrous plants grow in dense clumps here.",
     },
     availableActions: ["gatherFiber"],
-    unlocks: [
-      { type: "gearUpgrade", id: "crudeSatchel" },
-      { type: "campUpgrade", id: "lessCrudeShelter" },
-    ],
   },
 
   strangeTrails: {
@@ -57,11 +53,6 @@ const expeditionLocations = {
       ],
     },
     availableActions: ["scoutTrapSite", "setTrap", "checkTrap"],
-    unlocks: [
-      { type: "resource", id: "trap" },
-      { type: "action", id: "makeTrap" },
-      { type: "action", id: "scoutTrapSite" },
-    ],
   },
 
   creepyCave: {
@@ -79,10 +70,100 @@ const expeditionLocations = {
   },
 };
 
-// Exploration Engine
+//Recepies Definitions
+const recipes = {
+  cordage: {
+    label: "Cordage",
+    discovered: false,
+    requires: {
+      locationsExplored: ["mysteriousPlants"],
+    },
+    story: "The fibers are not just plants anymore. Twisted together, they become cordage.",
+    unlocks: [
+      { type: "gearUpgrade", id: "crudeSatchel" },
+      { type: "campUpgrade", id: "lessCrudeShelter" },
+    ],
+  },
+
+  simpleTraps: {
+    label: "Simple Traps",
+    discovered: false,
+    requires: {
+      locationsExplored: ["strangeTrails"],
+    },
+    story: "The animal trails suggest a crude design: bait, tension, and patience.",
+    unlocks: [
+      { type: "resource", id: "trap" },
+      { type: "action", id: "makeTrap" },
+      { type: "action", id: "scoutTrapSite" },
+    ],
+  },
+
+  hideworking: {
+    label: "Hideworking",
+    discovered: false,
+    requires: {
+      recipesDiscovered: ["simpleTraps"],
+      resources: {
+        pelt: 1,
+      },
+    },
+    story: "The pelt can be more than a trophy. Scraped, stretched, and sealed, it might carry water or protect supplies.",
+    unlocks: [
+      { type: "gearUpgrade", id: "waterskin" },
+      { type: "storageUpgrade", id: "peltStorage" },
+      { type: "storageUpgrade", id: "waterStorage" },
+    ],
+  },
+
+  crudeBackpack: {
+    label: "Crude Backpack",
+    discovered: false,
+    requires: {
+      recipesDiscovered: ["hideworking"],
+      resources: {
+        pelt: 6,
+        fiber: 10,
+        wood: 5,
+      },
+    },
+    story: "Carrying on your back would make things easier.  You could weave pelts with fibers and keeps the load from spilling.",
+    unlocks: [{ type: "gearUpgrade", id: "crudeBackpack" }],
+  },
+
+  smellyShoes: {
+    label: "Smelly Shoes",
+    discovered: false,
+    requires: {
+      recipesDiscovered: ["hideworking"],
+      resources: {
+        pelt: 5,
+      },
+    },
+    story: "Wrapped hide could soften the trail underfoot, even if the smell leaves something to be desired.",
+    unlocks: [{ type: "gearUpgrade", id: "smellyShoes" }],
+  },
+
+  uncomfortableCot: {
+    label: "Uncomfortable Cot",
+    discovered: false,
+    requires: {
+      recipesDiscovered: ["hideworking"],
+      resources: {
+        pelt: 5,
+        fiber: 10,
+        wood: 10,
+      },
+    },
+    story: "A raised frame, layered pelts, and enough cordage might make sleep less punishing.",
+    unlocks: [{ type: "campUpgrade", id: "uncomfortableCot" }],
+  },
+};
+
+// Exploration Definitions
 const explorationStages = {
   findClearing: {
-    required: 3,
+    required: 1,
     story: ["You stumble forward, mind in a daze...", "The forest clears ahead...", "You can rest here.", "You need water, food, shelter."],
     unlocks: [{ type: "panel", id: "camp" }],
     onComplete: function () {
@@ -95,7 +176,7 @@ const explorationStages = {
   },
 
   findStream: {
-    required: 2,
+    required: 1,
     story: ["You hear something that makes your thirst grow.", "Your stomach rumbles."],
     unlocks: [
       { type: "resource", id: "water" },
@@ -103,7 +184,7 @@ const explorationStages = {
     ],
     onComplete: function () {
       gameState.discoveredStream = true;
-      resources.energy.maxValue += 10;
+      getResource("energy").maxValue += 10;
       updateResource("energy");
       showStreamPopup();
     },
@@ -111,7 +192,7 @@ const explorationStages = {
   },
 
   findBerryBush: {
-    required: 2,
+    required: 1,
     story: ["Your hunger grows sharper.", "What's hanging from that bush across the stream?"],
     unlocks: [
       { type: "resource", id: "food" },
@@ -120,13 +201,13 @@ const explorationStages = {
     ],
     onComplete: function () {
       gameState.discoveredBerryBush = true;
-      resources.energy.maxValue += 10;
+      getResource("energy").maxValue += 10;
       updateResource("energy");
     },
     nextStage: "findWoodPile",
   },
   findWoodPile: {
-    required: 2,
+    required: 1,
     story: ["Huh, it's a stick?", "Even more sticks, if you collected them you might be able to use them."],
     unlocks: [
       { type: "resource", id: "wood" },
@@ -142,19 +223,19 @@ const explorationStages = {
   },
 };
 
-// Camp Upgrade Engine
+// Camp Upgrade Definitions
 const campUpgrades = {
   smallFire: {
     label: "Small Fire",
     cost: {
-      wood: 10,
+      wood: 5,
     },
     unlocked: false,
     purchased: false,
     button: null,
     display: null,
     onComplete() {
-      resources.energy.restPerSecond++;
+      getResource("energy").restPerSecond++;
     },
   },
   crudeLeanTo: {
@@ -167,7 +248,7 @@ const campUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      resources.energy.maxValue += 10;
+      getResource("energy").maxValue += 10;
       updateResource("energy");
     },
   },
@@ -182,10 +263,10 @@ const campUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      resources.energy.restPerSecond += 1;
+      getResource("energy").restPerSecond += 1;
 
-      if (campUpgrades.crudeLeanTo.display) {
-        campUpgrades.crudeLeanTo.display.style.display = "none";
+      if (getCampUpgrade("crudeLeanTo").display) {
+        getCampUpgrade("crudeLeanTo").display.style.display = "none";
       }
     },
   },
@@ -202,7 +283,7 @@ const campUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      resources.energy.maxValue += 20;
+      getResource("energy").maxValue += 20;
       updateResource("energy");
     },
   },
@@ -217,11 +298,11 @@ const campUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      resources.energy.maxValue += 20;
+      getResource("energy").maxValue += 20;
       updateResource("energy");
 
-      if (campUpgrades.smallFire.display) {
-        campUpgrades.smallFire.display.style.display = "none";
+      if (getCampUpgrade("smallFire").display) {
+        getCampUpgrade("smallFire").display.style.display = "none";
       }
     },
   },
@@ -237,13 +318,13 @@ const campUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      resources.energy.maxValue += 20;
+      getResource("energy").maxValue += 20;
       updateResource("energy");
     },
   },
 };
 
-// Camp Storage Upgrade Engine
+// Camp Storage Upgrade Defintions
 const storageUpgrades = {
   woodStorage: {
     label: "Wood Storage",
@@ -378,8 +459,8 @@ const gearUpgrades = {
     onComplete() {
       gameState.expedition.carryCapacity = 20;
 
-      if (gearUpgrades.crudeSatchel.display) {
-        gearUpgrades.crudeSatchel.display.style.display = "none";
+      if (getGearUpgrade("crudeSatchel").display) {
+        getGearUpgrade("crudeSatchel").display.style.display = "none";
       }
 
       refreshExpeditionUI();

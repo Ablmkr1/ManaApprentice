@@ -38,11 +38,6 @@
             <div id="crudeBackpack" style="display: none">Crude Backpack</div>
             <div id="smellyShoes" style="display: none">Smelly Shoes</div>
           </div>
-
-          <button id="crudeSatchelBtn" style="display: none">Crude Satchel (10 Fiber)</button>
-          <button id="waterskinBtn" style="display: none">Waterskin (3 Pelt)</button>
-          <button id="crudeBackpackBtn" style="display: none">Crude Backpack (6 Pelt, 10 Fiber, 5 Wood)</button>
-          <button id="smellyShoesBtn" style="display: none">Smelly Shoes (10 Pelt)</button>
         </div>
 
         <div id="inventorySection" class="inventory-section" style="display: none">
@@ -115,17 +110,37 @@
             <span>Gather Water</span>
           </button>
 
-          <button id="smallFireBtn" style="display: none">Small Fire (10 Wood)</button>
-          <button id="crudeLeanToBtn" style="display: none">Crude Lean-To (10 Wood)</button>
-          <button id="lessCrudeShelterBtn" style="display: none">Less Crude Shelter (10 Wood, 10 Fiber)</button>
-          <button id="uncomfortableCotBtn" style="display: none">Uncomfortable Cot (10 Wood, 10 Fiber, 5 Pelt)</button>
-          <button id="stoneFirePitBtn" style="display: none">Stone Fire Pit (10 Wood, 10 Stone)</button>
-          <button id="damStreamBtn" style="display: none">Dam Stream (20 Wood, 20 Stone)</button>
+          <div id="craftingSection" class="crafting-section" style="display: none">
+            <h3>Crafting</h3>
 
-          <button class="action-btn" data-action="makeTrap" style="display: none">
-            <div class="progressFill"></div>
-            <span>Make Trap (2 Wood, 5 Fiber)</span>
-          </button>
+            <div id="builtCampList" class="built-camp-list">
+              <div id="smallFire" style="display: none">Small Fire</div>
+              <div id="crudeLeanTo" style="display: none">Crude Lean-To</div>
+              <div id="lessCrudeShelter" style="display: none">Less Crude Shelter</div>
+              <div id="uncomfortableCot" style="display: none">Uncomfortable Cot</div>
+              <div id="stoneFirePit" style="display: none">Stone Fire Pit</div>
+              <div id="damStream" style="display: none">Dam Stream</div>
+            </div>
+
+            <div class="crafting-actions">
+              <button id="smallFireBtn" style="display: none">Small Fire (5 Wood)</button>
+              <button id="crudeLeanToBtn" style="display: none">Crude Lean-To (10 Wood)</button>
+              <button id="lessCrudeShelterBtn" style="display: none">Less Crude Shelter (10 Wood, 10 Fiber)</button>
+              <button id="uncomfortableCotBtn" style="display: none">Uncomfortable Cot (10 Wood, 10 Fiber, 5 Pelt)</button>
+              <button id="stoneFirePitBtn" style="display: none">Stone Fire Pit (10 Wood, 10 Stone)</button>
+              <button id="damStreamBtn" style="display: none">Dam Stream (20 Wood, 20 Stone)</button>
+
+              <button id="crudeSatchelBtn" style="display: none">Crude Satchel (10 Fiber)</button>
+              <button id="waterskinBtn" style="display: none">Waterskin (3 Pelt)</button>
+              <button id="crudeBackpackBtn" style="display: none">Crude Backpack (6 Pelt, 10 Fiber, 5 Wood)</button>
+              <button id="smellyShoesBtn" style="display: none">Smelly Shoes (5 Pelt)</button>
+
+              <button class="action-btn" data-action="makeTrap" style="display: none">
+                <div class="progressFill"></div>
+                <span>Make Trap (2 Wood, 5 Fiber)</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         <div id="locationContent" style="display: none">
@@ -185,20 +200,7 @@
           <span>Travel</span>
         </button>
 
-        <button class="action-btn" data-action="travelToMysteriousPlants" style="display: none">
-          <div class="progressFill"></div>
-          <span>Travel to Mysterious Plants</span>
-        </button>
-
-        <button class="action-btn" data-action="travelToStrangeTrails" style="display: none">
-          <div class="progressFill"></div>
-          <span>Travel to Strange Trails</span>
-        </button>
-
-        <button class="action-btn" data-action="travelToCreepyCave" style="display: none">
-          <div class="progressFill"></div>
-          <span>Travel to Creepy Cave</span>
-        </button>
+        <div id="destinationActions"></div>
 
         <button class="action-btn" data-action="returnToCamp" style="display: none">
           <div class="progressFill"></div>
@@ -286,6 +288,7 @@
     <script src="state.js"></script>
     <script src="expeditionData.js"></script>
     <script src="content.js"></script>
+    <script src="definitions.js"></script>
     <script src="ui.js"></script>
     <script src="resources.js"></script>
     <script src="camp.js"></script>

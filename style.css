@@ -324,3 +324,22 @@ button:disabled {
   position: relative;
   z-index: 2;
 }
+
+.crafting-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0px;
+}
+
+.crafting-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: stretch;
+}
+
+.crafting-actions button {
+  min-height: 36px;
+  white-space: nowrap;
+  flex: 0 1 auto;
+}

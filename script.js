@@ -27,7 +27,7 @@ window.onload = function () {
   ui.continueBtn.addEventListener("click", function () {
     ui.introPopup.style.display = "none";
 
-    addStoryEntry(explorationStages.findClearing.story[3]);
+    addStoryEntry(getExplorationStage("findClearing").story[3]);
   });
 
   ui.restBtn.addEventListener("click", function () {
@@ -78,15 +78,17 @@ function updateRestButton() {
 
 // Passive Interval Function - Drives the passive resource updates
 function gameTick() {
-  for (let resourceName in resources) {
-    addResource(resourceName, resources[resourceName].perSecond / 20);
+  const resourceDefinitions = getResourceDefinitions();
+
+  for (let resourceName in resourceDefinitions) {
+    addResource(resourceName, resourceDefinitions[resourceName].perSecond / 20);
   }
 
   if (gameState.resting) {
     const restDuration = 1000;
     const restProgressFill = ui.restBtn.querySelector(".restProgressFill");
 
-    if (resources.energy.value >= resources.energy.maxValue) {
+    if (getResource("energy").value >= getResource("energy").maxValue) {
       stopResting();
       resumeAutoActionAfterRest();
       return;
@@ -98,7 +100,7 @@ function gameTick() {
     restProgressFill.style.width = progress * 100 + "%";
 
     if (progress >= 1) {
-      addResource("energy", resources.energy.restPerSecond);
+      addResource("energy", getResource("energy").restPerSecond);
       gameState.restStartTime = Date.now();
       restProgressFill.style.width = "0%";
     }
@@ -107,7 +109,7 @@ function gameTick() {
 }
 
 function startResting() {
-  if (resources.energy.value >= resources.energy.maxValue) return;
+  if (getResource("energy").value >= getResource("energy").maxValue) return;
 
   gameState.resting = true;
   gameState.restStartTime = Date.now();

@@ -1,5 +1,7 @@
 const SAVE_KEY = "manaApprenticeSaveV1";
-const SAVE_VERSION = 1;
+const SAVE_VERSION = 3;
+const FIRST_SAVE_VERSION = 1;
+let saveSuppressed = false;
 
 function createSaveData() {
   return {
@@ -10,18 +12,21 @@ function createSaveData() {
 
     resources: createResourceSaveData(),
     actions: createActionSaveData(),
-    campUpgrades: createUpgradeSaveData(campUpgrades, ["unlocked", "purchased"]),
-    storageUpgrades: createUpgradeSaveData(storageUpgrades, ["unlocked", "tier"]),
-    gearUpgrades: createUpgradeSaveData(gearUpgrades, ["unlocked", "purchased"]),
+    campUpgrades: createUpgradeSaveData(getCampUpgradeDefinitions(), ["unlocked", "purchased"]),
+    storageUpgrades: createUpgradeSaveData(getStorageUpgradeDefinitions(), ["unlocked", "tier"]),
+    gearUpgrades: createUpgradeSaveData(getGearUpgradeDefinitions(), ["unlocked", "purchased"]),
     expeditionLocations: createExpeditionLocationSaveData(),
+    recipes: createRecipeSaveData(),
   };
 }
 
 function createResourceSaveData() {
   const savedResources = {};
 
-  for (let resourceName in resources) {
-    const resource = resources[resourceName];
+  const resourceDefinitions = getResourceDefinitions();
+
+  for (let resourceName in resourceDefinitions) {
+    const resource = getResource(resourceName);
 
     savedResources[resourceName] = {
       value: resource.value,
@@ -39,9 +44,11 @@ function createResourceSaveData() {
 function createActionSaveData() {
   const savedActions = {};
 
-  for (let actionName in actions) {
+  const actionDefinitions = getActionDefinitions();
+
+  for (let actionName in actionDefinitions) {
     savedActions[actionName] = {
-      unlocked: actions[actionName].unlocked,
+      unlocked: getAction(actionName).unlocked,
     };
   }
 
@@ -62,11 +69,27 @@ function createUpgradeSaveData(upgrades, fields) {
   return savedUpgrades;
 }
 
+function createRecipeSaveData() {
+  const savedRecipes = {};
+  const recipeDefinitions = getRecipeDefinitions();
+
+  for (let recipeName in recipeDefinitions) {
+    const recipe = getRecipe(recipeName);
+
+    savedRecipes[recipeName] = {
+      discovered: recipe.discovered,
+    };
+  }
+
+  return savedRecipes;
+}
+
 function createExpeditionLocationSaveData() {
   const savedLocations = {};
+  const locations = getExpeditionLocationDefinitions();
 
-  for (let locationName in expeditionLocations) {
-    const location = expeditionLocations[locationName];
+  for (let locationName in locations) {
+    const location = locations[locationName];
 
     savedLocations[locationName] = {
       discovered: location.discovered,
@@ -97,6 +120,8 @@ function saveGame() {
 }
 
 function trySaveGame() {
+  if (saveSuppressed) return null;
+
   try {
     return saveGame();
   } catch (error) {
@@ -113,16 +138,95 @@ function readSaveData() {
   try {
     const saveData = JSON.parse(rawSave);
 
-    if (!saveData || saveData.version !== SAVE_VERSION) {
-      console.warn("Save version mismatch or invalid save data.");
-      return null;
-    }
-
-    return saveData;
+    return migrateSaveData(saveData);
   } catch (error) {
     console.warn("Could not read save:", error);
     return null;
   }
+}
+
+function migrateSaveData(saveData) {
+  if (!saveData || typeof saveData !== "object") {
+    console.warn("Invalid save data.");
+    return null;
+  }
+
+  const version = Number.isInteger(saveData.version) ? saveData.version : FIRST_SAVE_VERSION;
+
+  if (version > SAVE_VERSION) {
+    console.warn("Save was created by a newer version of Mana Apprentice.");
+    return null;
+  }
+
+  if (version < FIRST_SAVE_VERSION) {
+    console.warn("Unsupported save version:", version);
+    return null;
+  }
+
+  saveData.version = version;
+
+  while (saveData.version < SAVE_VERSION) {
+    const migration = getSaveMigration(saveData.version);
+
+    if (!migration) {
+      console.warn("Missing save migration for version:", saveData.version);
+      return null;
+    }
+
+    const previousVersion = saveData.version;
+
+    migration(saveData);
+
+    if (!Number.isInteger(saveData.version) || saveData.version <= previousVersion || saveData.version > SAVE_VERSION) {
+      console.warn("Save migration produced invalid version:", saveData.version);
+      return null;
+    }
+  }
+
+  return normalizeSaveData(saveData);
+}
+
+function getSaveMigration(version) {
+  if (version === 1) return migrateV1ToV2;
+  if (version === 2) return migrateV2ToV3;
+
+  return null;
+}
+
+function migrateV1ToV2(saveData) {
+  saveData.version = 2;
+}
+
+function migrateV2ToV3(saveData) {
+  saveData.recipes = {};
+  saveData.version = 3;
+}
+
+function normalizeSaveData(saveData) {
+  saveData.savedAt = Number.isFinite(saveData.savedAt) ? saveData.savedAt : Date.now();
+
+  saveData.gameState = ensureObject(saveData.gameState);
+  saveData.gameState.exploration = ensureObject(saveData.gameState.exploration);
+  saveData.gameState.expedition = ensureObject(saveData.gameState.expedition);
+  saveData.gameState.expedition.carriedItems = ensureObject(saveData.gameState.expedition.carriedItems);
+  saveData.recipes = ensureObject(saveData.recipes);
+
+  saveData.resources = ensureObject(saveData.resources);
+  saveData.actions = ensureObject(saveData.actions);
+  saveData.campUpgrades = ensureObject(saveData.campUpgrades);
+  saveData.storageUpgrades = ensureObject(saveData.storageUpgrades);
+  saveData.gearUpgrades = ensureObject(saveData.gearUpgrades);
+  saveData.expeditionLocations = ensureObject(saveData.expeditionLocations);
+
+  return saveData;
+}
+
+function ensureObject(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return value;
 }
 
 function applySavedFields(target, savedData, fields) {
@@ -135,11 +239,26 @@ function applySavedFields(target, savedData, fields) {
   });
 }
 
+function applyRecipeSaveData(savedRecipes) {
+  if (!savedRecipes) return;
+
+  const recipeDefinitions = getRecipeDefinitions();
+
+  for (let recipeName in recipeDefinitions) {
+    const recipe = getRecipe(recipeName);
+    const savedRecipe = savedRecipes[recipeName];
+
+    applySavedFields(recipe, savedRecipe, ["discovered"]);
+  }
+}
+
 function applyResourceSaveData(savedResources) {
   if (!savedResources) return;
 
-  for (let resourceName in savedResources) {
-    const resource = resources[resourceName];
+  const resourceDefinitions = getResourceDefinitions();
+
+  for (let resourceName in resourceDefinitions) {
+    const resource = getResource(resourceName);
     const savedResource = savedResources[resourceName];
 
     if (!resource || !savedResource) continue;
@@ -203,8 +322,10 @@ function applyGameStateSaveData(savedGameState) {
 }
 
 function applyActionSaveData(savedActions) {
-  for (let actionName in actions) {
-    const action = actions[actionName];
+  const actionDefinitions = getActionDefinitions();
+
+  for (let actionName in actionDefinitions) {
+    const action = getAction(actionName);
     const savedAction = savedActions ? savedActions[actionName] : null;
 
     applySavedFields(action, savedAction, ["unlocked"]);
@@ -220,7 +341,7 @@ function applyActionSaveData(savedActions) {
 function applyUpgradeSaveData(upgrades, savedUpgrades, fields, updateUI) {
   if (!savedUpgrades) return;
 
-  for (let upgradeName in savedUpgrades) {
+  for (let upgradeName in upgrades) {
     const upgrade = upgrades[upgradeName];
     const savedUpgrade = savedUpgrades[upgradeName];
 
@@ -237,8 +358,10 @@ function applyUpgradeSaveData(upgrades, savedUpgrades, fields, updateUI) {
 function applyExpeditionLocationSaveData(savedLocations) {
   if (!savedLocations) return;
 
-  for (let locationName in savedLocations) {
-    const location = expeditionLocations[locationName];
+  const locations = getExpeditionLocationDefinitions();
+
+  for (let locationName in locations) {
+    const location = locations[locationName];
     const savedLocation = savedLocations[locationName];
 
     if (!location || !savedLocation) continue;
@@ -260,19 +383,27 @@ function refreshGameUIAfterLoad() {
   hideElement(ui.clearingPopup);
   hideElement(ui.streamPopup);
 
-  for (let resourceName in resources) {
+  const resourceDefinitions = getResourceDefinitions();
+
+  for (let resourceName in resourceDefinitions) {
     updateResource(resourceName);
   }
 
-  for (let upgradeName in campUpgrades) {
+  const campUpgradeDefinitions = getCampUpgradeDefinitions();
+
+  for (let upgradeName in campUpgradeDefinitions) {
     updateCampUpgradeUI(upgradeName);
   }
 
-  for (let upgradeName in storageUpgrades) {
+  const storageUpgradeDefinitions = getStorageUpgradeDefinitions();
+
+  for (let upgradeName in storageUpgradeDefinitions) {
     updateStorageUpgradeUI(upgradeName);
   }
 
-  for (let upgradeName in gearUpgrades) {
+  const gearUpgradeDefinitions = getGearUpgradeDefinitions();
+
+  for (let upgradeName in gearUpgradeDefinitions) {
     updateGearUpgradeUI(upgradeName);
   }
 
@@ -306,10 +437,12 @@ function loadGame() {
   applyGameStateSaveData(saveData.gameState);
   applyResourceSaveData(saveData.resources);
   applyActionSaveData(saveData.actions);
-  applyUpgradeSaveData(campUpgrades, saveData.campUpgrades, ["unlocked", "purchased"], updateCampUpgradeUI);
-  applyUpgradeSaveData(storageUpgrades, saveData.storageUpgrades, ["unlocked", "tier"], updateStorageUpgradeUI);
-  applyUpgradeSaveData(gearUpgrades, saveData.gearUpgrades, ["unlocked", "purchased"], updateGearUpgradeUI);
+  applyUpgradeSaveData(getCampUpgradeDefinitions(), saveData.campUpgrades, ["unlocked", "purchased"], updateCampUpgradeUI);
+  applyUpgradeSaveData(getStorageUpgradeDefinitions(), saveData.storageUpgrades, ["unlocked", "tier"], updateStorageUpgradeUI);
+  applyUpgradeSaveData(getGearUpgradeDefinitions(), saveData.gearUpgrades, ["unlocked", "purchased"], updateGearUpgradeUI);
   applyExpeditionLocationSaveData(saveData.expeditionLocations);
+  applyRecipeSaveData(saveData.recipes);
+  checkRecipeDiscoveries();
   refreshGameUIAfterLoad();
 
   return true;
@@ -325,6 +458,7 @@ function tryLoadGame() {
 }
 
 function resetSave() {
+  saveSuppressed = true;
   localStorage.removeItem(SAVE_KEY);
   window.location.reload();
 }

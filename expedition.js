@@ -19,7 +19,7 @@ function updateLocationActions() {
 
   if (!locationName) return;
 
-  const location = expeditionLocations[locationName];
+  const location = getExpeditionLocation(locationName);
 
   if (!location) return;
 
@@ -44,8 +44,10 @@ function lockLocationActions() {
 function getLocationActionNames() {
   const actionNames = ["exploreLocation"];
 
-  for (let locationName in expeditionLocations) {
-    const location = expeditionLocations[locationName];
+  const locations = getExpeditionLocationDefinitions();
+
+  for (let locationName in locations) {
+    const location = locations[locationName];
 
     if (!location.availableActions) continue;
 
@@ -67,8 +69,10 @@ function formatCarryAmount(value) {
 function getAffordableExpeditionModifiers() {
   const affordableModifiers = [];
 
-  for (let modifierName in expeditionModifiers) {
-    const modifier = expeditionModifiers[modifierName];
+  const modifierDefinitions = getExpeditionModifierDefinitions();
+
+  for (let modifierName in modifierDefinitions) {
+    const modifier = getExpeditionModifier(modifierName);
 
     if (canAffordModifierCost(modifier)) {
       affordableModifiers.push(modifierName);
@@ -278,18 +282,11 @@ function transferCarriedItemsToCamp() {
   refreshExpeditionUI();
 }
 
-//Unlock Helpers
+//Unlock Return Unlocker
+// Immediate rewards for bringing a resource back to camp.
+// Deeper equipment/camp discoveries should live in recipes.
 const expeditionReturnUnlocks = {
   fiber: [{ type: "storageUpgrade", id: "fiberStorage" }],
-
-  pelt: [
-    { type: "gearUpgrade", id: "waterskin" },
-    { type: "gearUpgrade", id: "crudeBackpack" },
-    { type: "gearUpgrade", id: "smellyShoes" },
-    { type: "campUpgrade", id: "uncomfortableCot" },
-    { type: "storageUpgrade", id: "waterStorage" },
-    { type: "storageUpgrade", id: "peltStorage" },
-  ],
 
   stone: [
     { type: "campUpgrade", id: "stoneFirePit" },
@@ -311,7 +308,9 @@ function resolveExpeditionStep() {
     modifiersUsed: [],
   };
 
-  if (gearUpgrades.smellyShoes && gearUpgrades.smellyShoes.purchased) {
+  const smellyShoes = getGearUpgrade("smellyShoes");
+
+  if (smellyShoes && smellyShoes.purchased) {
     step.distance += 0.5;
   }
 
@@ -322,7 +321,7 @@ function resolveExpeditionStep() {
 
   for (let i = 0; i < affordableModifiers.length; i++) {
     const modifierName = affordableModifiers[i];
-    const modifier = expeditionModifiers[modifierName];
+    const modifier = getExpeditionModifier(modifierName);
 
     modifier.apply(step);
     step.modifiersUsed.push(modifierName);
@@ -340,7 +339,7 @@ function resolveExpeditionStep() {
 
   for (let i = 0; i < step.modifiersUsed.length; i++) {
     const modifierName = step.modifiersUsed[i];
-    const modifier = expeditionModifiers[modifierName];
+    const modifier = getExpeditionModifier(modifierName);
 
     spendModifierCost(modifier);
   }
@@ -403,6 +402,7 @@ function endExpedition(reason) {
 
   applyReturnPenalty();
   transferCarriedItemsToCamp();
+  checkRecipeDiscoveries();
   clearCurrentLocationActions();
   setCampActionsAvailable(true);
 
@@ -431,7 +431,7 @@ function exploreCurrentLocation() {
 
   if (!locationName) return;
 
-  const location = expeditionLocations[locationName];
+  const location = getExpeditionLocation(locationName);
 
   if (!location || location.explored) return;
 
@@ -446,8 +446,8 @@ function exploreCurrentLocation() {
   if (location.explorationProgress >= location.explorationRequired) {
     location.explored = true;
 
-    if (actions.exploreLocation.metaProgressBar) {
-      actions.exploreLocation.metaProgressBar.style.width = "0%";
+    if (getAction("exploreLocation").metaProgressBar) {
+      getAction("exploreLocation").metaProgressBar.style.width = "0%";
     }
 
     updateDestinationActions();
@@ -458,6 +458,7 @@ function exploreCurrentLocation() {
       applyUnlocks(location.unlocks);
     }
 
+    checkRecipeDiscoveries();
     updateLocationActions();
   }
 }
@@ -503,13 +504,13 @@ function processTravelTick() {
   const elapsed = Date.now() - expedition.travelStartTime;
   const progress = Math.min(elapsed / travelDuration, 1);
 
-  if (actions.travel.progressBar) {
-    actions.travel.progressBar.style.width = progress * 100 + "%";
+  if (getAction("travel").progressBar) {
+    getAction("travel").progressBar.style.width = progress * 100 + "%";
   }
 
   if (progress < 1) return;
 
-  actions.travel.progressBar.style.width = "0%";
+  getAction("travel").progressBar.style.width = "0%";
   expedition.travelStartTime = Date.now();
 
   const result = resolveExpeditionStep();
@@ -564,7 +565,7 @@ function checkDestinationArrival() {
 
   if (!expedition.destination) return false;
 
-  const location = expeditionLocations[expedition.destination];
+  const location = getExpeditionLocation(expedition.destination);
 
   if (!location) return false;
 
@@ -581,48 +582,11 @@ function checkDestinationArrival() {
 }
 
 function updateDestinationActions() {
-  for (let locationName in expeditionLocations) {
-    const location = expeditionLocations[locationName];
-
-    if (!location.travelAction) continue;
-
-    updateDestinationAction(locationName, location.travelAction);
-  }
-}
-
-function lockDestinationActions() {
-  for (let locationName in expeditionLocations) {
-    const location = expeditionLocations[locationName];
-
-    if (location.travelAction) {
-      lockAction(location.travelAction);
-    }
-  }
-}
-
-function updateDestinationAction(locationName, actionName) {
-  const location = expeditionLocations[locationName];
-  const action = actions[actionName];
-
-  if (!location || !action) return;
-
-  if (action.button) {
-    const label = action.button.querySelector("span");
-
-    if (label) {
-      label.textContent = "Travel to " + getLocationLabel(locationName);
-    }
-  }
-
-  if (!gameState.expedition.active && location.discovered) {
-    unlockAction(actionName);
-  } else {
-    lockAction(actionName);
-  }
+  renderDestinationActions();
 }
 
 function getLocationLabel(locationName) {
-  const location = expeditionLocations[locationName];
+  const location = getExpeditionLocation(locationName);
 
   if (!location) return locationName;
 
@@ -661,7 +625,7 @@ function updatePlacePanel() {
   }
 
   if (expedition.currentLocation) {
-    const location = expeditionLocations[expedition.currentLocation];
+    const location = getExpeditionLocation(expedition.currentLocation);
 
     updateTrapSitesUI(location);
 
@@ -727,7 +691,9 @@ function getFirstOpenTrapSite(locationName) {
 }
 
 function resetTrapSiteChecks() {
-  for (let locationName in expeditionLocations) {
+  const locations = getExpeditionLocationDefinitions();
+
+  for (let locationName in locations) {
     const sites = getTrapSites(locationName);
 
     if (!sites) continue;
@@ -753,7 +719,7 @@ function getFirstUncheckedInstalledTrapSite(locationName) {
 }
 
 function getTrapSiteData(locationName) {
-  const location = expeditionLocations[locationName];
+  const location = getExpeditionLocation(locationName);
 
   if (!location || !location.trapSites) return null;
 
@@ -779,7 +745,7 @@ function getTrapSiteLabel(site, index) {
 }
 
 function getTrapSites(locationName) {
-  const location = expeditionLocations[locationName];
+  const location = getExpeditionLocation(locationName);
 
   if (!location || !location.trapSites) return null;
 
@@ -835,10 +801,12 @@ function getLocationPanelText(location) {
 function checkExpeditionDiscovery() {
   const expedition = gameState.expedition;
 
-  for (let locationName in expeditionLocations) {
-    const location = expeditionLocations[locationName];
+  const locations = getExpeditionLocationDefinitions();
 
-    if (location.discovered) continue;
+  for (let locationName in locations) {
+    const location = locations[locationName];
+
+    if (!isLocationDiscoverable(location)) continue;
 
     if (expedition.distance >= location.distance) {
       location.discovered = true;
@@ -853,6 +821,78 @@ function checkExpeditionDiscovery() {
   }
 
   return false;
+}
+
+function hasRequiredResources(requiredResources) {
+  if (!requiredResources) return true;
+
+  for (let resourceName in requiredResources) {
+    const resource = getResource(resourceName);
+
+    if (!resource || resource.value < requiredResources[resourceName]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function isLocationDiscoverable(location) {
+  if (!location) return false;
+
+  if (location.discovered) return false;
+
+  if (!location.requires) return true;
+
+  if (location.requires.locationsExplored) {
+    for (let i = 0; i < location.requires.locationsExplored.length; i++) {
+      const requiredLocation = getExpeditionLocation(location.requires.locationsExplored[i]);
+
+      if (!requiredLocation || !requiredLocation.explored) {
+        return false;
+      }
+    }
+  }
+
+  if (location.requires.gearPurchased) {
+    for (let i = 0; i < location.requires.gearPurchased.length; i++) {
+      if (!hasPurchasedGear(location.requires.gearPurchased[i])) {
+        return false;
+      }
+    }
+  }
+
+  if (!hasRequiredResources(location.requires.resources)) {
+    return false;
+  }
+
+  if (!hasRequiredTools(location.requires.tools)) {
+    return false;
+  }
+
+  return true;
+}
+
+function hasPurchasedGear(gearName) {
+  const gear = getGearUpgrade(gearName);
+
+  return !!gear && gear.purchased;
+}
+
+function hasRequiredTools(requiredTools) {
+  if (!requiredTools) return true;
+
+  if (!gameState.tools) return false;
+
+  for (let i = 0; i < requiredTools.length; i++) {
+    const toolName = requiredTools[i];
+
+    if (!gameState.tools[toolName] || !gameState.tools[toolName].owned) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function canAffordCarriedCost(cost) {
@@ -897,7 +937,9 @@ function setPackingActionsAvailable(available) {
   unlockAction("packFood");
   unlockAction("packWater");
 
-  if (resources.trap.display && resources.trap.display.style.display !== "none") {
+  const trap = getResource("trap");
+
+  if (trap.display && trap.display.style.display !== "none") {
     unlockAction("packTrap");
   }
 }
@@ -935,16 +977,41 @@ function prepareOpenExpedition() {
 }
 
 function prepareDestinationTravel(locationName) {
-  const location = expeditionLocations[locationName];
+  const location = getExpeditionLocation(locationName);
 
   if (!location || !location.discovered) return;
 
   gameState.expedition.destination = locationName;
 
   enterExpeditionPreparation();
-  lockDestinationActions();
+  renderDestinationActions();
 
   addStoryEntry("You prepare to travel to " + getLocationLabel(locationName) + ".");
   refreshExpeditionUI();
   updatePlacePanel();
+}
+
+function renderDestinationActions() {
+  if (!ui.destinationActions) return;
+
+  ui.destinationActions.innerHTML = "";
+
+  const locations = getExpeditionLocationDefinitions();
+
+  for (let locationName in locations) {
+    const location = getExpeditionLocation(locationName);
+
+    if (!location || !location.discovered || gameState.expedition.active) continue;
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.classList.add("action-btn");
+    button.textContent = "Travel to " + getLocationLabel(locationName);
+
+    button.addEventListener("click", function () {
+      prepareDestinationTravel(locationName);
+    });
+
+    ui.destinationActions.appendChild(button);
+  }
 }

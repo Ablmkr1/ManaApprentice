@@ -1,6 +1,6 @@
 // Add Resource Function
 function addResource(resourceName, amount) {
-  const resource = resources[resourceName];
+  const resource = getResource(resourceName);
 
   resource.value += amount;
   if (resource.value >= resource.maxValue) {
@@ -13,7 +13,7 @@ function addResource(resourceName, amount) {
 // Can Afford Cost Function
 function canAffordCost(cost) {
   for (let resourceName in cost) {
-    const resource = resources[resourceName];
+    const resource = getResource(resourceName);
 
     if (!resource) {
       console.warn("unknown resource", resourceName);
@@ -32,7 +32,7 @@ function spendCost(cost) {
   if (!canAffordCost(cost)) return false;
 
   for (let resourceName in cost) {
-    resources[resourceName].value -= cost[resourceName];
+    getResource(resourceName).value -= cost[resourceName];
     updateResource(resourceName);
   }
 
