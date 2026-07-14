@@ -4,15 +4,15 @@ function hookActionCompletions() {
   };
 
   getAction("gatherWood").onComplete = function () {
-    addResource("wood", 1);
+    addResource("wood", getResource("wood").perClick);
   };
 
   getAction("gatherFood").onComplete = function () {
-    addResource("food", 1);
+    addResource("food", getResource("food").perClick);
   };
 
   getAction("gatherWater").onComplete = function () {
-    addResource("water", 1);
+    addResource("water", getResource("water").perClick);
   };
 
   getAction("exploreLocation").onComplete = function () {
@@ -20,7 +20,9 @@ function hookActionCompletions() {
   };
 
   getAction("gatherFiber").onComplete = function () {
-    if (!addCarriedItem("fiber", 1)) {
+    const fiberCarried = addCarriedItemUpToCapacity("fiber", getResource("fiber").perClick);
+
+    if (fiberCarried <= 0) {
       addStoryEntry("Your hands are full. You cannot carry more.");
     }
   };
@@ -218,7 +220,7 @@ function lockAction(actionName) {
 
   action.unlocked = false;
   updateActionButton(actionName);
-  updateCraftingSectionVisibility()
+  updateCraftingSectionVisibility();
 }
 
 //Action Helpers

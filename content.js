@@ -160,6 +160,21 @@ const recipes = {
     story: "A raised frame, layered pelts, and enough cordage might make sleep less punishing.",
     unlocks: [{ type: "campUpgrade", id: "uncomfortableCot" }],
   },
+
+  stoneTools: {
+    label: "Stone Tools",
+    discovered: false,
+    requires: {
+      resources: {
+        stone: 1,
+      },
+    },
+    story: "A sharp edge changes what your hands can do. Stone, fiber, and patience become tools.",
+    unlocks: [
+      { type: "gearUpgrade", id: "stoneKnife" },
+      { type: "gearUpgrade", id: "stoneAxe" },
+    ],
+  },
 };
 
 // Exploration Definitions
@@ -515,6 +530,42 @@ const gearUpgrades = {
     button: null,
     display: null,
     onComplete() {
+      refreshExpeditionUI();
+    },
+  },
+
+  stoneKnife: {
+    label: "Stone Knife",
+    duration: 10,
+    cost: {
+      pelt: 1,
+      fiber: 2,
+      stone: 1,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      getResource("fiber").perClick += 1;
+      refreshExpeditionUI();
+    },
+  },
+
+  stoneAxe: {
+    label: "Stone Axe",
+    duration: 10,
+    cost: {
+      pelt: 2,
+      fiber: 2,
+      stone: 2,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      getResource("wood").perClick += 1;
       refreshExpeditionUI();
     },
   },
