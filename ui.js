@@ -330,14 +330,19 @@ function prepareCraftButton(button) {
     button.prepend(progressFill);
   }
 
-  if (!button.querySelector("span")) {
-    const labelText = button.textContent.trim();
+  let name = button.querySelector(".craft-name");
 
-    button.textContent = "";
-    button.appendChild(progressFill);
+  if (!name) {
+    name = document.createElement("span");
+    name.classList.add("craft-name");
+    button.appendChild(name);
+  }
 
-    const label = document.createElement("span");
-    label.textContent = labelText;
-    button.appendChild(label);
+  let cost = button.querySelector(".craft-cost");
+
+  if (!cost) {
+    cost = document.createElement("span");
+    cost.classList.add("craft-cost");
+    button.appendChild(cost);
   }
 }

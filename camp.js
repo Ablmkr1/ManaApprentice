@@ -298,7 +298,9 @@ function updateStorageUpgradeUI(upgradeName) {
 
   if (upgrade.display) {
     upgrade.display.style.display = upgrade.tier > 0 ? "block" : "none";
-    upgrade.display.textContent = upgrade.label + " " + upgrade.tier + "/" + upgrade.maxTier;
+    const currentTierName = getStorageCurrentTierName(upgrade);
+
+    upgrade.display.textContent = currentTierName || upgrade.tier + "/" + upgrade.maxTier;
   }
 
   if (upgrade.button) {
@@ -308,7 +310,7 @@ function updateStorageUpgradeUI(upgradeName) {
     }
 
     upgrade.button.style.display = "inline-block";
-    setCraftButtonLabel(upgrade.button, getStorageUpgradeButtonText(upgrade));
+    setCraftButtonLabel(upgrade.button, getStorageUpgradeButtonName(upgrade), getStorageUpgradeButtonCost(upgrade));
   }
 }
 
@@ -329,13 +331,37 @@ function updateStorageSectionVisibility() {
   hideElement(ui.storageSection);
 }
 
-function getStorageUpgradeButtonText(upgrade) {
+function getStorageUpgradeButtonName(upgrade) {
   const nextTier = upgrade.tier + 1;
-  return upgrade.label + " " + nextTier + "/" + upgrade.maxTier + " (" + formatCost(upgrade.costs[upgrade.tier]) + ")";
+  const nextTierName = getStorageNextTierName(upgrade);
+
+  return nextTierName || upgrade.label + " " + nextTier + "/" + upgrade.maxTier;
 }
 
-function getBasicCraftButtonText(craft) {
-  return craft.label + " (" + formatCost(craft.cost) + ")";
+function getStorageUpgradeButtonCost(upgrade) {
+  return formatCost(upgrade.costs[upgrade.tier]);
+}
+
+function getBasicCraftButtonName(craft) {
+  return craft.label;
+}
+
+function getBasicCraftButtonCost(craft) {
+  return formatCost(craft.cost);
+}
+
+function getStorageTierName(upgrade, tier) {
+  if (!upgrade || !upgrade.tierNames) return null;
+
+  return upgrade.tierNames[tier - 1] || null;
+}
+
+function getStorageCurrentTierName(upgrade) {
+  return getStorageTierName(upgrade, upgrade.tier);
+}
+
+function getStorageNextTierName(upgrade) {
+  return getStorageTierName(upgrade, upgrade.tier + 1);
 }
 
 function updateCraftButtonLabel(craftType, craftId) {
@@ -344,22 +370,28 @@ function updateCraftButtonLabel(craftType, craftId) {
   if (!craft || !craft.button) return;
 
   if (craftType === "storageUpgrade") {
-    setCraftButtonLabel(craft.button, getStorageUpgradeButtonText(craft));
+    setCraftButtonLabel(craft.button, getStorageUpgradeButtonName(craft), getStorageUpgradeButtonCost(craft));
     return;
   }
 
-  setCraftButtonLabel(craft.button, getBasicCraftButtonText(craft));
+  setCraftButtonLabel(craft.button, getBasicCraftButtonName(craft), getBasicCraftButtonCost(craft));
 }
 
-function setCraftButtonLabel(button, text) {
+function setCraftButtonLabel(button, name, costText) {
   if (!button) return;
 
   prepareCraftButton(button);
 
-  const label = button.querySelector("span");
+  const nameEl = button.querySelector(".craft-name");
+  const costEl = button.querySelector(".craft-cost");
 
-  if (label) {
-    label.textContent = text;
+  if (nameEl) {
+    nameEl.textContent = name;
+  }
+
+  if (costEl) {
+    costEl.textContent = costText || "";
+    costEl.style.display = costText ? "block" : "none";
   }
 }
 
