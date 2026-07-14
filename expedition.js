@@ -290,7 +290,7 @@ const expeditionReturnUnlocks = {
 
   stone: [
     { type: "campUpgrade", id: "stoneFirePit" },
-    { type: "campUpgrade", id: "damStream" },
+    { type: "campUpgrade", id: "packedStoneFloor" },
     { type: "storageUpgrade", id: "stoneStorage" },
   ],
 };

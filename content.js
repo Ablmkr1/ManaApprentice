@@ -82,6 +82,8 @@ const recipes = {
     unlocks: [
       { type: "gearUpgrade", id: "crudeSatchel" },
       { type: "campUpgrade", id: "lessCrudeShelter" },
+      { type: "storageUpgrade", id: "woodStorage" },
+      { type: "storageUpgrade", id: "foodStorage" },
     ],
   },
 
@@ -197,7 +199,6 @@ const explorationStages = {
     unlocks: [
       { type: "resource", id: "food" },
       { type: "action", id: "gatherFood" },
-      { type: "storageUpgrade", id: "foodStorage" },
     ],
     onComplete: function () {
       gameState.discoveredBerryBush = true;
@@ -214,7 +215,6 @@ const explorationStages = {
       { type: "action", id: "gatherWood" },
       { type: "campUpgrade", id: "smallFire" },
       { type: "campUpgrade", id: "crudeLeanTo" },
-      { type: "storageUpgrade", id: "woodStorage" },
     ],
     onComplete: function () {
       gameState.discoveredDeadfall = true;
@@ -317,13 +317,13 @@ const campUpgrades = {
     },
   },
 
-  damStream: {
-    label: "Dam Stream",
+  packedStoneFloor: {
+    label: "Packed Stone Floor",
     duration: 15,
     cost: {
-      wood: 20,
+      wood: 10,
       stone: 20,
-      energy: 20,
+      energy: 60,
     },
     unlocked: false,
     purchased: false,
