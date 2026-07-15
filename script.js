@@ -1,3 +1,5 @@
+let lastTickTime = Date.now();
+
 window.onload = function () {
   hookDomToUI();
   hookUIMaps();
@@ -32,7 +34,7 @@ window.onload = function () {
   });
 
   ui.restBtn.addEventListener("click", function () {
-    if (gameState.resting) {
+    if (isActivityActive() && gameState.activity.kind === "rest") {
       stopResting();
     } else {
       startResting();
@@ -70,7 +72,9 @@ function hookSaveControls() {
 
 // Rest Button Text Toggle
 function updateRestButton() {
-  if (gameState.resting) {
+  const isResting = isActivityActive() && gameState.activity.kind === "rest";
+
+  if (isResting) {
     ui.restBtn.classList.add("running");
   } else {
     ui.restBtn.classList.remove("running");
@@ -79,54 +83,47 @@ function updateRestButton() {
 
 // Passive Interval Function - Drives the passive resource updates
 function gameTick() {
+  const now = Date.now();
+  const deltaSeconds = (now - lastTickTime) / 1000;
+  lastTickTime = now;
+
   const resourceDefinitions = getResourceDefinitions();
 
   for (let resourceName in resourceDefinitions) {
-    addResource(resourceName, resourceDefinitions[resourceName].perSecond / 20);
+    addResource(resourceName, resourceDefinitions[resourceName].perSecond * deltaSeconds);
   }
 
-  if (gameState.resting) {
-    const restDuration = 1000;
-    const restProgressFill = ui.restBtn.querySelector(".restProgressFill");
-
-    if (getResource("energy").value >= getResource("energy").maxValue) {
-      stopResting();
-      resumeAutoActionAfterRest();
-      return;
-    }
-
-    const elapsed = Date.now() - gameState.restStartTime;
-    const progress = Math.min(elapsed / restDuration, 1);
-
-    restProgressFill.style.width = progress * 100 + "%";
-
-    if (progress >= 1) {
-      addResource("energy", getResource("energy").restPerSecond);
-      gameState.restStartTime = Date.now();
-      restProgressFill.style.width = "0%";
-    }
-  }
-  processCraftingTick();
-  processTravelTick();
+  processActivityTick();
 }
 
 function startResting() {
   if (getResource("energy").value >= getResource("energy").maxValue) return;
+  if (isActivityActive()) return;
 
-  gameState.resting = true;
-  gameState.restStartTime = Date.now();
+  startActivity({
+    kind: "rest",
+    id: "rest",
+    duration: 1,
+    interval: true,
+  });
+
   updateRestButton();
+  updateAllActionButtons();
+  updateCraftingButtons();
 }
 
 function stopResting() {
-  gameState.resting = false;
-  gameState.restStartTime = null;
+  if (isActivityActive() && gameState.activity.kind === "rest") {
+    resetActivity();
+  }
 
-  const restProgressFill = ui.restBtn.querySelector(".restProgressFill");
+  const restProgressFill = ui.restBtn.querySelector(".progressFill");
 
   if (restProgressFill) {
     restProgressFill.style.width = "0%";
   }
 
   updateRestButton();
+  updateAllActionButtons();
+  updateCraftingButtons();
 }

@@ -210,7 +210,12 @@ function updateActionButton(actionName) {
     return;
   }
 
-  action.button.disabled = !canUseAction(actionName);
+  const isCurrentActivity =
+    isActivityActive() &&
+    ((gameState.activity.kind === "action" && gameState.activity.id === actionName) ||
+      (gameState.activity.kind === "travel" && actionName === "travel"));
+
+  action.button.disabled = !action.unlocked || (!isCurrentActivity && isActivityActive()) || !canUseAction(actionName);
 }
 
 function canUseAction(actionName) {

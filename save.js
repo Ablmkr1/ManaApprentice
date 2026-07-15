@@ -1,5 +1,5 @@
 const SAVE_KEY = "manaApprenticeSaveV1";
-const SAVE_VERSION = 4;
+const SAVE_VERSION = 5;
 const FIRST_SAVE_VERSION = 1;
 let saveSuppressed = false;
 
@@ -191,6 +191,7 @@ function getSaveMigration(version) {
   if (version === 1) return migrateV1ToV2;
   if (version === 2) return migrateV2ToV3;
   if (version === 3) return migrateV3ToV4;
+  if (version === 4) return migrateV4ToV5;
 
   return null;
 }
@@ -214,6 +215,21 @@ function migrateV3ToV4(saveData) {
   }
 
   saveData.version = 4;
+}
+
+function migrateV4ToV5(saveData) {
+  if (saveData.gameState) {
+    delete saveData.gameState.resting;
+    delete saveData.gameState.restStartTime;
+    delete saveData.gameState.crafting;
+
+    if (saveData.gameState.expedition) {
+      delete saveData.gameState.expedition.traveling;
+      delete saveData.gameState.expedition.travelStartTime;
+    }
+  }
+
+  saveData.version = 5;
 }
 
 function normalizeSaveData(saveData) {
@@ -328,12 +344,9 @@ function applyGameStateSaveData(savedGameState) {
     }
   }
 
-  gameState.resting = false;
-  gameState.restStartTime = null;
+  resetActivity();
   gameState.autoAction.actionName = null;
   gameState.autoAction.pausedForRest = false;
-  gameState.expedition.traveling = false;
-  gameState.expedition.travelStartTime = null;
 }
 
 function applyActionSaveData(savedActions) {
@@ -440,7 +453,7 @@ function refreshGameUIAfterLoad() {
   updateAllActionButtons();
   updateRestButton();
   refreshExpeditionUI();
-  updateTravelButton(gameState.expedition.traveling);
+  updateTravelButton(isTravelActivityActive());
   updatePlacePanel();
 }
 

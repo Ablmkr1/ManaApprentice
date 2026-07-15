@@ -278,6 +278,11 @@ function runAction(actionName) {
 
   if (!action || !action.unlocked || !canUseAction(actionName)) return;
 
+  if (actionName === "travel" && isTravelActivityActive()) {
+    toggleTraveling();
+    return;
+  }
+
   if (isAutoAction(actionName)) {
     if (isAutoActionActive(actionName) && !gameState.autoAction.pausedForRest) {
       stopAutoAction();
@@ -338,7 +343,7 @@ function animateMetaBar(bar, target) {
 function startActionExecution(actionName) {
   const action = getAction(actionName);
 
-  if (!action || !action.unlocked || action.running) return;
+  if (!action || !action.unlocked || action.running || isActivityActive()) return;
 
   if (isAutoAction(actionName) && shouldStopAutoAction(actionName)) {
     stopAutoAction();
@@ -355,37 +360,328 @@ function startActionExecution(actionName) {
 
   action.running = true;
 
-  const duration = action.duration * 1000;
-  const startTime = Date.now();
-
   if (action.onStart) {
     action.onStart();
   }
 
-  const interval = setInterval(() => {
-    let elapsed = Date.now() - startTime;
-    let progress = Math.min(elapsed / duration, 1);
+  startActivity({
+    kind: "action",
+    id: actionName,
+  });
 
-    setProgressBar(action, progress);
+  updateAllActionButtons();
+  updateCraftingButtons();
+}
 
-    if (action.metaProgressBar) {
-      updateMetaProgress(action, progress);
+function resetActivity() {
+  gameState.activity.active = false;
+  gameState.activity.kind = null;
+  gameState.activity.type = null;
+  gameState.activity.id = null;
+  gameState.activity.label = null;
+  gameState.activity.startTime = null;
+  gameState.activity.duration = 0;
+  gameState.activity.interval = false;
+  gameState.activity.context = null;
+}
+
+function isActivityActive() {
+  return gameState.activity && gameState.activity.active;
+}
+
+function getActivityButton(activity) {
+  if (!activity) return null;
+
+  if (activity.kind === "action") {
+    const action = getAction(activity.id);
+    return action ? action.button : null;
+  }
+
+  if (activity.kind === "craft") {
+    const craft = getCraftDefinition(activity.type, activity.id);
+    return craft ? craft.button : null;
+  }
+
+  if (activity.kind === "travel") {
+    const action = getAction("travel");
+    return action ? action.button : null;
+  }
+
+  return null;
+}
+
+function getActivityDuration(activityRequest) {
+  if (activityRequest.duration !== undefined) return activityRequest.duration;
+
+  if (activityRequest.kind === "action") {
+    const action = getAction(activityRequest.id);
+    return action ? action.duration : 0;
+  }
+
+  if (activityRequest.kind === "craft") {
+    return getCraftDuration(activityRequest.type, activityRequest.id);
+  }
+
+  return 0;
+}
+
+function processActivityTick() {
+  if (!isActivityActive()) return;
+
+  const activity = gameState.activity;
+  const durationMs = activity.duration * 1000;
+
+  if (durationMs <= 0) {
+    completeActivity();
+    return;
+  }
+
+  const elapsed = Date.now() - activity.startTime;
+  const progress = Math.min(elapsed / durationMs, 1);
+  const button = getActivityButton(activity);
+
+  if (activity.kind === "action") {
+    const action = getAction(activity.id);
+
+    if (action) {
+      setProgressBar(action, progress);
+
+      if (action.metaProgressBar) {
+        updateMetaProgress(action, progress);
+      }
+    }
+  }
+
+  if (activity.kind === "craft" && button) {
+    setCraftButtonProgress(button, progress);
+  }
+
+  if (activity.kind === "travel") {
+    const travelAction = getAction("travel");
+
+    if (travelAction) {
+      setProgressBar(travelAction, progress);
+    }
+  }
+
+  if (activity.kind === "rest") {
+    const restProgressFill = ui.restBtn.querySelector(".progressFill");
+
+    if (restProgressFill) {
+      restProgressFill.style.width = progress * 100 + "%";
+    }
+  }
+
+  if (progress < 1) return;
+
+  completeActivity();
+}
+
+function completeActivity() {
+  const activity = gameState.activity;
+
+  if (activity.kind === "rest") {
+    const restProgressFill = ui.restBtn.querySelector(".progressFill");
+
+    if (restProgressFill) {
+      restProgressFill.style.width = "0%";
     }
 
-    if (progress >= 1) {
-      clearInterval(interval);
+    addResource("energy", getResource("energy").restPerSecond);
 
+    if (getResource("energy").value >= getResource("energy").maxValue) {
+      resetActivity();
+      updateRestButton();
+      updateAllActionButtons();
+      updateCraftingButtons();
+      resumeAutoActionAfterRest();
+      return;
+    }
+
+    gameState.activity.startTime = Date.now();
+    return;
+  }
+
+  if (activity.kind === "travel") {
+    const travelAction = getAction("travel");
+    const expedition = gameState.expedition;
+
+    if (travelAction) {
+      resetProgressBar(travelAction);
+    }
+
+    const result = resolveExpeditionStep();
+
+    updateResource("energy");
+
+    if (!result.success && result.reason === "notEnoughEnergy") {
+      if (!expedition.returning) {
+        resetActivity();
+        updateTravelButton(false);
+        beginReturnToCamp("exhausted");
+        updateAllActionButtons();
+        updateCraftingButtons();
+        return;
+      }
+
+      applyExpeditionStep(result.step);
+      refreshExpeditionUI();
+
+      if (expedition.distance <= 0) {
+        resetActivity();
+        updateTravelButton(false);
+        endExpedition("returned");
+        return;
+      }
+
+      gameState.activity.startTime = Date.now();
+      updateTravelButton(true);
+      updateAllActionButtons();
+      updateCraftingButtons();
+      return;
+    }
+
+    if (!result.success) {
+      resetActivity();
+      updateTravelButton(false);
+      updateAllActionButtons();
+      updateCraftingButtons();
+      return;
+    }
+
+    applyExpeditionStep(result.step);
+    refreshExpeditionUI();
+
+    if (expedition.returning && expedition.distance <= 0) {
+      resetActivity();
+      updateTravelButton(false);
+      endExpedition("returned");
+      return;
+    }
+
+    if (checkDestinationArrival()) {
+      resetActivity();
+      updateTravelButton(false);
+      updateAllActionButtons();
+      updateCraftingButtons();
+      updatePlacePanel();
+      return;
+    }
+
+    if (checkExpeditionDiscovery()) {
+      resetActivity();
+      updateTravelButton(false);
+      updateAllActionButtons();
+      updateCraftingButtons();
+      updatePlacePanel();
+      return;
+    }
+
+    if (expedition.distance >= expedition.targetDistance) {
+      resetActivity();
+      updateTravelButton(false);
+      endExpedition("completed");
+      return;
+    }
+
+    gameState.activity.startTime = Date.now();
+    updateTravelButton(true);
+    updateAllActionButtons();
+    updateCraftingButtons();
+    return;
+  }
+
+  if (activity.kind === "instant") {
+    const instantId = activity.id;
+    const context = activity.context;
+
+    resetActivity();
+
+    if (instantId === "destinationTravel") {
+      prepareDestinationTravel(context.locationName);
+    }
+
+    updateAllActionButtons();
+    updateCraftingButtons();
+    return;
+  }
+
+  if (activity.kind === "action") {
+    const action = getAction(activity.id);
+    const completedActionName = activity.id;
+
+    if (action) {
       action.running = false;
       resetProgressBar(action);
+
+      resetActivity();
 
       if (action.onComplete) {
         action.onComplete();
       }
 
       checkRecipeDiscoveries();
-      continueAutoAction(actionName);
+
+      updateAllActionButtons();
+      updateCraftingButtons();
+
+      continueAutoAction(completedActionName);
+      return;
     }
-  }, 50);
+  }
+
+  if (activity.kind === "craft") {
+    const craftType = activity.type;
+    const craftId = activity.id;
+    const button = getActivityButton(activity);
+
+    if (button) {
+      resetCraftButtonProgress(button);
+    }
+
+    if (craftType === "campUpgrade") {
+      completeCampUpgrade(craftId);
+    }
+
+    if (craftType === "gearUpgrade") {
+      completeGearUpgrade(craftId);
+    }
+
+    if (craftType === "storageUpgrade") {
+      completeStorageUpgrade(craftId);
+    }
+
+    if (craftType === "resourceCraft") {
+      completeResourceCraft(craftId);
+    }
+
+    resetActivity();
+    updateCraftingButtons();
+    updateCraftingSectionVisibility();
+    updateAllActionButtons();
+    checkRecipeDiscoveries();
+    return;
+  }
+
+  resetActivity();
+}
+
+function startActivity(activityRequest) {
+  if (isActivityActive()) return false;
+
+  const duration = getActivityDuration(activityRequest);
+
+  gameState.activity.active = true;
+  gameState.activity.kind = activityRequest.kind;
+  gameState.activity.type = activityRequest.type || null;
+  gameState.activity.id = activityRequest.id || null;
+  gameState.activity.label = activityRequest.label || null;
+  gameState.activity.startTime = Date.now();
+  gameState.activity.duration = duration;
+  gameState.activity.interval = !!activityRequest.interval;
+  gameState.activity.context = activityRequest.context || null;
+
+  return true;
 }
 
 function continueAutoAction(actionName) {

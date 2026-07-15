@@ -680,20 +680,8 @@ function getCraftDuration(craftType, craftId) {
   return craft.duration || 1;
 }
 
-function resetCraftingState() {
-  gameState.crafting.active = false;
-  gameState.crafting.type = null;
-  gameState.crafting.id = null;
-  gameState.crafting.startTime = null;
-  gameState.crafting.duration = 0;
-}
-
-function isCraftingActive() {
-  return gameState.crafting && gameState.crafting.active;
-}
-
 function startCrafting(craftType, craftId) {
-  if (isCraftingActive()) return;
+  if (isActivityActive()) return;
 
   const craft = getCraftDefinition(craftType, craftId);
   const cost = getCraftCost(craftType, craftId);
@@ -702,13 +690,14 @@ function startCrafting(craftType, craftId) {
   if (!isCraftAvailable(craftType, craftId)) return;
   if (!spendCost(cost)) return;
 
-  gameState.crafting.active = true;
-  gameState.crafting.type = craftType;
-  gameState.crafting.id = craftId;
-  gameState.crafting.startTime = Date.now();
-  gameState.crafting.duration = getCraftDuration(craftType, craftId);
+  startActivity({
+    kind: "craft",
+    type: craftType,
+    id: craftId,
+  });
 
   updateCraftingButtons();
+  updateAllActionButtons();
 }
 
 function isCraftAvailable(craftType, craftId) {
@@ -748,12 +737,13 @@ function updateCraftButtonsForType(craftType, definitions) {
 
     if (!craft || !craft.button) continue;
 
-    const isActiveCraft = gameState.crafting.type === craftType && gameState.crafting.id === craftId;
+    const isActiveCraft =
+      isActivityActive() && gameState.activity.kind === "craft" && gameState.activity.type === craftType && gameState.activity.id === craftId;
 
     const available = isCraftAvailable(craftType, craftId);
     const cost = getCraftCost(craftType, craftId);
 
-    craft.button.disabled = !isActiveCraft && (!available || isCraftingActive() || !canAffordCost(cost));
+    craft.button.disabled = !isActiveCraft && (!available || isActivityActive() || !canAffordCost(cost));
 
     if (isActiveCraft) {
       craft.button.classList.add("running");
@@ -761,64 +751,6 @@ function updateCraftButtonsForType(craftType, definitions) {
       craft.button.classList.remove("running");
     }
   }
-}
-
-function processCraftingTick() {
-  if (!isCraftingActive()) return;
-
-  const crafting = gameState.crafting;
-  const craft = getCraftDefinition(crafting.type, crafting.id);
-
-  if (!craft || !craft.button) {
-    resetCraftingState();
-    updateCraftingButtons();
-    return;
-  }
-
-  const elapsed = Date.now() - crafting.startTime;
-  const durationMs = crafting.duration * 1000;
-  const progress = Math.min(elapsed / durationMs, 1);
-
-  setCraftButtonProgress(craft.button, progress);
-
-  if (progress < 1) return;
-
-  completeCrafting(crafting.type, crafting.id);
-}
-
-function completeCrafting(craftType, craftId) {
-  const craft = getCraftDefinition(craftType, craftId);
-
-  if (!craft) {
-    resetCraftingState();
-    updateCraftingButtons();
-    return;
-  }
-
-  if (craft.button) {
-    resetCraftButtonProgress(craft.button);
-  }
-
-  if (craftType === "campUpgrade") {
-    completeCampUpgrade(craftId);
-  }
-
-  if (craftType === "gearUpgrade") {
-    completeGearUpgrade(craftId);
-  }
-
-  if (craftType === "storageUpgrade") {
-    completeStorageUpgrade(craftId);
-  }
-
-  if (craftType === "resourceCraft") {
-    completeResourceCraft(craftId);
-  }
-
-  resetCraftingState();
-  updateCraftingButtons();
-  updateCraftingSectionVisibility();
-  checkRecipeDiscoveries();
 }
 
 function completeResourceCraft(craftName) {

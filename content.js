@@ -43,7 +43,7 @@ const expeditionLocations = {
     },
     trapSites: {
       reward: "pelt",
-      successChance: 0.5,
+      successChance: 0.75,
       sites: [
         { label: "Beside the Split Tree", discovered: false, installed: false, checkedThisVisit: false },
         { label: "Through the Thorn Bush", discovered: false, installed: false, checkedThisVisit: false },

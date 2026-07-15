@@ -341,20 +341,21 @@ const actions = {
 const gameState = {
   phase: "lost",
 
-  resting: false,
-  restStartTime: null,
-
   autoAction: {
     actionName: null,
     pausedForRest: false,
   },
 
-  crafting: {
+  activity: {
     active: false,
+    kind: null,
     type: null,
     id: null,
+    label: null,
     startTime: null,
     duration: 0,
+    interval: false,
+    context: null,
   },
 
   exploration: {
@@ -373,9 +374,7 @@ const gameState = {
 
   expedition: {
     active: false,
-    traveling: false,
     discoveredSomething: false,
-    travelStartTime: null,
     returning: false,
     returnPenalty: 0,
     completed: false,

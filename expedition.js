@@ -468,96 +468,38 @@ function toggleTraveling() {
 
   if (!expedition.active) return;
 
-  expedition.traveling = !expedition.traveling;
+  const isTraveling = isTravelActivityActive();
 
-  if (expedition.traveling) {
-    expedition.travelStartTime = Date.now();
+  if (isTraveling) {
+    stopTraveling();
+    addStoryEntry("You pause your expedition.");
+  } else {
+    startActivity({
+      kind: "travel",
+      id: "travel",
+      duration: 1,
+      interval: true,
+    });
+
     addStoryEntry("You press onward.");
     clearCurrentLocation();
     setPackingActionsAvailable(false);
-  } else {
-    expedition.travelStartTime = null;
-    addStoryEntry("You pause your expedition.");
   }
 
-  updateTravelButton(gameState.expedition.traveling);
+  updateTravelButton(isTravelActivityActive());
+  updateAllActionButtons();
+  updateCraftingButtons();
   updatePlacePanel();
 }
 
 function stopTraveling() {
-  const expedition = gameState.expedition;
+  if (isTravelActivityActive()) {
+    resetProgressBar(getAction("travel"));
+    resetActivity();
+  }
 
-  expedition.traveling = false;
-  expedition.travelStartTime = null;
-
-  updateTravelButton(gameState.expedition.traveling);
+  updateTravelButton(false);
   updatePlacePanel();
-}
-
-function processTravelTick() {
-  const expedition = gameState.expedition;
-
-  if (!expedition.active || !expedition.traveling) return;
-
-  const travelDuration = 1000;
-
-  const elapsed = Date.now() - expedition.travelStartTime;
-  const progress = Math.min(elapsed / travelDuration, 1);
-
-  if (getAction("travel").progressBar) {
-    getAction("travel").progressBar.style.width = progress * 100 + "%";
-  }
-
-  if (progress < 1) return;
-
-  getAction("travel").progressBar.style.width = "0%";
-  expedition.travelStartTime = Date.now();
-
-  const result = resolveExpeditionStep();
-
-  updateResource("energy");
-
-  if (!result.success && result.reason === "notEnoughEnergy") {
-    if (!expedition.returning) {
-      stopTraveling();
-      beginReturnToCamp("exhausted");
-      return;
-    }
-
-    applyExpeditionStep(result.step);
-    refreshExpeditionUI();
-
-    if (expedition.distance <= 0) {
-      stopTraveling();
-      endExpedition("returned");
-    }
-
-    return;
-  }
-
-  applyExpeditionStep(result.step);
-  refreshExpeditionUI();
-
-  if (expedition.returning && expedition.distance <= 0) {
-    stopTraveling();
-    endExpedition("returned");
-    return;
-  }
-
-  if (checkDestinationArrival()) {
-    stopTraveling();
-    return;
-  }
-
-  if (checkExpeditionDiscovery()) {
-    stopTraveling();
-    return;
-  }
-
-  if (expedition.distance >= expedition.targetDistance) {
-    stopTraveling();
-    endExpedition("completed");
-  }
 }
 
 function checkDestinationArrival() {
@@ -600,7 +542,7 @@ function getLocationLabel(locationName) {
 function updatePlacePanel() {
   const expedition = gameState.expedition;
 
-  if (expedition.traveling) {
+  if (isTravelActivityActive()) {
     if (expedition.returning) {
       safeSetText(ui.campPanelTitle, "Returning to Camp");
       safeSetText(ui.locationDescription, "You are making your way back to camp.");
@@ -930,7 +872,7 @@ function setPackingActionsAvailable(available) {
     return;
   }
 
-  if (gameState.expedition.distance > 0 || gameState.expedition.traveling) {
+  if (gameState.expedition.distance > 0 || isTravelActivityActive()) {
     return;
   }
 
@@ -1009,9 +951,17 @@ function renderDestinationActions() {
     button.textContent = "Travel to " + getLocationLabel(locationName);
 
     button.addEventListener("click", function () {
-      prepareDestinationTravel(locationName);
+      startActivity({
+        kind: "instant",
+        id: "destinationTravel",
+        context: { locationName: locationName },
+      });
     });
 
     ui.destinationActions.appendChild(button);
   }
+}
+
+function isTravelActivityActive() {
+  return isActivityActive() && gameState.activity.kind === "travel";
 }
