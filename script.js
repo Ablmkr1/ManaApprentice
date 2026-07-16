@@ -18,6 +18,10 @@ window.onload = function () {
     ui.streamPopup.style.display = "none";
   });
 
+  ui.outskirtsCompleteContinueBtn.addEventListener("click", function () {
+    ui.outskirtsComplete.style.display = "none"
+  })
+
   hookStatsToUI();
   updateResource("energy");
   hookActionButtonsToUI(runAction);

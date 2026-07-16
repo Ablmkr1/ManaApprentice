@@ -45,6 +45,8 @@ function hookDomToUI() {
   ui.resetSaveBtn = document.getElementById("resetSaveBtn");
   ui.destinationActions = document.getElementById("destinationActions");
   ui.craftingSection = document.getElementById("craftingSection");
+  ui.outskirtsCompletePopup = document.getElementById("outskirtsCompletePopup");
+  ui.outskirtsCompleteContinueBtn = document.getElementById("outskirtsCompleteContinueBtn");
 }
 
 //Hook Ui Maps Functions
@@ -157,6 +159,10 @@ function showStreamPopup() {
 
 function showCampPanel() {
   ui.campPanel.style.display = "flex";
+}
+
+function showOutskirtsComplete() {
+  ui.outskirtsComplete.style.display = "flex";
 }
 
 //Update Expedition UI
