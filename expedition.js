@@ -412,8 +412,18 @@ function endExpedition(reason) {
   setPackingActionsAvailable(false);
   updateDestinationActions();
 
+  function completeTier2Exploration() {
+    if (gameState.tier2Complete) return;
+
+    gameState.tier2Complete = true;
+    gameState.knownNearbyPathsUnlocked = true;
+
+    showKnownPathsPopup();
+  }
+
   if (reason === "completed") {
     expedition.completed = true;
+    completeTier2Exploration();
     addStoryEntry("You reach the edge of your planned route and return with new knowledge of the wilds.");
   }
 
