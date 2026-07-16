@@ -19,7 +19,7 @@ window.onload = function () {
   });
 
   ui.outskirtsCompleteContinueBtn.addEventListener("click", function () {
-    ui.outskirtsComplete.style.display = "none"
+    ui.outskirtsCompletePopup.style.display = "none"
   })
 
   hookStatsToUI();
