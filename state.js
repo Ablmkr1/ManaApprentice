@@ -10,6 +10,16 @@ const resources = {
     perClickDisplay: null,
     perSecondDisplay: null,
   },
+  mana: {
+    label: "Mana",
+    value: 0,
+    maxValue: 10,
+    perClick: 1,
+    perSecond: 0,
+    display: null,
+    perClickDisplay: null,
+    perSecondDisplay: null,
+  },
   water: {
     label: "Water",
     value: 0,
@@ -184,7 +194,7 @@ const actions = {
 
   packFood: {
     label: "Pack Food",
-    duration: 0.1,
+    duration: 0,
     cost: {
       food: 1,
     },
@@ -199,7 +209,7 @@ const actions = {
 
   packWater: {
     label: "Pack Water",
-    duration: 0.1,
+    duration: 0,
     cost: {
       water: 1,
     },
@@ -269,7 +279,7 @@ const actions = {
 
   packTrap: {
     label: "Pack Trap",
-    duration: 0.1,
+    duration: 0,
     cost: {
       trap: 1,
     },
@@ -284,7 +294,9 @@ const actions = {
   setTrap: {
     label: "Set Trap",
     duration: 1,
-    cost: {},
+    cost: {
+      energy: 7,
+    },
     unlocked: false,
     running: false,
     button: null,
@@ -297,7 +309,7 @@ const actions = {
     label: "Check Trap",
     duration: 1,
     cost: {
-      energy: 5,
+      energy: 2,
     },
     unlocked: false,
     running: false,
@@ -367,6 +379,15 @@ const gameState = {
   discoveredStream: false,
   discoveredBerryBush: false,
   discoveredDeadfall: false,
+  tier2Complete: false,
+  knownOutskirtsPathsUnlocked: false,
+  oldMapFound: false,
+  tier3Unlocked: false,
+  ruinedTorchFound: false,
+  ruinedJournalFound: false,
+  researchUnlocked: false,
+  torchResearched: false,
+  magicUnlocked: false,
 
   destination: null,
 

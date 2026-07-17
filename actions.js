@@ -407,6 +407,10 @@ function getActivityButton(activity) {
     return action ? action.button : null;
   }
 
+  if (activity.kind === "locationObject") {
+    return getLocationObjectButton(activity.context.objectName);
+  }
+
   return null;
 }
 
@@ -461,6 +465,14 @@ function processActivityTick() {
 
     if (travelAction) {
       setProgressBar(travelAction, progress);
+    }
+  }
+
+  if (activity.kind === "locationObject" && button) {
+    const progressFill = button.querySelector(".progressFill");
+
+    if (progressFill) {
+      progressFill.style.width = progress * 100 + "%";
     }
   }
 
@@ -591,6 +603,26 @@ function completeActivity() {
     return;
   }
 
+  if (activity.kind === "locationObject") {
+    const context = activity.context;
+    const button = getActivityButton(activity);
+
+    if (button) {
+      const progressFill = button.querySelector(".progressFill");
+
+      if (progressFill) {
+        progressFill.style.width = "0%";
+      }
+    }
+
+    resetActivity();
+
+    completeLocationObjectExploration(context.locationName, context.objectName);
+    updatePlacePanel();
+
+    return;
+  }
+
   if (activity.kind === "instant") {
     const instantId = activity.id;
     const context = activity.context;
@@ -653,6 +685,10 @@ function completeActivity() {
 
     if (craftType === "resourceCraft") {
       completeResourceCraft(craftId);
+    }
+
+    if (craftType === "research") {
+      completeResearch(craftId);
     }
 
     resetActivity();

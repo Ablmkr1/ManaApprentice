@@ -5,6 +5,7 @@ const expeditionLocations = {
     exploredLabel: "Fibrous Plants",
     travelAction: "travelToMysteriousPlants",
     distance: 10,
+    knownPathDistance: 6,
     discovered: false,
     explored: false,
     explorationProgress: 0,
@@ -27,6 +28,7 @@ const expeditionLocations = {
     exploredLabel: "Animal Trails",
     travelAction: "travelToStrangeTrails",
     distance: 30,
+    knownPathDistance: 17,
     discovered: false,
     explored: false,
     explorationProgress: 0,
@@ -59,6 +61,7 @@ const expeditionLocations = {
     label: "Creepy Cave",
     travelAction: "travelToCreepyCave",
     distance: 60,
+    knownPathDistance: 39,
     discovered: false,
     explored: true,
     onDiscoverStory: "A dark opening cuts into the hillside. Loose stone is scattered around the cave mouth.",
@@ -67,6 +70,109 @@ const expeditionLocations = {
       explored: "Loose stone litters the cave mouth.",
     },
     availableActions: ["gatherStone"],
+    explorableObjects: {
+      caveInterior: {
+        label: "Explore Cave Interior",
+        duration: 2,
+        cost: {
+          energy: 6,
+        },
+        progress: 0,
+        requires: {
+          gearPurchased: ["torch"],
+        },
+        stages: [
+          {
+            story: "Near the cave wall, you find the remains of moldy food. Someone sheltered here, but not recently.",
+          },
+          {
+            story: "Behind a loose stone, you find an old map marked with paths far beyond the outskirts.",
+            unlocks: [
+              { type: "flag", id: "oldMapFound" },
+              { type: "flag", id: "tier3Unlocked" },
+            ],
+          },
+          {
+            story: "At the back of the cave, your torchlight reveals runes carved into the floor. The markings hum in your thoughts.",
+            unlocks: [
+              { type: "flag", id: "magicUnlocked" },
+              { type: "resource", id: "mana" },
+            ],
+          },
+        ],
+      },
+    },
+  },
+
+  mysteriousTrail: {
+    label: "Mysterious Trail",
+    exploredLabel: "Abandoned Camp",
+    distance: 120,
+    discovered: false,
+    explored: true,
+    onDiscoverStory:
+      "With the forest near your camp growing familair you notice something you missed before, a broken branch, a patch of dirt, someone passed through here.",
+    panelText: {
+      discovered: "The trail ends at the remains of an abandoned camp. The ruined shelter, shredded pack, and washed out fire pit wait in silence.",
+      explored: "The abandoned camp sits quiet beneath the trees.",
+    },
+    availableActions: [],
+    explorableObjects: {
+      washedOutFirePit: {
+        label: "Washed Out Fire Pit",
+        duration: 1,
+        cost: {
+          energy: 3,
+        },
+        progress: 0,
+        stages: [
+          {
+            story: "The fire pit has been washed flat by rain and time. You sift through cold mud and scattered ash, but nothing useful remains.",
+          },
+        ],
+      },
+
+      shreddedPack: {
+        label: "Shredded Pack",
+        duration: 4,
+        cost: {
+          energy: 4,
+        },
+        progress: 0,
+        stages: [
+          {
+            story:
+              "The pack is torn almost beyond use, but the stitching and frame are better than anything you've made. You could repair this design back at camp.",
+            unlocks: [{ type: "gearUpgrade", id: "repairedLeatherBackpack" }],
+          },
+        ],
+      },
+
+      ruinedShelter: {
+        label: "Ruined Shelter",
+        duration: 1,
+        cost: {
+          energy: 5,
+        },
+        progress: 0,
+        stages: [
+          {
+            story:
+              "The shelter has collapsed inward. Beneath the rot, your hand closes around the remains of a blackened torch. For a moment, something in it sparks against your skin.",
+            unlocks: [{ type: "flag", id: "ruinedTorchFound" }],
+          },
+          {
+            story:
+              "Under a rotten plank, you find scraps of a ruined journal. Most of the pages are gone, but someone else survived here for a while.",
+            unlocks: [
+              { type: "flag", id: "ruinedJournalFound" },
+              { type: "flag", id: "researchUnlocked" },
+              { type: "research", id: "ruinedTorch" },
+            ],
+          },
+        ],
+      },
+    },
   },
 };
 
@@ -124,7 +230,7 @@ const recipes = {
     requires: {
       recipesDiscovered: ["hideworking"],
       resources: {
-        pelt: 6,
+        pelt: 4,
         fiber: 10,
         wood: 5,
       },
@@ -535,7 +641,7 @@ const gearUpgrades = {
   },
 
   stoneKnife: {
-    label: "Stone Knife",
+    label: "Stone Knife (+1 Fiber)",
     duration: 10,
     cost: {
       pelt: 1,
@@ -553,7 +659,7 @@ const gearUpgrades = {
   },
 
   stoneAxe: {
-    label: "Stone Axe",
+    label: "Stone Axe (+1 Wood)",
     duration: 10,
     cost: {
       pelt: 2,
@@ -566,6 +672,48 @@ const gearUpgrades = {
     display: null,
     onComplete() {
       getResource("wood").perClick += 1;
+      refreshExpeditionUI();
+    },
+  },
+
+  repairedLeatherBackpack: {
+    label: "Repaired Leather Backpack (Inventory 40)",
+    duration: 10,
+    cost: {
+      pelt: 5,
+      fiber: 10,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      gameState.expedition.carryCapacity = 40;
+
+      if (getGearUpgrade("crudeSatchel").display) {
+        getGearUpgrade("crudeSatchel").display.style.display = "none";
+      }
+
+      if (getGearUpgrade("crudeBackpack").display) {
+        getGearUpgrade("crudeBackpack").display.style.display = "none";
+      }
+
+      refreshExpeditionUI();
+    },
+  },
+
+  torch: {
+    label: "Torch",
+    duration: 6,
+    cost: {
+      wood: 5,
+      fiber: 4,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
       refreshExpeditionUI();
     },
   },
@@ -586,5 +734,26 @@ const resourceCrafts = {
     },
     unlocked: false,
     button: null,
+  },
+};
+
+const researchDefinitions = {
+  ruinedTorch: {
+    label: "Research Ruined Torch",
+    duration: 8,
+    cost: {
+      energy: 20,
+      wood: 5,
+      fiber: 8,
+    },
+    unlocked: false,
+    completed: false,
+    requires: {
+      flags: ["researchUnlocked", "ruinedTorchFound"],
+    },
+    onComplete() {
+      gameState.torchResearched = true;
+      unlockGearUpgrade("torch");
+    },
   },
 };

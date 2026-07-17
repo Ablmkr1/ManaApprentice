@@ -26,6 +26,12 @@ const unlockHandlers = {
   resourceCraft: function (id) {
     unlockResourceCraft(id);
   },
+  flag: function (id) {
+    unlockFlag(id);
+  },
+  research: function (id) {
+    unlockResearch(id);
+  },
 };
 
 function applyUnlock(unlock) {
@@ -48,6 +54,15 @@ function applyUnlocks(unlocks) {
   if (!Array.isArray(unlocks)) return;
 
   unlocks.forEach(applyUnlock);
+}
+
+function unlockFlag(flagName) {
+  if (!Object.prototype.hasOwnProperty.call(gameState, flagName)) {
+    console.warn("Unknown flag:", flagName);
+    return;
+  }
+
+  gameState[flagName] = true;
 }
 
 function unlockLocation(locationName) {
@@ -615,8 +630,9 @@ function updateCraftingSectionVisibility() {
   const hasGearCrafting = hasAvailableGearUpgrade();
   const hasResourceCrafting = hasAvailableResourceCraft();
   const hasStorageCrafting = hasAvailableStorageUpgrade();
+  const hasResearchCrafting = hasAvailableResearch();
 
-  if (hasCampCrafting || hasGearCrafting || hasStorageCrafting || hasResourceCrafting) {
+  if (hasCampCrafting || hasGearCrafting || hasStorageCrafting || hasResourceCrafting || hasResearchCrafting) {
     showElement(ui.craftingSection, "flex");
   } else {
     hideElement(ui.craftingSection);
@@ -632,8 +648,24 @@ function getCraftDefinition(craftType, craftId) {
     return getResourceCraft(craftId);
   }
 
+  if (craftType === "research") {
+    return getResearch(craftId);
+  }
+
   console.warn("Unknown craft type:", craftType);
   return null;
+}
+
+function hasAvailableResearch() {
+  const researchDefinitions = getResearchDefinitions();
+
+  for (let researchName in researchDefinitions) {
+    const research = getResearch(researchName);
+
+    if (research.unlocked && !research.completed) return true;
+  }
+
+  return false;
 }
 
 function hasAvailableResourceCraft() {
@@ -721,6 +753,10 @@ function isCraftAvailable(craftType, craftId) {
     return craft.unlocked;
   }
 
+  if (craftType === "research") {
+    return craft.unlocked && !craft.completed;
+  }
+
   return false;
 }
 
@@ -729,6 +765,7 @@ function updateCraftingButtons() {
   updateCraftButtonsForType("gearUpgrade", getGearUpgradeDefinitions());
   updateCraftButtonsForType("storageUpgrade", getStorageUpgradeDefinitions());
   updateCraftButtonsForType("resourceCraft", getResourceCraftDefinitions());
+  updateCraftButtonsForType("research", getResearchDefinitions());
 }
 
 function updateCraftButtonsForType(craftType, definitions) {
@@ -762,6 +799,22 @@ function completeResourceCraft(craftName) {
   updateResourceCraftUI(craftName);
 }
 
+function completeResearch(researchName) {
+  const research = getResearch(researchName);
+
+  if (!research || research.completed) return;
+
+  research.completed = true;
+  research.unlocked = false;
+
+  if (research.onComplete) {
+    research.onComplete();
+  }
+
+  updateResearchUI(researchName);
+  updateCraftingSectionVisibility();
+}
+
 function hookResourceCraftsToUI() {
   const crafts = getResourceCraftDefinitions();
 
@@ -781,6 +834,65 @@ function hookResourceCraftsToUI() {
   }
 
   updateCraftingSectionVisibility();
+}
+
+function hookResearchToUI() {
+  const researchDefinitions = getResearchDefinitions();
+
+  for (let researchName in researchDefinitions) {
+    const research = getResearch(researchName);
+
+    research.button = document.getElementById(researchName + "ResearchBtn");
+
+    if (research.button) {
+      prepareCraftButton(research.button);
+      research.button.addEventListener("click", function () {
+        startCrafting("research", researchName);
+      });
+    }
+
+    updateResearchUI(researchName);
+  }
+
+  updateCraftingSectionVisibility();
+}
+
+function updateResearchUI(researchName) {
+  const research = getResearch(researchName);
+
+  if (!research || !research.button) return;
+
+  research.button.style.display = research.unlocked && !research.completed ? "inline-block" : "none";
+  updateCraftButtonLabel("research", researchName);
+  updateCraftingButtons();
+}
+
+function unlockResearch(researchName) {
+  const research = getResearch(researchName);
+
+  if (!research) {
+    console.warn("Unknown research:", researchName);
+    return;
+  }
+
+  if (research.completed || research.unlocked) return;
+  if (!isResearchRequirementMet(research)) return;
+
+  research.unlocked = true;
+  updateResearchUI(researchName);
+  updateCraftingSectionVisibility();
+}
+
+function isResearchRequirementMet(research) {
+  if (!research.requires || !research.requires.flags) return true;
+
+  for (let i = 0; i < research.requires.flags.length; i++) {
+    if (!gameState[research.requires.flags[i]]) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function updateResourceCraftUI(craftName) {

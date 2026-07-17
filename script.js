@@ -19,7 +19,7 @@ window.onload = function () {
   });
 
   ui.outskirtsCompleteContinueBtn.addEventListener("click", function () {
-    ui.outskirtsComplete.style.display = "none"
+    ui.outskirtsCompletePopup.style.display = "none"
   })
 
   hookStatsToUI();
@@ -29,6 +29,7 @@ window.onload = function () {
   hookStorageUpgradesToUI();
   hookGearUpgradesToUI();
   hookResourceCraftsToUI();
+  hookResearchToUI();
   hookSaveControls();
 
   ui.continueBtn.addEventListener("click", function () {

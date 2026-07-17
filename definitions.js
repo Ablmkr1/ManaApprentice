@@ -9,6 +9,7 @@ const gameDefinitions = {
   expeditionModifiers,
   recipes,
   resourceCrafts: resourceCrafts,
+  researchDefinitions,
 };
 
 function getExpeditionLocationDefinitions() {
@@ -88,4 +89,12 @@ function getResourceCraftDefinitions() {
 
 function getResourceCraft(craftName) {
   return getResourceCraftDefinitions()[craftName];
+}
+
+function getResearchDefinitions() {
+  return gameDefinitions.researchDefinitions;
+}
+
+function getResearch(researchName) {
+  return getResearchDefinitions()[researchName];
 }

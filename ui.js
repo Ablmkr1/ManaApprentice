@@ -38,6 +38,7 @@ function hookDomToUI() {
   ui.inventorySection = document.getElementById("inventorySection");
   ui.storageSection = document.getElementById("storageSection");
   ui.trapSitesList = document.getElementById("trapSitesList");
+  ui.locationObjectActions = document.getElementById("locationObjectActions");
   ui.expeditionDistanceBar = document.getElementById("expeditionDistanceBar");
   ui.expeditionDistanceFill = document.getElementById("expeditionDistanceFill");
   ui.saveGameBtn = document.getElementById("saveGameBtn");
@@ -59,6 +60,7 @@ function hookUIMaps() {
     trap: ui.trapAmount,
     pelt: ui.peltAmount,
     stone: ui.stoneAmount,
+    mana: document.getElementById("manaAmount"),
   };
 
   panelElements = {
@@ -161,15 +163,15 @@ function showCampPanel() {
   ui.campPanel.style.display = "flex";
 }
 
-function showOutskirtsComplete() {
-  ui.outskirtsComplete.style.display = "flex";
+function showOutskirtsCompletePopup() {
+  ui.outskirtsCompletePopup.style.display = "flex";
 }
 
 //Update Expedition UI
 function updateExpeditionUI(carriedTotal, carriedSummary) {
   const expedition = gameState.expedition;
 
-  safeSetText(ui.expeditionDistanceAmount, "Distance: " + expedition.distance + " / " + expedition.targetDistance);
+  safeSetText(ui.expeditionDistanceAmount, "Distance: " + formatDistance(expedition.distance) + " / " + formatDistance(expedition.targetDistance));
 
   const distanceProgress = expedition.targetDistance > 0 ? expedition.distance / expedition.targetDistance : 0;
   const clampedDistanceProgress = Math.min(Math.max(distanceProgress, 0), 1);
@@ -180,6 +182,10 @@ function updateExpeditionUI(carriedTotal, carriedSummary) {
 
   safeSetText(ui.carriedAmount, "Carried: " + carriedTotal + " / " + expedition.carryCapacity + " (" + carriedSummary + ")");
   safeSetText(ui.carriedWaterAmount, "Water: " + expedition.water + " / " + expedition.waterCapacity);
+}
+
+function formatDistance(distance) {
+  return Math.round(distance * 10) / 10;
 }
 
 //Add story event helper

@@ -11,6 +11,7 @@
     <header class="top-bar">
       <div class="resource-strip">
         <div id="energyAmount" class="resource-pill"></div>
+        <div id="manaAmount" class="resource-pill" style="display: none"></div>
         <div id="waterAmount" class="resource-pill" style="display: none"></div>
         <div id="foodAmount" class="resource-pill" style="display: none"></div>
         <div id="woodAmount" class="resource-pill" style="display: none"></div>
@@ -34,11 +35,13 @@
 
           <div id="gearList" class="gear-list">
             <div id="crudeSatchel" style="display: none">Crude Satchel</div>
-            <div id="waterskin" style="display: none">Waterskin</div>
             <div id="crudeBackpack" style="display: none">Crude Backpack</div>
+            <div id="repairedLeatherBackpack" style="display: none">Repaired Leather Backpack</div>
+            <div id="waterskin" style="display: none">Waterskin</div>
             <div id="smellyShoes" style="display: none">Smelly Shoes</div>
             <div id="stoneKnife" style="display: none">Stone Knife</div>
             <div id="stoneAxe" style="display: none">Stone Axe</div>
+            <div id="torch" style="display: none">Torch</div>
           </div>
         </div>
 
@@ -124,13 +127,16 @@
               <button id="stoneStorageBtn" style="display: none"></button>
 
               <button id="crudeSatchelBtn" style="display: none"></button>
-              <button id="waterskinBtn" style="display: none"></button>
               <button id="crudeBackpackBtn" style="display: none"></button>
+              <button id="repairedLeatherBackpackBtn" style="display: none"></button>
+              <button id="waterskinBtn" style="display: none"></button>
               <button id="smellyShoesBtn" style="display: none"></button>
               <button id="stoneKnifeBtn" style="display: none"></button>
               <button id="stoneAxeBtn" style="display: none"></button>
+              <button id="torchBtn" style="display: none"></button>
 
               <button id="trapCraftBtn" style="display: none"></button>
+              <button id="ruinedTorchResearchBtn" style="display: none"></button>
             </div>
           </div>
         </div>
@@ -138,6 +144,7 @@
         <div id="locationContent" style="display: none">
           <div id="locationDescription"></div>
           <div id="trapSitesList" class="trap-sites-list" style="display: none"></div>
+          <div id="locationObjectActions" class="location-object-actions"></div>
 
           <button class="action-btn" data-action="exploreLocation" style="display: none">
             <div class="progressFill"></div>
@@ -287,7 +294,7 @@
 
         <p>With your new knowledge, you notice an overgrown trail leading beyond where you've explored. It's time to search for answers.</p>
 
-        <button id="streamContinueBtn">Continue</button>
+        <button id="outskirtsCompleteContinueBtn">Continue</button>
       </div>
     </div>
 

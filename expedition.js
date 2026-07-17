@@ -314,6 +314,10 @@ function resolveExpeditionStep() {
     step.distance += 0.5;
   }
 
+  if (isKnownPathTravelActive()) {
+    step.distance *= 1.2;
+  }
+
   const expedition = gameState.expedition;
   const canUseTravelModifiers = !expedition.returning || canAffordCost({ energy: step.energyCost });
 
@@ -391,6 +395,23 @@ function beginReturnToCamp(reason) {
   updatePlacePanel();
 }
 
+function completeTier2Exploration() {
+  if (gameState.tier2Complete) return;
+
+  gameState.tier2Complete = true;
+  gameState.knownOutskirtsPathsUnlocked = true;
+  gameState.expedition.targetDistance = 120;
+
+  unlockLocation("mysteriousTrail");
+  showOutskirtsCompletePopup();
+}
+
+function getOpenExpeditionTargetDistance() {
+  if (gameState.tier2Complete) return 120;
+
+  return 100;
+}
+
 // End Expedition Function
 function endExpedition(reason) {
   const expedition = gameState.expedition;
@@ -411,15 +432,6 @@ function endExpedition(reason) {
   unlockAction("beginExpedition");
   setPackingActionsAvailable(false);
   updateDestinationActions();
-
-  function completeTier2Exploration() {
-    if (gameState.tier2Complete) return;
-
-    gameState.tier2Complete = true;
-    gameState.knownNearbyPathsUnlocked = true;
-
-    showKnownPathsPopup();
-  }
 
   if (reason === "completed") {
     expedition.completed = true;
@@ -521,7 +533,7 @@ function checkDestinationArrival() {
 
   if (!location) return false;
 
-  if (expedition.distance >= location.distance) {
+  if (expedition.distance >= getLocationTravelDistance(location)) {
     setCurrentLocation(expedition.destination);
     expedition.destination = null;
 
@@ -531,6 +543,28 @@ function checkDestinationArrival() {
   }
 
   return false;
+}
+
+function getLocationTravelDistance(location) {
+  if (!location) return 0;
+
+  if (gameState.knownOutskirtsPathsUnlocked && location.knownPathDistance) {
+    return location.knownPathDistance;
+  }
+
+  return location.distance;
+}
+
+function isKnownPathTravelActive() {
+  const expedition = gameState.expedition;
+
+  if (!gameState.knownOutskirtsPathsUnlocked) return false;
+
+  if (!expedition.destination) return false;
+
+  const location = getExpeditionLocation(expedition.destination);
+
+  return !!location && !!location.knownPathDistance;
 }
 
 function updateDestinationActions() {
@@ -564,6 +598,7 @@ function updatePlacePanel() {
     hideElement(ui.campContent);
     showElement(ui.locationContent, "block");
     updateTrapSitesUI(null);
+    updateLocationObjectActionsUI(null);
     return;
   }
 
@@ -573,6 +608,7 @@ function updatePlacePanel() {
     hideElement(ui.campContent);
     showElement(ui.locationContent, "block");
     updateTrapSitesUI(null);
+    updateLocationObjectActionsUI(null);
     return;
   }
 
@@ -580,6 +616,7 @@ function updatePlacePanel() {
     const location = getExpeditionLocation(expedition.currentLocation);
 
     updateTrapSitesUI(location);
+    updateLocationObjectActionsUI(location);
 
     safeSetText(ui.campPanelTitle, getLocationLabel(expedition.currentLocation));
     safeSetText(ui.locationDescription, getLocationPanelText(location));
@@ -604,6 +641,181 @@ function updatePlacePanel() {
   showElement(ui.campContent, "block");
   hideElement(ui.locationContent);
   updateTrapSitesUI(null);
+  updateLocationObjectActionsUI(null);
+}
+
+function getLocationObject(locationName, objectName) {
+  const location = getExpeditionLocation(locationName);
+
+  if (!location || !location.explorableObjects) return null;
+
+  return location.explorableObjects[objectName] || null;
+}
+
+function getLocationObjectButton(objectName) {
+  if (!ui.locationObjectActions) return null;
+
+  return ui.locationObjectActions.querySelector('[data-location-object="' + objectName + '"]');
+}
+
+function getLocationObjectProgress(object) {
+  return object.progress || 0;
+}
+
+function getLocationObjectStages(object) {
+  if (Array.isArray(object.stages)) {
+    return object.stages;
+  }
+
+  return [
+    {
+      story: object.story,
+      unlocks: object.unlocks,
+    },
+  ];
+}
+
+function isLocationObjectComplete(object) {
+  return getLocationObjectProgress(object) >= getLocationObjectStages(object).length;
+}
+
+function getCurrentLocationObjectStage(object) {
+  const stages = getLocationObjectStages(object);
+  const progress = getLocationObjectProgress(object);
+
+  return stages[progress] || null;
+}
+
+function startLocationObjectExploration(objectName) {
+  const locationName = gameState.expedition.currentLocation;
+  const object = getLocationObject(locationName, objectName);
+
+  if (!object || isLocationObjectComplete(object)) return;
+  if (!isLocationObjectAvailable(object)) return;
+
+  if (isActivityActive()) return;
+  if (!spendCost(object.cost || {})) return;
+
+  startActivity({
+    kind: "locationObject",
+    id: objectName,
+    duration: object.duration || 1,
+    context: {
+      locationName: locationName,
+      objectName: objectName,
+    },
+  });
+
+  updateLocationObjectActionsUI(getExpeditionLocation(locationName));
+  updateAllActionButtons();
+  updateCraftingButtons();
+}
+
+function completeLocationObjectExploration(locationName, objectName) {
+  const location = getExpeditionLocation(locationName);
+  const object = getLocationObject(locationName, objectName);
+
+  if (!location || !object || isLocationObjectComplete(object)) return;
+
+  const stage = getCurrentLocationObjectStage(object);
+
+  object.progress = getLocationObjectProgress(object) + 1;
+
+  if (stage && stage.story) {
+    addStoryEntry(stage.story);
+  }
+
+  if (stage && stage.unlocks) {
+    applyUnlocks(stage.unlocks);
+  }
+
+  checkRecipeDiscoveries();
+  updateLocationObjectActionsUI(location);
+  updateAllActionButtons();
+  updateCraftingButtons();
+}
+
+function updateLocationObjectActionsUI(location) {
+  if (!ui.locationObjectActions) return;
+
+  ui.locationObjectActions.innerHTML = "";
+
+  if (!location || !location.explorableObjects) {
+    hideElement(ui.locationObjectActions);
+    return;
+  }
+
+  const objects = location.explorableObjects;
+  let hasVisibleObject = false;
+
+  for (let objectName in objects) {
+    const object = objects[objectName];
+
+    if (isLocationObjectComplete(object)) continue;
+    if (!isLocationObjectAvailable(object)) continue;
+
+    hasVisibleObject = true;
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.classList.add("action-btn");
+    button.dataset.locationObject = objectName;
+
+    const progressFill = document.createElement("div");
+    progressFill.classList.add("progressFill");
+
+    const label = document.createElement("span");
+    const stages = getLocationObjectStages(object);
+    const progress = getLocationObjectProgress(object);
+
+    if (stages.length > 1) {
+      label.textContent = object.label + " (" + (progress + 1) + "/" + stages.length + ")";
+    } else {
+      label.textContent = object.label;
+    }
+
+    button.appendChild(progressFill);
+    button.appendChild(label);
+
+    const isCurrentObjectActivity =
+      isActivityActive() && gameState.activity.kind === "locationObject" && gameState.activity.context.objectName === objectName;
+
+    button.disabled = !isCurrentObjectActivity && (isActivityActive() || !canAffordCost(object.cost || {}));
+
+    button.addEventListener("click", function () {
+      startLocationObjectExploration(objectName);
+    });
+
+    ui.locationObjectActions.appendChild(button);
+  }
+
+  if (hasVisibleObject) {
+    showElement(ui.locationObjectActions, "block");
+  } else {
+    hideElement(ui.locationObjectActions);
+  }
+}
+
+function isLocationObjectAvailable(object) {
+  if (!object.requires) return true;
+
+  if (object.requires.gearPurchased) {
+    for (let i = 0; i < object.requires.gearPurchased.length; i++) {
+      if (!hasPurchasedGear(object.requires.gearPurchased[i])) {
+        return false;
+      }
+    }
+  }
+
+  if (object.requires.flags) {
+    for (let i = 0; i < object.requires.flags.length; i++) {
+      if (!gameState[object.requires.flags[i]]) {
+        return false;
+      }
+    }
+  }
+
+  return true;
 }
 
 function updateTrapSitesUI(location) {
@@ -760,7 +972,7 @@ function checkExpeditionDiscovery() {
 
     if (!isLocationDiscoverable(location)) continue;
 
-    if (expedition.distance >= location.distance) {
+    if (expedition.distance >= getLocationTravelDistance(location)) {
       location.discovered = true;
       setCurrentLocation(locationName);
 
@@ -903,6 +1115,7 @@ function enterExpeditionPreparation() {
   expedition.returning = false;
   expedition.completed = false;
   expedition.distance = 0;
+  expedition.targetDistance = getOpenExpeditionTargetDistance();
   expedition.returnPenalty = 0;
 
   resetTrapSiteChecks();

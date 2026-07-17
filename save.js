@@ -16,6 +16,7 @@ function createSaveData() {
     storageUpgrades: createUpgradeSaveData(getStorageUpgradeDefinitions(), ["unlocked", "tier"]),
     gearUpgrades: createUpgradeSaveData(getGearUpgradeDefinitions(), ["unlocked", "purchased"]),
     resourceCrafts: createUpgradeSaveData(getResourceCraftDefinitions(), ["unlocked"]),
+    research: createUpgradeSaveData(getResearchDefinitions(), ["unlocked", "completed"]),
     expeditionLocations: createExpeditionLocationSaveData(),
     recipes: createRecipeSaveData(),
   };
@@ -107,9 +108,25 @@ function createExpeditionLocationSaveData() {
         })),
       };
     }
+
+    if (location.explorableObjects) {
+      savedLocations[locationName].explorableObjects = createLocationObjectSaveData(location.explorableObjects);
+    }
   }
 
   return savedLocations;
+}
+
+function createLocationObjectSaveData(explorableObjects) {
+  const savedObjects = {};
+
+  for (let objectName in explorableObjects) {
+    savedObjects[objectName] = {
+      progress: explorableObjects[objectName].progress || 0,
+    };
+  }
+
+  return savedObjects;
 }
 
 function saveGame() {
@@ -247,6 +264,7 @@ function normalizeSaveData(saveData) {
   saveData.storageUpgrades = ensureObject(saveData.storageUpgrades);
   saveData.gearUpgrades = ensureObject(saveData.gearUpgrades);
   saveData.resourceCrafts = ensureObject(saveData.resourceCrafts);
+  saveData.research = ensureObject(saveData.research);
   saveData.expeditionLocations = ensureObject(saveData.expeditionLocations);
 
   return saveData;
@@ -317,6 +335,15 @@ function applyGameStateSaveData(savedGameState) {
     "discoveredStream",
     "discoveredBerryBush",
     "discoveredDeadfall",
+    "tier2Complete",
+    "knownOutskirtsPathsUnlocked",
+    "oldMapFound",
+    "tier3Unlocked",
+    "ruinedTorchFound",
+    "ruinedJournalFound",
+    "researchUnlocked",
+    "torchResearched",
+    "magicUnlocked",
     "destination",
     "hasCamp",
   ]);
@@ -403,6 +430,19 @@ function applyExpeditionLocationSaveData(savedLocations) {
         applySavedFields(site, savedSite, ["discovered", "installed", "checkedThisVisit"]);
       });
     }
+
+    if (location.explorableObjects && savedLocation.explorableObjects) {
+      applyLocationObjectSaveData(location.explorableObjects, savedLocation.explorableObjects);
+    }
+  }
+}
+
+function applyLocationObjectSaveData(explorableObjects, savedObjects) {
+  for (let objectName in explorableObjects) {
+    const object = explorableObjects[objectName];
+    const savedObject = savedObjects[objectName];
+
+    applySavedFields(object, savedObject, ["progress"]);
   }
 }
 
@@ -410,6 +450,7 @@ function refreshGameUIAfterLoad() {
   hideElement(ui.introPopup);
   hideElement(ui.clearingPopup);
   hideElement(ui.streamPopup);
+  hideElement(ui.outskirtsCompletePopup);
 
   const resourceDefinitions = getResourceDefinitions();
 
@@ -469,6 +510,7 @@ function loadGame() {
   applyUpgradeSaveData(getStorageUpgradeDefinitions(), saveData.storageUpgrades, ["unlocked", "tier"], updateStorageUpgradeUI);
   applyUpgradeSaveData(getGearUpgradeDefinitions(), saveData.gearUpgrades, ["unlocked", "purchased"], updateGearUpgradeUI);
   applyUpgradeSaveData(getResourceCraftDefinitions(), saveData.resourceCrafts, ["unlocked"], updateResourceCraftUI);
+  applyUpgradeSaveData(getResearchDefinitions(), saveData.research, ["unlocked", "completed"], updateResearchUI);
   applyExpeditionLocationSaveData(saveData.expeditionLocations);
   applyRecipeSaveData(saveData.recipes);
   checkRecipeDiscoveries();
