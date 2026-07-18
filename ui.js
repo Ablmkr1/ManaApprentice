@@ -1,11 +1,17 @@
 const ui = {};
 let resourceElements = {};
 let panelElements = {};
+let tabButtons = {};
+let tabPanels = {};
+let activeTab = "camp";
 
 function hookDomToUI() {
+  ui.mainTabs = document.getElementById("mainTabs");
   ui.introPopup = document.getElementById("introPopup");
   ui.continueBtn = document.getElementById("continueBtn");
   ui.restBtn = document.getElementById("restBtn");
+  ui.campEstablishedPopup = document.getElementById("campEstablishedPopup");
+  ui.campEstablishedContinueBtn = document.getElementById("campEstablishedContinueBtn");
   ui.campEstablishedPopup = document.getElementById("campEstablishedPopup");
   ui.campEstablishedContinueBtn = document.getElementById("campEstablishedContinueBtn");
   ui.campPanel = document.getElementById("campPanel");
@@ -14,6 +20,7 @@ function hookDomToUI() {
   ui.woodAmount = document.getElementById("woodAmount");
   ui.smallFire = document.getElementById("smallFire");
   ui.crudeLeanTo = document.getElementById("crudeLeanTo");
+  ui.campEmptyState = document.getElementById("campEmptyState");
   ui.smallFireBtn = document.getElementById("smallFireBtn");
   ui.crudeLeanToBtn = document.getElementById("crudeLeanToBtn");
   ui.expeditionPanel = document.getElementById("expeditionPanel");
@@ -44,6 +51,14 @@ function hookDomToUI() {
   ui.resetSaveBtn = document.getElementById("resetSaveBtn");
   ui.destinationActions = document.getElementById("destinationActions");
   ui.craftingSection = document.getElementById("craftingSection");
+  ui.campCraftCategory = document.getElementById("campCraftCategory");
+  ui.gearCraftCategory = document.getElementById("gearCraftCategory");
+  ui.resourceCraftCategory = document.getElementById("resourceCraftCategory");
+  ui.researchSection = document.getElementById("researchSection");
+  ui.researchProjects = document.getElementById("researchProjects");
+  ui.researchEmpty = document.getElementById("researchEmpty");
+  ui.knownRoutesList = document.getElementById("knownRoutesList");
+  ui.magicManaReadout = document.getElementById("magicManaReadout");
   ui.outskirtsCompletePopup = document.getElementById("outskirtsCompletePopup");
   ui.outskirtsCompleteContinueBtn = document.getElementById("outskirtsCompleteContinueBtn");
   ui.currentGoalSection = document.getElementById("currentGoalSection");
@@ -83,6 +98,225 @@ function hookUIMaps() {
     camp: ui.campPanel,
     expedition: ui.expeditionPanel,
   };
+}
+
+function hookTabNavigation() {
+  tabButtons = {};
+  tabPanels = {};
+
+  document.querySelectorAll("[data-tab]").forEach((button) => {
+    tabButtons[button.dataset.tab] = button;
+
+    button.addEventListener("click", function () {
+      setActiveTab(button.dataset.tab);
+    });
+  });
+
+  document.querySelectorAll("[data-tab-panel]").forEach((panel) => {
+    tabPanels[panel.dataset.tabPanel] = panel;
+  });
+}
+
+function setActiveTab(tabId) {
+  if (!tabPanels[tabId]) return;
+
+  activeTab = isTabAvailable(tabId) ? tabId : getDefaultTabForState();
+  refreshTabbedLayout();
+}
+
+function refreshTabbedLayout() {
+  updateResourceGroupVisibility();
+  refreshMapUI();
+  refreshMagicUI();
+  updateGearSlotVisibility();
+  updateTabVisibility();
+}
+
+function updateTabVisibility() {
+  const availableTabs = [];
+
+  for (let tabId in tabButtons) {
+    const available = isTabAvailable(tabId);
+    tabButtons[tabId].hidden = !available;
+
+    if (available) {
+      availableTabs.push(tabId);
+    }
+  }
+
+  if (!availableTabs.includes(activeTab)) {
+    activeTab = getDefaultTabForState();
+  }
+
+  if (!availableTabs.includes(activeTab)) {
+    activeTab = availableTabs[0] || "camp";
+  }
+
+  for (let tabId in tabButtons) {
+    const isActive = tabId === activeTab;
+    tabButtons[tabId].classList.toggle("is-active", isActive);
+    tabButtons[tabId].setAttribute("aria-selected", isActive ? "true" : "false");
+  }
+
+  for (let tabId in tabPanels) {
+    const isActive = tabId === activeTab;
+    tabPanels[tabId].hidden = !isActive;
+    tabPanels[tabId].style.display = isActive ? "" : "none";
+    tabPanels[tabId].classList.toggle("is-active-tab", isActive);
+  }
+}
+
+function getDefaultTabForState() {
+  if (gameState.currentGoalId === "chooseRegion" && isTabAvailable("map")) return "map";
+  if (gameState.expedition.active && isTabAvailable("expedition")) return "expedition";
+
+  return "camp";
+}
+
+function isTabAvailable(tabId) {
+  if (tabId === "camp" || tabId === "character" || tabId === "journal") return true;
+
+  if (tabId === "expedition") {
+    const beginExpedition = typeof getAction === "function" ? getAction("beginExpedition") : null;
+
+    return gameState.phase === "expedition" || gameState.expedition.active || !!(beginExpedition && beginExpedition.unlocked);
+  }
+
+  if (tabId === "crafting") {
+    return hasCraftingSurfaceContent();
+  }
+
+  if (tabId === "storage") {
+    return hasStorageSurfaceContent();
+  }
+
+  if (tabId === "research") {
+    return hasResearchSurfaceContent();
+  }
+
+  if (tabId === "map") {
+    return !!(gameState.oldMapFound || gameState.tier3Unlocked);
+  }
+
+  if (tabId === "magic") {
+    return !!gameState.magicUnlocked;
+  }
+
+  return false;
+}
+
+function hasCraftingSurfaceContent() {
+  const hasCamp = typeof hasAvailableCampUpgrade === "function" && hasAvailableCampUpgrade();
+  const hasGear = typeof hasAvailableGearUpgrade === "function" && hasAvailableGearUpgrade();
+  const hasResources = typeof hasAvailableResourceCraft === "function" && hasAvailableResourceCraft();
+
+  return hasCamp || hasGear || hasResources;
+}
+
+function hasStorageSurfaceContent() {
+  if (typeof getStorageUpgradeDefinitions !== "function") return false;
+
+  const upgrades = getStorageUpgradeDefinitions();
+
+  for (let upgradeName in upgrades) {
+    const upgrade = getStorageUpgrade(upgradeName);
+
+    if (upgrade && (upgrade.unlocked || upgrade.tier > 0)) return true;
+  }
+
+  return false;
+}
+
+function hasResearchSurfaceContent() {
+  if (gameState.researchUnlocked) return true;
+  if (typeof getResearchDefinitions !== "function") return false;
+
+  const researchDefinitions = getResearchDefinitions();
+
+  for (let researchName in researchDefinitions) {
+    const research = getResearch(researchName);
+
+    if (research && (research.unlocked || research.completed)) return true;
+  }
+
+  return false;
+}
+
+function updateResourceGroupVisibility() {
+  document.querySelectorAll("[data-resource-group]").forEach((group) => {
+    const hasVisibleResource = Array.from(group.querySelectorAll(".resource-pill")).some((pill) => {
+      return pill.style.display !== "none" && pill.textContent.trim() !== "";
+    });
+
+    group.hidden = !hasVisibleResource;
+  });
+}
+
+function refreshMapUI() {
+  if (!ui.knownRoutesList || typeof getExpeditionLocationDefinitions !== "function") return;
+
+  ui.knownRoutesList.innerHTML = "";
+
+  const locations = getExpeditionLocationDefinitions();
+  let hasRoute = false;
+
+  for (let locationName in locations) {
+    const location = getExpeditionLocation(locationName);
+
+    if (!location || !location.discovered) continue;
+
+    hasRoute = true;
+
+    const row = document.createElement("div");
+    row.classList.add("route-row");
+
+    const title = document.createElement("strong");
+    title.textContent = getLocationLabel(locationName);
+
+    const distance = typeof getLocationTravelDistance === "function" ? getLocationTravelDistance(location) : location.distance;
+    const detail = document.createElement("span");
+    detail.textContent = (location.explored ? "Explored" : "Discovered") + " - " + formatDistance(distance) + " distance";
+
+    row.appendChild(title);
+    row.appendChild(detail);
+    ui.knownRoutesList.appendChild(row);
+  }
+
+  if (!hasRoute) {
+    const empty = document.createElement("div");
+    empty.classList.add("empty-state");
+    empty.textContent = "No mapped routes yet.";
+    ui.knownRoutesList.appendChild(empty);
+  }
+}
+
+function refreshMagicUI() {
+  if (!ui.magicManaReadout || typeof getResource !== "function") return;
+
+  const mana = getResource("mana");
+
+  if (!mana) return;
+
+  safeSetText(ui.magicManaReadout, mana.label + ": " + Math.floor(mana.value * 10) / 10 + " / " + mana.maxValue);
+}
+
+function updateGearSlotVisibility() {
+  document.querySelectorAll(".equipment-slot").forEach((slot) => {
+    const hasGear = Array.from(slot.querySelectorAll(".gear-equipped-item")).some((item) => item.style.display !== "none");
+    const empty = slot.querySelector(".slot-empty");
+
+    if (empty) {
+      empty.style.display = hasGear ? "none" : "block";
+    }
+  });
+}
+
+function updateCampBuildingVisibility() {
+  if (!ui.campEmptyState) return;
+
+  const hasBuilding = Array.from(document.querySelectorAll(".owned-marker")).some((marker) => marker.style.display !== "none");
+
+  ui.campEmptyState.style.display = hasBuilding ? "none" : "block";
 }
 
 //UI Safety Function
@@ -130,8 +364,13 @@ function updateResource(resourceName) {
     safeSetText(ui.characterEnergyAmount, text);
   }
 
+  if (resourceName === "mana") {
+    refreshMagicUI();
+  }
+
   safeSetText(resource.perClickDisplay, "+" + resource.perClick + "/Click");
   safeSetText(resource.perSecondDisplay, "+" + resource.perSecond + "/Sec");
+  updateResourceGroupVisibility();
   updateAllActionButtons();
 }
 
@@ -153,6 +392,7 @@ function unlockResource(resourceName) {
   }
 
   showElement(resourceElement, "block");
+  refreshTabbedLayout();
 }
 
 function unlockPanel(panelName) {
@@ -164,8 +404,12 @@ function unlockPanel(panelName) {
   }
 
   showElement(panel);
+  refreshTabbedLayout();
 }
 
+//Discover Popup & Function & CampDisplay
+function showCampEstablishedPopup() {
+  ui.campEstablishedPopup.style.display = "flex";
 //Discover Popup & Function & CampDisplay
 function showCampEstablishedPopup() {
   ui.campEstablishedPopup.style.display = "flex";
@@ -177,6 +421,14 @@ function showCampPanel() {
 
 function showOutskirtsCompletePopup() {
   ui.outskirtsCompletePopup.style.display = "flex";
+}
+
+function showTorchSparkPopup() {
+  ui.torchSparkPopup.style.display = "flex";
+}
+
+function showManaAwakenedPopup() {
+  ui.manaAwakenedPopup.style.display = "flex";
 }
 
 function showTorchSparkPopup() {
@@ -214,7 +466,13 @@ function addStoryEntry(text) {
   entry.classList.add("story-entry");
   entry.textContent = text;
 
+
   ui.storyLog.appendChild(entry);
+
+  while (ui.storyLog.children.length > 30) {
+    ui.storyLog.removeChild(ui.storyLog.firstChild);
+  }
+
 
   while (ui.storyLog.children.length > 30) {
     ui.storyLog.removeChild(ui.storyLog.firstChild);
@@ -234,6 +492,8 @@ function updateCampUpgradeDisplay(upgrade) {
   if (upgrade.display) {
     upgrade.display.style.display = upgrade.purchased ? "flex" : "none";
   }
+
+  updateCampBuildingVisibility();
 }
 
 function updateActionButton(actionName) {
@@ -346,6 +606,9 @@ function updateCharacterPanelLocks() {
     hideElement(ui.inventorySection);
     hideElement(ui.gearSection);
   }
+
+  updateGearSlotVisibility();
+  refreshTabbedLayout();
 }
 
 function hasUnlockedOrPurchasedGear() {
@@ -354,7 +617,7 @@ function hasUnlockedOrPurchasedGear() {
   for (let gearName in gearUpgradeDefinitions) {
     const gear = getGearUpgrade(gearName);
 
-    if (gear.purchased) {
+    if (gear.purchased || gear.unlocked) {
       return true;
     }
   }
