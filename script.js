@@ -5,24 +5,25 @@ window.onload = function () {
   hookUIMaps();
   hookActionCompletions();
 
-  ui.clearingContinueBtn.addEventListener("click", function () {
-    ui.clearingPopup.style.display = "none";
-
-    lockAction("catchBreath");
-
-    ui.restBtn.style.display = "inline-block";
-    updateRestButton();
-  });
-
-  ui.streamContinueBtn.addEventListener("click", function () {
-    ui.streamPopup.style.display = "none";
+  ui.campEstablishedContinueBtn.addEventListener("click", function () {
+    ui.campEstablishedPopup.style.display = "none";
   });
 
   ui.outskirtsCompleteContinueBtn.addEventListener("click", function () {
-    ui.outskirtsCompletePopup.style.display = "none"
-  })
+    ui.outskirtsCompletePopup.style.display = "none";
+  });
+
+  ui.torchSparkContinueBtn.addEventListener("click", function () {
+    ui.torchSparkPopup.style.display = "none";
+  });
+
+  ui.manaAwakenedContinueBtn.addEventListener("click", function () {
+    ui.manaAwakenedPopup.style.display = "none";
+  });
 
   hookStatsToUI();
+  updateCurrentGoalUI();
+  updateJournalUI();
   updateResource("energy");
   hookActionButtonsToUI(runAction);
   hookCampUpgradestoUI();

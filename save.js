@@ -266,6 +266,10 @@ function normalizeSaveData(saveData) {
   saveData.resourceCrafts = ensureObject(saveData.resourceCrafts);
   saveData.research = ensureObject(saveData.research);
   saveData.expeditionLocations = ensureObject(saveData.expeditionLocations);
+  saveData.gameState.journal = ensureObject(saveData.gameState.journal);
+  if (!Array.isArray(saveData.gameState.journal.entries)) {
+    saveData.gameState.journal.entries = [];
+  }
 
   return saveData;
 }
@@ -331,6 +335,7 @@ function applyGameStateSaveData(savedGameState) {
 
   applySavedFields(gameState, savedGameState, [
     "phase",
+    "currentGoalId",
     "discoveredClearing",
     "discoveredStream",
     "discoveredBerryBush",
@@ -369,6 +374,10 @@ function applyGameStateSaveData(savedGameState) {
     if (savedGameState.expedition.carriedItems) {
       gameState.expedition.carriedItems = structuredClone(savedGameState.expedition.carriedItems);
     }
+  }
+
+  if (savedGameState.journal && Array.isArray(savedGameState.journal.entries)) {
+    gameState.journal.entries = [...savedGameState.journal.entries];
   }
 
   resetActivity();
@@ -448,9 +457,10 @@ function applyLocationObjectSaveData(explorableObjects, savedObjects) {
 
 function refreshGameUIAfterLoad() {
   hideElement(ui.introPopup);
-  hideElement(ui.clearingPopup);
-  hideElement(ui.streamPopup);
+  hideElement(ui.campEstablishedPopup);
   hideElement(ui.outskirtsCompletePopup);
+  hideElement(ui.torchSparkPopup);
+  hideElement(ui.manaAwakenedPopup);
 
   const resourceDefinitions = getResourceDefinitions();
 
@@ -488,6 +498,8 @@ function refreshGameUIAfterLoad() {
     hideElement(ui.restBtn);
   }
 
+  updateCurrentGoalUI();
+  updateJournalUI();
   updateCharacterPanelLocks();
   updateDestinationActions();
   updateLocationActions();

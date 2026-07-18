@@ -6,11 +6,9 @@ function hookDomToUI() {
   ui.introPopup = document.getElementById("introPopup");
   ui.continueBtn = document.getElementById("continueBtn");
   ui.restBtn = document.getElementById("restBtn");
-  ui.clearingPopup = document.getElementById("clearingPopup");
-  ui.clearingContinueBtn = document.getElementById("clearingContinueBtn");
+  ui.campEstablishedPopup = document.getElementById("campEstablishedPopup");
+  ui.campEstablishedContinueBtn = document.getElementById("campEstablishedContinueBtn");
   ui.campPanel = document.getElementById("campPanel");
-  ui.streamPopup = document.getElementById("streamPopup");
-  ui.streamContinueBtn = document.getElementById("streamContinueBtn");
   ui.waterAmount = document.getElementById("waterAmount");
   ui.foodAmount = document.getElementById("foodAmount");
   ui.woodAmount = document.getElementById("woodAmount");
@@ -48,6 +46,14 @@ function hookDomToUI() {
   ui.craftingSection = document.getElementById("craftingSection");
   ui.outskirtsCompletePopup = document.getElementById("outskirtsCompletePopup");
   ui.outskirtsCompleteContinueBtn = document.getElementById("outskirtsCompleteContinueBtn");
+  ui.currentGoalSection = document.getElementById("currentGoalSection");
+  ui.currentGoalTitle = document.getElementById("currentGoalTitle");
+  ui.currentGoalText = document.getElementById("currentGoalText");
+  ui.journalEntries = document.getElementById("journalEntries");
+  ui.torchSparkPopup = document.getElementById("torchSparkPopup");
+  ui.torchSparkContinueBtn = document.getElementById("torchSparkContinueBtn");
+  ui.manaAwakenedPopup = document.getElementById("manaAwakenedPopup");
+  ui.manaAwakenedContinueBtn = document.getElementById("manaAwakenedContinueBtn");
 }
 
 //Hook Ui Maps Functions
@@ -150,13 +156,9 @@ function unlockPanel(panelName) {
   showElement(panel);
 }
 
-//Discover Clearing Popup & Function & CampDisplay
-function showClearingPopup() {
-  ui.clearingPopup.style.display = "flex";
-}
-
-function showStreamPopup() {
-  ui.streamPopup.style.display = "flex";
+//Discover Popup & Function & CampDisplay
+function showCampEstablishedPopup() {
+  ui.campEstablishedPopup.style.display = "flex";
 }
 
 function showCampPanel() {
@@ -165,6 +167,14 @@ function showCampPanel() {
 
 function showOutskirtsCompletePopup() {
   ui.outskirtsCompletePopup.style.display = "flex";
+}
+
+function showTorchSparkPopup() {
+  ui.torchSparkPopup.style.display = "flex";
+}
+
+function showManaAwakenedPopup() {
+  ui.manaAwakenedPopup.style.display = "flex";
 }
 
 //Update Expedition UI
@@ -193,7 +203,13 @@ function addStoryEntry(text) {
   const entry = document.createElement("div");
   entry.classList.add("story-entry");
   entry.textContent = text;
+
   ui.storyLog.appendChild(entry);
+
+  while (ui.storyLog.children.length > 30) {
+    ui.storyLog.removeChild(ui.storyLog.firstChild);
+  }
+
   ui.storyLog.scrollTop = ui.storyLog.scrollHeight;
 }
 
@@ -362,4 +378,74 @@ function prepareCraftButton(button) {
     cost.classList.add("craft-cost");
     button.appendChild(cost);
   }
+}
+
+function updateCurrentGoalUI() {
+  const goal = getGoal(gameState.currentGoalId);
+
+  if (!goal) {
+    hideElement(ui.currentGoalSection);
+    return;
+  }
+
+  showElement(ui.currentGoalSection, "block");
+  safeSetText(ui.currentGoalTitle, goal.title);
+  safeSetText(ui.currentGoalText, goal.text);
+}
+
+function setCurrentGoal(goalId) {
+  if (!getGoal(goalId)) {
+    console.warn("Unknown goal:", goalId);
+    return;
+  }
+
+  gameState.currentGoalId = goalId;
+  updateCurrentGoalUI();
+}
+
+function addJournalEntry(entryId) {
+  if (gameState.journal.entries.includes(entryId)) return;
+
+  const entry = getJournalEntryDefinition(entryId);
+
+  if (!entry) {
+    console.warn("Unknown journal entry:", entryId);
+    return;
+  }
+
+  gameState.journal.entries.push(entryId);
+  updateJournalUI();
+}
+
+function updateJournalUI() {
+  if (!ui.journalEntries) return;
+
+  ui.journalEntries.innerHTML = "";
+
+  if (gameState.journal.entries.length === 0) {
+    const empty = document.createElement("div");
+    empty.classList.add("journal-empty");
+    empty.textContent = "No lasting discoveries recorded yet.";
+    ui.journalEntries.appendChild(empty);
+    return;
+  }
+
+  gameState.journal.entries.forEach((entryId) => {
+    const entry = getJournalEntryDefinition(entryId);
+
+    if (!entry) return;
+
+    const row = document.createElement("article");
+    row.classList.add("journal-entry");
+
+    const title = document.createElement("h3");
+    title.textContent = entry.title;
+
+    const text = document.createElement("p");
+    text.textContent = entry.text;
+
+    row.appendChild(title);
+    row.appendChild(text);
+    ui.journalEntries.appendChild(row);
+  });
 }

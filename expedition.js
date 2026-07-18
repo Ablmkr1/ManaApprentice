@@ -401,6 +401,8 @@ function completeTier2Exploration() {
   gameState.tier2Complete = true;
   gameState.knownOutskirtsPathsUnlocked = true;
   gameState.expedition.targetDistance = 120;
+  setCurrentGoal("followTrail");
+  addJournalEntry("outskirtsMastered");
 
   unlockLocation("mysteriousTrail");
   showOutskirtsCompletePopup();
@@ -538,6 +540,10 @@ function checkDestinationArrival() {
     expedition.destination = null;
 
     addStoryEntry("You arrive at " + location.label + ".");
+    if (expedition.currentLocation === "mysteriousTrail") {
+      setCurrentGoal("searchAbandonedCamp");
+      addJournalEntry("abandonedCampFound");
+    }
 
     return true;
   }
@@ -727,6 +733,19 @@ function completeLocationObjectExploration(locationName, objectName) {
 
   if (stage && stage.unlocks) {
     applyUnlocks(stage.unlocks);
+    if (stage && stage.unlocks && stage.unlocks.some((unlock) => unlock.type === "flag" && unlock.id === "ruinedJournalFound")) {
+      setCurrentGoal("researchTorch");
+    }
+    if (stage && stage.unlocks && stage.unlocks.some((unlock) => unlock.type === "flag" && unlock.id === "oldMapFound")) {
+      setCurrentGoal("chooseRegion");
+    }
+    if (stage.unlocks.some((unlock) => unlock.type === "flag" && unlock.id === "ruinedTorchFound")) {
+      showTorchSparkPopup();
+    }
+
+    if (stage.unlocks.some((unlock) => unlock.type === "flag" && unlock.id === "magicUnlocked")) {
+      showManaAwakenedPopup();
+    }
   }
 
   checkRecipeDiscoveries();
