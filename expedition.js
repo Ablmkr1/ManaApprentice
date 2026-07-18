@@ -575,6 +575,7 @@ function isKnownPathTravelActive() {
 
 function updateDestinationActions() {
   renderDestinationActions();
+  refreshTabbedLayout();
 }
 
 function getLocationLabel(locationName) {

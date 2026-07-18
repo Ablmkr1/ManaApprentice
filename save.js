@@ -508,6 +508,16 @@ function refreshGameUIAfterLoad() {
   refreshExpeditionUI();
   updateTravelButton(isTravelActivityActive());
   updatePlacePanel();
+
+  if (typeof updateStorageSectionVisibility === "function") {
+    updateStorageSectionVisibility();
+  }
+
+  if (typeof updateResearchSectionVisibility === "function") {
+    updateResearchSectionVisibility();
+  }
+
+  refreshTabbedLayout();
 }
 
 function loadGame() {

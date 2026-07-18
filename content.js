@@ -299,6 +299,7 @@ const explorationStages = {
       gameState.discoveredClearing = true;
       setPhase("clearing");
       lockAction("catchBreath");
+      setCampActionsAvailable(true);
       updatePlacePanel();
       setCurrentGoal("buildCamp");
     },

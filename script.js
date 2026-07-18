@@ -3,6 +3,7 @@ let lastTickTime = Date.now();
 window.onload = function () {
   hookDomToUI();
   hookUIMaps();
+  hookTabNavigation();
   hookActionCompletions();
 
   ui.campEstablishedContinueBtn.addEventListener("click", function () {
@@ -32,6 +33,7 @@ window.onload = function () {
   hookResourceCraftsToUI();
   hookResearchToUI();
   hookSaveControls();
+  refreshTabbedLayout();
 
   ui.continueBtn.addEventListener("click", function () {
     ui.introPopup.style.display = "none";
@@ -48,6 +50,7 @@ window.onload = function () {
   });
 
   tryLoadGame();
+  refreshTabbedLayout();
   setInterval(trySaveGame, 5000);
   window.addEventListener("beforeunload", trySaveGame);
 
