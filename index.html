@@ -30,6 +30,14 @@
           <div id="characterEnergyAmount" class="character-stat">Energy: 0 / 10</div>
         </div>
 
+        <div id="currentGoalSection" class="current-goal-section">
+          <h3>
+            <span>Current Goal:</span>
+            <span id="currentGoalTitle" class="current-goal-title"></span>
+          </h3>
+          <div id="currentGoalText" class="current-goal-text"></div>
+        </div>
+
         <div id="gearSection" class="gear-section" style="display: none">
           <h3>Gear</h3>
 
@@ -222,8 +230,13 @@
         </button>
       </section>
 
+      <section class="journal-panel">
+        <h2>Journal</h2>
+        <div id="journalEntries" class="journal-entries"></div>
+      </section>
+
       <section class="world-feed">
-        <h2>World</h2>
+        <h2>World Log</h2>
         <div id="storyLog" class="story-log"></div>
       </section>
 
@@ -240,47 +253,28 @@
       <div class="popup-content">
         <h2>Awakening</h2>
 
-        <p>You wake up in the woods tired, thirsty, and hungry with no memory of how you got here...or even who you are.</p>
+        <p>You wake beneath unfamiliary trees tired, thirsty, and hungry with no memory of how you got here.</p>
 
         <p>
-          The forest is quiet... unnaturally quiet. Something deep inside tells you that remaining here is a mistake. You need water, food, shelter.
-          Answers will have to wait, you're certain you're not safe here.
+          The forest is unsettlingly quiet. You cannot recall your own name but some instinct makes you certain staying helpless will get you killed.
+          Answers will have to wait.
         </p>
 
         <button id="continueBtn">Continue</button>
       </div>
     </div>
 
-    <div id="clearingPopup" class="popup" style="display: none">
+    <div id="campEstablishedPopup" class="popup" style="display: none">
       <div class="popup-content">
-        <h2>A Clearing</h2>
+        <h2>A New Home</h2>
+
+        <p>The small fire crackles as you huddle in your crude shelter. For the first time since waking you're not fighting for survival.</p>
 
         <p>
-          You stumble through the thick forest, your mind in a fog, pushing past branches and bushes. Suddenly the resistance ends as you fall into a
-          clearing.
+          With a safe place to rest your thoughts turn inward. Who am I? Why am I here? The fire has no response, answers are...out there...somewhere.
         </p>
 
-        <p>
-          It isn't large but there's enough space to do more than catch your breath. You can rest here. With some work you might be able to create a
-          camp.
-        </p>
-
-        <button id="clearingContinueBtn">Continue</button>
-      </div>
-    </div>
-
-    <div id="streamPopup" class="popup" style="display: none">
-      <div class="popup-content">
-        <h2>A Stream</h2>
-
-        <p>
-          You recognize the sound now that you see it, a small stream runs next to the clearing. As long as you're nearby you'll never be thirsty
-          again.
-        </p>
-
-        <p>Your throat is soothed and you feel you can push yourself further now. The rumbles in your stomach tell you your next task.</p>
-
-        <button id="streamContinueBtn">Continue</button>
+        <button id="campEstablishedContinueBtn">Continue</button>
       </div>
     </div>
 
@@ -292,9 +286,38 @@
 
         <p>You now know the fastest routes and shortcuts to every nearby location, and can travel these well-known paths faster.</p>
 
-        <p>With your new knowledge, you notice an overgrown trail leading beyond where you've explored. It's time to search for answers.</p>
+        <p>
+          With your new knowledge, you notice an overgrown trail leading beyond where you've explored. Maybe this can lead to the answers you seek.
+        </p>
 
         <button id="outskirtsCompleteContinueBtn">Continue</button>
+      </div>
+    </div>
+
+    <div id="torchSparkPopup" class="popup" style="display: none">
+      <div class="popup-content">
+        <h2>A Spark</h2>
+
+        <p>
+          As your fingers close around the torch, heat blums in your chest. It races down your are for blue heat flickers beneath your skin for one
+          impossible heartbeat.
+        </p>
+
+        <p>You do not know how you did it but despited the impossiblity your instincts say it was you.</p>
+
+        <button id="torchSparkContinueBtn">Continue</button>
+      </div>
+    </div>
+
+    <div id="manaAwakenedPopup" class="popup" style="display: none">
+      <div class="popup-content">
+        <h2>Mana Awakened</h2>
+
+        <p>The runes do not speak in words. They pull at something buried inside you, and something answers.</p>
+
+        <p>Power gathers at the edge of your awareness. Forgotten no more a power, your power, blooms in your chest once more.</p>
+
+        <button id="manaAwakenedContinueBtn">Continue</button>
       </div>
     </div>
 

@@ -84,6 +84,7 @@ h1 {
 
 .primary-play,
 .character-panel,
+.journal-panel,
 .world-feed,
 .context-section {
   background: #f8f1e5;
@@ -99,6 +100,7 @@ h1 {
 
 .primary-play h2,
 .character-panel h2,
+.journal-panel h2,
 .world-feed h2,
 .context-section h2 {
   margin: 0;
@@ -195,6 +197,33 @@ button {
 
   padding: 8px;
   border: 1px solid #333;
+}
+
+.journal-entries {
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.journal-entry {
+  padding: 8px 10px;
+  border: 1px solid #d8ccb8;
+  border-radius: 6px;
+  background: rgba(255, 250, 240, 0.65);
+}
+
+.journal-entry h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+
+.journal-entry p,
+.journal-empty {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.35;
 }
 
 .popup {
@@ -377,7 +406,7 @@ button:disabled {
 }
 
 .crafting-actions button:disabled {
-  opacity: .85;
+  opacity: 0.85;
   color: #2f2a1f;
   background-color: #ceccca;
   border: 1px solid #000000;
@@ -391,4 +420,28 @@ button:disabled {
 .crafting-actions button:disabled .craft-cost {
   color: #5f4f38;
   opacity: 1;
+}
+
+.current-goal-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid #d8ccb8;
+  border-radius: 6px;
+  background: rgba(255, 250, 240, 0.65);
+}
+
+.current-goal-section h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.current-goal-title {
+  font-weight: 400;
+}
+
+.current-goal-text {
+  font-size: 13px;
+  line-height: 1.35;
 }

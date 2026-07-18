@@ -32,6 +32,9 @@ const unlockHandlers = {
   research: function (id) {
     unlockResearch(id);
   },
+  journal: function (id) {
+    addJournalEntry(id);
+  },
 };
 
 function applyUnlock(unlock) {
@@ -563,6 +566,9 @@ function checkClearingComplete() {
 
   if (gameState.phase === "clearing" && hasSmallFire && hasCrudeLeanTo) {
     setPhase("expedition");
+    setCurrentGoal("exploreOutskirts");
+    addJournalEntry("campEstablished");
+    showCampEstablishedPopup();
     updatePlacePanel();
     addStoryEntry("With fire and shelter established, the clearing feels less like a refuge and more like a camp. It is time to range farther.");
   }

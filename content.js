@@ -83,20 +83,23 @@ const expeditionLocations = {
         },
         stages: [
           {
-            story: "Near the cave wall, you find the remains of moldy food. Someone sheltered here, but not recently.",
+            story:
+              "The torchlight reaches farther than your eyes could before. Near the cave wall, you find the remains of moldy food. Someone sheltered here, but not recently.",
           },
           {
             story: "Behind a loose stone, you find an old map marked with paths far beyond the outskirts.",
             unlocks: [
               { type: "flag", id: "oldMapFound" },
               { type: "flag", id: "tier3Unlocked" },
+              { type: "journal", id: "oldMapFound" },
             ],
           },
           {
-            story: "At the back of the cave, your torchlight reveals runes carved into the floor. The markings hum in your thoughts.",
+            story: "At the back of the cave, your torchlight reveals runes carved into the floor.",
             unlocks: [
               { type: "flag", id: "magicUnlocked" },
               { type: "resource", id: "mana" },
+              { type: "journal", id: "manaAwakened" },
             ],
           },
         ],
@@ -111,10 +114,10 @@ const expeditionLocations = {
     discovered: false,
     explored: true,
     onDiscoverStory:
-      "With the forest near your camp growing familair you notice something you missed before, a broken branch, a patch of dirt, someone passed through here.",
+      "With the forest near your camp growing familiar you notice something you missed before, a broken branch, a patch of dirt, someone passed through here.",
     panelText: {
       discovered: "The trail ends at the remains of an abandoned camp. The ruined shelter, shredded pack, and washed out fire pit wait in silence.",
-      explored: "The abandoned camp sits quiet beneath the trees.",
+      explored: "The abandoned camp sits quiet beneath the trees. Whoever was here was long gone.",
     },
     availableActions: [],
     explorableObjects: {
@@ -142,7 +145,7 @@ const expeditionLocations = {
         stages: [
           {
             story:
-              "The pack is torn almost beyond use, but the stitching and frame are better than anything you've made. You could repair this design back at camp.",
+              "The pack is torn almost beyond use, but the stitching and frame are better than anything you've made. Whoever carried this pack knew how to travel.",
             unlocks: [{ type: "gearUpgrade", id: "repairedLeatherBackpack" }],
           },
         ],
@@ -157,9 +160,11 @@ const expeditionLocations = {
         progress: 0,
         stages: [
           {
-            story:
-              "The shelter has collapsed inward. Beneath the rot, your hand closes around the remains of a blackened torch. For a moment, something in it sparks against your skin.",
-            unlocks: [{ type: "flag", id: "ruinedTorchFound" }],
+            story: "Beneath the collapsed shelter, you find the remains of a blackened torch.",
+            unlocks: [
+              { type: "flag", id: "ruinedTorchFound" },
+              { type: "journal", id: "ruinedTorchFound" },
+            ],
           },
           {
             story:
@@ -168,6 +173,7 @@ const expeditionLocations = {
               { type: "flag", id: "ruinedJournalFound" },
               { type: "flag", id: "researchUnlocked" },
               { type: "research", id: "ruinedTorch" },
+              { type: "journal", id: "ruinedJournalFound" },
             ],
           },
         ],
@@ -292,8 +298,9 @@ const explorationStages = {
     onComplete: function () {
       gameState.discoveredClearing = true;
       setPhase("clearing");
+      lockAction("catchBreath");
       updatePlacePanel();
-      showClearingPopup();
+      setCurrentGoal("buildCamp");
     },
     nextStage: "findStream",
   },
@@ -309,7 +316,6 @@ const explorationStages = {
       gameState.discoveredStream = true;
       getResource("energy").maxValue += 10;
       updateResource("energy");
-      showStreamPopup();
     },
     nextStage: "findBerryBush",
   },
@@ -715,6 +721,7 @@ const gearUpgrades = {
     display: null,
     onComplete() {
       refreshExpeditionUI();
+      setCurrentGoal("returnToCave");
     },
   },
 };
@@ -754,6 +761,82 @@ const researchDefinitions = {
     onComplete() {
       gameState.torchResearched = true;
       unlockGearUpgrade("torch");
+      setCurrentGoal("craftTorch");
+      addJournalEntry("torchResearched");
     },
+  },
+};
+
+const goalDefinitions = {
+  surviveTheWoods: {
+    title: "Survive the Woods",
+    text: "Find a place to rest.",
+  },
+  buildCamp: {
+    title: "Build A Camp",
+    text: "Secure the essentials for survival. You need food, water, and shelter. You'll need to forge your own safety.",
+  },
+  exploreOutskirts: {
+    title: "Explore The Outskirts",
+    text: "Range farther from camp and learn the nearby woods.",
+  },
+  followTrail: {
+    title: "Follow The Unfamiliar Trail",
+    text: "A narrow trail leads beyond the paths you know.",
+  },
+  searchAbandonedCamp: {
+    title: "Search The Abandoned Camp",
+    text: "Investigate the ruined shelter, shredded pack, and washed out fire pit.",
+  },
+  researchTorch: {
+    title: "Research The Ruined Torch",
+    text: "Use the ruined journal to understand the strange torch.",
+  },
+  craftTorch: {
+    title: "Craft A Torch",
+    text: "Build a reliable light source before returning to the dark cave.",
+  },
+  returnToCave: {
+    title: "Return To The Cave",
+    text: "Bring the torch into the cave and search what the darkness hid.",
+  },
+  chooseRegion: {
+    title: "Choose A Direction",
+    text: "The old map shows routes beyond the outskirts. Choose where to search next.",
+  },
+};
+
+const journalDefinitions = {
+  campEstablished: {
+    title: "Camp Established",
+    text: "The clearing is no longer only where you collapsed. With fire and shelter, it has become a place you can return to.",
+  },
+  outskirtsMastered: {
+    title: "Camp Outskirts Mastered",
+    text: "The nearby woods have become familiar. You know the stream crossings, animal paths, exposed roots, and safe ground.",
+  },
+  abandonedCampFound: {
+    title: "Abandoned Camp",
+    text: "A narrow trail led to the remains of another camp. Whoever stayed there left behind ruined shelter, a torn pack, and old questions.",
+  },
+  ruinedTorchFound: {
+    title: "Ruined Torch",
+    text: "The ruined torch sparked against your hand for a heartbeat. It felt less like learning something new than almost remembering.",
+  },
+  ruinedJournalFound: {
+    title: "Ruined Journal",
+    text: "The journal is damaged, but its notes give you a way to study the strange torch properly.",
+  },
+  torchResearched: {
+    title: "Torch Reconstructed",
+    text: "The ruined torch was not magical by itself. It was built well enough to hold flame in bad weather, and that is enough to return to the cave.",
+  },
+  oldMapFound: {
+    title: "Old Map",
+    text: "The map shows routes far beyond the camp outskirts. The forest around camp is only one small part of a larger wilderness.",
+  },
+  manaAwakened: {
+    title: "Mana Awakened",
+    text: "The runes answered something inside you. Mana is not new to you, only forgotten.",
   },
 };

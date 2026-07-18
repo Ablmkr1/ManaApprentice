@@ -375,6 +375,11 @@ const gameState = {
     count: 0,
   },
 
+  currentGoalId: "surviveTheWoods",
+  journal: {
+    entries: [],
+  },
+
   discoveredClearing: false,
   discoveredStream: false,
   discoveredBerryBush: false,

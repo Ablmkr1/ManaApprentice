@@ -10,6 +10,8 @@ const gameDefinitions = {
   recipes,
   resourceCrafts: resourceCrafts,
   researchDefinitions,
+  goalDefinitions,
+  journalDefinitions,
 };
 
 function getExpeditionLocationDefinitions() {
@@ -97,4 +99,20 @@ function getResearchDefinitions() {
 
 function getResearch(researchName) {
   return getResearchDefinitions()[researchName];
+}
+
+function getGoalDefinitions() {
+  return gameDefinitions.goalDefinitions;
+}
+
+function getGoal(goalId) {
+  return getGoalDefinitions()[goalId];
+}
+
+function getJournalDefinitions() {
+  return gameDefinitions.journalDefinitions;
+}
+
+function getJournalEntryDefinition(entryId) {
+  return getJournalDefinitions()[entryId];
 }
