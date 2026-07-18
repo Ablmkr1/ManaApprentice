@@ -378,7 +378,6 @@ const gameState = {
     entries: [],
   },
 
-<<<<<<< HEAD
   world: {
     selectedRegion: "outskirts",
     regions: {
@@ -415,8 +414,6 @@ const gameState = {
     },
   },
 
-=======
->>>>>>> 86ac9513542bd256aa795f218e5db58adf7168cf
   discoveredClearing: false,
   discoveredStream: false,
   discoveredBerryBush: false,

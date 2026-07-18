@@ -12,10 +12,7 @@ const gameDefinitions = {
   researchDefinitions,
   goalDefinitions,
   journalDefinitions,
-<<<<<<< HEAD
   regionDefinitions,
-=======
->>>>>>> 86ac9513542bd256aa795f218e5db58adf7168cf
 };
 
 function getExpeditionLocationDefinitions() {
@@ -120,7 +117,6 @@ function getJournalDefinitions() {
 function getJournalEntryDefinition(entryId) {
   return getJournalDefinitions()[entryId];
 }
-<<<<<<< HEAD
 
 function getRegionDefinitions() {
   return gameDefinitions.regionDefinitions;
@@ -129,5 +125,3 @@ function getRegionDefinitions() {
 function getRegionDefinition(regionId) {
   return getRegionDefinitions()[regionId];
 }
-=======
->>>>>>> 86ac9513542bd256aa795f218e5db58adf7168cf

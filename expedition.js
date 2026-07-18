@@ -578,7 +578,6 @@ function isKnownPathTravelActive() {
 
 function updateDestinationActions() {
   renderDestinationActions();
-  refreshTabbedLayout();
 }
 
 function getLocationLabel(locationName) {
@@ -742,10 +741,7 @@ function completeLocationObjectExploration(locationName, objectName) {
     }
     if (stage && stage.unlocks && stage.unlocks.some((unlock) => unlock.type === "flag" && unlock.id === "oldMapFound")) {
       setCurrentGoal("chooseRegion");
-<<<<<<< HEAD
       updateRegionalMapVisibility();
-=======
->>>>>>> 86ac9513542bd256aa795f218e5db58adf7168cf
     }
     if (stage.unlocks.some((unlock) => unlock.type === "flag" && unlock.id === "ruinedTorchFound")) {
       showTorchSparkPopup();

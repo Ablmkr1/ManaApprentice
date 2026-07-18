@@ -3,7 +3,6 @@ let lastTickTime = Date.now();
 window.onload = function () {
   hookDomToUI();
   hookUIMaps();
-  hookTabNavigation();
   hookActionCompletions();
 
   ui.campEstablishedContinueBtn.addEventListener("click", function () {
@@ -25,10 +24,7 @@ window.onload = function () {
   hookStatsToUI();
   updateCurrentGoalUI();
   updateJournalUI();
-<<<<<<< HEAD
   updateRegionalMapVisibility();
-=======
->>>>>>> 86ac9513542bd256aa795f218e5db58adf7168cf
   updateResource("energy");
   hookActionButtonsToUI(runAction);
   hookCampUpgradestoUI();
@@ -37,7 +33,6 @@ window.onload = function () {
   hookResourceCraftsToUI();
   hookResearchToUI();
   hookSaveControls();
-  refreshTabbedLayout();
 
   ui.continueBtn.addEventListener("click", function () {
     ui.introPopup.style.display = "none";
@@ -52,7 +47,6 @@ window.onload = function () {
   });
 
   tryLoadGame();
-  refreshTabbedLayout();
   setInterval(trySaveGame, 5000);
   window.addEventListener("beforeunload", trySaveGame);
 

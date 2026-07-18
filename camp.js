@@ -35,12 +35,9 @@ const unlockHandlers = {
   journal: function (id) {
     addJournalEntry(id);
   },
-<<<<<<< HEAD
   region: function (id) {
     unlockRegion(id);
   },
-=======
->>>>>>> 86ac9513542bd256aa795f218e5db58adf7168cf
 };
 
 function applyUnlock(unlock) {
@@ -72,7 +69,6 @@ function unlockFlag(flagName) {
   }
 
   gameState[flagName] = true;
-  refreshTabbedLayout();
 }
 
 function unlockLocation(locationName) {
@@ -87,7 +83,6 @@ function unlockLocation(locationName) {
 
   location.discovered = true;
   updateDestinationActions();
-  refreshTabbedLayout();
 }
 
 function unlockResourceCraft(craftName) {
@@ -303,8 +298,6 @@ function hookStorageUpgradesToUI() {
 
     updateStorageUpgradeUI(upgradeName);
   }
-
-  updateStorageSectionVisibility();
 }
 
 function hookGearUpgradesToUI() {
@@ -331,56 +324,41 @@ function updateStorageUpgradeUI(upgradeName) {
 
   if (!upgrade) return;
 
+  updateStorageSectionVisibility();
+
   if (upgrade.display) {
+    upgrade.display.style.display = upgrade.tier > 0 ? "block" : "none";
     const currentTierName = getStorageCurrentTierName(upgrade);
 
-    upgrade.display.style.display = "block";
-    upgrade.display.textContent = currentTierName || "Unbuilt";
+    upgrade.display.textContent = currentTierName || upgrade.tier + "/" + upgrade.maxTier;
   }
 
   if (upgrade.button) {
     if (!upgrade.unlocked || upgrade.tier >= upgrade.maxTier) {
       upgrade.button.style.display = "none";
-      updateStorageCardUI(upgradeName);
-      updateStorageSectionVisibility();
       return;
     }
 
-    upgrade.button.style.display = "flex";
+    upgrade.button.style.display = "inline-block";
     setCraftButtonLabel(upgrade.button, getStorageUpgradeButtonName(upgrade), getStorageUpgradeButtonCost(upgrade));
   }
-
-  updateStorageCardUI(upgradeName);
-  updateStorageSectionVisibility();
 }
 
 function updateStorageSectionVisibility() {
   if (!ui.storageSection) return;
 
-  if (hasStorageSurfaceContent()) {
-    showElement(ui.storageSection, "block");
-  } else {
-    hideElement(ui.storageSection);
+  const storageUpgradeDefinitions = getStorageUpgradeDefinitions();
+
+  for (let upgradeName in storageUpgradeDefinitions) {
+    const upgrade = getStorageUpgrade(upgradeName);
+
+    if (upgrade.tier > 0) {
+      showElement(ui.storageSection, "block");
+      return;
+    }
   }
 
-  refreshTabbedLayout();
-}
-
-function updateStorageCardUI(upgradeName) {
-  const upgrade = getStorageUpgrade(upgradeName);
-  const card = document.querySelector('[data-storage-card="' + upgradeName + '"]');
-
-  if (!upgrade || !card) return;
-
-  const visible = upgrade.unlocked || upgrade.tier > 0;
-  card.style.display = visible ? "grid" : "none";
-
-  const capacity = card.querySelector('[data-storage-capacity="' + upgradeName + '"]');
-  const resource = getResource(upgrade.resource);
-
-  if (capacity && resource) {
-    capacity.textContent = "Capacity: " + resource.maxValue + " - Tier " + upgrade.tier + "/" + upgrade.maxTier;
-  }
+  hideElement(ui.storageSection);
 }
 
 function getStorageUpgradeButtonName(upgrade) {
@@ -627,7 +605,6 @@ function updateGearUpgradeUI(upgradeName) {
   if (upgrade.display) {
     upgrade.display.style.display = upgrade.purchased ? "block" : "none";
   }
-  updateGearSlotVisibility();
   updateCraftingSectionVisibility();
 }
 
@@ -662,7 +639,6 @@ function completeGearUpgrade(upgradeName) {
 
   updateGearUpgradeUI(upgradeName);
   updateCharacterPanelLocks();
-  refreshTabbedLayout();
 }
 
 function updateCraftingSectionVisibility() {
@@ -671,27 +647,13 @@ function updateCraftingSectionVisibility() {
   const hasCampCrafting = hasAvailableCampUpgrade();
   const hasGearCrafting = hasAvailableGearUpgrade();
   const hasResourceCrafting = hasAvailableResourceCraft();
+  const hasStorageCrafting = hasAvailableStorageUpgrade();
+  const hasResearchCrafting = hasAvailableResearch();
 
-  setCraftCategoryVisibility(ui.campCraftCategory, hasCampCrafting);
-  setCraftCategoryVisibility(ui.gearCraftCategory, hasGearCrafting);
-  setCraftCategoryVisibility(ui.resourceCraftCategory, hasResourceCrafting);
-
-  if (hasCampCrafting || hasGearCrafting || hasResourceCrafting) {
-    showElement(ui.craftingSection, "grid");
+  if (hasCampCrafting || hasGearCrafting || hasStorageCrafting || hasResourceCrafting || hasResearchCrafting) {
+    showElement(ui.craftingSection, "flex");
   } else {
     hideElement(ui.craftingSection);
-  }
-
-  refreshTabbedLayout();
-}
-
-function setCraftCategoryVisibility(category, visible) {
-  if (!category) return;
-
-  if (visible) {
-    showElement(category, "flex");
-  } else {
-    hideElement(category);
   }
 }
 
@@ -910,7 +872,7 @@ function hookResearchToUI() {
     updateResearchUI(researchName);
   }
 
-  updateResearchSectionVisibility();
+  updateCraftingSectionVisibility();
 }
 
 function updateResearchUI(researchName) {
@@ -918,10 +880,9 @@ function updateResearchUI(researchName) {
 
   if (!research || !research.button) return;
 
-  research.button.style.display = research.unlocked && !research.completed ? "flex" : "none";
+  research.button.style.display = research.unlocked && !research.completed ? "inline-block" : "none";
   updateCraftButtonLabel("research", researchName);
   updateCraftingButtons();
-  updateResearchSectionVisibility();
 }
 
 function unlockResearch(researchName) {
@@ -938,23 +899,6 @@ function unlockResearch(researchName) {
   research.unlocked = true;
   updateResearchUI(researchName);
   updateCraftingSectionVisibility();
-  updateResearchSectionVisibility();
-}
-
-function updateResearchSectionVisibility() {
-  if (!ui.researchSection) return;
-
-  if (hasResearchSurfaceContent()) {
-    showElement(ui.researchSection, "grid");
-  } else {
-    hideElement(ui.researchSection);
-  }
-
-  if (ui.researchEmpty) {
-    ui.researchEmpty.style.display = hasResearchSurfaceContent() && !hasAvailableResearch() ? "block" : "none";
-  }
-
-  refreshTabbedLayout();
 }
 
 function isResearchRequirementMet(research) {

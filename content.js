@@ -91,13 +91,10 @@ const expeditionLocations = {
             unlocks: [
               { type: "flag", id: "oldMapFound" },
               { type: "flag", id: "tier3Unlocked" },
-<<<<<<< HEAD
               { type: "region", id: "north" },
               { type: "region", id: "east" },
               { type: "region", id: "south" },
               { type: "region", id: "west" },
-=======
->>>>>>> 86ac9513542bd256aa795f218e5db58adf7168cf
               { type: "journal", id: "oldMapFound" },
             ],
           },
@@ -305,15 +302,9 @@ const explorationStages = {
       gameState.discoveredClearing = true;
       setPhase("clearing");
       lockAction("catchBreath");
-<<<<<<< HEAD
       updatePlacePanel();
       setCurrentGoal("buildCamp");
       setCampActionsAvailable(true);
-=======
-      setCampActionsAvailable(true);
-      updatePlacePanel();
-      setCurrentGoal("buildCamp");
->>>>>>> 86ac9513542bd256aa795f218e5db58adf7168cf
     },
     nextStage: "findStream",
   },
@@ -850,7 +841,6 @@ const journalDefinitions = {
     text: "The runes answered something inside you. Mana is not new to you, only forgotten.",
   },
 };
-<<<<<<< HEAD
 
 //Region Definitions
 const regionDefinitions = {
@@ -919,5 +909,3 @@ const regionDefinitions = {
     ],
   },
 };
-=======
->>>>>>> 86ac9513542bd256aa795f218e5db58adf7168cf

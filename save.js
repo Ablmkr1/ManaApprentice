@@ -382,7 +382,6 @@ function applyGameStateSaveData(savedGameState) {
     gameState.journal.entries = [...savedGameState.journal.entries];
   }
 
-<<<<<<< HEAD
   if (savedGameState.world) {
     if (savedGameState.world.selectedRegion) {
       gameState.world.selectedRegion = savedGameState.world.selectedRegion;
@@ -399,8 +398,6 @@ function applyGameStateSaveData(savedGameState) {
     }
   }
 
-=======
->>>>>>> 86ac9513542bd256aa795f218e5db58adf7168cf
   resetActivity();
   gameState.autoAction.actionName = null;
   gameState.autoAction.pausedForRest = false;
@@ -521,10 +518,7 @@ function refreshGameUIAfterLoad() {
 
   updateCurrentGoalUI();
   updateJournalUI();
-<<<<<<< HEAD
   updateRegionalMapVisibility();
-=======
->>>>>>> 86ac9513542bd256aa795f218e5db58adf7168cf
   updateCharacterPanelLocks();
   updateDestinationActions();
   updateLocationActions();
@@ -533,16 +527,6 @@ function refreshGameUIAfterLoad() {
   refreshExpeditionUI();
   updateTravelButton(isTravelActivityActive());
   updatePlacePanel();
-
-  if (typeof updateStorageSectionVisibility === "function") {
-    updateStorageSectionVisibility();
-  }
-
-  if (typeof updateResearchSectionVisibility === "function") {
-    updateResearchSectionVisibility();
-  }
-
-  refreshTabbedLayout();
 }
 
 function loadGame() {
