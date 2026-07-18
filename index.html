@@ -13,12 +13,10 @@
         <div id="energyAmount" class="resource-pill"></div>
         <div id="manaAmount" class="resource-pill" style="display: none"></div>
         <!--<div id="waterAmount" class="resource-pill" style="display: none"></div>-->
-        <div id="foodAmount" class="resource-pill" style="display: none"></div>
-        <div id="woodAmount" class="resource-pill" style="display: none"></div>
-        <div id="fiberAmount" class="resource-pill" style="display: none"></div>
-        <div id="trapAmount" class="resource-pill" style="display: none"></div>
-        <div id="peltAmount" class="resource-pill" style="display: none"></div>
-        <div id="stoneAmount" class="resource-pill" style="display: none"></div>
+      </div>
+      <div id="carriedInventoryStrip" class="resource-strip" style="display: none">
+        <div id="carriedAmount" class="resource-pill">Carried: 0 / 5 (empty)</div>
+        <div id="carriedWaterAmount" class="resource-pill">Water: 0 / 10</div>
       </div>
     </header>
 
@@ -39,25 +37,14 @@
         </div>
 
         <div id="gearSection" class="gear-section" style="display: none">
-          <h3>Gear</h3>
-
-          <div id="gearList" class="gear-list">
-            <div id="crudeSatchel" style="display: none">Crude Satchel</div>
-            <div id="crudeBackpack" style="display: none">Crude Backpack</div>
-            <div id="repairedLeatherBackpack" style="display: none">Repaired Leather Backpack</div>
-            <div id="waterskin" style="display: none">Waterskin</div>
-            <div id="smellyShoes" style="display: none">Smelly Shoes</div>
-            <div id="stoneKnife" style="display: none">Stone Knife</div>
-            <div id="stoneAxe" style="display: none">Stone Axe</div>
-            <div id="torch" style="display: none">Torch</div>
+          <div id="gearSlotsGroup" class="equipment-group" style="display: none">
+            <h3>Gear</h3>
+            <div id="gearSlots" class="equipment-slots"></div>
           </div>
-        </div>
 
-        <div id="inventorySection" class="inventory-section" style="display: none">
-          <h3>Inventory</h3>
-          <div class="inventory-list">
-            <div id="carriedAmount" class="inventory-stat">Carried: 0 / 5 (empty)</div>
-            <div id="carriedWaterAmount" class="inventory-stat">Water: 0 / 10</div>
+          <div id="toolSlotsGroup" class="equipment-group" style="display: none">
+            <h3>Tools</h3>
+            <div id="toolSlots" class="equipment-slots"></div>
           </div>
         </div>
       </section>
@@ -66,6 +53,17 @@
         <h2 id="campPanelTitle">Lost in the Woods</h2>
 
         <div id="campContent">
+          <div id="campResourcesSection" class="camp-resources-section" style="display: none">
+            <h3>Camp Resources</h3>
+            <div class="camp-resource-strip">
+              <div id="foodAmount" class="resource-pill" style="display: none"></div>
+              <div id="woodAmount" class="resource-pill" style="display: none"></div>
+              <div id="fiberAmount" class="resource-pill" style="display: none"></div>
+              <div id="trapAmount" class="resource-pill" style="display: none"></div>
+              <div id="peltAmount" class="resource-pill" style="display: none"></div>
+              <div id="stoneAmount" class="resource-pill" style="display: none"></div>
+            </div>
+          </div>
           <div id="smallFire" style="display: none">Small Fire</div>
           <div id="crudeLeanTo" style="display: none">Crude Lean-To</div>
           <div id="lessCrudeShelter" style="display: none">Less Crude Shelter</div>
@@ -223,7 +221,6 @@
                 <strong id="regionKnownPlaceCount"></strong>
               </div>
             </div>
-
           </section>
         </div>
 

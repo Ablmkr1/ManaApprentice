@@ -296,7 +296,7 @@ const recipes = {
 const explorationStages = {
   findClearing: {
     required: 1,
-    story: ["You stumble forward, mind in a daze...", "The forest clears ahead...", "You can rest here.",],
+    story: ["You stumble forward, mind in a daze...", "The forest clears ahead...", "You can rest here."],
     unlocks: [{ type: "panel", id: "camp" }],
     onComplete: function () {
       gameState.discoveredClearing = true;
@@ -580,6 +580,12 @@ const storageUpgrades = {
 const gearUpgrades = {
   crudeSatchel: {
     label: "Crude Satchel (10 Inventory)",
+    displayName: "Crude Satchel",
+    equipmentType: "gear",
+    slot: "pack",
+    slotLabel: "Pack",
+    slotOrder: 1,
+    slotRank: 1,
     duration: 5,
     cost: {
       fiber: 10,
@@ -595,6 +601,12 @@ const gearUpgrades = {
   },
   waterskin: {
     label: "Waterskin (10 Water Capacity)",
+    displayName: "Waterskin",
+    equipmentType: "gear",
+    slot: "water",
+    slotLabel: "Wack",
+    slotOrder: 2,
+    slotRank: 1,
     duration: 6,
     cost: {
       pelt: 3,
@@ -611,6 +623,12 @@ const gearUpgrades = {
 
   crudeBackpack: {
     label: "Crude Backpack (Inventory 20)",
+    displayName: "Crude Backpack",
+    equipmentType: "gear",
+    slot: "pack",
+    slotLabel: "Pack",
+    slotOrder: 1,
+    slotRank: 2,
     duration: 10,
     cost: {
       pelt: 6,
@@ -634,6 +652,12 @@ const gearUpgrades = {
 
   smellyShoes: {
     label: "Smelly Shoes (+50% Travel Distance)",
+    displayName: "Smelly Shoes",
+    equipmentType: "gear",
+    slot: "feet",
+    slotLabel: "Feet",
+    slotOrder: 3,
+    slotRank: 1,
     duration: 7,
     cost: {
       pelt: 5,
@@ -650,6 +674,12 @@ const gearUpgrades = {
   stoneKnife: {
     label: "Stone Knife (+1 Fiber)",
     duration: 10,
+    displayName: "Stone Knife",
+    equipmentType: "tool",
+    slot: "knife",
+    slotLabel: "Kife",
+    slotOrder: 1,
+    slotRank: 1,
     cost: {
       pelt: 1,
       fiber: 2,
@@ -667,6 +697,12 @@ const gearUpgrades = {
 
   stoneAxe: {
     label: "Stone Axe (+1 Wood)",
+    displayName: "Stone Axe",
+    equipmentType: "tool",
+    slot: "axw",
+    slotLabel: "Axe",
+    slotOrder: 2,
+    slotRank: 1,
     duration: 10,
     cost: {
       pelt: 2,
@@ -685,6 +721,12 @@ const gearUpgrades = {
 
   repairedLeatherBackpack: {
     label: "Repaired Leather Backpack (Inventory 40)",
+    displayName: "Repaired Backpack",
+    equipmentType: "gear",
+    slot: "pack",
+    slotLabel: "Pack",
+    slotOrder: 1,
+    slotRank: 3,
     duration: 10,
     cost: {
       pelt: 5,
@@ -711,6 +753,12 @@ const gearUpgrades = {
 
   torch: {
     label: "Torch",
+    displayName: "Torch",
+    equipmentType: "gear",
+    slot: "tool",
+    slotLabel: "Light",
+    slotOrder: 3,
+    slotRank: 1,
     duration: 6,
     cost: {
       wood: 5,

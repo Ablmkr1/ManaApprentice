@@ -316,6 +316,7 @@ function hookGearUpgradesToUI() {
     }
 
     updateGearUpgradeUI(upgradeName);
+    updateEquipmentSlotUI();
   }
 }
 
@@ -586,6 +587,69 @@ function checkClearingComplete() {
   }
 }
 
+function updateEquipmentSlotUI() {
+  renderEquipmentSlots(ui.gearSlotsGroup, ui.gearSlots, "gear");
+  renderEquipmentSlots(ui.toolSlotsGroup, ui.toolSlots, "tool");
+}
+
+function renderEquipmentSlots(groupEl, containerEl, equipmentType) {
+  if (!groupEl || !containerEl) return;
+
+  const slots = getPurchasedEquipmentSlots(equipmentType);
+  containerEl.innerHTML = "";
+
+  if (slots.length === 0) {
+    hideElement(groupEl);
+    return;
+  }
+
+  showElement(groupEl, "flex");
+
+  slots.forEach(function (slot) {
+    const slotEl = document.createElement("div");
+    slotEl.className = "equipment-slot";
+
+    const boxEl = document.createElement("div");
+    boxEl.className = "equipment-box";
+    boxEl.textContent = slot.current.displayName || slot.current.label;
+
+    const labelEl = document.createElement("div");
+    labelEl.className = "equipment-slot-label";
+    labelEl.textContent = slot.label;
+
+    slotEl.appendChild(boxEl);
+    slotEl.appendChild(labelEl);
+    containerEl.appendChild(slotEl);
+  });
+}
+
+function getPurchasedEquipmentSlots(equipmentType) {
+  const gearDefinitions = getGearUpgradeDefinitions();
+  const slots = {};
+
+  for (let gearName in gearDefinitions) {
+    const gear = getGearUpgrade(gearName);
+
+    if (!gear || gear.equipmentType !== equipmentType || !gear.slot || !gear.purchased) continue;
+
+    if (!slots[gear.slot]) {
+      slots[gear.slot] = {
+        label: gear.slotLabel,
+        order: gear.slotOrder || 99,
+        current: gear,
+      };
+    }
+
+    if ((gear.slotRank || 0) > (slots[gear.slot].current.slotRank || 0)) {
+      slots[gear.slot].current = gear;
+    }
+  }
+
+  return Object.values(slots).sort(function (a, b) {
+    return a.order - b.order;
+  });
+}
+
 function updateGearUpgradeUI(upgradeName) {
   const upgrade = getGearUpgrade(upgradeName);
 
@@ -602,9 +666,7 @@ function updateGearUpgradeUI(upgradeName) {
     }
   }
 
-  if (upgrade.display) {
-    upgrade.display.style.display = upgrade.purchased ? "block" : "none";
-  }
+  updateEquipmentSlotUI();
   updateCraftingSectionVisibility();
 }
 

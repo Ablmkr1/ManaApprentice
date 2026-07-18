@@ -64,6 +64,12 @@ function hookDomToUI() {
   ui.regionProgressFill = document.getElementById("regionProgressFill");
   ui.regionTerrain = document.getElementById("regionTerrain");
   ui.regionKnownPlaceCount = document.getElementById("regionKnownPlaceCount");
+  ui.gearSlotsGroup = document.getElementById("gearSlotsGroup");
+  ui.gearSlots = document.getElementById("gearSlots");
+  ui.toolSlotsGroup = document.getElementById("toolSlotsGroup");
+  ui.toolSlots = document.getElementById("toolSlots");
+  ui.carriedInventoryStrip = document.getElementById("carriedInventoryStrip");
+  ui.campResourcesSection = document.getElementById("campResourcesSection");
 }
 
 //Hook Ui Maps Functions
@@ -153,6 +159,10 @@ function unlockResource(resourceName) {
   }
 
   showElement(resourceElement, "block");
+  
+  if (resourceName !== "energy" && resourceName !== "mana") {
+    showElement(ui.campResourcesSection, "flex");
+  }
 }
 
 function unlockPanel(panelName) {
@@ -337,13 +347,13 @@ function updateCharacterPanelLocks() {
   const campUnlocked = gameState.phase === "expedition";
 
   if (campUnlocked) {
-    showElement(ui.inventorySection, "block");
+    showElement(ui.carriedInventoryStrip, "flex");
 
     if (hasUnlockedOrPurchasedGear()) {
       showElement(ui.gearSection, "block");
     }
   } else {
-    hideElement(ui.inventorySection);
+    hideElement(ui.carriedInventoryStrip);
     hideElement(ui.gearSection);
   }
 }
