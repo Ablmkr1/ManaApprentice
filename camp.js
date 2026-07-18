@@ -35,6 +35,9 @@ const unlockHandlers = {
   journal: function (id) {
     addJournalEntry(id);
   },
+  region: function (id) {
+    unlockRegion(id);
+  },
 };
 
 function applyUnlock(unlock) {
@@ -95,6 +98,15 @@ function unlockResourceCraft(craftName) {
   craft.unlocked = true;
   updateResourceCraftUI(craftName);
   updateCraftingSectionVisibility();
+}
+
+function unlockRegion(regionId) {
+  if (!gameState.world || !gameState.world.regions || !gameState.world.regions[regionId]) {
+    console.warn("Unknown region:", regionId);
+    return;
+  }
+
+  gameState.world.regions[regionId].unlocked = true;
 }
 
 function applyRecipeUnlocks(recipeName) {

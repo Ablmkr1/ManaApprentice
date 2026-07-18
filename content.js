@@ -91,6 +91,10 @@ const expeditionLocations = {
             unlocks: [
               { type: "flag", id: "oldMapFound" },
               { type: "flag", id: "tier3Unlocked" },
+              { type: "region", id: "north" },
+              { type: "region", id: "east" },
+              { type: "region", id: "south" },
+              { type: "region", id: "west" },
               { type: "journal", id: "oldMapFound" },
             ],
           },
@@ -226,7 +230,6 @@ const recipes = {
     unlocks: [
       { type: "gearUpgrade", id: "waterskin" },
       { type: "storageUpgrade", id: "peltStorage" },
-      { type: "storageUpgrade", id: "waterStorage" },
     ],
   },
 
@@ -293,7 +296,7 @@ const recipes = {
 const explorationStages = {
   findClearing: {
     required: 1,
-    story: ["You stumble forward, mind in a daze...", "The forest clears ahead...", "You can rest here.", "You need water, food, shelter."],
+    story: ["You stumble forward, mind in a daze...", "The forest clears ahead...", "You can rest here.",],
     unlocks: [{ type: "panel", id: "camp" }],
     onComplete: function () {
       gameState.discoveredClearing = true;
@@ -301,6 +304,7 @@ const explorationStages = {
       lockAction("catchBreath");
       updatePlacePanel();
       setCurrentGoal("buildCamp");
+      setCampActionsAvailable(true);
     },
     nextStage: "findStream",
   },
@@ -308,10 +312,7 @@ const explorationStages = {
   findStream: {
     required: 1,
     story: ["You hear something that makes your thirst grow.", "Your stomach rumbles."],
-    unlocks: [
-      { type: "resource", id: "water" },
-      { type: "action", id: "gatherWater" },
-    ],
+    unlocks: [],
     onComplete: function () {
       gameState.discoveredStream = true;
       getResource("energy").maxValue += 10;
@@ -838,5 +839,73 @@ const journalDefinitions = {
   manaAwakened: {
     title: "Mana Awakened",
     text: "The runes answered something inside you. Mana is not new to you, only forgotten.",
+  },
+};
+
+//Region Definitions
+const regionDefinitions = {
+  outskirts: {
+    direction: "HOME",
+    label: "Camp Outskirts",
+    terrain: "Familiar woodland",
+    description: "The paths surrounding camp are familiar now. Nearby locations remain useful even as your attention turns outward.",
+    maxProgress: 100,
+    milestones: [{ at: 100, text: "The camp outskirts are fully explored." }],
+  },
+  north: {
+    direction: "NORTH",
+    label: "Northern Reach",
+    terrain: "Distant ridges",
+    description: "Jagged silhouettes rise beyond the forest. The route is steep, exposed, and still largely unknown.",
+    maxProgress: 1000,
+    milestones: [
+      { at: 100, text: "Reach the first foothills." },
+      { at: 250, text: "Establish a dependable mountain route." },
+      { at: 500, text: "Push beyond the lower ridges." },
+      { at: 750, text: "Investigate the deepest known pass." },
+      { at: 1000, text: "Master the northern route." },
+    ],
+  },
+  east: {
+    direction: "EAST",
+    label: "Eastern Deepwood",
+    terrain: "Dense old forest",
+    description: "The trees grow broader and the undergrowth thicker. Tracks vanish beneath roots and shadow.",
+    maxProgress: 1000,
+    milestones: [
+      { at: 100, text: "Identify the first reliable game trails." },
+      { at: 250, text: "Learn how larger prey moves through the forest." },
+      { at: 500, text: "Reach the old-growth interior." },
+      { at: 750, text: "Track signs of a dangerous animal." },
+      { at: 1000, text: "Master the eastern hunting grounds." },
+    ],
+  },
+  south: {
+    direction: "SOUTH",
+    label: "Southern Overgrowth",
+    terrain: "Wild fields",
+    description: "Open land lies beneath waist-high growth. Strange scents drift from plants you almost recognize.",
+    maxProgress: 1000,
+    milestones: [
+      { at: 100, text: "Catalog the first unfamiliar herbs." },
+      { at: 250, text: "Find evidence the fields were once cultivated." },
+      { at: 500, text: "Reach the overgrown terraces." },
+      { at: 750, text: "Investigate the rarest plant growth." },
+      { at: 1000, text: "Master the southern growing grounds." },
+    ],
+  },
+  west: {
+    direction: "WEST",
+    label: "Broken Road",
+    terrain: "Old stone route",
+    description: "Weathered stones and a nearly vanished road continue west beneath moss and fallen branches.",
+    maxProgress: 1000,
+    milestones: [
+      { at: 100, text: "Follow the road to its first marker." },
+      { at: 250, text: "Understand how the old markers connect." },
+      { at: 500, text: "Restore part of the western route." },
+      { at: 750, text: "Reach the dormant waystone." },
+      { at: 1000, text: "Master the western road network." },
+    ],
   },
 };

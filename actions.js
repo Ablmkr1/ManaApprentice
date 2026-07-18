@@ -166,12 +166,7 @@ function hookActionCompletions() {
   getAction("packWater").onComplete = function () {
     const expedition = gameState.expedition;
 
-    if (expedition.water >= expedition.waterCapacity) {
-      addResource("water", 1);
-      return;
-    }
-
-    expedition.water++;
+    expedition.water = expedition.waterCapacity;
     refreshExpeditionUI();
   };
 }

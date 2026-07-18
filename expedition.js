@@ -10,6 +10,7 @@ function clearCurrentLocation() {
 
   updateLocationActions();
   updatePlacePanel();
+  updateRegionalMapVisibility();
 }
 
 function updateLocationActions() {
@@ -297,6 +298,7 @@ const expeditionReturnUnlocks = {
 
 function clearCurrentLocationActions() {
   clearCurrentLocation();
+  updateRegionalMapVisibility();
 }
 
 // Expedition Step Engine
@@ -434,6 +436,7 @@ function endExpedition(reason) {
   unlockAction("beginExpedition");
   setPackingActionsAvailable(false);
   updateDestinationActions();
+  updateRegionalMapVisibility();
 
   if (reason === "completed") {
     expedition.completed = true;
@@ -738,6 +741,7 @@ function completeLocationObjectExploration(locationName, objectName) {
     }
     if (stage && stage.unlocks && stage.unlocks.some((unlock) => unlock.type === "flag" && unlock.id === "oldMapFound")) {
       setCurrentGoal("chooseRegion");
+      updateRegionalMapVisibility();
     }
     if (stage.unlocks.some((unlock) => unlock.type === "flag" && unlock.id === "ruinedTorchFound")) {
       showTorchSparkPopup();
@@ -1118,7 +1122,12 @@ function setPackingActionsAvailable(available) {
   }
 
   unlockAction("packFood");
-  unlockAction("packWater");
+  
+  if (gameState.expedition.waterCapacity > 0 && gameState.expedition.water < gameState.expedition.waterCapacity) {
+    unlockAction("packWater");
+  } else {
+    lockAction("packWater");
+  }
 
   const trap = getResource("trap");
 
@@ -1146,6 +1155,7 @@ function enterExpeditionPreparation() {
 
   setCampActionsAvailable(false);
   setPackingActionsAvailable(true);
+  updateRegionalMapVisibility();
 }
 
 function prepareOpenExpedition() {

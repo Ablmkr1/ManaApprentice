@@ -210,9 +210,7 @@ const actions = {
   packWater: {
     label: "Pack Water",
     duration: 0,
-    cost: {
-      water: 1,
-    },
+    cost: {},
     unlocked: false,
     running: false,
     button: null,
@@ -378,6 +376,42 @@ const gameState = {
   currentGoalId: "surviveTheWoods",
   journal: {
     entries: [],
+  },
+
+  world: {
+    selectedRegion: "outskirts",
+    regions: {
+      outskirts: {
+        unlocked: true,
+        progress: 100,
+        mastered: true,
+        locations: ["Fibrous Plants", "Animal Trails", "Creepy Cave", "Abandoned Camp"],
+      },
+      north: {
+        unlocked: false,
+        progress: 0,
+        mastered: false,
+        locations: [],
+      },
+      east: {
+        unlocked: false,
+        progress: 0,
+        mastered: false,
+        locations: [],
+      },
+      south: {
+        unlocked: false,
+        progress: 0,
+        mastered: false,
+        locations: [],
+      },
+      west: {
+        unlocked: false,
+        progress: 0,
+        mastered: false,
+        locations: [],
+      },
+    },
   },
 
   discoveredClearing: false,

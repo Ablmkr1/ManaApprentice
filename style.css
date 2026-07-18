@@ -143,7 +143,7 @@ h1 {
 
 @media (max-width: 760px) {
   body {
-    padding-top: 92px;
+    padding-top: 10px;
   }
 
   .top-bar {
@@ -444,4 +444,190 @@ button:disabled {
 .current-goal-text {
   font-size: 13px;
   line-height: 1.35;
+}
+
+.regional-map-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.regional-map {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(72px, auto));
+  grid-template-areas:
+    ". north ."
+    "west outskirts east"
+    ". south .";
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.regional-map::before,
+.regional-map::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  background: #c8bda8;
+}
+
+.regional-map::before {
+  top: 50%;
+  left: 16%;
+  right: 16%;
+  height: 2px;
+}
+
+.regional-map::after {
+  top: 16%;
+  bottom: 16%;
+  left: 50%;
+  width: 2px;
+}
+
+.region-node {
+  min-height: 72px;
+  padding: 8px;
+  border: 1px solid #d8ccb8;
+  border-radius: 8px;
+  background: rgba(255, 250, 240, 0.72);
+  color: #2b241c;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  text-align: center;
+}
+
+.region-node[data-region="north"] {
+  grid-area: north;
+}
+.region-node[data-region="east"] {
+  grid-area: east;
+}
+.region-node[data-region="south"] {
+  grid-area: south;
+}
+.region-node[data-region="west"] {
+  grid-area: west;
+}
+.region-node[data-region="outskirts"] {
+  grid-area: outskirts;
+}
+
+.region-node[aria-pressed="true"] {
+  border: 2px solid #6e5637;
+  background: #fffaf0;
+}
+
+.region-node:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.region-node-direction {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #6a5d4c;
+}
+
+.region-node-name {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.region-node-status {
+  font-size: 10px;
+  color: #6a5d4c;
+}
+
+.region-node-progress {
+  height: 4px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #ded3c1;
+}
+
+.region-node-progress-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: #6e5637;
+}
+
+.region-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #d8ccb8;
+  border-radius: 8px;
+  background: rgba(255, 250, 240, 0.66);
+}
+
+.region-details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.region-direction {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #6a5d4c;
+}
+
+.region-status-badge {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  padding: 3px 7px;
+  border: 1px solid #c8bda8;
+  border-radius: 6px;
+  background: #f8f1e5;
+  font-size: 11px;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.region-progress-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.region-progress-track {
+  height: 9px;
+  overflow: hidden;
+  border: 1px solid #c8bda8;
+  border-radius: 999px;
+  background: #e5dac8;
+}
+
+.region-progress-fill {
+  height: 100%;
+  width: 0;
+  background: #6e5637;
+}
+
+.region-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.region-fact,
+.next-milestone,
+.known-location {
+  padding: 8px;
+  border: 1px solid #d8ccb8;
+  border-radius: 6px;
+  background: rgba(255, 250, 240, 0.65);
+  font-size: 13px;
 }

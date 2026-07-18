@@ -24,6 +24,7 @@ window.onload = function () {
   hookStatsToUI();
   updateCurrentGoalUI();
   updateJournalUI();
+  updateRegionalMapVisibility();
   updateResource("energy");
   hookActionButtonsToUI(runAction);
   hookCampUpgradestoUI();
@@ -35,8 +36,6 @@ window.onload = function () {
 
   ui.continueBtn.addEventListener("click", function () {
     ui.introPopup.style.display = "none";
-
-    addStoryEntry(getExplorationStage("findClearing").story[3]);
   });
 
   ui.restBtn.addEventListener("click", function () {

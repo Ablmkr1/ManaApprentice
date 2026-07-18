@@ -12,6 +12,7 @@ const gameDefinitions = {
   researchDefinitions,
   goalDefinitions,
   journalDefinitions,
+  regionDefinitions,
 };
 
 function getExpeditionLocationDefinitions() {
@@ -115,4 +116,12 @@ function getJournalDefinitions() {
 
 function getJournalEntryDefinition(entryId) {
   return getJournalDefinitions()[entryId];
+}
+
+function getRegionDefinitions() {
+  return gameDefinitions.regionDefinitions;
+}
+
+function getRegionDefinition(regionId) {
+  return getRegionDefinitions()[regionId];
 }

@@ -54,6 +54,16 @@ function hookDomToUI() {
   ui.torchSparkContinueBtn = document.getElementById("torchSparkContinueBtn");
   ui.manaAwakenedPopup = document.getElementById("manaAwakenedPopup");
   ui.manaAwakenedContinueBtn = document.getElementById("manaAwakenedContinueBtn");
+  ui.regionalMapSection = document.getElementById("regionalMapSection");
+  ui.regionalMap = document.getElementById("regionalMap");
+  ui.regionDirection = document.getElementById("regionDirection");
+  ui.regionName = document.getElementById("regionName");
+  ui.regionStatus = document.getElementById("regionStatus");
+  ui.regionDescription = document.getElementById("regionDescription");
+  ui.regionProgressText = document.getElementById("regionProgressText");
+  ui.regionProgressFill = document.getElementById("regionProgressFill");
+  ui.regionTerrain = document.getElementById("regionTerrain");
+  ui.regionKnownPlaceCount = document.getElementById("regionKnownPlaceCount");
 }
 
 //Hook Ui Maps Functions
@@ -448,4 +458,133 @@ function updateJournalUI() {
     row.appendChild(text);
     ui.journalEntries.appendChild(row);
   });
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function getRegionState(regionId) {
+  return gameState.world.regions[regionId];
+}
+
+function getRegionStatus(regionId) {
+  const definition = getRegionDefinition(regionId);
+  const state = getRegionState(regionId);
+
+  if (!state.unlocked) return "Locked";
+  if (state.mastered || state.progress >= definition.maxProgress) return "Mastered";
+  if (state.progress <= 0) return "Unexplored";
+  if (state.progress < definition.maxProgress * 0.25) return "Surveying";
+  if (state.progress < definition.maxProgress * 0.75) return "Known route";
+  return "Nearly mastered";
+}
+
+function getNextRegionMilestone(regionId) {
+  const definition = getRegionDefinition(regionId);
+  const state = getRegionState(regionId);
+  const next = definition.milestones.find((milestone) => state.progress < milestone.at);
+
+  return next ? "Next at " + next.at + ": " + next.text : "All regional milestones completed.";
+}
+
+function updateRegionalMapVisibility() {
+  if (!ui.regionalMapSection) return;
+
+  const shouldShowRegionMap =
+    gameState.tier3Unlocked &&
+    gameState.phase === "expedition" &&
+    !gameState.expedition.active &&
+    !gameState.expedition.currentLocation &&
+    !gameState.expedition.returning;
+
+  if (shouldShowRegionMap) {
+    showElement(ui.regionalMapSection, "block");
+    renderRegionalMap();
+    renderSelectedRegion();
+  } else {
+    hideElement(ui.regionalMapSection);
+  }
+}
+
+function renderRegionalMap() {
+  if (!ui.regionalMap) return;
+
+  ui.regionalMap.innerHTML = "";
+
+  const regionDefinitions = getRegionDefinitions();
+
+  for (let regionId in regionDefinitions) {
+    const definition = regionDefinitions[regionId];
+    const state = getRegionState(regionId);
+    const percent = clamp((state.progress / definition.maxProgress) * 100, 0, 100);
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "region-node";
+    button.dataset.region = regionId;
+    button.disabled = !state.unlocked;
+    button.setAttribute("aria-pressed", String(gameState.world.selectedRegion === regionId));
+
+    const direction = document.createElement("span");
+    direction.className = "region-node-direction";
+    direction.textContent = definition.direction;
+
+    const name = document.createElement("span");
+    name.className = "region-node-name";
+    name.textContent = state.unlocked ? definition.label : "Unknown";
+
+    const status = document.createElement("span");
+    status.className = "region-node-status";
+    status.textContent = state.unlocked ? Math.floor(state.progress) + " / " + definition.maxProgress : "Locked";
+
+    const track = document.createElement("span");
+    track.className = "region-node-progress";
+
+    const fill = document.createElement("span");
+    fill.className = "region-node-progress-fill";
+    fill.style.width = percent + "%";
+
+    track.appendChild(fill);
+    button.append(direction, name, status, track);
+
+    button.addEventListener("click", function () {
+      selectRegion(regionId);
+    });
+
+    ui.regionalMap.appendChild(button);
+  }
+}
+
+function renderSelectedRegion() {
+  const regionId = gameState.world.selectedRegion;
+  const definition = getRegionDefinition(regionId);
+  const state = getRegionState(regionId);
+
+  if (!definition || !state) return;
+
+  const percent = clamp((state.progress / definition.maxProgress) * 100, 0, 100);
+
+  safeSetText(ui.regionDirection, definition.direction);
+  safeSetText(ui.regionName, definition.label);
+  safeSetText(ui.regionStatus, getRegionStatus(regionId));
+  safeSetText(ui.regionDescription, definition.description);
+  safeSetText(ui.regionProgressText, Math.floor(state.progress) + " / " + definition.maxProgress);
+  safeSetText(ui.regionTerrain, definition.terrain);
+  safeSetText(ui.regionKnownPlaceCount, String(state.locations.length));
+
+  if (ui.regionProgressFill) {
+    ui.regionProgressFill.style.width = percent + "%";
+  }
+}
+
+function selectRegion(regionId) {
+  const state = getRegionState(regionId);
+
+  if (!state || !state.unlocked) return;
+
+  gameState.world.selectedRegion = regionId;
+  renderRegionalMap();
+  renderSelectedRegion();
+  trySaveGame();
 }

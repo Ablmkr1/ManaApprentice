@@ -257,6 +257,8 @@ function normalizeSaveData(saveData) {
   saveData.gameState.expedition = ensureObject(saveData.gameState.expedition);
   saveData.gameState.expedition.carriedItems = ensureObject(saveData.gameState.expedition.carriedItems);
   saveData.recipes = ensureObject(saveData.recipes);
+  saveData.gameState.world = ensureObject(saveData.gameState.world);
+  saveData.gameState.world.regions = ensureObject(saveData.gameState.world.regions);
 
   saveData.resources = ensureObject(saveData.resources);
   saveData.actions = ensureObject(saveData.actions);
@@ -380,6 +382,22 @@ function applyGameStateSaveData(savedGameState) {
     gameState.journal.entries = [...savedGameState.journal.entries];
   }
 
+  if (savedGameState.world) {
+    if (savedGameState.world.selectedRegion) {
+      gameState.world.selectedRegion = savedGameState.world.selectedRegion;
+    }
+
+    if (savedGameState.world.regions) {
+      for (let regionId in gameState.world.regions) {
+        const savedRegion = savedGameState.world.regions[regionId];
+
+        if (!savedRegion) continue;
+
+        applySavedFields(gameState.world.regions[regionId], savedRegion, ["unlocked", "progress", "mastered", "locations"]);
+      }
+    }
+  }
+
   resetActivity();
   gameState.autoAction.actionName = null;
   gameState.autoAction.pausedForRest = false;
@@ -500,6 +518,7 @@ function refreshGameUIAfterLoad() {
 
   updateCurrentGoalUI();
   updateJournalUI();
+  updateRegionalMapVisibility();
   updateCharacterPanelLocks();
   updateDestinationActions();
   updateLocationActions();

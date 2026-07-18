@@ -12,7 +12,7 @@
       <div class="resource-strip">
         <div id="energyAmount" class="resource-pill"></div>
         <div id="manaAmount" class="resource-pill" style="display: none"></div>
-        <div id="waterAmount" class="resource-pill" style="display: none"></div>
+        <!--<div id="waterAmount" class="resource-pill" style="display: none"></div>-->
         <div id="foodAmount" class="resource-pill" style="display: none"></div>
         <div id="woodAmount" class="resource-pill" style="display: none"></div>
         <div id="fiberAmount" class="resource-pill" style="display: none"></div>
@@ -79,7 +79,7 @@
               <div id="woodStorage" style="display: none">Wood Storage 0/4</div>
               <div id="foodStorage" style="display: none">Food Storage 0/4</div>
               <div id="fiberStorage" style="display: none">Fiber Storage 0/4</div>
-              <div id="waterStorage" style="display: none">Water Storage 0/4</div>
+              <!--<div id="waterStorage" style="display: none">Water Storage 0/4</div>-->
               <div id="peltStorage" style="display: none">Pelt Storage 0/4</div>
               <div id="stoneStorage" style="display: none">Stone Storage 0/4</div>
             </div>
@@ -111,10 +111,10 @@
             <span>Gather Food</span>
           </button>
 
-          <button id="gatherWaterBtn" class="action-btn" data-action="gatherWater" style="display: none">
+          <!--<button id="gatherWaterBtn" class="action-btn" data-action="gatherWater" style="display: none">
             <div class="progressFill"></div>
             <span>Gather Water</span>
-          </button>
+          </button>-->
 
           <div id="craftingSection" class="crafting-section" style="display: none">
             <h3>Crafting</h3>
@@ -130,7 +130,7 @@
               <button id="woodStorageBtn" style="display: none"></button>
               <button id="foodStorageBtn" style="display: none"></button>
               <button id="fiberStorageBtn" style="display: none"></button>
-              <button id="waterStorageBtn" style="display: none"></button>
+              <!--<button id="waterStorageBtn" style="display: none"></button>-->
               <button id="peltStorageBtn" style="display: none"></button>
               <button id="stoneStorageBtn" style="display: none"></button>
 
@@ -190,6 +190,43 @@
       <section id="expeditionPanel" class="context-section" style="display: none">
         <h2>Expedition</h2>
 
+        <div id="regionalMapSection" class="regional-map-section" style="display: none">
+          <div id="regionalMap" class="regional-map" role="group" aria-label="Known regions"></div>
+
+          <section class="region-details">
+            <div class="region-details-header">
+              <div>
+                <span id="regionDirection" class="region-direction"></span>
+                <h3 id="regionName"></h3>
+              </div>
+              <span id="regionStatus" class="region-status-badge"></span>
+            </div>
+
+            <p id="regionDescription"></p>
+
+            <div class="region-progress-labels">
+              <span>Regional familiarity</span>
+              <strong id="regionProgressText"></strong>
+            </div>
+
+            <div class="region-progress-track" aria-hidden="true">
+              <div id="regionProgressFill" class="region-progress-fill"></div>
+            </div>
+
+            <div class="region-facts">
+              <div class="region-fact">
+                <span>Terrain</span>
+                <strong id="regionTerrain"></strong>
+              </div>
+              <div class="region-fact">
+                <span>Known places</span>
+                <strong id="regionKnownPlaceCount"></strong>
+              </div>
+            </div>
+
+          </section>
+        </div>
+
         <div class="expedition-stats">
           <div id="expeditionDistanceBar" class="expedition-stat expedition-distance-bar">
             <div id="expeditionDistanceFill" class="expedition-distance-fill"></div>
@@ -221,7 +258,7 @@
 
         <button class="action-btn" data-action="packWater" style="display: none">
           <div class="progressFill"></div>
-          <span>Pack Water</span>
+          <span>Fill Water</span>
         </button>
 
         <button class="action-btn" data-action="packTrap" style="display: none">
