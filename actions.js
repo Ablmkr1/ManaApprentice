@@ -27,6 +27,14 @@ function hookActionCompletions() {
     }
   };
 
+  getAction("gatherFiber5").onComplete = function () {
+    const fiberCarried = addCarriedItemUpToCapacity("fiber", getResource("fiber").perClick * 5);
+
+    if (fiberCarried <= 0) {
+      addStoryEntry("Your hands are full. You cannot carry more.");
+    }
+  };
+
   getAction("gatherStone").onComplete = function () {
     if (!addCarriedItem("stone", 1)) {
       addStoryEntry("The stones are too heavy to carry more.");

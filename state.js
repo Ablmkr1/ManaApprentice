@@ -262,6 +262,20 @@ const actions = {
     onStart: function () {},
     onComplete: function () {},
   },
+    gatherFiber5: {
+    label: "5x Gather Fiber",
+    duration: 5,
+    cost: {
+      energy: 5,
+    },
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
   returnToCamp: {
     label: "Return to Camp",
     duration: 1,

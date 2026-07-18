@@ -20,7 +20,7 @@ const expeditionLocations = {
       discovered: "Clusters of unfamiliar plants grow beside the path, their pale stems twisting around one another.",
       explored: "Fibrous plants grow in dense clumps here.",
     },
-    availableActions: ["gatherFiber"],
+    availableActions: ["gatherFiber", "gatherFiber5"],
   },
 
   strangeTrails: {
