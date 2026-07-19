@@ -354,7 +354,7 @@ function updateStorageSectionVisibility() {
     const upgrade = getStorageUpgrade(upgradeName);
 
     if (upgrade.tier > 0) {
-      showElement(ui.storageSection, "block");
+      showElement(ui.storageSection, "flex");
       return;
     }
   }

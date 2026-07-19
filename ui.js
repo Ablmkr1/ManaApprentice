@@ -70,6 +70,7 @@ function hookDomToUI() {
   ui.toolSlots = document.getElementById("toolSlots");
   ui.carriedInventoryStrip = document.getElementById("carriedInventoryStrip");
   ui.campResourcesSection = document.getElementById("campResourcesSection");
+  ui.campUpgradeSection = document.getElementById("campUpgradeSection");
 }
 
 //Hook Ui Maps Functions
@@ -159,7 +160,7 @@ function unlockResource(resourceName) {
   }
 
   showElement(resourceElement, "block");
-  
+
   if (resourceName !== "energy" && resourceName !== "mana") {
     showElement(ui.campResourcesSection, "flex");
   }
@@ -244,6 +245,23 @@ function updateCampUpgradeDisplay(upgrade) {
   if (upgrade.display) {
     upgrade.display.style.display = upgrade.purchased ? "flex" : "none";
   }
+
+  updateCampUpgradeSectionVisibility();
+}
+
+function updateCampUpgradeSectionVisibility() {
+  const campUpgradeDefinitions = getCampUpgradeDefinitions();
+
+  for (let upgradeName in campUpgradeDefinitions) {
+    const upgrade = getCampUpgrade(upgradeName);
+
+    if (upgrade.purchased) {
+      showElement(ui.campUpgradeSection, "flex");
+      return;
+    }
+  }
+
+  hideElement(ui.campUpgradeSection);
 }
 
 function updateActionButton(actionName) {

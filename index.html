@@ -64,12 +64,17 @@
               <div id="stoneAmount" class="resource-pill" style="display: none"></div>
             </div>
           </div>
-          <div id="smallFire" style="display: none">Small Fire</div>
-          <div id="crudeLeanTo" style="display: none">Crude Lean-To</div>
-          <div id="lessCrudeShelter" style="display: none">Less Crude Shelter</div>
-          <div id="uncomfortableCot" style="display: none">Uncomfortable Cot</div>
-          <div id="stoneFirePit" style="display: none">Stone Fire Pit</div>
-          <div id="packedStoneFloor" style="display: none">Packed Stone Floor</div>
+          <div id="campUpgradeSection" class="camp-upgrade-section" style="display: none">
+            <h3>Upgrades</h3>
+            <div class="camp-upgrades-strip">
+              <div id="smallFire" style="display: none">Small Fire</div>
+              <div id="crudeLeanTo" style="display: none">Crude Lean-To</div>
+              <div id="lessCrudeShelter" style="display: none">Less Crude Shelter</div>
+              <div id="uncomfortableCot" style="display: none">Uncomfortable Cot</div>
+              <div id="stoneFirePit" style="display: none">Stone Fire Pit</div>
+              <div id="packedStoneFloor" style="display: none">Packed Stone Floor</div>
+            </div>
+          </div>
 
           <div id="storageSection" class="storage-section" style="display: none">
             <h3>Storage</h3>
@@ -83,36 +88,41 @@
             </div>
           </div>
 
-          <button class="action-btn" data-action="explore">
-            <div class="progressFill"></div>
-            <div class="metaProgressFill"></div>
-            <span>Explore</span>
-          </button>
+          <div id="campActionsSection" class="camp-actions-section">
+            <h3>Actions</h3>
+            <div class="camp-actions-list">
+              <button class="action-btn" data-action="explore">
+                <div class="progressFill"></div>
+                <div class="metaProgressFill"></div>
+                <span>Explore</span>
+              </button>
 
-          <button class="action-btn" data-action="catchBreath">
-            <div class="progressFill"></div>
-            <span>Catch Breath</span>
-          </button>
+              <button class="action-btn" data-action="catchBreath">
+                <div class="progressFill"></div>
+                <span>Catch Breath</span>
+              </button>
 
-          <button id="restBtn" class="action-btn rest-button" style="display: none">
-            <div class="progressFill"></div>
-            <span>Rest in Clearing</span>
-          </button>
+              <button id="restBtn" class="action-btn rest-button" style="display: none">
+                <div class="progressFill"></div>
+                <span>Rest in Clearing</span>
+              </button>
 
-          <button id="gatherWoodBtn" class="action-btn" data-action="gatherWood" style="display: none">
-            <div class="progressFill"></div>
-            <span>Gather Wood</span>
-          </button>
+              <button id="gatherWoodBtn" class="action-btn" data-action="gatherWood" style="display: none">
+                <div class="progressFill"></div>
+                <span>Gather Wood</span>
+              </button>
 
-          <button id="gatherFoodBtn" class="action-btn" data-action="gatherFood" style="display: none">
-            <div class="progressFill"></div>
-            <span>Gather Food</span>
-          </button>
+              <button id="gatherFoodBtn" class="action-btn" data-action="gatherFood" style="display: none">
+                <div class="progressFill"></div>
+                <span>Gather Food</span>
+              </button>
 
-          <!--<button id="gatherWaterBtn" class="action-btn" data-action="gatherWater" style="display: none">
-            <div class="progressFill"></div>
-            <span>Gather Water</span>
-          </button>-->
+              <!--<button id="gatherWaterBtn" class="action-btn" data-action="gatherWater" style="display: none">
+                <div class="progressFill"></div>
+                <span>Gather Water</span>
+              </button>-->
+            </div>
+          </div>
 
           <div id="craftingSection" class="crafting-section" style="display: none">
             <h3>Crafting</h3>
@@ -246,7 +256,7 @@
           <span>Travel</span>
         </button>
 
-        <div id="destinationActions"></div>
+        <div id="destinationActions" class="destination-actions"></div>
 
         <button class="action-btn" data-action="returnToCamp" style="display: none">
           <div class="progressFill"></div>

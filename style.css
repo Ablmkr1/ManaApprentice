@@ -50,28 +50,44 @@ h1 {
   white-space: nowrap;
 }
 
-.camp-resources-section {
+.camp-resources-section,
+.camp-upgrade-section,
+.storage-section,
+.camp-actions-section,
+.crafting-section {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  margin-bottom: 6px;
 }
 
-.camp-resources-section h3 {
+.camp-resources-section h3,
+.camp-upgrade-section h3,
+.storage-section h3,
+.camp-actions-section h3,
+.crafting-section h3 {
   margin: 4px 0 0;
   font-size: 14px;
 }
 
-.camp-resource-strip {
+.camp-resource-strip,
+.camp-upgrades-strip,
+.storage-list {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 8px;
 }
 
-.camp-resource-strip .resource-pill {
-  border-color: #d8ccb8;
+.camp-resource-strip .resource-pill,
+.camp-upgrades-strip > div,
+.storage-list > div {
+  padding: 8px 10px;
+  border: 1px solid #d8ccb8;
+  border-radius: 6px;
   background: rgba(255, 250, 240, 0.65);
   color: #2b241c;
+  font-size: 14px;
+  text-align: left;
 }
 
 .save-section {
@@ -154,7 +170,6 @@ h1 {
 .equipment-box {
   width: 60px;
   height: 40px;
-  aspect-ratio: 1;
   padding: 6px;
   border: 1px solid #d8ccb8;
   border-radius: 6px;
@@ -175,20 +190,13 @@ h1 {
 }
 
 .character-stats,
-.inventory-list,
-.gear-list,
-.gear-section,
-.storage-list,
-.storage-section {
+.gear-section {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.character-stat,
-.inventory-list,
-.gear-list > div,
-.storage-list > div {
+.character-stat {
   padding: 8px 10px;
   border: 1px solid #d8ccb8;
   border-radius: 6px;
@@ -201,9 +209,7 @@ h1 {
   width: 100%;
 }
 
-.inventory-section h3,
-.gear-section h3,
-.storage-section h3 {
+.gear-section h3 {
   margin: 4px 0 0;
   font-size: 14px;
 }
@@ -421,10 +427,11 @@ button:disabled {
   z-index: 2;
 }
 
-.crafting-section {
+.camp-actions-list {
   display: flex;
-  flex-direction: column;
-  gap: 0px;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: stretch;
 }
 
 .crafting-actions {
@@ -697,4 +704,17 @@ button:disabled {
   border-radius: 6px;
   background: rgba(255, 250, 240, 0.65);
   font-size: 13px;
+}
+
+.camp-actions-list,
+.action-btn {
+  flex: 0 1 auto;
+  min-height: 34px;
+}
+
+.destination-actions {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 8px;
+  row-gap: 6px;
 }
