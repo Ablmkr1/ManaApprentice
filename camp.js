@@ -325,8 +325,6 @@ function updateStorageUpgradeUI(upgradeName) {
 
   if (!upgrade) return;
 
-  updateStorageSectionVisibility();
-
   if (upgrade.display) {
     upgrade.display.style.display = upgrade.tier > 0 ? "block" : "none";
     const currentTierName = getStorageCurrentTierName(upgrade);
@@ -337,12 +335,13 @@ function updateStorageUpgradeUI(upgradeName) {
   if (upgrade.button) {
     if (!upgrade.unlocked || upgrade.tier >= upgrade.maxTier) {
       upgrade.button.style.display = "none";
+      updateStorageSectionVisibility();
       return;
     }
-
     upgrade.button.style.display = "inline-block";
     setCraftButtonLabel(upgrade.button, getStorageUpgradeButtonName(upgrade), getStorageUpgradeButtonCost(upgrade));
   }
+  updateStorageSectionVisibility();
 }
 
 function updateStorageSectionVisibility() {

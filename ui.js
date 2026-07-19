@@ -64,6 +64,7 @@ function hookDomToUI() {
   ui.regionProgressFill = document.getElementById("regionProgressFill");
   ui.regionTerrain = document.getElementById("regionTerrain");
   ui.regionKnownPlaceCount = document.getElementById("regionKnownPlaceCount");
+  ui.packingSection = document.getElementById("packingSection");
   ui.gearSlotsGroup = document.getElementById("gearSlotsGroup");
   ui.gearSlots = document.getElementById("gearSlots");
   ui.toolSlotsGroup = document.getElementById("toolSlotsGroup");
@@ -161,9 +162,24 @@ function unlockResource(resourceName) {
 
   showElement(resourceElement, "block");
 
-  if (resourceName !== "energy" && resourceName !== "mana") {
-    showElement(ui.campResourcesSection, "flex");
+  updateCampResourcesSectionVisibility();
+}
+
+function updateCampResourcesSectionVisibility() {
+  if (!ui.campResourcesSection) return;
+
+  const campResourceNames = ["food", "wood", "fiber", "trap", "pelt", "stone"];
+
+  for (let i = 0; i < campResourceNames.length; i++) {
+    const resourceElement = resourceElements[campResourceNames[i]];
+
+    if (resourceElement && resourceElement.style.display !== "none") {
+      showElement(ui.campResourcesSection, "flex");
+      return;
+    }
   }
+
+  hideElement(ui.campResourcesSection);
 }
 
 function unlockPanel(panelName) {

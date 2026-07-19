@@ -239,44 +239,56 @@
           </section>
         </div>
 
-        <div class="expedition-stats">
-          <div id="expeditionDistanceBar" class="expedition-stat expedition-distance-bar">
-            <div id="expeditionDistanceFill" class="expedition-distance-fill"></div>
-            <span id="expeditionDistanceAmount" class="expedition-distance-label">Distance: 0 / 100</span>
+        <div class="travel-section">
+          <h3>Travel</h3>
+
+          <div class="expedition-stats">
+            <div id="expeditionDistanceBar" class="expedition-stat expedition-distance-bar">
+              <div id="expeditionDistanceFill" class="expedition-distance-fill"></div>
+              <span id="expeditionDistanceAmount" class="expedition-distance-label">Distance: 0 / 100</span>
+            </div>
+          </div>
+
+          <div class="travel-actions">
+            <button class="action-btn" data-action="beginExpedition" style="display: none">
+              <div class="progressFill"></div>
+              <span>Prepare for Expedition</span>
+            </button>
+
+            <button class="action-btn" data-action="travel" style="display: none">
+              <div class="progressFill"></div>
+              <span>Travel</span>
+            </button>
+
+            <div id="destinationActions" class="destination-actions"></div>
+
+            <button class="action-btn" data-action="returnToCamp" style="display: none">
+              <div class="progressFill"></div>
+              <span>Return to Camp</span>
+            </button>
           </div>
         </div>
 
-        <button class="action-btn" data-action="beginExpedition" style="display: none">
-          <div class="progressFill"></div>
-          <span>Prepare for Expedition</span>
-        </button>
+        <div id="packingSection" class="packing-section" style="display: none">
+          <h3>Packing</h3>
 
-        <button class="action-btn" data-action="travel" style="display: none">
-          <div class="progressFill"></div>
-          <span>Travel</span>
-        </button>
+          <div class="packing-actions">
+            <button class="action-btn" data-action="packFood" style="display: none">
+              <div class="progressFill"></div>
+              <span>Pack Food</span>
+            </button>
 
-        <div id="destinationActions" class="destination-actions"></div>
+            <button class="action-btn" data-action="packWater" style="display: none">
+              <div class="progressFill"></div>
+              <span>Fill Water</span>
+            </button>
 
-        <button class="action-btn" data-action="returnToCamp" style="display: none">
-          <div class="progressFill"></div>
-          <span>Return to Camp</span>
-        </button>
-
-        <button class="action-btn" data-action="packFood" style="display: none">
-          <div class="progressFill"></div>
-          <span>Pack Food</span>
-        </button>
-
-        <button class="action-btn" data-action="packWater" style="display: none">
-          <div class="progressFill"></div>
-          <span>Fill Water</span>
-        </button>
-
-        <button class="action-btn" data-action="packTrap" style="display: none">
-          <div class="progressFill"></div>
-          <span>Pack Trap</span>
-        </button>
+            <button class="action-btn" data-action="packTrap" style="display: none">
+              <div class="progressFill"></div>
+              <span>Pack Trap</span>
+            </button>
+          </div>
+        </div>
       </section>
 
       <section class="journal-panel">

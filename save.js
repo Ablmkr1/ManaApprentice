@@ -330,6 +330,8 @@ function applyResourceSaveData(savedResources) {
 
     updateResource(resourceName);
   }
+
+  updateCampResourcesSectionVisibility();
 }
 
 function applyGameStateSaveData(savedGameState) {
@@ -498,6 +500,8 @@ function refreshGameUIAfterLoad() {
     updateStorageUpgradeUI(upgradeName);
   }
 
+  updateStorageSectionVisibility();
+
   const gearUpgradeDefinitions = getGearUpgradeDefinitions();
 
   for (let upgradeName in gearUpgradeDefinitions) {
@@ -522,6 +526,10 @@ function refreshGameUIAfterLoad() {
   updateCharacterPanelLocks();
   updateDestinationActions();
   updateLocationActions();
+  const canPackAfterLoad =
+    gameState.expedition.active && !gameState.expedition.returning && !gameState.expedition.currentLocation && gameState.expedition.distance <= 0;
+
+  setPackingActionsAvailable(canPackAfterLoad);
   updateAllActionButtons();
   updateRestButton();
   refreshExpeditionUI();

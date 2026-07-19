@@ -2,7 +2,7 @@ body {
   margin: 0;
   padding: 4px 0 20px;
   font-family: system-ui, sans-serif;
-  background: #efe7d7;
+  background: radial-gradient(circle at top left, rgba(82, 91, 55, 0.35), transparent 34rem), linear-gradient(180deg, #23251f 0%, #171814 100%);
   color: #2b241c;
 }
 
@@ -11,6 +11,7 @@ h1 {
   width: min(1120px, calc(100% - 24px));
   font-size: 20px;
   line-height: 1.1;
+  color: #fffaf0;
 }
 
 .top-bar {
@@ -54,7 +55,9 @@ h1 {
 .camp-upgrade-section,
 .storage-section,
 .camp-actions-section,
-.crafting-section {
+.crafting-section,
+.travel-section,
+.packing-section {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -65,7 +68,9 @@ h1 {
 .camp-upgrade-section h3,
 .storage-section h3,
 .camp-actions-section h3,
-.crafting-section h3 {
+.crafting-section h3,
+.travel-section h3,
+.packing-section h3 {
   margin: 4px 0 0;
   font-size: 14px;
 }
@@ -127,11 +132,11 @@ h1 {
 .journal-panel,
 .world-feed,
 .context-section {
-  background: #f8f1e5;
-  border: 1px solid #c8bda8;
+  background: rgba(248, 241, 229, 0.94);
+  border: 1px solid rgba(216, 204, 184, 0.78);
   border-radius: 8px;
   padding: 12px;
-  box-shadow: 0 8px 24px rgba(43, 36, 28, 0.08);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
 
   display: flex;
   flex-direction: column;
@@ -427,7 +432,9 @@ button:disabled {
   z-index: 2;
 }
 
-.camp-actions-list {
+.camp-actions-list,
+.travel-actions,
+.packing-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
@@ -706,8 +713,9 @@ button:disabled {
   font-size: 13px;
 }
 
-.camp-actions-list,
-.action-btn {
+.camp-actions-list .action-btn,
+.travel-actions .action-btn,
+.packing-actions .action-btn {
   flex: 0 1 auto;
   min-height: 34px;
 }

@@ -649,6 +649,14 @@ function updatePlacePanel() {
 
   showElement(ui.campContent, "block");
   hideElement(ui.locationContent);
+
+  const storageUpgradeDefinitions = getStorageUpgradeDefinitions();
+
+  for (let upgradeName in storageUpgradeDefinitions) {
+    updateStorageUpgradeUI(upgradeName);
+  }
+
+  updateStorageSectionVisibility();
   updateTrapSitesUI(null);
   updateLocationObjectActionsUI(null);
 }
@@ -1114,15 +1122,18 @@ function setPackingActionsAvailable(available) {
     lockAction("packFood");
     lockAction("packWater");
     lockAction("packTrap");
+    hideElement(ui.packingSection);
     return;
   }
 
   if (gameState.expedition.distance > 0 || isTravelActivityActive()) {
+    hideElement(ui.packingSection);
     return;
   }
 
+  showElement(ui.packingSection, "flex");
   unlockAction("packFood");
-  
+
   if (gameState.expedition.waterCapacity > 0 && gameState.expedition.water < gameState.expedition.waterCapacity) {
     unlockAction("packWater");
   } else {

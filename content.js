@@ -238,10 +238,9 @@ const recipes = {
     discovered: false,
     requires: {
       recipesDiscovered: ["hideworking"],
+      gearPurchased: ["crudeSatchel"],
       resources: {
-        pelt: 4,
-        fiber: 10,
-        wood: 5,
+
       },
     },
     story: "Carrying on your back would make things easier.  You could weave pelts with fibers and keeps the load from spilling.",
@@ -254,7 +253,7 @@ const recipes = {
     requires: {
       recipesDiscovered: ["hideworking"],
       resources: {
-        pelt: 5,
+
       },
     },
     story: "Wrapped hide could soften the trail underfoot, even if the smell leaves something to be desired.",
@@ -267,9 +266,7 @@ const recipes = {
     requires: {
       recipesDiscovered: ["hideworking"],
       resources: {
-        pelt: 5,
-        fiber: 10,
-        wood: 10,
+
       },
     },
     story: "A raised frame, layered pelts, and enough cordage might make sleep less punishing.",
@@ -604,7 +601,7 @@ const gearUpgrades = {
     displayName: "Waterskin",
     equipmentType: "gear",
     slot: "water",
-    slotLabel: "Wack",
+    slotLabel: "Water",
     slotOrder: 2,
     slotRank: 1,
     duration: 6,
@@ -677,7 +674,7 @@ const gearUpgrades = {
     displayName: "Stone Knife",
     equipmentType: "tool",
     slot: "knife",
-    slotLabel: "Kife",
+    slotLabel: "Knife",
     slotOrder: 1,
     slotRank: 1,
     cost: {
@@ -699,7 +696,7 @@ const gearUpgrades = {
     label: "Stone Axe (+1 Wood)",
     displayName: "Stone Axe",
     equipmentType: "tool",
-    slot: "axw",
+    slot: "axe",
     slotLabel: "Axe",
     slotOrder: 2,
     slotRank: 1,
@@ -754,7 +751,7 @@ const gearUpgrades = {
   torch: {
     label: "Torch",
     displayName: "Torch",
-    equipmentType: "gear",
+    equipmentType: "tool",
     slot: "tool",
     slotLabel: "Light",
     slotOrder: 3,
