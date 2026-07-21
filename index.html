@@ -61,6 +61,7 @@
               <div id="fiberAmount" class="resource-pill" style="display: none"></div>
               <div id="trapAmount" class="resource-pill" style="display: none"></div>
               <div id="peltAmount" class="resource-pill" style="display: none"></div>
+              <div id="leatherAmount" class="resource-pill" style="display: none"></div>
               <div id="stoneAmount" class="resource-pill" style="display: none"></div>
             </div>
           </div>
@@ -73,6 +74,7 @@
               <div id="uncomfortableCot" style="display: none">Uncomfortable Cot</div>
               <div id="stoneFirePit" style="display: none">Stone Fire Pit</div>
               <div id="packedStoneFloor" style="display: none">Packed Stone Floor</div>
+              <div id="meditationSpot" style="display: none">Meditation Spot</div>
             </div>
           </div>
 
@@ -107,6 +109,11 @@
                 <span>Rest in Clearing</span>
               </button>
 
+              <button id="meditateBtn" class="action-btn" data-action="meditate" style="display: none">
+                <div class="progressFill"></div>
+                <span>Meditate</span>
+              </button>
+
               <button id="gatherWoodBtn" class="action-btn" data-action="gatherWood" style="display: none">
                 <div class="progressFill"></div>
                 <span>Gather Wood</span>
@@ -123,42 +130,15 @@
               </button>-->
             </div>
           </div>
-
-          <div id="craftingSection" class="crafting-section" style="display: none">
-            <h3>Crafting</h3>
-
-            <div class="crafting-actions">
-              <button id="smallFireBtn" style="display: none"></button>
-              <button id="crudeLeanToBtn" style="display: none"></button>
-              <button id="lessCrudeShelterBtn" style="display: none"></button>
-              <button id="uncomfortableCotBtn" style="display: none"></button>
-              <button id="stoneFirePitBtn" style="display: none"></button>
-              <button id="packedStoneFloorBtn" style="display: none"></button>
-
-              <button id="woodStorageBtn" style="display: none"></button>
-              <button id="foodStorageBtn" style="display: none"></button>
-              <button id="fiberStorageBtn" style="display: none"></button>
-              <!--<button id="waterStorageBtn" style="display: none"></button>-->
-              <button id="peltStorageBtn" style="display: none"></button>
-              <button id="stoneStorageBtn" style="display: none"></button>
-
-              <button id="crudeSatchelBtn" style="display: none"></button>
-              <button id="crudeBackpackBtn" style="display: none"></button>
-              <button id="repairedLeatherBackpackBtn" style="display: none"></button>
-              <button id="waterskinBtn" style="display: none"></button>
-              <button id="smellyShoesBtn" style="display: none"></button>
-              <button id="stoneKnifeBtn" style="display: none"></button>
-              <button id="stoneAxeBtn" style="display: none"></button>
-              <button id="torchBtn" style="display: none"></button>
-
-              <button id="trapCraftBtn" style="display: none"></button>
-              <button id="ruinedTorchResearchBtn" style="display: none"></button>
-            </div>
-          </div>
         </div>
 
         <div id="locationContent" style="display: none">
           <div id="locationDescription"></div>
+          <div id="locationContent" style="display: none"></div>
+          <div id="locationStorageSection" class="camp-resources-section" style="display: none">
+            <h3>Stored Here</h3>
+            <div id="locationStorageList" class="camp-resource-strip"></div>
+          </div>
           <div id="trapSitesList" class="trap-sites-list" style="display: none"></div>
           <div id="locationObjectActions" class="location-object-actions"></div>
 
@@ -197,6 +177,62 @@
             <div class="progressFill"></div>
             <span>Gather Stone</span>
           </button>
+
+          <button class="action-btn" data-action="trackGame" style="display: none">
+            <div class="progressFill"></div>
+            <span>Track Game</span>
+          </button>
+
+          <button class="action-btn" data-action="huntGame" style="display: none">
+            <div class="progressFill"></div>
+            <span>Hunt Game</span>
+          </button>
+
+          <button class="action-btn" data-action="storePelt" style="display: none">
+            <div class="progressFill"></div>
+            <span>Store Pelt</span>
+          </button>
+
+          <button class="action-btn" data-action="takeLeather" style="display: none">
+            <div class="progressFill"></div>
+            <span>Take Leather</span>
+          </button>
+        </div>
+
+        <div id="craftingSection" class="crafting-section" style="display: none">
+          <h3>Crafting</h3>
+
+          <div class="crafting-actions">
+            <button id="smallFireBtn" style="display: none"></button>
+            <button id="crudeLeanToBtn" style="display: none"></button>
+            <button id="lessCrudeShelterBtn" style="display: none"></button>
+            <button id="uncomfortableCotBtn" style="display: none"></button>
+            <button id="stoneFirePitBtn" style="display: none"></button>
+            <button id="packedStoneFloorBtn" style="display: none"></button>
+            <button id="meditationSpotBtn" style="display: none"></button>
+
+            <button id="woodStorageBtn" style="display: none"></button>
+            <button id="foodStorageBtn" style="display: none"></button>
+            <button id="fiberStorageBtn" style="display: none"></button>
+            <!--<button id="waterStorageBtn" style="display: none"></button>-->
+            <button id="peltStorageBtn" style="display: none"></button>
+            <button id="stoneStorageBtn" style="display: none"></button>
+
+            <button id="crudeSatchelBtn" style="display: none"></button>
+            <button id="crudeBackpackBtn" style="display: none"></button>
+            <button id="patchedLeatherBackpackBtn" style="display: none"></button>
+            <button id="repairedLeatherBackpackBtn" style="display: none"></button>
+            <button id="waterskinBtn" style="display: none"></button>
+            <button id="reinforcedWaterskinBtn" style="display: none"></button>
+            <button id="smellyShoesBtn" style="display: none"></button>
+            <button id="stoneKnifeBtn" style="display: none"></button>
+            <button id="stoneAxeBtn" style="display: none"></button>
+            <button id="torchBtn" style="display: none"></button>
+
+            <button id="trapCraftBtn" style="display: none"></button>
+            <button id="leatherCraftBtn" style="display: none"></button>
+            <button id="ruinedTorchResearchBtn" style="display: none"></button>
+          </div>
         </div>
       </section>
 
@@ -286,6 +322,11 @@
             <button class="action-btn" data-action="packTrap" style="display: none">
               <div class="progressFill"></div>
               <span>Pack Trap</span>
+            </button>
+
+            <button class="action-btn" data-action="packPelt" style="display: none">
+              <div class="progressFill"></div>
+              <span>Pack Pelt</span>
             </button>
           </div>
         </div>

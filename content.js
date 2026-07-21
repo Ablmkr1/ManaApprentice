@@ -104,6 +104,7 @@ const expeditionLocations = {
               { type: "flag", id: "magicUnlocked" },
               { type: "resource", id: "mana" },
               { type: "journal", id: "manaAwakened" },
+              { type: "campUpgrade", id: "meditationSpot" },
             ],
           },
         ],
@@ -150,7 +151,7 @@ const expeditionLocations = {
           {
             story:
               "The pack is torn almost beyond use, but the stitching and frame are better than anything you've made. Whoever carried this pack knew how to travel.",
-            unlocks: [{ type: "gearUpgrade", id: "repairedLeatherBackpack" }],
+            unlocks: [{ type: "gearUpgrade", id: "patchedLeatherBackpack" }],
           },
         ],
       },
@@ -182,6 +183,55 @@ const expeditionLocations = {
           },
         ],
       },
+    },
+  },
+
+  stagRuns: {
+    region: "east",
+    label: "Stag Runs",
+    exploredLabel: "Marked Stag Runs",
+    distance: 40,
+    discovered: false,
+    explored: false,
+    explorationProgress: 0,
+    explorationRequired: 1,
+    onDiscoverStory: "Fresh tracks cut through the deepwood. Something larger than rabbits moves through these trees.",
+    exploreStory: ["The tracks cross and return in patterns. This is not a single trail, but a place where deer pass often."],
+    panelText: {
+      discovered: "Fresh tracks cut through the deepwood. Something larger than rabbits moves through these trees.",
+      explored: "Heavy tracks mark the undergrowth. This will become useful once you know how to hunt larger game.",
+    },
+    availableActions: ["trackGame", "huntGame"],
+    hunt: {
+      tracked: false,
+      successChance: 0.65,
+      reward: "pelt",
+      rewardAmount: 3,
+    },
+  },
+
+  huntersCabin: {
+    region: "east",
+    label: "Hunter's Cabin",
+    exploredLabel: "Weathered Hunter's Cabin",
+    distance: 130,
+    storage: {
+      pelt: 0,
+      leather: 0,
+    },
+    availableActions: ["storePelt", "takeLeather"],
+    discovered: false,
+    explored: false,
+    explorationProgress: 0,
+    explorationRequired: 2,
+    onDiscoverStory: "A low cabin sits between old trees, half-hidden by moss and fallen branches.",
+    exploreStory: [
+      "Inside, stretched hides hang from warped beams.",
+      "The old tools are rusted, but the process is clear enough: scrape, soak, stretch, and cure.",
+    ],
+    panelText: {
+      discovered: "A weathered cabin waits in the deepwood. Whoever used it knew how to turn hides into something sturdier.",
+      explored: "The cabin's ruined tools have taught you how to process pelts into leather.",
     },
   },
 };
@@ -233,15 +283,27 @@ const recipes = {
     ],
   },
 
+  leatherworking: {
+    label: "Leatherworking",
+    discovered: false,
+    requires: {
+      locationsExplored: ["huntersCabin"],
+    },
+    story: "The cabin's old tools teach you how to scrape, soak, stretch, and cure pelts into stronger leather.",
+    unlocks: [
+      { type: "resourceCraft", id: "leather" },
+      { type: "gearUpgrade", id: "reinforcedWaterskin" },
+      { type: "gearUpgrade", id: "repairedLeatherBackpack" },
+    ],
+  },
+
   crudeBackpack: {
     label: "Crude Backpack",
     discovered: false,
     requires: {
       recipesDiscovered: ["hideworking"],
       gearPurchased: ["crudeSatchel"],
-      resources: {
-
-      },
+      resources: {},
     },
     story: "Carrying on your back would make things easier.  You could weave pelts with fibers and keeps the load from spilling.",
     unlocks: [{ type: "gearUpgrade", id: "crudeBackpack" }],
@@ -252,9 +314,7 @@ const recipes = {
     discovered: false,
     requires: {
       recipesDiscovered: ["hideworking"],
-      resources: {
-
-      },
+      resources: {},
     },
     story: "Wrapped hide could soften the trail underfoot, even if the smell leaves something to be desired.",
     unlocks: [{ type: "gearUpgrade", id: "smellyShoes" }],
@@ -265,9 +325,7 @@ const recipes = {
     discovered: false,
     requires: {
       recipesDiscovered: ["hideworking"],
-      resources: {
-
-      },
+      resources: {},
     },
     story: "A raised frame, layered pelts, and enough cordage might make sleep less punishing.",
     unlocks: [{ type: "campUpgrade", id: "uncomfortableCot" }],
@@ -459,6 +517,25 @@ const campUpgrades = {
       updateResource("energy");
     },
   },
+
+  meditationSpot: {
+    label: "Meditation Spot",
+    duration: 10,
+    cost: {
+      fiber: 12,
+      wood: 7,
+      pelt: 3,
+      stone: 8,
+      energy: 10,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      unlockAction("meditate");
+    },
+  },
 };
 
 // Camp Storage Upgrade Defintions
@@ -618,6 +695,34 @@ const gearUpgrades = {
     },
   },
 
+  reinforcedWaterskin: {
+    label: "Reinforced Waterskin (25 Water Capacity)",
+    displayName: "Reinforced Waterskin",
+    equipmentType: "gear",
+    slot: "water",
+    slotLabel: "Water",
+    slotOrder: 2,
+    slotRank: 2,
+    duration: 8,
+    cost: {
+      leather: 2,
+      fiber: 6,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      gameState.expedition.waterCapacity += 15;
+
+      if (getGearUpgrade("waterskin").display) {
+        getGearUpgrade("waterskin").display.style.display = "none";
+      }
+
+      refreshExpeditionUI();
+    },
+  },
+
   crudeBackpack: {
     label: "Crude Backpack (Inventory 20)",
     displayName: "Crude Backpack",
@@ -716,9 +821,9 @@ const gearUpgrades = {
     },
   },
 
-  repairedLeatherBackpack: {
-    label: "Repaired Leather Backpack (Inventory 40)",
-    displayName: "Repaired Backpack",
+  patchedLeatherBackpack: {
+    label: "Patched Leather Backpack (Inventory 35)",
+    displayName: "Patched Backpack",
     equipmentType: "gear",
     slot: "pack",
     slotLabel: "Pack",
@@ -734,7 +839,38 @@ const gearUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      gameState.expedition.carryCapacity = 40;
+      gameState.expedition.carryCapacity = 35;
+
+      if (getGearUpgrade("crudeSatchel").display) {
+        getGearUpgrade("crudeSatchel").display.style.display = "none";
+      }
+
+      if (getGearUpgrade("crudeBackpack").display) {
+        getGearUpgrade("crudeBackpack").display.style.display = "none";
+      }
+
+      refreshExpeditionUI();
+    },
+  },
+
+  repairedLeatherBackpack: {
+    label: "Repaired Leather Backpack (Inventory 50)",
+    displayName: "Leather Backpack",
+    equipmentType: "gear",
+    slot: "pack",
+    slotLabel: "Pack",
+    slotOrder: 1,
+    slotRank: 4,
+    duration: 10,
+    cost: {
+      leather: 3,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      gameState.expedition.carryCapacity = 50;
 
       if (getGearUpgrade("crudeSatchel").display) {
         getGearUpgrade("crudeSatchel").display.style.display = "none";
@@ -784,6 +920,23 @@ const resourceCrafts = {
     produces: {
       resource: "trap",
       amount: 1,
+    },
+    unlocked: false,
+    button: null,
+  },
+
+  leather: {
+    label: "Tan Leather",
+    requiredLocation: "huntersCabin",
+    duration: 2,
+    cost: {
+      energy: 6,
+    },
+    storageCost: {
+      pelt: 3,
+    },
+    storageProduces: {
+      leather: 1,
     },
     unlocked: false,
     button: null,
@@ -902,13 +1055,11 @@ const regionDefinitions = {
     label: "Northern Reach",
     terrain: "Distant ridges",
     description: "Jagged silhouettes rise beyond the forest. The route is steep, exposed, and still largely unknown.",
-    maxProgress: 1000,
+    maxProgress: 250,
     milestones: [
-      { at: 100, text: "Reach the first foothills." },
-      { at: 250, text: "Establish a dependable mountain route." },
-      { at: 500, text: "Push beyond the lower ridges." },
-      { at: 750, text: "Investigate the deepest known pass." },
-      { at: 1000, text: "Master the northern route." },
+      { at: 50, text: "Reach the first foothills." },
+      { at: 100, text: "Establish a dependable mountain route." },
+      { at: 250, text: "Master the northern route." },
     ],
   },
   east: {
@@ -916,13 +1067,11 @@ const regionDefinitions = {
     label: "Eastern Deepwood",
     terrain: "Dense old forest",
     description: "The trees grow broader and the undergrowth thicker. Tracks vanish beneath roots and shadow.",
-    maxProgress: 1000,
+    maxProgress: 250,
     milestones: [
-      { at: 100, text: "Identify the first reliable game trails." },
-      { at: 250, text: "Learn how larger prey moves through the forest." },
-      { at: 500, text: "Reach the old-growth interior." },
-      { at: 750, text: "Track signs of a dangerous animal." },
-      { at: 1000, text: "Master the eastern hunting grounds." },
+      { at: 50, text: "Identify the first reliable game trails." },
+      { at: 100, text: "Learn how larger prey moves through the forest." },
+      { at: 250, text: "Master the eastern hunting grounds." },
     ],
   },
   south: {
@@ -930,13 +1079,11 @@ const regionDefinitions = {
     label: "Southern Overgrowth",
     terrain: "Wild fields",
     description: "Open land lies beneath waist-high growth. Strange scents drift from plants you almost recognize.",
-    maxProgress: 1000,
+    maxProgress: 250,
     milestones: [
-      { at: 100, text: "Catalog the first unfamiliar herbs." },
-      { at: 250, text: "Find evidence the fields were once cultivated." },
-      { at: 500, text: "Reach the overgrown terraces." },
-      { at: 750, text: "Investigate the rarest plant growth." },
-      { at: 1000, text: "Master the southern growing grounds." },
+      { at: 50, text: "Catalog the first unfamiliar herbs." },
+      { at: 100, text: "Find evidence the fields were once cultivated." },
+      { at: 250, text: "Master the southern growing grounds." },
     ],
   },
   west: {
@@ -946,11 +1093,9 @@ const regionDefinitions = {
     description: "Weathered stones and a nearly vanished road continue west beneath moss and fallen branches.",
     maxProgress: 1000,
     milestones: [
-      { at: 100, text: "Follow the road to its first marker." },
-      { at: 250, text: "Understand how the old markers connect." },
-      { at: 500, text: "Restore part of the western route." },
-      { at: 750, text: "Reach the dormant waystone." },
-      { at: 1000, text: "Master the western road network." },
+      { at: 50, text: "Follow the road to its first marker." },
+      { at: 100, text: "Understand how the old markers connect." },
+      { at: 250, text: "Master the western road network." },
     ],
   },
 };

@@ -1,7 +1,10 @@
+const REGION_APPROACH_DISTANCE = 100;
+
 function setCurrentLocation(locationName) {
   gameState.expedition.currentLocation = locationName;
 
   updateLocationActions();
+  updateCraftingUIForCurrentContext();
   updatePlacePanel();
 }
 
@@ -9,6 +12,7 @@ function clearCurrentLocation() {
   gameState.expedition.currentLocation = null;
 
   updateLocationActions();
+  updateCraftingUIForCurrentContext();
   updatePlacePanel();
   updateRegionalMapVisibility();
 }
@@ -316,7 +320,7 @@ function resolveExpeditionStep() {
     step.distance += 0.5;
   }
 
-  if (isKnownPathTravelActive()) {
+  if (isKnownPathTravelActive() || isOutskirtsTravelActive()) {
     step.distance *= 1.2;
   }
 
@@ -366,7 +370,18 @@ function applyExpeditionStep(step) {
     return;
   }
 
+  const regionId = expedition.regionId || "outskirts";
+  const previousDistance = expedition.distance;
+
   expedition.distance += step.distance;
+
+  if (regionId !== "outskirts") {
+    const previousRegionalDistance = Math.max(0, previousDistance - REGION_APPROACH_DISTANCE);
+    const currentRegionalDistance = Math.max(0, expedition.distance - REGION_APPROACH_DISTANCE);
+    const regionalProgressGained = currentRegionalDistance - previousRegionalDistance;
+
+    addRegionProgress(regionId, regionalProgressGained);
+  }
 }
 
 function beginReturnToCamp(reason) {
@@ -410,6 +425,33 @@ function completeTier2Exploration() {
   showOutskirtsCompletePopup();
 }
 
+function completeRegionalExploration(regionId) {
+  const region = getRegionDefinition(regionId);
+
+  if (!region) return;
+
+  addRegionProgress(regionId, region.maxProgress);
+
+  addStoryEntry("You complete a long route through " + region.label + ".");
+}
+
+function addRegionProgress(regionId, amount) {
+  if (regionId === "outskirts") return;
+
+  const region = getRegionDefinition(regionId);
+  const regionState = gameState.world.regions[regionId];
+
+  if (!region || !regionState || !regionState.unlocked) return;
+
+  regionState.progress = Math.min(regionState.progress + amount, region.maxProgress);
+
+  if (regionState.progress >= region.maxProgress) {
+    regionState.mastered = true;
+  }
+
+  updateRegionalMapVisibility();
+}
+
 function getOpenExpeditionTargetDistance() {
   if (gameState.tier2Complete) return 120;
 
@@ -436,18 +478,25 @@ function endExpedition(reason) {
   unlockAction("beginExpedition");
   setPackingActionsAvailable(false);
   updateDestinationActions();
-  updateRegionalMapVisibility();
 
   if (reason === "completed") {
+    const completedRegionId = expedition.regionId || "outskirts";
+
     expedition.completed = true;
-    completeTier2Exploration();
-    addStoryEntry("You reach the edge of your planned route and return with new knowledge of the wilds.");
+
+    if (completedRegionId === "outskirts") {
+      completeTier2Exploration();
+      addStoryEntry("You reach the edge of your planned route and return with new knowledge of the wilds.");
+    } else {
+      completeRegionalExploration(completedRegionId);
+    }
   }
 
   if (reason === "exhausted") {
     addStoryEntry("Your strength gives out. You turn back toward the clearing.");
   }
 
+  updateRegionalMapVisibility();
   refreshExpeditionUI();
   updatePlacePanel();
 }
@@ -486,6 +535,7 @@ function exploreCurrentLocation() {
     }
 
     checkRecipeDiscoveries();
+    updateCraftingUIForCurrentContext();
     updateLocationActions();
   }
 }
@@ -557,6 +607,12 @@ function checkDestinationArrival() {
 function getLocationTravelDistance(location) {
   if (!location) return 0;
 
+  const regionId = getLocationRegionId(location);
+
+  if (regionId !== "outskirts") {
+    return REGION_APPROACH_DISTANCE + location.distance;
+  }
+
   if (gameState.knownOutskirtsPathsUnlocked && location.knownPathDistance) {
     return location.knownPathDistance;
   }
@@ -574,6 +630,17 @@ function isKnownPathTravelActive() {
   const location = getExpeditionLocation(expedition.destination);
 
   return !!location && !!location.knownPathDistance;
+}
+
+function isOutskirtsTravelActive() {
+  const expedition = gameState.expedition;
+
+  if (!gameState.knownOutskirtsPathsUnlocked) return false;
+  if (!expedition.active || expedition.returning) return false;
+
+  if (!expedition.regionId || expedition.regionId === "outskirts") return true;
+
+  return expedition.distance < REGION_APPROACH_DISTANCE;
 }
 
 function updateDestinationActions() {
@@ -594,6 +661,7 @@ function getLocationLabel(locationName) {
 
 function updatePlacePanel() {
   const expedition = gameState.expedition;
+  updateLocationStorageUI(null);
 
   if (isTravelActivityActive()) {
     if (expedition.returning) {
@@ -601,7 +669,12 @@ function updatePlacePanel() {
       safeSetText(ui.locationDescription, "You are making your way back to camp.");
     } else {
       safeSetText(ui.campPanelTitle, "Traveling");
-      safeSetText(ui.locationDescription, "You are moving through the wilds.");
+
+      if (isOutskirtsTravelActive()) {
+        safeSetText(ui.locationDescription, "You follow known paths through the camp outskirts.");
+      } else {
+        safeSetText(ui.locationDescription, "You press into unknown territory.");
+      }
     }
 
     hideElement(ui.campContent);
@@ -626,6 +699,7 @@ function updatePlacePanel() {
 
     updateTrapSitesUI(location);
     updateLocationObjectActionsUI(location);
+    updateLocationStorageUI(location);
 
     safeSetText(ui.campPanelTitle, getLocationLabel(expedition.currentLocation));
     safeSetText(ui.locationDescription, getLocationPanelText(location));
@@ -995,12 +1069,14 @@ function getLocationPanelText(location) {
 
 function checkExpeditionDiscovery() {
   const expedition = gameState.expedition;
+  const regionId = getSelectedTravelRegionId();
 
   const locations = getExpeditionLocationDefinitions();
 
   for (let locationName in locations) {
     const location = locations[locationName];
 
+    if (getLocationRegionId(location) !== regionId) continue;
     if (!isLocationDiscoverable(location)) continue;
 
     if (expedition.distance >= getLocationTravelDistance(location)) {
@@ -1122,6 +1198,7 @@ function setPackingActionsAvailable(available) {
     lockAction("packFood");
     lockAction("packWater");
     lockAction("packTrap");
+    lockAction("packPelt");
     hideElement(ui.packingSection);
     return;
   }
@@ -1145,6 +1222,15 @@ function setPackingActionsAvailable(available) {
   if (trap.display && trap.display.style.display !== "none") {
     unlockAction("packTrap");
   }
+
+  const leatherworking = getRecipe("leatherworking");
+  const pelt = getResource("pelt");
+
+  if (leatherworking && leatherworking.discovered && pelt.value > 0) {
+    unlockAction("packPelt");
+  } else {
+    lockAction("packPelt");
+  }
 }
 
 function enterExpeditionPreparation() {
@@ -1154,7 +1240,12 @@ function enterExpeditionPreparation() {
   expedition.returning = false;
   expedition.completed = false;
   expedition.distance = 0;
-  expedition.targetDistance = getOpenExpeditionTargetDistance();
+  if (expedition.destination) {
+    const destination = getExpeditionLocation(expedition.destination);
+    expedition.targetDistance = getLocationTravelDistance(destination);
+  } else {
+    expedition.targetDistance = getSelectedTravelDistance();
+  }
   expedition.returnPenalty = 0;
 
   resetTrapSiteChecks();
@@ -1166,11 +1257,13 @@ function enterExpeditionPreparation() {
 
   setCampActionsAvailable(false);
   setPackingActionsAvailable(true);
+  updateCraftingUIForCurrentContext();
   updateRegionalMapVisibility();
 }
 
 function prepareOpenExpedition() {
   gameState.expedition.destination = null;
+  gameState.expedition.regionId = gameState.world.selectedRegion || "outskirts";
 
   enterExpeditionPreparation();
 
@@ -1187,6 +1280,7 @@ function prepareDestinationTravel(locationName) {
   if (!location || !location.discovered) return;
 
   gameState.expedition.destination = locationName;
+  gameState.expedition.regionId = getLocationRegionId(location);
 
   enterExpeditionPreparation();
   renderDestinationActions();
@@ -1201,17 +1295,20 @@ function renderDestinationActions() {
 
   ui.destinationActions.innerHTML = "";
 
-  const locations = getExpeditionLocationDefinitions();
+  if (gameState.expedition.active) return;
 
-  for (let locationName in locations) {
+  const regionId = getSelectedTravelRegionId();
+  const knownLocations = getRegionKnownLocations(regionId);
+
+  knownLocations.forEach(function (locationName) {
     const location = getExpeditionLocation(locationName);
 
-    if (!location || !location.discovered || gameState.expedition.active) continue;
+    if (!location) return;
 
     const button = document.createElement("button");
     button.type = "button";
     button.classList.add("action-btn");
-    button.textContent = "Travel to " + getLocationLabel(locationName);
+    button.textContent = "Travel to " + getLocationLabel(locationName) + " (" + formatDistance(getLocationTravelDistance(location)) + ")";
 
     button.addEventListener("click", function () {
       startActivity({
@@ -1222,9 +1319,75 @@ function renderDestinationActions() {
     });
 
     ui.destinationActions.appendChild(button);
-  }
+  });
 }
 
 function isTravelActivityActive() {
   return isActivityActive() && gameState.activity.kind === "travel";
+}
+
+function getSelectedTravelRegionId() {
+  if (gameState.expedition.active && gameState.expedition.regionId) {
+    return gameState.expedition.regionId;
+  }
+
+  return gameState.world.selectedRegion || "outskirts";
+}
+
+function getLocationRegionId(location) {
+  if (!location || !location.region) return "outskirts";
+
+  return location.region;
+}
+
+function getSelectedTravelDistance() {
+  const regionId = getSelectedTravelRegionId();
+
+  if (regionId === "outskirts") {
+    return getOpenExpeditionTargetDistance();
+  }
+
+  const region = getRegionDefinition(regionId);
+
+  if (!region) {
+    return getOpenExpeditionTargetDistance();
+  }
+
+  return REGION_APPROACH_DISTANCE + region.maxProgress;
+}
+
+function getRegionKnownLocations(regionId) {
+  const knownLocations = [];
+  const locations = getExpeditionLocationDefinitions();
+
+  for (let locationName in locations) {
+    const location = locations[locationName];
+
+    if (!location || !location.discovered) continue;
+    if (getLocationRegionId(location) !== regionId) continue;
+
+    knownLocations.push(locationName);
+  }
+
+  return knownLocations;
+}
+
+function getHuntData(locationName) {
+  const location = getExpeditionLocation(locationName);
+
+  if (!location || !location.hunt) return null;
+
+  return location.hunt;
+}
+
+function canTrackGame(locationName) {
+  const hunt = getHuntData(locationName);
+
+  return !!hunt && !hunt.tracked;
+}
+
+function canHuntGame(locationName) {
+  const hunt = getHuntData(locationName);
+
+  return !!hunt && hunt.tracked;
 }

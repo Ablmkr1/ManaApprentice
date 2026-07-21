@@ -46,3 +46,9 @@ function spendCost(cost) {
 
   return true;
 }
+
+function refundCost(cost) {
+  for (let resourceName in cost) {
+    addResource(resourceName, cost[resourceName]);
+  }
+}

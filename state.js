@@ -90,6 +90,16 @@ const resources = {
     perClickDisplay: null,
     perSecondDisplay: null,
   },
+  leather: {
+    label: "Leather",
+    value: 0,
+    maxValue: 20,
+    perClick: 0,
+    perSecond: 0,
+    display: null,
+    perClickDisplay: null,
+    perSecondDisplay: null,
+  },
 };
 
 const actions = {
@@ -262,7 +272,7 @@ const actions = {
     onStart: function () {},
     onComplete: function () {},
   },
-    gatherFiber5: {
+  gatherFiber5: {
     label: "5x Gather Fiber",
     duration: 5,
     cost: {
@@ -295,6 +305,46 @@ const actions = {
     cost: {
       trap: 1,
     },
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+  packPelt: {
+    label: "Pack Pelt",
+    duration: 0,
+    cost: {
+      pelt: 1,
+    },
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+
+  storePelt: {
+    label: "Store Pelt",
+    duration: 0,
+    cost: {},
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+
+  takeLeather: {
+    label: "Take Leather",
+    duration: 0,
+    cost: {},
     unlocked: false,
     running: false,
     button: null,
@@ -351,6 +401,45 @@ const actions = {
     cost: {
       energy: 2,
     },
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+  trackGame: {
+    label: "Track Game",
+    duration: 2,
+    cost: { energy: 6 },
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+
+  huntGame: {
+    label: "Hunt Game",
+    duration: 3,
+    cost: { energy: 10 },
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+
+  meditate: {
+    label: "Meditate",
+    duration: 3,
+    cost: { energy: 10 },
+    auto: { resource: "mana", resumeAfterRest: true },
     unlocked: false,
     running: false,
     button: null,
@@ -453,6 +542,7 @@ const gameState = {
     returnPenalty: 0,
     completed: false,
     currentLocation: null,
+    regionId: "outskirts",
     distance: 0,
     targetDistance: 100,
 

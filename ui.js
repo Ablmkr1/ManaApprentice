@@ -72,6 +72,9 @@ function hookDomToUI() {
   ui.carriedInventoryStrip = document.getElementById("carriedInventoryStrip");
   ui.campResourcesSection = document.getElementById("campResourcesSection");
   ui.campUpgradeSection = document.getElementById("campUpgradeSection");
+  ui.leatherAmount = document.getElementById("leatherAmount");
+  ui.locationStorageSection = document.getElementById("locationStorageSection");
+  ui.locationStorageList = document.getElementById("locationStorageList");
 }
 
 //Hook Ui Maps Functions
@@ -85,6 +88,7 @@ function hookUIMaps() {
     pelt: ui.peltAmount,
     stone: ui.stoneAmount,
     mana: document.getElementById("manaAmount"),
+    leather: ui.leatherAmount,
   };
 
   panelElements = {
@@ -168,7 +172,7 @@ function unlockResource(resourceName) {
 function updateCampResourcesSectionVisibility() {
   if (!ui.campResourcesSection) return;
 
-  const campResourceNames = ["food", "wood", "fiber", "trap", "pelt", "stone"];
+  const campResourceNames = ["food", "wood", "fiber", "trap", "pelt", "stone", "leather"];
 
   for (let i = 0; i < campResourceNames.length; i++) {
     const resourceElement = resourceElements[campResourceNames[i]];
@@ -217,15 +221,19 @@ function showManaAwakenedPopup() {
 //Update Expedition UI
 function updateExpeditionUI(carriedTotal, carriedSummary) {
   const expedition = gameState.expedition;
+  const travelTargetDistance = expedition.active ? expedition.targetDistance : getSelectedTravelDistance();
+  const travelDistance = expedition.active ? expedition.distance : 0;
 
-  safeSetText(ui.expeditionDistanceAmount, "Distance: " + formatDistance(expedition.distance) + " / " + formatDistance(expedition.targetDistance));
+  safeSetText(ui.expeditionDistanceAmount, "Distance: " + formatDistance(travelDistance) + " / " + formatDistance(travelTargetDistance));
 
-  const distanceProgress = expedition.targetDistance > 0 ? expedition.distance / expedition.targetDistance : 0;
+  const distanceProgress = travelTargetDistance > 0 ? travelDistance / travelTargetDistance : 0;
   const clampedDistanceProgress = Math.min(Math.max(distanceProgress, 0), 1);
 
   if (ui.expeditionDistanceFill) {
     ui.expeditionDistanceFill.style.width = clampedDistanceProgress * 100 + "%";
   }
+
+  updateBeginExpeditionButtonLabel();
 
   safeSetText(ui.carriedAmount, "Carried: " + carriedTotal + " / " + expedition.carryCapacity + " (" + carriedSummary + ")");
   safeSetText(ui.carriedWaterAmount, "Water: " + expedition.water + " / " + expedition.waterCapacity);
@@ -255,7 +263,7 @@ function updateCampUpgradeDisplay(upgrade) {
   if (!upgrade) return;
 
   if (upgrade.button) {
-    upgrade.button.style.display = upgrade.unlocked && !upgrade.purchased ? "inline-block" : "none";
+    upgrade.button.style.display = isCraftContextAvailable(upgrade) && upgrade.unlocked && !upgrade.purchased ? "inline-block" : "none";
   }
 
   if (upgrade.display) {
@@ -329,6 +337,24 @@ function isActionContextAvailable(actionName) {
     return !!locationName && hasUncheckedInstalledTrapSite(locationName);
   }
 
+  if (actionName === "trackGame") {
+    return !!locationName && canTrackGame(locationName);
+  }
+
+  if (actionName === "huntGame") {
+    return !!locationName && canHuntGame(locationName);
+  }
+
+  if (actionName === "storePelt") {
+    const location = getExpeditionLocation(locationName);
+    return !!location && !!location.storage && location.storage.pelt !== undefined && gameState.expedition.carriedItems.pelt > 0;
+  }
+
+  if (actionName === "takeLeather") {
+    const location = getExpeditionLocation(locationName);
+    return !!location && !!location.storage && location.storage.leather > 0 && hasCarrySpace("leather", 1);
+  }
+
   return true;
 }
 
@@ -354,6 +380,26 @@ function updateTravelButton(isTraveling) {
   if (label) {
     label.textContent = isTraveling ? "Pause Travel" : "Travel";
   }
+}
+
+function updateBeginExpeditionButtonLabel() {
+  const action = getAction("beginExpedition");
+
+  if (!action || !action.button) return;
+
+  const label = action.button.querySelector("span");
+
+  if (!label) return;
+
+  const regionId = getSelectedTravelRegionId();
+  const region = getRegionDefinition(regionId);
+
+  if (!region || regionId === "outskirts") {
+    label.textContent = "Prepare for Expedition";
+    return;
+  }
+
+  label.textContent = "Prepare for " + region.label + " Expedition";
 }
 
 //Hook Action Button Function
@@ -615,7 +661,7 @@ function renderSelectedRegion() {
   safeSetText(ui.regionDescription, definition.description);
   safeSetText(ui.regionProgressText, Math.floor(state.progress) + " / " + definition.maxProgress);
   safeSetText(ui.regionTerrain, definition.terrain);
-  safeSetText(ui.regionKnownPlaceCount, String(state.locations.length));
+  safeSetText(ui.regionKnownPlaceCount, String(getRegionKnownLocations(regionId).length));
 
   if (ui.regionProgressFill) {
     ui.regionProgressFill.style.width = percent + "%";
@@ -629,6 +675,32 @@ function selectRegion(regionId) {
 
   gameState.world.selectedRegion = regionId;
   renderRegionalMap();
+  updateDestinationActions();
+  refreshExpeditionUI();
   renderSelectedRegion();
   trySaveGame();
+}
+
+function updateLocationStorageUI(location) {
+  if (!ui.locationStorageSection || !ui.locationStorageList) return;
+
+  ui.locationStorageList.innerHTML = "";
+
+  if (!location || !location.storage) {
+    hideElement(ui.locationStorageSection);
+    return;
+  }
+
+  for (let resourceName in location.storage) {
+    const resource = getResource(resourceName);
+    const label = resource ? resource.label : resourceName;
+
+    const item = document.createElement("div");
+    item.classList.add("resource-pill");
+    item.textContent = label + ": " + location.storage[resourceName];
+
+    ui.locationStorageList.appendChild(item);
+  }
+
+  showElement(ui.locationStorageSection, "block");
 }

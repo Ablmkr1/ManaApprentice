@@ -3,6 +3,14 @@ function hookActionCompletions() {
     addResource("energy", getResource("energy").perClick);
   };
 
+  getAction("meditate").onComplete = function () {
+    addResource("mana", 1);
+
+    if (getResource("mana").value >= getResource("mana").maxValue) {
+      stopAutoAction();
+    }
+  };
+
   getAction("gatherWood").onComplete = function () {
     addResource("wood", getResource("wood").perClick);
   };
@@ -165,10 +173,75 @@ function hookActionCompletions() {
     }
   };
 
+  getAction("trackGame").onComplete = function () {
+    const locationName = gameState.expedition.currentLocation;
+    const hunt = getHuntData(locationName);
+
+    if (!hunt) return;
+
+    hunt.tracked = true;
+    addStoryEntry("You find fresh sign and follow it deeper into the run.");
+    updateLocationActions();
+  };
+
+  getAction("huntGame").onComplete = function () {
+    const locationName = gameState.expedition.currentLocation;
+    const hunt = getHuntData(locationName);
+
+    if (!hunt) return;
+
+    hunt.tracked = false;
+
+    if (Math.random() < hunt.successChance) {
+      const rewardAmount = hunt.rewardAmount || 1;
+      const carriedAmount = addCarriedItemUpToCapacity(hunt.reward, rewardAmount);
+
+      if (carriedAmount > 0) {
+        addStoryEntry("The hunt succeeds. You carry " + formatCarryAmount(carriedAmount) + " pelts.");
+      } else {
+        addStoryEntry("The hunt succeeds, but your pack is too full for the pelts.");
+      }
+    } else {
+      addStoryEntry("The trail breaks apart before you can close the distance.");
+    }
+
+    updateLocationActions();
+  };
+
   getAction("packFood").onComplete = function () {
     if (!addCarriedItem("food", 1)) {
       addResource("food", 1);
     }
+  };
+
+  getAction("packPelt").onComplete = function () {
+    if (!addCarriedItem("pelt", 1)) {
+      addResource("pelt", 1);
+    }
+  };
+
+  getAction("storePelt").onComplete = function () {
+    const location = getExpeditionLocation(gameState.expedition.currentLocation);
+
+    if (!location || !location.storage) return;
+    if (!removeCarriedItem("pelt", 1)) return;
+
+    location.storage.pelt++;
+    addStoryEntry("You store a pelt at the cabin.");
+    updateLocationActions();
+    updatePlacePanel();
+  };
+
+  getAction("takeLeather").onComplete = function () {
+    const location = getExpeditionLocation(gameState.expedition.currentLocation);
+
+    if (!location || !location.storage || location.storage.leather <= 0) return;
+    if (!addCarriedItem("leather", 1)) return;
+
+    location.storage.leather--;
+    addStoryEntry("You pack a finished piece of leather.");
+    updateLocationActions();
+    updatePlacePanel();
   };
 
   getAction("packWater").onComplete = function () {

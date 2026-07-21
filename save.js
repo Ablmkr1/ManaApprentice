@@ -109,6 +109,16 @@ function createExpeditionLocationSaveData() {
       };
     }
 
+    if (location.hunt) {
+      savedLocations[locationName].hunt = {
+        tracked: location.hunt.tracked,
+      };
+    }
+
+    if (location.storage) {
+      savedLocations[locationName].storage = structuredClone(location.storage);
+    }
+
     if (location.explorableObjects) {
       savedLocations[locationName].explorableObjects = createLocationObjectSaveData(location.explorableObjects);
     }
@@ -373,6 +383,7 @@ function applyGameStateSaveData(savedGameState) {
       "carryCapacity",
       "water",
       "waterCapacity",
+      "regionId",
     ]);
 
     if (savedGameState.expedition.carriedItems) {
@@ -460,6 +471,14 @@ function applyExpeditionLocationSaveData(savedLocations) {
       });
     }
 
+    if (location.hunt && savedLocation.hunt) {
+      applySavedFields(location.hunt, savedLocation.hunt, ["tracked"]);
+    }
+
+    if (location.storage && savedLocation.storage) {
+      location.storage = structuredClone(savedLocation.storage);
+    }
+
     if (location.explorableObjects && savedLocation.explorableObjects) {
       applyLocationObjectSaveData(location.explorableObjects, savedLocation.explorableObjects);
     }
@@ -526,6 +545,8 @@ function refreshGameUIAfterLoad() {
   updateCharacterPanelLocks();
   updateDestinationActions();
   updateLocationActions();
+  checkRecipeDiscoveries();
+  updateCraftingUIForCurrentContext();
   const canPackAfterLoad =
     gameState.expedition.active && !gameState.expedition.returning && !gameState.expedition.currentLocation && gameState.expedition.distance <= 0;
 

@@ -333,7 +333,7 @@ function updateStorageUpgradeUI(upgradeName) {
   }
 
   if (upgrade.button) {
-    if (!upgrade.unlocked || upgrade.tier >= upgrade.maxTier) {
+    if (!isCraftContextAvailable(upgrade) || !upgrade.unlocked || upgrade.tier >= upgrade.maxTier) {
       upgrade.button.style.display = "none";
       updateStorageSectionVisibility();
       return;
@@ -377,7 +377,22 @@ function getBasicCraftButtonName(craft) {
 }
 
 function getBasicCraftButtonCost(craft) {
-  return formatCost(craft.cost);
+  const costs = [];
+  const resourceCost = formatCost(craft.cost);
+  const storageCost = formatStorageCost(craft.storageCost);
+
+  if (resourceCost) costs.push(resourceCost);
+  if (storageCost) costs.push(storageCost);
+
+  return costs.join(", ");
+}
+
+function formatStorageCost(cost) {
+  const costText = formatCost(cost);
+
+  if (!costText) return "";
+
+  return costText + " stored here";
 }
 
 function getStorageTierName(upgrade, tier) {
@@ -426,6 +441,8 @@ function setCraftButtonLabel(button, name, costText) {
 }
 
 function formatCost(cost) {
+  if (!cost) return "";
+
   const parts = [];
 
   for (let resourceName in cost) {
@@ -659,7 +676,7 @@ function updateGearUpgradeUI(upgradeName) {
   }
 
   if (upgrade.button) {
-    upgrade.button.style.display = upgrade.unlocked && !upgrade.purchased ? "inline-block" : "none";
+    upgrade.button.style.display = isCraftContextAvailable(upgrade) && upgrade.unlocked && !upgrade.purchased ? "inline-block" : "none";
     if (upgrade.unlocked && !upgrade.purchased) {
       updateCraftButtonLabel("gearUpgrade", upgradeName);
     }
@@ -739,9 +756,7 @@ function hasAvailableResearch() {
   const researchDefinitions = getResearchDefinitions();
 
   for (let researchName in researchDefinitions) {
-    const research = getResearch(researchName);
-
-    if (research.unlocked && !research.completed) return true;
+    if (isCraftAvailable("research", researchName)) return true;
   }
 
   return false;
@@ -751,9 +766,7 @@ function hasAvailableResourceCraft() {
   const crafts = getResourceCraftDefinitions();
 
   for (let craftName in crafts) {
-    const craft = getResourceCraft(craftName);
-
-    if (craft.unlocked) return true;
+    if (isCraftAvailable("resourceCraft", craftName)) return true;
   }
 
   return false;
@@ -763,9 +776,7 @@ function hasAvailableStorageUpgrade() {
   const upgrades = getStorageUpgradeDefinitions();
 
   for (let upgradeName in upgrades) {
-    const upgrade = getStorageUpgrade(upgradeName);
-
-    if (upgrade.unlocked && upgrade.tier < upgrade.maxTier) return true;
+    if (isCraftAvailable("storageUpgrade", upgradeName)) return true;
   }
 
   return false;
@@ -800,6 +811,12 @@ function startCrafting(craftType, craftId) {
   if (!craft || !cost) return;
   if (!isCraftAvailable(craftType, craftId)) return;
   if (!spendCost(cost)) return;
+  if (!spendStorageCost(craft.storageCost)) {
+    refundCost(cost);
+    return;
+  }
+
+  updateLocationStorageUI(getExpeditionLocation(gameState.expedition.currentLocation));
 
   startActivity({
     kind: "craft",
@@ -815,6 +832,8 @@ function isCraftAvailable(craftType, craftId) {
   const craft = getCraftDefinition(craftType, craftId);
 
   if (!craft) return false;
+  if (!isCraftContextAvailable(craft)) return false;
+  if (!canAffordStorageCost(craft.storageCost)) return false;
 
   if (craftType === "campUpgrade") {
     return craft.unlocked && !craft.purchased;
@@ -872,9 +891,14 @@ function updateCraftButtonsForType(craftType, definitions) {
 function completeResourceCraft(craftName) {
   const craft = getResourceCraft(craftName);
 
-  if (!craft || !craft.produces) return;
+  if (!craft || (!craft.produces && !craft.storageProduces)) return;
 
-  addResource(craft.produces.resource, craft.produces.amount);
+  if (craft.storageProduces) {
+    addStorageProduces(craft.storageProduces);
+    updateLocationStorageUI(getExpeditionLocation(gameState.expedition.currentLocation));
+  } else {
+    addResource(craft.produces.resource, craft.produces.amount);
+  }
   updateResourceCraftUI(craftName);
 }
 
@@ -941,7 +965,7 @@ function updateResearchUI(researchName) {
 
   if (!research || !research.button) return;
 
-  research.button.style.display = research.unlocked && !research.completed ? "inline-block" : "none";
+  research.button.style.display = isCraftContextAvailable(research) && research.unlocked && !research.completed ? "inline-block" : "none";
   updateCraftButtonLabel("research", researchName);
   updateCraftingButtons();
 }
@@ -979,9 +1003,19 @@ function updateResourceCraftUI(craftName) {
 
   if (!craft || !craft.button) return;
 
-  craft.button.style.display = craft.unlocked ? "inline-block" : "none";
+  craft.button.style.display = isCraftContextAvailable(craft) && craft.unlocked ? "inline-block" : "none";
   updateCraftButtonLabel("resourceCraft", craftName);
   updateCraftingButtons();
+}
+
+function updateResourceCraftsUI() {
+  const crafts = getResourceCraftDefinitions();
+
+  for (let craftName in crafts) {
+    updateResourceCraftUI(craftName);
+  }
+
+  updateCraftingSectionVisibility();
 }
 
 function setCraftButtonProgress(button, progress) {
@@ -1000,9 +1034,7 @@ function hasAvailableCampUpgrade() {
   const upgrades = getCampUpgradeDefinitions();
 
   for (let upgradeName in upgrades) {
-    const upgrade = getCampUpgrade(upgradeName);
-
-    if (upgrade.unlocked && !upgrade.purchased) return true;
+    if (isCraftAvailable("campUpgrade", upgradeName)) return true;
   }
 
   return false;
@@ -1012,10 +1044,106 @@ function hasAvailableGearUpgrade() {
   const upgrades = getGearUpgradeDefinitions();
 
   for (let upgradeName in upgrades) {
-    const upgrade = getGearUpgrade(upgradeName);
-
-    if (upgrade.unlocked && !upgrade.purchased) return true;
+    if (isCraftAvailable("gearUpgrade", upgradeName)) return true;
   }
 
   return false;
+}
+
+function isCraftContextAvailable(craft) {
+  if (!craft) return false;
+
+  const requiredLocation = craft.requiredLocation || "camp";
+
+  if (requiredLocation === "camp") {
+    const expedition = gameState.expedition;
+
+    return !expedition.active && !expedition.currentLocation;
+  }
+
+  return gameState.expedition.currentLocation === requiredLocation;
+}
+
+function updateCraftingUIForCurrentContext() {
+  const campUpgrades = getCampUpgradeDefinitions();
+
+  for (let upgradeName in campUpgrades) {
+    updateCampUpgradeUI(upgradeName);
+  }
+
+  const storageUpgrades = getStorageUpgradeDefinitions();
+
+  for (let upgradeName in storageUpgrades) {
+    updateStorageUpgradeUI(upgradeName);
+  }
+
+  const gearUpgrades = getGearUpgradeDefinitions();
+
+  for (let upgradeName in gearUpgrades) {
+    updateGearUpgradeUI(upgradeName);
+  }
+
+  updateResourceCraftsUI();
+
+  const researchDefinitions = getResearchDefinitions();
+
+  for (let researchName in researchDefinitions) {
+    updateResearchUI(researchName);
+  }
+
+  updateCraftingButtons();
+  updateCraftingSectionVisibility();
+}
+
+function getCurrentCraftLocationStorage() {
+  const location = getExpeditionLocation(gameState.expedition.currentLocation);
+
+  if (!location || !location.storage) return null;
+
+  return location.storage;
+}
+
+function canAffordStorageCost(cost) {
+  if (!cost) return true;
+
+  const storage = getCurrentCraftLocationStorage();
+
+  if (!storage) return false;
+
+  for (let resourceName in cost) {
+    if (!storage[resourceName] || storage[resourceName] < cost[resourceName]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function spendStorageCost(cost) {
+  if (!cost) return true;
+  if (!canAffordStorageCost(cost)) return false;
+
+  const storage = getCurrentCraftLocationStorage();
+
+  for (let resourceName in cost) {
+    storage[resourceName] -= cost[resourceName];
+  }
+
+  return true;
+}
+
+function addStorageProduces(produces) {
+  if (!produces) return;
+
+  const storage = getCurrentCraftLocationStorage();
+
+  if (!storage) return;
+
+  for (let resourceName in produces) {
+    if (!storage[resourceName]) {
+      storage[resourceName] = 0;
+    }
+
+    storage[resourceName] += produces[resourceName];
+  }
 }
