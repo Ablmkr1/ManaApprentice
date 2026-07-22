@@ -234,6 +234,72 @@ const expeditionLocations = {
       explored: "The cabin's ruined tools have taught you how to process pelts into leather.",
     },
   },
+
+  foothillScree: {
+    region: "north",
+    label: "Foothill Scree",
+    exploredLabel: "Mapped Foothill Scree",
+    distance: 45,
+    discovered: false,
+    explored: false,
+    explorationProgress: 0,
+    explorationRequired: 1,
+    onDiscoverStory: "Loose stone spills down from the first hard slopes of the northern reach.",
+    exploreStory: ["The slope is unstable, but the scattered stone is useful and easy enough to pry loose."],
+    panelText: {
+      discovered: "A field of loose stone marks the beginning of the northern foothills.",
+      explored: "Loose stone covers the slope. It is rough work, but useful stone can be gathered here.",
+    },
+    availableActions: ["gatherStone"],
+  },
+
+  minersCamp: {
+    region: "north",
+    label: "Miners' Camp",
+    exploredLabel: "Restored Miners' Camp",
+    distance: 135,
+    storage: {
+      food: 0,
+      wood: 0,
+      ore: 0,
+      iron: 0,
+    },
+    discovered: false,
+    explored: false,
+    explorationProgress: 0,
+    explorationRequired: 2,
+    onDiscoverStory: "A collapsed work camp clings to the lower ridge. A cold stream runs beside rusted tools and broken crates.",
+    exploreStory: [
+      "The stream is clear and fast, fed by meltwater from higher slopes.",
+      "Beneath a leaning shelter, you find the remains of a crude smelter. It might work again with enough fuel and ore.",
+    ],
+    panelText: {
+      discovered: "An old miners' camp sits beside a mountain stream. The place looks abandoned, but useful.",
+      explored: "The miners' camp has water, storage, and the remains of a smelter. It could become the northern workshop.",
+    },
+    availableActions: ["storeWood", "storeOre", "takeIron"],
+  },
+
+  ironMine: {
+    region: "north",
+    label: "Iron Mine",
+    exploredLabel: "Iron Mine",
+    distance: 250,
+    discovered: false,
+    explored: false,
+    explorationProgress: 0,
+    explorationRequired: 2,
+    onDiscoverStory: "A dark opening cuts into the northern ridge. Rust-colored veins mark the stone around it.",
+    exploreStory: [
+      "The mine is shallow near the entrance, but old tool marks score the walls.",
+      "Iron-rich stone waits deeper in the dark. You will need a proper pick to make use of it.",
+    ],
+    panelText: {
+      discovered: "A narrow mine cuts into the ridge. The stone is rich with ore, but too hard for bare hands.",
+      explored: "Iron veins run through the mine wall. With the right pick, ore can be mined here reliably.",
+    },
+    availableActions: ["mineOre"],
+  },
 };
 
 //Recepies Definitions
@@ -344,6 +410,40 @@ const recipes = {
       { type: "gearUpgrade", id: "stoneKnife" },
       { type: "gearUpgrade", id: "stoneAxe" },
     ],
+  },
+
+  smelting: {
+    label: "Smelting",
+    discovered: false,
+    requires: {
+      locationsExplored: ["minersCamp"],
+    },
+    story: "The old smelter is crude, but the shape of the work is clear: ore, fuel, heat, and patience.",
+    unlocks: [{ type: "resourceCraft", id: "iron" }],
+  },
+
+  crudeIronPick: {
+    label: "Crude Iron Pick",
+    discovered: false,
+    requires: {
+      recipesDiscovered: ["smelting"],
+      resources: {
+        iron: 1,
+      },
+    },
+    story: "Iron changes what the northern stone will yield. A crude pick would bite deeper than stone tools ever could.",
+    unlocks: [{ type: "gearUpgrade", id: "crudePick" }],
+  },
+
+  ironTools: {
+    label: "Iron Tools",
+    discovered: false,
+    requires: {
+      recipesDiscovered: ["smelting", "leatherworking"],
+      resources: {},
+    },
+    story: "Iron and leather together can make better tools.",
+    unlocks: [{ type: "gearUpgrade", id: "ironKnife" }, { type: "gearUpgrade", id: "ironAxe" }],
   },
 };
 
@@ -774,7 +874,7 @@ const gearUpgrades = {
   },
 
   stoneKnife: {
-    label: "Stone Knife (+1 Fiber)",
+    label: "Stone Knife (+1)",
     duration: 10,
     displayName: "Stone Knife",
     equipmentType: "tool",
@@ -797,8 +897,32 @@ const gearUpgrades = {
     },
   },
 
+  ironKnife: {
+    label: "Iron Knife (+2)",
+    duration: 15,
+    displayName: "Iron Knife",
+    equipmentType: "tool",
+    slot: "knife",
+    slotLabel: "Knife",
+    slotOrder: 1,
+    slotRank: 2,
+    cost: {
+      leather: 1,
+      iron: 1,
+      energy: 30,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      getResource("fiber").perClick += 1;
+      refreshExpeditionUI();
+    },
+  },
+
   stoneAxe: {
-    label: "Stone Axe (+1 Wood)",
+    label: "Stone Axe (+1)",
     displayName: "Stone Axe",
     equipmentType: "tool",
     slot: "axe",
@@ -808,8 +932,33 @@ const gearUpgrades = {
     duration: 10,
     cost: {
       pelt: 2,
-      fiber: 2,
+      fiber: 1,
       stone: 2,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      getResource("wood").perClick += 1;
+      refreshExpeditionUI();
+    },
+  },
+
+  ironAxe: {
+    label: "Iron Axe (+2)",
+    displayName: "Iron Axe",
+    equipmentType: "tool",
+    slot: "axe",
+    slotLabel: "Axe",
+    slotOrder: 2,
+    slotRank: 2,
+    duration: 15,
+    cost: {
+      leather: 2,
+      wood: 5,
+      iron: 3,
+      energy: 40,
     },
     unlocked: false,
     purchased: false,
@@ -906,6 +1055,28 @@ const gearUpgrades = {
       setCurrentGoal("returnToCave");
     },
   },
+
+  crudePick: {
+    label: "Crude Iron Pick",
+    displayName: "Crude Iron Pick",
+    equipmentType: "tool",
+    slot: "tool",
+    slotLabel: "Pick",
+    slotOrder: 4,
+    slotRank: 1,
+    duration: 15,
+    cost: {
+      wood: 5,
+      iron: 3,
+      fiber: 2,
+      energy: 15,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {},
+  },
 };
 
 const resourceCrafts = {
@@ -937,6 +1108,23 @@ const resourceCrafts = {
     },
     storageProduces: {
       leather: 1,
+    },
+    unlocked: false,
+    button: null,
+  },
+  iron: {
+    label: "Smelt Iron",
+    requiredLocation: "minersCamp",
+    duration: 4,
+    cost: {
+      energy: 8,
+    },
+    storageCost: {
+      ore: 3,
+      wood: 5,
+    },
+    storageProduces: {
+      iron: 1,
     },
     unlocked: false,
     button: null,

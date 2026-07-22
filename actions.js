@@ -46,6 +46,15 @@ function hookActionCompletions() {
   getAction("gatherStone").onComplete = function () {
     if (!addCarriedItem("stone", 1)) {
       addStoryEntry("The stones are too heavy to carry more.");
+      return;
+    }
+
+    if (gameState.expedition.currentLocation === "foothillScree" && Math.random() < 0.2) {
+      if (addCarriedItem("ore", 1)) {
+        addStoryEntry("Among the loose stone, you find a chunk of ore.");
+      } else {
+        addStoryEntry("You spot ore among the scree, but your pack is too full to carry it.");
+      }
     }
   };
 
@@ -242,6 +251,62 @@ function hookActionCompletions() {
     addStoryEntry("You pack a finished piece of leather.");
     updateLocationActions();
     updatePlacePanel();
+  };
+
+  getAction("packWood").onComplete = function () {
+    if (!addCarriedItem("wood", 1)) {
+      addResource("wood", 1);
+    }
+  };
+
+  getAction("storeWood").onComplete = function () {
+    const location = getExpeditionLocation(gameState.expedition.currentLocation);
+
+    if (!location || !location.storage) return;
+    if (!removeCarriedItem("wood", 1)) return;
+
+    location.storage.wood++;
+    addStoryEntry("You stack wood at the miners' camp.");
+    updateLocationActions();
+    updatePlacePanel();
+  };
+
+  getAction("packOre").onComplete = function () {
+    if (!addCarriedItem("ore", 1)) {
+      addResource("ore", 1);
+    }
+  };
+
+  getAction("storeOre").onComplete = function () {
+    const location = getExpeditionLocation(gameState.expedition.currentLocation);
+
+    if (!location || !location.storage) return;
+    if (!removeCarriedItem("ore", 1)) return;
+
+    location.storage.ore++;
+    addStoryEntry("You store ore at the miners' camp.");
+    updateLocationActions();
+    updatePlacePanel();
+  };
+
+  getAction("takeIron").onComplete = function () {
+    const location = getExpeditionLocation(gameState.expedition.currentLocation);
+
+    if (!location || !location.storage || location.storage.iron <= 0) return;
+    if (!addCarriedItem("iron", 1)) return;
+
+    location.storage.iron--;
+    addStoryEntry("You pack a bar of iron.");
+    updateLocationActions();
+    updatePlacePanel();
+  };
+
+  getAction("mineOre").onComplete = function () {
+    if (addCarriedItem("ore", 1)) {
+      addStoryEntry("You break ore from the mine wall.");
+    } else {
+      addStoryEntry("The ore is too heavy to carry more.");
+    }
   };
 
   getAction("packWater").onComplete = function () {

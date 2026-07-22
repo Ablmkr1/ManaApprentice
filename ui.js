@@ -75,6 +75,8 @@ function hookDomToUI() {
   ui.leatherAmount = document.getElementById("leatherAmount");
   ui.locationStorageSection = document.getElementById("locationStorageSection");
   ui.locationStorageList = document.getElementById("locationStorageList");
+  ui.oreAmount = document.getElementById("oreAmount");
+  ui.ironAmount = document.getElementById("ironAmount");
 }
 
 //Hook Ui Maps Functions
@@ -89,6 +91,8 @@ function hookUIMaps() {
     stone: ui.stoneAmount,
     mana: document.getElementById("manaAmount"),
     leather: ui.leatherAmount,
+    ore: ui.oreAmount,
+    iron: ui.ironAmount,
   };
 
   panelElements = {
@@ -172,7 +176,7 @@ function unlockResource(resourceName) {
 function updateCampResourcesSectionVisibility() {
   if (!ui.campResourcesSection) return;
 
-  const campResourceNames = ["food", "wood", "fiber", "trap", "pelt", "stone", "leather"];
+  const campResourceNames = ["food", "wood", "fiber", "trap", "pelt", "stone", "leather", "ore", "iron"];
 
   for (let i = 0; i < campResourceNames.length; i++) {
     const resourceElement = resourceElements[campResourceNames[i]];
@@ -353,6 +357,25 @@ function isActionContextAvailable(actionName) {
   if (actionName === "takeLeather") {
     const location = getExpeditionLocation(locationName);
     return !!location && !!location.storage && location.storage.leather > 0 && hasCarrySpace("leather", 1);
+  }
+
+  if (actionName === "storeWood") {
+    const location = getExpeditionLocation(locationName);
+    return !!location && !!location.storage && location.storage.wood !== undefined && gameState.expedition.carriedItems.wood > 0;
+  }
+
+  if (actionName === "storeOre") {
+    const location = getExpeditionLocation(locationName);
+    return !!location && !!location.storage && location.storage.ore !== undefined && gameState.expedition.carriedItems.ore > 0;
+  }
+
+  if (actionName === "takeIron") {
+    const location = getExpeditionLocation(locationName);
+    return !!location && !!location.storage && location.storage.iron > 0 && hasCarrySpace("iron", 1);
+  }
+
+  if (actionName === "mineOre") {
+    return locationName === "ironMine" && hasPurchasedGear("crudePick");
   }
 
   return true;

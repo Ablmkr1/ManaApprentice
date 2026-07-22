@@ -63,6 +63,8 @@
               <div id="peltAmount" class="resource-pill" style="display: none"></div>
               <div id="leatherAmount" class="resource-pill" style="display: none"></div>
               <div id="stoneAmount" class="resource-pill" style="display: none"></div>
+              <div id="oreAmount" class="resource-pill" style="display: none"></div>
+              <div id="ironAmount" class="resource-pill" style="display: none"></div>
             </div>
           </div>
           <div id="campUpgradeSection" class="camp-upgrade-section" style="display: none">
@@ -178,6 +180,11 @@
             <span>Gather Stone</span>
           </button>
 
+          <button class="action-btn" data-action="mineOre" style="display: none">
+            <div class="progressFill"></div>
+            <span>Mine Ore</span>
+          </button>
+
           <button class="action-btn" data-action="trackGame" style="display: none">
             <div class="progressFill"></div>
             <span>Track Game</span>
@@ -196,6 +203,21 @@
           <button class="action-btn" data-action="takeLeather" style="display: none">
             <div class="progressFill"></div>
             <span>Take Leather</span>
+          </button>
+
+          <button class="action-btn" data-action="storeWood" style="display: none">
+            <div class="progressFill"></div>
+            <span>Store Wood</span>
+          </button>
+
+          <button class="action-btn" data-action="storeOre" style="display: none">
+            <div class="progressFill"></div>
+            <span>Store Ore</span>
+          </button>
+
+          <button class="action-btn" data-action="takeIron" style="display: none">
+            <div class="progressFill"></div>
+            <span>Take Iron</span>
           </button>
         </div>
 
@@ -227,10 +249,14 @@
             <button id="smellyShoesBtn" style="display: none"></button>
             <button id="stoneKnifeBtn" style="display: none"></button>
             <button id="stoneAxeBtn" style="display: none"></button>
+            <button id="ironKnifeBtn" style="display: none"></button>
+            <button id="ironAxeBtn" style="display: none"></button>
             <button id="torchBtn" style="display: none"></button>
+            <button id="crudePickBtn" style="display: none"></button>
 
             <button id="trapCraftBtn" style="display: none"></button>
             <button id="leatherCraftBtn" style="display: none"></button>
+            <button id="ironCraftBtn" style="display: none"></button>
             <button id="ruinedTorchResearchBtn" style="display: none"></button>
           </div>
         </div>
@@ -327,6 +353,16 @@
             <button class="action-btn" data-action="packPelt" style="display: none">
               <div class="progressFill"></div>
               <span>Pack Pelt</span>
+            </button>
+
+            <button class="action-btn" data-action="packOre" style="display: none">
+              <div class="progressFill"></div>
+              <span>Pack Ore</span>
+            </button>
+
+            <button class="action-btn" data-action="packWood" style="display: none">
+              <div class="progressFill"></div>
+              <span>Pack Wood</span>
             </button>
           </div>
         </div>

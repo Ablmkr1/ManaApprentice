@@ -100,6 +100,26 @@ const resources = {
     perClickDisplay: null,
     perSecondDisplay: null,
   },
+  ore: {
+    label: "Ore",
+    value: 0,
+    maxValue: 20,
+    perClick: 0,
+    perSecond: 0,
+    display: null,
+    perClickDisplay: null,
+    perSecondDisplay: null,
+  },
+  iron: {
+    label: "Iron",
+    value: 0,
+    maxValue: 20,
+    perClick: 0,
+    perSecond: 0,
+    display: null,
+    perClickDisplay: null,
+    perSecondDisplay: null,
+  },
 };
 
 const actions = {
@@ -353,6 +373,91 @@ const actions = {
     onStart: function () {},
     onComplete: function () {},
   },
+
+  packWood: {
+    label: "Pack Wood",
+    duration: 0,
+    cost: {
+      wood: 1,
+    },
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+
+  storeWood: {
+    label: "Store Wood",
+    duration: 0,
+    cost: {},
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+
+  packOre: {
+    label: "Pack Ore",
+    duration: 0,
+    cost: {
+      ore: 1,
+    },
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+
+  storeOre: {
+    label: "Store Ore",
+    duration: 0,
+    cost: {},
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+
+  takeIron: {
+    label: "Take Iron",
+    duration: 0,
+    cost: {},
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+
+  mineOre: {
+    label: "Mine Ore",
+    duration: 0,
+    cost: {
+      energy: 6,
+    },
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+
   setTrap: {
     label: "Set Trap",
     duration: 1,

@@ -476,7 +476,9 @@ function applyExpeditionLocationSaveData(savedLocations) {
     }
 
     if (location.storage && savedLocation.storage) {
-      location.storage = structuredClone(savedLocation.storage);
+      for (let resourceName in savedLocation.storage) {
+        location.storage[resourceName] = savedLocation.storage[resourceName];
+      }
     }
 
     if (location.explorableObjects && savedLocation.explorableObjects) {

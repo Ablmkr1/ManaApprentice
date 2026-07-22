@@ -101,6 +101,7 @@ function getCarriedTotal() {
 
 const carriedItemWeights = {
   stone: 2,
+  ore: 2,
 };
 
 function getCarriedItemWeight(itemName) {
@@ -1199,6 +1200,8 @@ function setPackingActionsAvailable(available) {
     lockAction("packWater");
     lockAction("packTrap");
     lockAction("packPelt");
+    lockAction("packWood");
+    lockAction("packOre");
     hideElement(ui.packingSection);
     return;
   }
@@ -1230,6 +1233,22 @@ function setPackingActionsAvailable(available) {
     unlockAction("packPelt");
   } else {
     lockAction("packPelt");
+  }
+
+  const wood = getResource("wood");
+
+  if (wood.value > 0) {
+    unlockAction("packWood");
+  } else {
+    lockAction("packWood");
+  }
+
+  const ore = getResource("ore");
+
+  if (ore.value > 0) {
+    unlockAction("packOre");
+  } else {
+    lockAction("packOre");
   }
 }
 
