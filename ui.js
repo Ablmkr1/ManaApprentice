@@ -77,6 +77,7 @@ function hookDomToUI() {
   ui.locationStorageList = document.getElementById("locationStorageList");
   ui.oreAmount = document.getElementById("oreAmount");
   ui.ironAmount = document.getElementById("ironAmount");
+  ui.locationTravelSection = document.getElementById("locationTravelSection");
 }
 
 //Hook Ui Maps Functions

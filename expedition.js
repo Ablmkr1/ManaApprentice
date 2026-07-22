@@ -589,7 +589,7 @@ function checkDestinationArrival() {
 
   if (!location) return false;
 
-  if (expedition.distance >= getLocationTravelDistance(location)) {
+  if (expedition.distance >= expedition.targetDistance) {
     setCurrentLocation(expedition.destination);
     expedition.destination = null;
 
@@ -663,6 +663,7 @@ function getLocationLabel(locationName) {
 function updatePlacePanel() {
   const expedition = gameState.expedition;
   updateLocationStorageUI(null);
+  renderLocationTravelActions(null);
 
   if (isTravelActivityActive()) {
     if (expedition.returning) {
@@ -697,6 +698,8 @@ function updatePlacePanel() {
 
   if (expedition.currentLocation) {
     const location = getExpeditionLocation(expedition.currentLocation);
+
+    renderLocationTravelActions(expedition.currentLocation);
 
     updateTrapSitesUI(location);
     updateLocationObjectActionsUI(location);
@@ -1409,4 +1412,82 @@ function canHuntGame(locationName) {
   const hunt = getHuntData(locationName);
 
   return !!hunt && hunt.tracked;
+}
+
+function renderLocationTravelActions(locationName) {
+  if (!ui.locationTravelSection) return;
+
+  ui.locationTravelSection.innerHTML = "";
+
+  const currentLocation = getExpeditionLocation(locationName);
+
+  if (!currentLocation) {
+    hideElement(ui.locationTravelSection);
+    return;
+  }
+
+  const currentRegionId = getLocationRegionId(currentLocation);
+  const knownLocations = getRegionKnownLocations(currentRegionId);
+
+  knownLocations.forEach(function (targetLocationName) {
+    if (targetLocationName === locationName) return;
+
+    const targetLocation = getExpeditionLocation(targetLocationName);
+
+    if (!targetLocation) return;
+
+    const distance = getLocationToLocationTravelDistance(currentLocation, targetLocation);
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.classList.add("action-btn");
+    button.textContent = "Travel to " + getLocationLabel(targetLocationName) + " (" + formatDistance(distance) + ")";
+
+    button.addEventListener("click", function () {
+      beginLocationToLocationTravel(locationName, targetLocationName);
+    });
+
+    ui.locationTravelSection.appendChild(button);
+  });
+
+  if (ui.locationTravelSection.children.length > 0) {
+    showElement(ui.locationTravelSection, "flex");
+  } else {
+    hideElement(ui.locationTravelSection);
+  }
+}
+
+function beginLocationToLocationTravel(fromLocationName, targetLocationName) {
+  const fromLocation = getExpeditionLocation(fromLocationName);
+  const targetLocation = getExpeditionLocation(targetLocationName);
+
+  if (!fromLocation || !targetLocation || !targetLocation.discovered) return;
+  if (getLocationRegionId(fromLocation) !== getLocationRegionId(targetLocation)) return;
+
+  const distance = getLocationToLocationTravelDistance(fromLocation, targetLocation);
+
+  gameState.expedition.destination = targetLocationName;
+  gameState.expedition.regionId = getLocationRegionId(targetLocation);
+  gameState.expedition.distance = 0;
+  gameState.expedition.targetDistance = distance;
+  gameState.expedition.returning = false;
+  gameState.expedition.currentLocation = null;
+
+  clearCurrentLocation();
+  unlockAction("travel");
+  unlockAction("returnToCamp");
+  setPackingActionsAvailable(false);
+
+  addStoryEntry("You set out toward " + getLocationLabel(targetLocationName) + ".");
+  toggleTraveling();
+  refreshExpeditionUI();
+  updatePlacePanel();
+}
+
+function getLocationToLocationTravelDistance(fromLocation, targetLocation) {
+  if (!fromLocation || !targetLocation) {
+    return 0;
+  }
+
+  return Math.abs(getLocationTravelDistance(targetLocation) - getLocationTravelDistance(fromLocation));
 }
