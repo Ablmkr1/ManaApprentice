@@ -606,6 +606,7 @@ function checkClearingComplete() {
 function updateEquipmentSlotUI() {
   renderEquipmentSlots(ui.gearSlotsGroup, ui.gearSlots, "gear");
   renderEquipmentSlots(ui.toolSlotsGroup, ui.toolSlots, "tool");
+  renderTonicSlots();
 }
 
 function renderEquipmentSlots(groupEl, containerEl, equipmentType) {
@@ -636,6 +637,59 @@ function renderEquipmentSlots(groupEl, containerEl, equipmentType) {
     slotEl.appendChild(boxEl);
     slotEl.appendChild(labelEl);
     containerEl.appendChild(slotEl);
+  });
+}
+
+function renderTonicSlots() {
+  if (!ui.tonicSlotsGroup || !ui.tonicSlots) return;
+
+  ui.tonicSlots.innerHTML = "";
+
+  const slots = getTonicSlots();
+
+  if (slots.length <= 0) {
+    hideElement(ui.tonicSlotsGroup);
+    return;
+  }
+
+  showElement(ui.tonicSlotsGroup, "flex");
+
+  slots.forEach(function (tonicName, slotIndex) {
+    const slotEl = document.createElement("div");
+    slotEl.className = "equipment-slot";
+
+    const boxEl = document.createElement("div");
+    boxEl.className = "equipment-box";
+
+    if (tonicName) {
+      const tonic = getConsumable(tonicName);
+      boxEl.textContent = tonic ? tonic.label : tonicName;
+      boxEl.title = "Use " + boxEl.textContent;
+      boxEl.classList.add("tonic-filled");
+      boxEl.setAttribute("role", "button");
+      boxEl.setAttribute("tabindex", "0");
+
+      boxEl.addEventListener("click", function () {
+        useConsumableFromSlot(slotIndex);
+      });
+
+      boxEl.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          useConsumableFromSlot(slotIndex);
+        }
+      });
+    } else {
+      boxEl.textContent = "Empty";
+    }
+
+    const labelEl = document.createElement("div");
+    labelEl.className = "equipment-slot-label";
+    labelEl.textContent = "Tonic";
+
+    slotEl.appendChild(boxEl);
+    slotEl.appendChild(labelEl);
+    ui.tonicSlots.appendChild(slotEl);
   });
 }
 
@@ -835,6 +889,10 @@ function isCraftAvailable(craftType, craftId) {
   if (!isCraftContextAvailable(craft)) return false;
   if (!canAffordStorageCost(craft.storageCost)) return false;
 
+  if (craft.producesConsumable && !hasConsumableSpace(craft.producesConsumable.resource, craft.producesConsumable.amount)) {
+    return false;
+  }
+
   if (craftType === "campUpgrade") {
     return craft.unlocked && !craft.purchased;
   }
@@ -891,14 +949,22 @@ function updateCraftButtonsForType(craftType, definitions) {
 function completeResourceCraft(craftName) {
   const craft = getResourceCraft(craftName);
 
-  if (!craft || (!craft.produces && !craft.storageProduces)) return;
+  if (!craft || (!craft.produces && !craft.storageProduces && !craft.producesConsumable)) return;
 
   if (craft.storageProduces) {
     addStorageProduces(craft.storageProduces);
     updateLocationStorageUI(getExpeditionLocation(gameState.expedition.currentLocation));
+  } else if (craft.producesConsumable) {
+    for (let i = 0; i < craft.producesConsumable.amount; i++) {
+      addConsumableToSlot(craft.producesConsumable.resource);
+    }
+
+    refreshExpeditionUI();
+    updateEquipmentSlotUI();
   } else {
     addResource(craft.produces.resource, craft.produces.amount);
   }
+
   updateResourceCraftUI(craftName);
 }
 

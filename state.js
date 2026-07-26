@@ -20,6 +20,16 @@ const resources = {
     perClickDisplay: null,
     perSecondDisplay: null,
   },
+  manaCrystal: {
+    label: "Mana Crystal",
+    value: 0,
+    maxValue: 20,
+    perClick: 0,
+    perSecond: 0,
+    display: null,
+    perClickDisplay: null,
+    perSecondDisplay: null,
+  },
   water: {
     label: "Water",
     value: 0,
@@ -112,6 +122,26 @@ const resources = {
   },
   iron: {
     label: "Iron",
+    value: 0,
+    maxValue: 20,
+    perClick: 0,
+    perSecond: 0,
+    display: null,
+    perClickDisplay: null,
+    perSecondDisplay: null,
+  },
+  herb: {
+    label: "Herb",
+    value: 0,
+    maxValue: 100,
+    perClick: 0,
+    perSecond: 0,
+    display: null,
+    perClickDisplay: null,
+    perSecondDisplay: null,
+  },
+  staminaTonic: {
+    label: "Stamina Tonic",
     value: 0,
     maxValue: 20,
     perClick: 0,
@@ -306,6 +336,48 @@ const actions = {
     onStart: function () {},
     onComplete: function () {},
   },
+
+  gatherHerbs: {
+    label: "Gather Herbs",
+    duration: 3,
+    cost: {
+      energy: 4,
+    },
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+
+  storeHerb: {
+    label: "Store Herb",
+    duration: 0,
+    cost: {},
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+
+  packHerb: {
+    label: "Pack Herbs",
+    duration: 0,
+    cost: {},
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+
   returnToCamp: {
     label: "Return to Camp",
     duration: 1,
@@ -445,7 +517,7 @@ const actions = {
 
   mineOre: {
     label: "Mine Ore",
-    duration: 0,
+    duration: 5,
     cost: {
       energy: 6,
     },
@@ -650,6 +722,7 @@ const gameState = {
     regionId: "outskirts",
     distance: 0,
     targetDistance: 100,
+    tonicSlots: [],
 
     carriedItems: {
       food: 0,

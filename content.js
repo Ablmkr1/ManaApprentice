@@ -300,6 +300,48 @@ const expeditionLocations = {
     },
     availableActions: ["mineOre"],
   },
+
+  wildHerbPatch: {
+    region: "south",
+    label: "Patch of Strange Plants",
+    exploredLabel: "Herb Patch",
+    distance: 130,
+    discovered: false,
+    explored: false,
+    explorationProgress: 0,
+    explorationRequired: 1,
+    onDiscoverStory: "A sharp green scent rises from a patch of unfamiliar plants swaying in the southern growth.",
+    exploreStory: ["The leaves bruise easily, releasing a clean, bitter smell. These herbs could be useful if handled carefully."],
+    panelText: {
+      discovered: "Unfamiliar herbs grow thickly here, bright against the wild grass.",
+      explored: "Useful herbs grow in clusters. You can gather them when you visit.",
+    },
+    availableActions: ["gatherHerbs"],
+  },
+
+  alchemistsHut: {
+    region: "south",
+    label: "Abandoned Hut",
+    exploredLabel: "Abandoned Alchemist's Hut",
+    distance: 40,
+    storage: {
+      herb: 0,
+    },
+    discovered: false,
+    explored: false,
+    explorationProgress: 0,
+    explorationRequired: 2,
+    onDiscoverStory: "A crooked hut leans beneath curtains of vine, its windows clouded with greenish glass.",
+    exploreStory: [
+      "Bundles of dried plants hang from the rafters, too old to use but carefully labeled.",
+      "A stained workbench holds cloudy jars, cracked bowls, and notes written in a precise hand. Whoever lived here knew how to draw strength from wild things.",
+    ],
+    panelText: {
+      discovered: "A vine-covered hut waits in the southern overgrowth. Strange scents cling to the air around it.",
+      explored: "The abandoned hut has storage, tools, and enough old notes to begin simple alchemy.",
+    },
+    availableActions: ["storeHerb"],
+  },
 };
 
 //Recepies Definitions
@@ -359,6 +401,7 @@ const recipes = {
     unlocks: [
       { type: "resourceCraft", id: "leather" },
       { type: "gearUpgrade", id: "reinforcedWaterskin" },
+      { type: "gearUpgrade", id: "travelBoots" },
       { type: "gearUpgrade", id: "repairedLeatherBackpack" },
     ],
   },
@@ -432,7 +475,7 @@ const recipes = {
       },
     },
     story: "Iron changes what the northern stone will yield. A crude pick would bite deeper than stone tools ever could.",
-    unlocks: [{ type: "gearUpgrade", id: "crudePick" }],
+    unlocks: [{ type: "gearUpgrade", id: "crudeIronPick" }],
   },
 
   ironTools: {
@@ -443,7 +486,44 @@ const recipes = {
       resources: {},
     },
     story: "Iron and leather together can make better tools.",
-    unlocks: [{ type: "gearUpgrade", id: "ironKnife" }, { type: "gearUpgrade", id: "ironAxe" }],
+    unlocks: [
+      { type: "gearUpgrade", id: "ironKnife" },
+      { type: "gearUpgrade", id: "ironAxe" },
+    ],
+  },
+
+  alchemy: {
+    label: "Alchemy",
+    discovered: false,
+    requires: {
+      locationsExplored: ["alchemistsHut"],
+    },
+    story: "The alchemist's notes are fragmented, but the pattern is clear: herbs can be prepared into brews that restore what travel spends.",
+    unlocks: [
+      { type: "resourceCraft", id: "staminaTonic" },
+      { type: "gearUpgrade", id: "simpleTonicBelt" },
+    ],
+  },
+  alchemyBelt2: {
+    label: "Improved Tonic Belt",
+    discovered: false,
+    requires: {
+      gearPurchased: ["simpleTonicBelt"],
+      recipesDiscovered: ["leatherworking"],
+    },
+    story: "This belt could be upgraded further with Leather.",
+    unlocks: [{ type: "gearUpgrade", id: "tonicBelt" }],
+  },
+
+  alchemyBelt3: {
+    label: "Reinforced Tonic Belt",
+    discovered: false,
+    requires: {
+      gearPurchased: ["tonicBelt"],
+      recipesDiscovered: ["smelting", "leatherworking"],
+    },
+    story: "This belt could be upgraded further with leather and iron.",
+    unlocks: [{ type: "gearUpgrade", id: "reinforcedTonicBelt" }],
   },
 };
 
@@ -873,6 +953,27 @@ const gearUpgrades = {
     },
   },
 
+  travelBoots: {
+    label: "Travel Boots (+100% Travel Distance)",
+    displayName: "Travel Boots",
+    equipmentType: "gear",
+    slot: "feet",
+    slotLabel: "Feet",
+    slotOrder: 3,
+    slotRank: 2,
+    duration: 7,
+    cost: {
+      leather: 3,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      refreshExpeditionUI();
+    },
+  },
+
   stoneKnife: {
     label: "Stone Knife (+1)",
     duration: 10,
@@ -1039,7 +1140,7 @@ const gearUpgrades = {
     equipmentType: "tool",
     slot: "tool",
     slotLabel: "Light",
-    slotOrder: 3,
+    slotOrder: 4,
     slotRank: 1,
     duration: 6,
     cost: {
@@ -1056,13 +1157,13 @@ const gearUpgrades = {
     },
   },
 
-  crudePick: {
+  crudeIronPick: {
     label: "Crude Iron Pick",
     displayName: "Crude Iron Pick",
     equipmentType: "tool",
-    slot: "tool",
+    slot: "pick",
     slotLabel: "Pick",
-    slotOrder: 4,
+    slotOrder: 3,
     slotRank: 1,
     duration: 15,
     cost: {
@@ -1076,6 +1177,90 @@ const gearUpgrades = {
     button: null,
     display: null,
     onComplete() {},
+  },
+
+  simpleTonicBelt: {
+    label: "Simple Tonic Belt (1 Tonic)",
+    displayName: "Simple Tonic Belt",
+    equipmentType: "gear",
+    slot: "belt",
+    slotLabel: "Belt",
+    slotOrder: 4,
+    slotRank: 1,
+    duration: 8,
+    cost: {
+      pelt: 5,
+      fiber: 2,
+      energy: 30,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      gameState.expedition.tonicSlots = [null];
+      refreshExpeditionUI();
+      updateEquipmentSlotUI();
+    },
+  },
+
+  tonicBelt: {
+    label: "Tonic Belt (2 Tonics)",
+    displayName: "Tonic Belt",
+    equipmentType: "gear",
+    slot: "belt",
+    slotLabel: "Belt",
+    slotOrder: 4,
+    slotRank: 2,
+    duration: 10,
+    cost: {
+      leather: 2,
+      energy: 50,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      gameState.expedition.tonicSlots = gameState.expedition.tonicSlots || [];
+
+      while (gameState.expedition.tonicSlots.length < 2) {
+        gameState.expedition.tonicSlots.push(null);
+      }
+
+      refreshExpeditionUI();
+      updateEquipmentSlotUI();
+    },
+  },
+
+  reinforcedTonicBelt: {
+    label: "Reinforced Tonic Belt (3 Tonics)",
+    displayName: "Reinforced Tonic Belt",
+    equipmentType: "gear",
+    slot: "belt",
+    slotLabel: "Belt",
+    slotOrder: 4,
+    slotRank: 3,
+    duration: 12,
+    cost: {
+      leather: 3,
+      iron: 1,
+      energy: 60,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      gameState.expedition.tonicSlots = gameState.expedition.tonicSlots || [];
+
+      while (gameState.expedition.tonicSlots.length < 3) {
+        gameState.expedition.tonicSlots.push(null);
+      }
+
+      refreshExpeditionUI();
+      updateEquipmentSlotUI();
+    },
   },
 };
 
@@ -1129,7 +1314,45 @@ const resourceCrafts = {
     unlocked: false,
     button: null,
   },
+  staminaTonic: {
+    label: "Brew Stamina Tonic",
+    requiredLocation: "alchemistsHut",
+    duration: 4,
+    cost: {
+      energy: 15,
+      mana: 10,
+    },
+    storageCost: {
+      herb: 25,
+    },
+    producesConsumable: {
+      resource: "staminaTonic",
+      amount: 1,
+    },
+    unlocked: false,
+    button: null,
+  },
 };
+
+const consumables = {
+  staminaTonic: {
+    label: "Stamina Tonic",
+    carriedItem: "staminaTonic",
+    effectText: "You drink a bitter tonic and feel strength return.",
+    use() {
+      addResource("energy", 20);
+      updateResource("energy");
+    },
+  },
+};
+
+function getConsumable(consumableName) {
+  return consumables[consumableName];
+}
+
+function getConsumableDefinitions() {
+  return consumables;
+}
 
 const researchDefinitions = {
   ruinedTorch: {

@@ -188,6 +188,21 @@ h1 {
   overflow-wrap: anywhere;
 }
 
+.equipment-box.tonic-filled {
+  background: rgba(242, 232, 205, 0.95);
+  cursor: pointer;
+}
+
+.equipment-box.tonic-filled:hover {
+  background: rgba(232, 218, 180, 0.95);
+  border-color: #b89b6b;
+}
+
+.equipment-box.tonic-filled:focus-visible {
+  outline: 2px solid #8b6f3f;
+  outline-offset: 2px;
+}
+
 .equipment-slot-label {
   font-size: 12px;
   color: #5f5140;

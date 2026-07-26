@@ -46,6 +46,11 @@
             <h3>Tools</h3>
             <div id="toolSlots" class="equipment-slots"></div>
           </div>
+
+          <div id="tonicSlotsGroup" class="equipment-group" style="display: none">
+            <h3>Tonics</h3>
+            <div id="tonicSlots" class="equipment-slots"></div>
+          </div>
         </div>
       </section>
 
@@ -65,6 +70,8 @@
               <div id="stoneAmount" class="resource-pill" style="display: none"></div>
               <div id="oreAmount" class="resource-pill" style="display: none"></div>
               <div id="ironAmount" class="resource-pill" style="display: none"></div>
+              <div id="herbAmount" class="resource-pill" style="display: none"></div>
+              <div id="manaCrystalAmount" class="resource-pill" style="display: none"></div>
             </div>
           </div>
           <div id="campUpgradeSection" class="camp-upgrade-section" style="display: none">
@@ -159,6 +166,11 @@
             <span>5x Gather Fiber</span>
           </button>
 
+          <button class="action-btn" data-action="gatherHerbs" style="display: none">
+            <div class="progressFill"></div>
+            <span>Gather Herbs</span>
+          </button>
+
           <button class="action-btn" data-action="scoutTrapSite" style="display: none">
             <div class="progressFill"></div>
             <span>Scout Trail</span>
@@ -214,6 +226,11 @@
             <span>Store Ore</span>
           </button>
 
+          <button class="action-btn" data-action="storeHerb" style="display: none">
+            <div class="progressFill"></div>
+            <span>Store Herb</span>
+          </button>
+
           <button class="action-btn" data-action="takeIron" style="display: none">
             <div class="progressFill"></div>
             <span>Take Iron</span>
@@ -246,16 +263,21 @@
             <button id="waterskinBtn" style="display: none"></button>
             <button id="reinforcedWaterskinBtn" style="display: none"></button>
             <button id="smellyShoesBtn" style="display: none"></button>
+            <button id="travelBootsBtn" style="display: none"></button>
+            <button id="simpleTonicBeltBtn" style="display: none"></button>
+            <button id="tonicBeltBtn" style="display: none"></button>
+            <button id="reinforcedTonicBeltBtn" style="display: none"></button>
             <button id="stoneKnifeBtn" style="display: none"></button>
             <button id="stoneAxeBtn" style="display: none"></button>
             <button id="ironKnifeBtn" style="display: none"></button>
             <button id="ironAxeBtn" style="display: none"></button>
             <button id="torchBtn" style="display: none"></button>
-            <button id="crudePickBtn" style="display: none"></button>
+            <button id="crudeIronPickBtn" style="display: none"></button>
 
             <button id="trapCraftBtn" style="display: none"></button>
             <button id="leatherCraftBtn" style="display: none"></button>
             <button id="ironCraftBtn" style="display: none"></button>
+            <button id="staminaTonicCraftBtn" style="display: none"></button>
             <button id="ruinedTorchResearchBtn" style="display: none"></button>
           </div>
         </div>
@@ -363,6 +385,11 @@
             <button class="action-btn" data-action="packWood" style="display: none">
               <div class="progressFill"></div>
               <span>Pack Wood</span>
+            </button>
+
+            <button class="action-btn" data-action="packHerb" style="display: none">
+              <div class="progressFill"></div>
+              <span>Pack Herbs</span>
             </button>
           </div>
         </div>

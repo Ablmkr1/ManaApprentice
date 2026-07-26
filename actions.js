@@ -302,11 +302,57 @@ function hookActionCompletions() {
   };
 
   getAction("mineOre").onComplete = function () {
-    if (addCarriedItem("ore", 1)) {
+    if (addCarriedItem("ore", 2)) {
       addStoryEntry("You break ore from the mine wall.");
     } else {
       addStoryEntry("The ore is too heavy to carry more.");
     }
+  };
+
+  getAction("gatherHerbs").onComplete = function () {
+    const herbAmount = Math.floor(Math.random() * 6);
+
+    if (herbAmount <= 0) {
+      addStoryEntry("You search the patch but find no usable herbs this time.");
+    } else if (addCarriedItem("herb", herbAmount)) {
+      addStoryEntry("You gather " + herbAmount + " useful herbs.");
+    } else {
+      addStoryEntry("You cannot carry more herbs.");
+    }
+
+    updateLocationActions();
+    updatePlacePanel();
+  };
+
+  getAction("storeHerb").onComplete = function () {
+    const location = getExpeditionLocation(gameState.expedition.currentLocation);
+
+    if (!location || !location.storage) return;
+    const herbAmount = gameState.expedition.carriedItems.herb || 0;
+
+    if (herbAmount <= 0) return;
+
+    if (!removeCarriedItem("herb", herbAmount)) return;
+
+    location.storage.herb += herbAmount;
+    addStoryEntry("You dry and store herbs at the alchemist's hut.");
+    updateLocationActions();
+    updatePlacePanel();
+  };
+
+  getAction("packHerb").onComplete = function () {
+    const herb = getResource("herb");
+    const amountToTry = Math.min(5, herb.value);
+    const amountPacked = addCarriedItemUpToCapacity("herb", amountToTry);
+
+    if (amountPacked <= 0) {
+      addStoryEntry("Your pack is too full to carry more herbs.");
+      return;
+    }
+
+    herb.value -= amountPacked;
+    updateResource("herb");
+    addStoryEntry("You pack " + amountPacked + " herbs.");
   };
 
   getAction("packWater").onComplete = function () {
@@ -730,7 +776,7 @@ function completeActivity() {
       return;
     }
 
-    if (expedition.distance >= expedition.targetDistance) {
+    if (!expedition.returning && expedition.distance >= expedition.targetDistance) {
       resetActivity();
       updateTravelButton(false);
       endExpedition("completed");

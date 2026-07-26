@@ -77,7 +77,11 @@ function hookDomToUI() {
   ui.locationStorageList = document.getElementById("locationStorageList");
   ui.oreAmount = document.getElementById("oreAmount");
   ui.ironAmount = document.getElementById("ironAmount");
+  ui.herbAmount = document.getElementById("herbAmount");
   ui.locationTravelSection = document.getElementById("locationTravelSection");
+  ui.tonicSlotsGroup = document.getElementById("tonicSlotsGroup");
+  ui.tonicSlots = document.getElementById("tonicSlots");
+  ui.manaCrystalAmount = document.getElementById("manaCrystalAmount");
 }
 
 //Hook Ui Maps Functions
@@ -94,6 +98,8 @@ function hookUIMaps() {
     leather: ui.leatherAmount,
     ore: ui.oreAmount,
     iron: ui.ironAmount,
+    herb: ui.herbAmount,
+    manaCrystal: ui.manaCrystalAmount,
   };
 
   panelElements = {
@@ -177,7 +183,7 @@ function unlockResource(resourceName) {
 function updateCampResourcesSectionVisibility() {
   if (!ui.campResourcesSection) return;
 
-  const campResourceNames = ["food", "wood", "fiber", "trap", "pelt", "stone", "leather", "ore", "iron"];
+  const campResourceNames = ["food", "wood", "fiber", "trap", "pelt", "stone", "leather", "ore", "iron", "herb", "manaCrystal"];
 
   for (let i = 0; i < campResourceNames.length; i++) {
     const resourceElement = resourceElements[campResourceNames[i]];
@@ -376,7 +382,12 @@ function isActionContextAvailable(actionName) {
   }
 
   if (actionName === "mineOre") {
-    return locationName === "ironMine" && hasPurchasedGear("crudePick");
+    return locationName === "ironMine" && hasPurchasedGear("crudeIronPick");
+  }
+
+  if (actionName === "storeHerb") {
+    const location = getExpeditionLocation(locationName);
+    return !!location && !!location.storage && location.storage.herb !== undefined && gameState.expedition.carriedItems.herb > 0;
   }
 
   return true;

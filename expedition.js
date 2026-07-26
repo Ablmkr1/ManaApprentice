@@ -102,6 +102,8 @@ function getCarriedTotal() {
 const carriedItemWeights = {
   stone: 2,
   ore: 2,
+  herb: 0.2,
+  manaCrystal: 0.5,
 };
 
 function getCarriedItemWeight(itemName) {
@@ -160,6 +162,72 @@ function removeCarriedItem(itemName, amount) {
   }
 
   refreshExpeditionUI();
+
+  return true;
+}
+
+function getConsumableCapacity(consumableName) {
+  return getTonicSlots().length;
+}
+
+function getCarriedConsumableAmount(consumableName) {
+  return getTonicSlots().filter(function (slot) {
+    return slot === consumableName;
+  }).length;
+}
+
+function hasConsumableSpace(consumableName, amount) {
+  return getEmptyTonicSlotCount() >= amount;
+}
+
+function getTonicSlots() {
+  if (!Array.isArray(gameState.expedition.tonicSlots)) {
+    gameState.expedition.tonicSlots = [];
+  }
+
+  return gameState.expedition.tonicSlots;
+}
+
+function getEmptyTonicSlotCount() {
+  return getTonicSlots().filter(function (slot) {
+    return !slot;
+  }).length;
+}
+
+function addConsumableToSlot(consumableName) {
+  const slots = getTonicSlots();
+
+  for (let i = 0; i < slots.length; i++) {
+    if (!slots[i]) {
+      slots[i] = consumableName;
+      refreshExpeditionUI();
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function useConsumableFromSlot(slotIndex) {
+  const slots = getTonicSlots();
+  const consumableName = slots[slotIndex];
+
+  if (!consumableName) return false;
+
+  const consumable = getConsumable(consumableName);
+
+  if (!consumable || typeof consumable.use !== "function") return false;
+
+  consumable.use();
+  slots[slotIndex] = null;
+
+  if (consumable.effectText) {
+    addStoryEntry(consumable.effectText);
+  }
+
+  refreshExpeditionUI();
+  updateEquipmentSlotUI();
+  updateCraftingButtons();
 
   return true;
 }
@@ -276,6 +344,7 @@ function transferCarriedItemsToCamp() {
 
     addResource(itemName, carriedItems[itemName]);
     unlockResource(itemName);
+    updateResource(itemName);
 
     const returnUnlocks = expeditionReturnUnlocks[itemName];
 
@@ -316,8 +385,11 @@ function resolveExpeditionStep() {
   };
 
   const smellyShoes = getGearUpgrade("smellyShoes");
+  const travelBoots = getGearUpgrade("travelBoots");
 
-  if (smellyShoes && smellyShoes.purchased) {
+  if (travelBoots && travelBoots.purchased) {
+    step.distance += 1.0;
+  } else if (smellyShoes && smellyShoes.purchased) {
     step.distance += 0.5;
   }
 
@@ -1205,6 +1277,7 @@ function setPackingActionsAvailable(available) {
     lockAction("packPelt");
     lockAction("packWood");
     lockAction("packOre");
+    lockAction("packHerb");
     hideElement(ui.packingSection);
     return;
   }
@@ -1252,6 +1325,14 @@ function setPackingActionsAvailable(available) {
     unlockAction("packOre");
   } else {
     lockAction("packOre");
+  }
+
+  const herb = getResource("herb");
+
+  if (herb.value > 0) {
+    unlockAction("packHerb");
+  } else {
+    lockAction("packHerb");
   }
 }
 
@@ -1391,7 +1472,12 @@ function getRegionKnownLocations(regionId) {
     knownLocations.push(locationName);
   }
 
-  return knownLocations;
+  return knownLocations.sort(function (a, b) {
+    const locationA = getExpeditionLocation(a);
+    const locationB = getExpeditionLocation(b);
+
+    return getLocationTravelDistance(locationA) - getLocationTravelDistance(locationB);
+  });
 }
 
 function getHuntData(locationName) {

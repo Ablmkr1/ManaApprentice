@@ -384,10 +384,15 @@ function applyGameStateSaveData(savedGameState) {
       "water",
       "waterCapacity",
       "regionId",
+      "tonicSlots",
     ]);
 
     if (savedGameState.expedition.carriedItems) {
       gameState.expedition.carriedItems = structuredClone(savedGameState.expedition.carriedItems);
+    }
+
+    if (!Array.isArray(gameState.expedition.tonicSlots)) {
+      gameState.expedition.tonicSlots = [];
     }
   }
 
@@ -571,6 +576,7 @@ function loadGame() {
   applyUpgradeSaveData(getCampUpgradeDefinitions(), saveData.campUpgrades, ["unlocked", "purchased"], updateCampUpgradeUI);
   applyUpgradeSaveData(getStorageUpgradeDefinitions(), saveData.storageUpgrades, ["unlocked", "tier"], updateStorageUpgradeUI);
   applyUpgradeSaveData(getGearUpgradeDefinitions(), saveData.gearUpgrades, ["unlocked", "purchased"], updateGearUpgradeUI);
+  repairExpeditionTonicSlots();
   applyUpgradeSaveData(getResourceCraftDefinitions(), saveData.resourceCrafts, ["unlocked"], updateResourceCraftUI);
   applyUpgradeSaveData(getResearchDefinitions(), saveData.research, ["unlocked", "completed"], updateResearchUI);
   applyExpeditionLocationSaveData(saveData.expeditionLocations);
@@ -579,6 +585,27 @@ function loadGame() {
   refreshGameUIAfterLoad();
 
   return true;
+}
+
+function repairExpeditionTonicSlots() {
+  const expedition = gameState.expedition;
+  const existingSlots = Array.isArray(expedition.tonicSlots) ? expedition.tonicSlots : [];
+  const capacity = getPurchasedTonicSlotCapacity();
+  const repairedSlots = existingSlots.filter(Boolean).slice(0, capacity);
+
+  while (repairedSlots.length < capacity) {
+    repairedSlots.push(null);
+  }
+
+  expedition.tonicSlots = repairedSlots;
+}
+
+function getPurchasedTonicSlotCapacity() {
+  if (getGearUpgrade("reinforcedTonicBelt")?.purchased) return 3;
+  if (getGearUpgrade("tonicBelt")?.purchased) return 2;
+  if (getGearUpgrade("simpleTonicBelt")?.purchased) return 1;
+
+  return 0;
 }
 
 function tryLoadGame() {
