@@ -614,6 +614,7 @@ function refreshGameUIAfterLoad() {
   updateLocationActions();
   checkRecipeDiscoveries();
   updateCraftingUIForCurrentContext();
+  updateTrapCapacityUI();
   const canPackAfterLoad =
     gameState.expedition.active && !gameState.expedition.returning && !gameState.expedition.currentLocation && gameState.expedition.distance <= 0;
 

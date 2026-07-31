@@ -363,6 +363,12 @@ function canUseAction(actionName) {
 function isActionContextAvailable(actionName) {
   const locationName = gameState.expedition.currentLocation;
 
+  if (actionName === "travel") {
+    const expedition = gameState.expedition;
+
+    return !!expedition.active && !expedition.currentLocation;
+  }
+
   if (actionName === "scoutTrapSite") {
     return !!locationName && !!getFirstHiddenTrapSite(locationName);
   }

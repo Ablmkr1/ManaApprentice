@@ -546,6 +546,7 @@ function endExpedition(reason) {
 
   applyReturnPenalty();
   transferCarriedItemsToCamp();
+  updateTrapCapacityUI();
   checkRecipeDiscoveries();
   clearCurrentLocationActions();
   setCampActionsAvailable(true);
@@ -621,6 +622,14 @@ function toggleTraveling() {
   const expedition = gameState.expedition;
 
   if (!expedition.active) return;
+
+  if (expedition.currentLocation) {
+    updateTravelButton(false);
+    updateAllActionButtons();
+    updateCraftingButtons();
+    updatePlacePanel();
+    return;
+  }
 
   const isTraveling = isTravelActivityActive();
 
@@ -1095,6 +1104,50 @@ function getFirstOpenTrapSite(locationName) {
   return null;
 }
 
+function areAllTrapSitesInstalled() {
+  const locations = getExpeditionLocationDefinitions();
+  let hasTrapSites = false;
+
+  for (let locationName in locations) {
+    const sites = getTrapSites(locationName);
+
+    if (!sites || sites.length === 0) continue;
+
+    hasTrapSites = true;
+
+    for (let i = 0; i < sites.length; i++) {
+      if (!sites[i].installed) {
+        return false;
+      }
+    }
+  }
+
+  return hasTrapSites;
+}
+
+function updateTrapCapacityUI() {
+  if (!areAllTrapSitesInstalled()) return;
+
+  const trap = getResource("trap");
+  const trapCraft = getResourceCraft("trap");
+
+  trap.value = 0;
+  updateResource("trap");
+
+  if (trap.display) {
+    hideElement(trap.display);
+  }
+
+  if (trapCraft) {
+    trapCraft.unlocked = false;
+    updateResourceCraftUI("trap");
+  }
+
+  lockAction("packTrap");
+  updateCampResourcesSectionVisibility();
+  updateCraftingSectionVisibility();
+}
+
 function resetTrapSiteChecks() {
   const locations = getExpeditionLocationDefinitions();
 
@@ -1358,8 +1411,10 @@ function setPackingActionsAvailable(available) {
 
   const trap = getResource("trap");
 
-  if (trap.display && trap.display.style.display !== "none") {
+  if (trap.display && trap.display.style.display !== "none" && !areAllTrapSitesInstalled()) {
     unlockAction("packTrap");
+  } else {
+    lockAction("packTrap");
   }
 
   const leatherworking = getRecipe("leatherworking");

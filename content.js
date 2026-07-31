@@ -640,7 +640,15 @@ const recipes = {
 
   smellyShoes: {
     label: "Smelly Shoes",
+    duration: 5,
     discovered: false,
+    unlocked: false,
+    cost: {
+      energy: 3,
+      pelt: 1,
+      wood: 3,
+      focus: 1,
+    },
     requires: {
       recipesDiscovered: ["hideworking"],
       resources: {},
@@ -672,7 +680,15 @@ const recipes = {
 
   uncomfortableCot: {
     label: "Uncomfortable Cot",
+    duration: 5,
     discovered: false,
+    unlocked: false,
+    cost: {
+      energy: 3,
+      pelt: 1,
+      wood: 3,
+      focus: 1,
+    },
     requires: {
       recipesDiscovered: ["hideworking"],
       resources: {},
@@ -683,7 +699,16 @@ const recipes = {
 
   stoneTools: {
     label: "Stone Tools",
+    duration: 5,
     discovered: false,
+    unlocked: false,
+    cost: {
+      energy: 8,
+      stone: 1,
+      wood: 1,
+      fiber: 1,
+      focus: 1,
+    },
     requires: {
       resources: {
         stone: 1,
@@ -698,7 +723,15 @@ const recipes = {
 
   smelting: {
     label: "Smelting",
+    duration: 5,
     discovered: false,
+    unlocked: false,
+    cost: {
+      energy: 8,
+      ore: 1,
+      wood: 10,
+      focus: 3,
+    },
     requires: {
       locationsExplored: ["minersCamp"],
     },
@@ -708,7 +741,15 @@ const recipes = {
 
   crudeIronPick: {
     label: "Crude Iron Pick",
+    duration: 5,
     discovered: false,
+    unlocked: false,
+    cost: {
+      energy: 8,
+      iron: 1,
+      wood: 10,
+      focus: 3,
+    },
     requires: {
       recipesDiscovered: ["smelting"],
       resources: {
@@ -721,7 +762,15 @@ const recipes = {
 
   ironTools: {
     label: "Iron Tools",
+    duration: 5,
     discovered: false,
+    unlocked: false,
+    cost: {
+      energy: 8,
+      iron: 1,
+      wood: 10,
+      focus: 3,
+    },
     requires: {
       recipesDiscovered: ["smelting", "leatherworking"],
       resources: {},
@@ -735,7 +784,14 @@ const recipes = {
 
   alchemy: {
     label: "Alchemy",
+    duration: 5,
     discovered: false,
+    unlocked: false,
+    cost: {
+      energy: 8,
+      herbs: 10,
+      focus: 3,
+    },
     requires: {
       locationsExplored: ["alchemistsHut"],
     },
@@ -747,7 +803,15 @@ const recipes = {
   },
   alchemyBelt2: {
     label: "Improved Tonic Belt",
+    duration: 5,
     discovered: false,
+    unlocked: false,
+    cost: {
+      energy: 8,
+      herbs: 10,
+      leather: 1,
+      focus: 3,
+    },
     requires: {
       gearPurchased: ["simpleTonicBelt"],
       recipesDiscovered: ["leatherworking"],
@@ -758,7 +822,15 @@ const recipes = {
 
   alchemyBelt3: {
     label: "Reinforced Tonic Belt",
+    duration: 5,
     discovered: false,
+    unlocked: false,
+    cost: {
+      energy: 8,
+      iron: 1,
+      leather: 1,
+      focus: 3,
+    },
     requires: {
       gearPurchased: ["tonicBelt"],
       recipesDiscovered: ["smelting", "leatherworking"],

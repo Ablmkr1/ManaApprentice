@@ -120,6 +120,7 @@ function hookActionCompletions() {
     site.installed = true;
     site.checkedThisVisit = true;
 
+    updateTrapCapacityUI();
     addStoryEntry("You set a trap along the trail.");
     updateTrapSitesUI(location);
     updateLocationActions();
