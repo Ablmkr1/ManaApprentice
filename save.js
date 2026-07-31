@@ -18,6 +18,7 @@ function createSaveData() {
     resourceCrafts: createUpgradeSaveData(getResourceCraftDefinitions(), ["unlocked"]),
     research: createUpgradeSaveData(getResearchDefinitions(), ["unlocked", "completed"]),
     expeditionLocations: createExpeditionLocationSaveData(),
+    dungeons: createDungeonSaveData(),
     recipes: createRecipeSaveData(),
   };
 }
@@ -80,6 +81,7 @@ function createRecipeSaveData() {
 
     savedRecipes[recipeName] = {
       discovered: recipe.discovered,
+      unlocked: recipe.unlocked,
     };
   }
 
@@ -137,6 +139,33 @@ function createLocationObjectSaveData(explorableObjects) {
   }
 
   return savedObjects;
+}
+
+function createDungeonSaveData() {
+  const savedDungeons = {};
+  const dungeonDefinitions = getDungeonDefinitions();
+
+  for (let dungeonId in dungeonDefinitions) {
+    const dungeon = getDungeon(dungeonId);
+
+    if (!dungeon || !dungeon.nodes) continue;
+
+    savedDungeons[dungeonId] = {
+      nodes: {},
+    };
+
+    for (let nodeId in dungeon.nodes) {
+      const node = dungeon.nodes[nodeId];
+
+      savedDungeons[dungeonId].nodes[nodeId] = {
+        discovered: !!node.discovered,
+        explored: !!node.explored,
+        rewardClaimed: !!node.rewardClaimed,
+      };
+    }
+  }
+
+  return savedDungeons;
 }
 
 function saveGame() {
@@ -278,6 +307,7 @@ function normalizeSaveData(saveData) {
   saveData.resourceCrafts = ensureObject(saveData.resourceCrafts);
   saveData.research = ensureObject(saveData.research);
   saveData.expeditionLocations = ensureObject(saveData.expeditionLocations);
+  saveData.dungeons = ensureObject(saveData.dungeons);
   saveData.gameState.journal = ensureObject(saveData.gameState.journal);
   if (!Array.isArray(saveData.gameState.journal.entries)) {
     saveData.gameState.journal.entries = [];
@@ -313,7 +343,7 @@ function applyRecipeSaveData(savedRecipes) {
     const recipe = getRecipe(recipeName);
     const savedRecipe = savedRecipes[recipeName];
 
-    applySavedFields(recipe, savedRecipe, ["discovered"]);
+    applySavedFields(recipe, savedRecipe, ["discovered", "unlocked"]);
   }
 }
 
@@ -385,6 +415,7 @@ function applyGameStateSaveData(savedGameState) {
       "waterCapacity",
       "regionId",
       "tonicSlots",
+      "dungeon",
     ]);
 
     if (savedGameState.expedition.carriedItems) {
@@ -393,6 +424,14 @@ function applyGameStateSaveData(savedGameState) {
 
     if (!Array.isArray(gameState.expedition.tonicSlots)) {
       gameState.expedition.tonicSlots = [];
+    }
+
+    if (!gameState.expedition.dungeon || typeof gameState.expedition.dungeon !== "object" || Array.isArray(gameState.expedition.dungeon)) {
+      gameState.expedition.dungeon = {
+        active: false,
+        dungeonId: null,
+        nodeId: null,
+      };
     }
   }
 
@@ -501,6 +540,26 @@ function applyLocationObjectSaveData(explorableObjects, savedObjects) {
   }
 }
 
+function applyDungeonSaveData(savedDungeons) {
+  if (!savedDungeons) return;
+
+  const dungeonDefinitions = getDungeonDefinitions();
+
+  for (let dungeonId in dungeonDefinitions) {
+    const dungeon = getDungeon(dungeonId);
+    const savedDungeon = savedDungeons[dungeonId];
+
+    if (!dungeon || !dungeon.nodes || !savedDungeon || !savedDungeon.nodes) continue;
+
+    for (let nodeId in dungeon.nodes) {
+      const node = dungeon.nodes[nodeId];
+      const savedNode = savedDungeon.nodes[nodeId];
+
+      applySavedFields(node, savedNode, ["discovered", "explored", "rewardClaimed"]);
+    }
+  }
+}
+
 function refreshGameUIAfterLoad() {
   hideElement(ui.introPopup);
   hideElement(ui.campEstablishedPopup);
@@ -546,6 +605,7 @@ function refreshGameUIAfterLoad() {
     hideElement(ui.restBtn);
   }
 
+  updateWorkTabsVisibility();
   updateCurrentGoalUI();
   updateJournalUI();
   updateRegionalMapVisibility();
@@ -580,6 +640,7 @@ function loadGame() {
   applyUpgradeSaveData(getResourceCraftDefinitions(), saveData.resourceCrafts, ["unlocked"], updateResourceCraftUI);
   applyUpgradeSaveData(getResearchDefinitions(), saveData.research, ["unlocked", "completed"], updateResearchUI);
   applyExpeditionLocationSaveData(saveData.expeditionLocations);
+  applyDungeonSaveData(saveData.dungeons);
   applyRecipeSaveData(saveData.recipes);
   checkRecipeDiscoveries();
   refreshGameUIAfterLoad();

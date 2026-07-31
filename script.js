@@ -33,6 +33,7 @@ window.onload = function () {
   hookResourceCraftsToUI();
   hookResearchToUI();
   hookSaveControls();
+  hookWorkTabs();
 
   ui.continueBtn.addEventListener("click", function () {
     ui.introPopup.style.display = "none";
@@ -75,6 +76,20 @@ function hookSaveControls() {
   }
 }
 
+function hookWorkTabs() {
+  if (ui.craftingTabBtn) {
+    ui.craftingTabBtn.addEventListener("click", function () {
+      showWorkPanel("crafting");
+    });
+  }
+
+  if (ui.researchTabBtn) {
+    ui.researchTabBtn.addEventListener("click", function () {
+      showWorkPanel("research");
+    });
+  }
+}
+
 // Rest Button Text Toggle
 function updateRestButton() {
   const isResting = isActivityActive() && gameState.activity.kind === "rest";
@@ -95,7 +110,11 @@ function gameTick() {
   const resourceDefinitions = getResourceDefinitions();
 
   for (let resourceName in resourceDefinitions) {
-    addResource(resourceName, resourceDefinitions[resourceName].perSecond * deltaSeconds);
+    const amount = resourceDefinitions[resourceName].perSecond * deltaSeconds;
+
+    if (amount !== 0) {
+      addResource(resourceName, amount);
+    }
   }
 
   processActivityTick();
@@ -115,6 +134,7 @@ function startResting() {
   updateRestButton();
   updateAllActionButtons();
   updateCraftingButtons();
+  updatePlacePanel();
 }
 
 function stopResting() {
@@ -131,4 +151,5 @@ function stopResting() {
   updateRestButton();
   updateAllActionButtons();
   updateCraftingButtons();
+  updatePlacePanel();
 }

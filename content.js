@@ -1,3 +1,75 @@
+// Clearing Definition
+const clearingPlace = {
+  label: "Clearing",
+  explorableObjects: {
+    soundOfWater: {
+      label: "Follow Sound of Water",
+      flag: "discoveredStream",
+      duration: 1,
+      cost: {
+        energy: 5,
+      },
+      progress: 0,
+      stages: [
+        {
+          story: "You follow the sound through the trees and find a narrow stream cutting past the clearing.",
+          unlocks: [{ type: "flag", id: "discoveredStream" }],
+        },
+      ],
+      onComplete: function () {
+        getResource("energy").maxValue += 10;
+        updateResource("energy");
+      },
+    },
+
+    berryBush: {
+      label: "Inspect Berry Bush",
+      flag: "discoveredBerryBush",
+      duration: 1,
+      cost: {
+        energy: 5,
+      },
+      progress: 0,
+      stages: [
+        {
+          story: "Across the stream, a bush hangs heavy with berries. They are bitter, but edible.",
+          unlocks: [
+            { type: "flag", id: "discoveredBerryBush" },
+            { type: "resource", id: "food" },
+            { type: "action", id: "gatherFood" },
+          ],
+        },
+      ],
+      onComplete: function () {
+        getResource("energy").maxValue += 10;
+        updateResource("energy");
+      },
+    },
+
+    deadTree: {
+      label: "Search Dead Tree",
+      flag: "discoveredDeadfall",
+      duration: 1,
+      cost: {
+        energy: 5,
+      },
+      progress: 0,
+      stages: [
+        {
+          story: "A dead tree leans at the edge of the clearing. Its fallen branches will make useful firewood.",
+          unlocks: [
+            { type: "flag", id: "discoveredDeadfall" },
+            { type: "resource", id: "wood" },
+            { type: "action", id: "gatherWood" },
+            { type: "campUpgrade", id: "smallFire" },
+            { type: "campUpgrade", id: "crudeLeanTo" },
+          ],
+        },
+      ],
+    },
+  },
+};
+
 // Expedition Location Definitions
 const expeditionLocations = {
   mysteriousPlants: {
@@ -21,6 +93,7 @@ const expeditionLocations = {
       explored: "Fibrous plants grow in dense clumps here.",
     },
     availableActions: ["gatherFiber", "gatherFiber5"],
+    unlocks: [{ type: "campUpgrade", id: "researchSpot" }],
   },
 
   strangeTrails: {
@@ -342,6 +415,113 @@ const expeditionLocations = {
     },
     availableActions: ["storeHerb"],
   },
+
+  roadsideRuin: {
+    region: "west",
+    label: "Roadside Ruin",
+    exploredLabel: "Entrance to Roadside Ruin",
+    distance: 40,
+    dungeon: "roadsideRuinDepths",
+    discovered: false,
+    explored: false,
+    explorationProgress: 0,
+    explorationRequired: 2,
+    onDiscoverStory: "The broken road leads to a sunken ruin half-buried beneath moss and fallen stone.",
+    exploreStory: [
+      "Weathered blocks mark the outline of an old structure beneath the road.",
+      "A dark stair descends below the ruin. The air below carries a faint mineral shimmer.",
+    ],
+    panelText: {
+      discovered: "A collapsed ruin sits beside the broken road, its stones too regular to be natural.",
+      explored: "The ruin has been mapped from the surface. A dark stair leads deeper underground.",
+    },
+    availableActions: ["enterDungeon"],
+  },
+};
+
+//Dungeon Definitions
+const dungeonDefinitions = {
+  roadsideRuinDepths: {
+    label: "Roadside Ruin Depths",
+    entryLocation: "roadsideRuin",
+    startNode: "entryStair",
+    nodes: {
+      entryStair: {
+        x: 0,
+        y: 0,
+        label: "Entry Stair",
+        description: "A narrow stair descends beneath the broken road. Cold air rises from below.",
+        discovered: true,
+        explored: true,
+        rewardClaimed: false,
+        exits: [
+          { label: "Follow the cracked hall", to: "crackedHall" },
+          { label: "Search the side chamber", to: "sideChamber" },
+        ],
+      },
+
+      crackedHall: {
+        x: 1,
+        y: 0,
+        label: "Cracked Hall",
+        description: "Old stones sag overhead. Faint blue flecks glimmer inside the mortar.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        exploreDuration: 3,
+        exploreCost: {
+          energy: 6,
+        },
+        reward: {
+          carried: {
+            manaCrystal: 1,
+          },
+        },
+        exits: [
+          { label: "Return to the entry stair", to: "entryStair" },
+          { label: "Approach the collapsed passage", to: "collapsedPassage" },
+        ],
+      },
+
+      sideChamber: {
+        x: 0,
+        y: 1,
+        label: "Side Chamber",
+        description: "Broken shelves line the walls. Most are empty, but crystal dust shines in the cracks.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        exploreDuration: 7,
+        exploreCost: {
+          energy: 8,
+        },
+        reward: {
+          carried: {
+            manaCrystal: 2,
+          },
+        },
+        exits: [{ label: "Return to the entry stair", to: "entryStair" }],
+      },
+
+      collapsedPassage: {
+        x: 2,
+        y: 0,
+        label: "Collapsed Passage",
+        description: "A fall of stone blocks the way deeper into the ruin.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        requires: {
+          gearPurchased: ["crudeIronPick"],
+        },
+        exploreDuration: 10,
+        exploreCost: {
+          energy: 10,
+        },
+        exits: [{ label: "Return to the cracked hall", to: "crackedHall" }],
+      },
+    },
+  },
 };
 
 //Recepies Definitions
@@ -349,6 +529,12 @@ const recipes = {
   cordage: {
     label: "Cordage",
     discovered: false,
+    unlocked: false,
+    cost: {
+      energy: 10,
+      fiber: 2,
+      focus: 1,
+    },
     requires: {
       locationsExplored: ["mysteriousPlants"],
     },
@@ -427,6 +613,20 @@ const recipes = {
     },
     story: "Wrapped hide could soften the trail underfoot, even if the smell leaves something to be desired.",
     unlocks: [{ type: "gearUpgrade", id: "smellyShoes" }],
+  },
+
+  scratchyClothes: {
+    label: "Scratchy Clothes",
+    discovered: false,
+    requires: {
+      gearPurchased: ["crudeSatchel"],
+      resources: {},
+    },
+    story: "Your small woven satchel inspires you. You can weave crude, scratchy clothes.",
+    unlocks: [
+      { type: "gearUpgrade", id: "scratchyShirt" },
+      { type: "gearUpgrade", id: "scratchyPants" },
+    ],
   },
 
   uncomfortableCot: {
@@ -541,47 +741,6 @@ const explorationStages = {
       setCurrentGoal("buildCamp");
       setCampActionsAvailable(true);
     },
-    nextStage: "findStream",
-  },
-
-  findStream: {
-    required: 1,
-    story: ["You hear something that makes your thirst grow.", "Your stomach rumbles."],
-    unlocks: [],
-    onComplete: function () {
-      gameState.discoveredStream = true;
-      getResource("energy").maxValue += 10;
-      updateResource("energy");
-    },
-    nextStage: "findBerryBush",
-  },
-
-  findBerryBush: {
-    required: 1,
-    story: ["Your hunger grows sharper.", "What's hanging from that bush across the stream?"],
-    unlocks: [
-      { type: "resource", id: "food" },
-      { type: "action", id: "gatherFood" },
-    ],
-    onComplete: function () {
-      gameState.discoveredBerryBush = true;
-      getResource("energy").maxValue += 10;
-      updateResource("energy");
-    },
-    nextStage: "findWoodPile",
-  },
-  findWoodPile: {
-    required: 1,
-    story: ["Huh, it's a stick?", "Even more sticks, if you collected them you might be able to use them."],
-    unlocks: [
-      { type: "resource", id: "wood" },
-      { type: "action", id: "gatherWood" },
-      { type: "campUpgrade", id: "smallFire" },
-      { type: "campUpgrade", id: "crudeLeanTo" },
-    ],
-    onComplete: function () {
-      gameState.discoveredDeadfall = true;
-    },
     nextStage: null,
   },
 };
@@ -680,22 +839,18 @@ const campUpgrades = {
     },
   },
 
-  packedStoneFloor: {
-    label: "Packed Stone Floor",
-    duration: 15,
+  researchSpot: {
+    label: "Research Spot",
+    duration: 1,
     cost: {
-      wood: 10,
-      stone: 20,
-      energy: 60,
+      energy: 1,
+      focus: 1,
     },
     unlocked: false,
     purchased: false,
     button: null,
     display: null,
-    onComplete() {
-      getResource("energy").maxValue += 20;
-      updateResource("energy");
-    },
+    onComplete() {},
   },
 
   meditationSpot: {
@@ -726,13 +881,13 @@ const storageUpgrades = {
     duration: 5,
     tier: 0,
     maxTier: 4,
-    maxValueIncrease: 20,
+    maxValueIncrease: 100,
     tierNames: ["Wood Pile", "Covered Woodpile", "Lumber Rack", "Storage Yard"],
     unlocked: false,
     button: null,
     display: null,
     costs: [
-      { wood: 10, fiber: 5, energy: 10 },
+      { wood: 10, iron: 5, energy: 10 },
       { wood: 20, fiber: 20, energy: 20 },
       { wood: 30, stone: 10, energy: 50 },
       { wood: 40, stone: 20, energy: 75 },
@@ -750,7 +905,7 @@ const storageUpgrades = {
     button: null,
     display: null,
     costs: [
-      { fiber: 10, energy: 5 },
+      { fiber: 10, iron: 5 },
       { wood: 20, fiber: 5, energy: 20 },
       { wood: 20, fiber: 10, stone: 2, energy: 45 },
       { wood: 30, fiber: 10, stone: 5, energy: 50 },
@@ -768,7 +923,7 @@ const storageUpgrades = {
     button: null,
     display: null,
     costs: [
-      { wood: 10, fiber: 5, energy: 10 },
+      { wood: 10, iron: 5, energy: 10 },
       { wood: 20, fiber: 10, energy: 20 },
       { wood: 20, fiber: 20, pelt: 2, energy: 20 },
       { wood: 30, fiber: 20, pelt: 5, energy: 20 },
@@ -786,7 +941,7 @@ const storageUpgrades = {
     button: null,
     display: null,
     costs: [
-      { wood: 2, fiber: 5, energy: 20 },
+      { wood: 2, iron: 5, energy: 20 },
       { fiber: 10, wood: 20, energy: 20 },
       { stone: 6, wood: 20, energy: 20 },
       { wood: 20, stone: 30, energy: 80 },
@@ -804,7 +959,7 @@ const storageUpgrades = {
     button: null,
     display: null,
     costs: [
-      { wood: 10, pelt: 2, energy: 20 },
+      { wood: 10, iron: 2, energy: 20 },
       { wood: 20, pelt: 5, energy: 20 },
       { fiber: 10, pelt: 10, energy: 20 },
       { fiber: 20, pelt: 15, stone: 5, energy: 20 },
@@ -822,7 +977,7 @@ const storageUpgrades = {
     button: null,
     display: null,
     costs: [
-      { wood: 10, stone: 5, energy: 20 },
+      { wood: 10, iron: 5, energy: 20 },
       { wood: 20, stone: 10, energy: 20 },
       { wood: 20, stone: 20, energy: 20 },
       { wood: 30, stone: 30, pelt: 5, energy: 20 },
@@ -842,7 +997,8 @@ const gearUpgrades = {
     slotRank: 1,
     duration: 5,
     cost: {
-      fiber: 10,
+      fiber: 7,
+      energy: 7,
     },
     unlocked: false,
     purchased: false,
@@ -853,6 +1009,51 @@ const gearUpgrades = {
       refreshExpeditionUI();
     },
   },
+  scratchyShirt: {
+    label: "Scratchy Shirt",
+    displayName: "Scratchy Shirt",
+    equipmentType: "gear",
+    slot: "chest",
+    slotLabel: "Chest",
+    slotOrder: 4,
+    slotRank: 1,
+    duration: 5,
+    cost: {
+      fiber: 8,
+      energy: 8,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      getResource("energy").maxValue += 10;
+      updateResource("energy");
+    },
+  },
+  scratchyPants: {
+    label: "Scratchy Pants",
+    displayName: "Scratchy Pants",
+    equipmentType: "gear",
+    slot: "legs",
+    slotLabel: "Legs",
+    slotOrder: 5,
+    slotRank: 1,
+    duration: 5,
+    cost: {
+      fiber: 12,
+      energy: 12,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      getResource("energy").maxValue += 10;
+      updateResource("energy");
+    },
+  },
+
   waterskin: {
     label: "Waterskin (10 Water Capacity)",
     displayName: "Waterskin",
@@ -1346,14 +1547,6 @@ const consumables = {
   },
 };
 
-function getConsumable(consumableName) {
-  return consumables[consumableName];
-}
-
-function getConsumableDefinitions() {
-  return consumables;
-}
-
 const researchDefinitions = {
   ruinedTorch: {
     label: "Research Ruined Torch",
@@ -1385,6 +1578,32 @@ const goalDefinitions = {
   buildCamp: {
     title: "Build A Camp",
     text: "Secure the essentials for survival. You need food, water, and shelter. You'll need to forge your own safety.",
+    items: [
+      {
+        label: "Find food",
+        isComplete: function () {
+          return gameState.discoveredBerryBush;
+        },
+      },
+      {
+        label: "Find water",
+        isComplete: function () {
+          return gameState.discoveredStream;
+        },
+      },
+      {
+        label: "Make fire",
+        isComplete: function () {
+          return hasPurchasedCampUpgrade("smallFire");
+        },
+      },
+      {
+        label: "Make shelter",
+        isComplete: function () {
+          return hasPurchasedCampUpgrade("crudeLeanTo");
+        },
+      },
+    ],
   },
   exploreOutskirts: {
     title: "Explore The Outskirts",
@@ -1502,7 +1721,7 @@ const regionDefinitions = {
     label: "Broken Road",
     terrain: "Old stone route",
     description: "Weathered stones and a nearly vanished road continue west beneath moss and fallen branches.",
-    maxProgress: 1000,
+    maxProgress: 250,
     milestones: [
       { at: 50, text: "Follow the road to its first marker." },
       { at: 100, text: "Understand how the old markers connect." },

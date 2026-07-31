@@ -125,15 +125,37 @@ function unlockRecipe(recipeName) {
     return;
   }
 
-  if (recipe.discovered) return;
+  if (recipe.discovered || recipe.unlocked) return;
+
+  recipe.unlocked = true;
+
+  if (typeof updateResearchHistoryUI === "function") {
+    updateResearchHistoryUI();
+  }
+}
+
+function completeRecipeResearch(recipeName) {
+  const recipe = getRecipe(recipeName);
+
+  if (!recipe || recipe.discovered) return;
+  if (!recipe.unlocked) return;
+  if (!spendCost(recipe.cost || {})) return;
 
   recipe.discovered = true;
+  recipe.unlocked = false;
 
   if (recipe.story) {
     addStoryEntry(recipe.story);
   }
 
   applyRecipeUnlocks(recipeName);
+
+  gameState.selectedResearchEntry = "recipe:" + recipeName;
+
+  updateResearchHistoryUI();
+  updateCraftingUIForCurrentContext();
+  updateAllActionButtons();
+  updateCurrentGoalUI();
 }
 
 function checkRecipeDiscoveries() {
@@ -149,7 +171,7 @@ function checkRecipeDiscoveries() {
 }
 
 function isRecipeDiscoverable(recipe) {
-  if (!recipe || recipe.discovered) return false;
+  if (!recipe || recipe.discovered || recipe.unlocked) return false;
 
   if (!recipe.requires) return false;
 
@@ -468,8 +490,10 @@ function setCampActionsAvailable(available) {
       unlockAction("gatherWater");
     }
 
-    if (gameState.phase === "clearing") {
+    if (!gameState.discoveredClearing) {
       unlockAction("explore");
+    } else {
+      lockAction("explore");
     }
 
     ui.restBtn.style.display = "inline-block";
@@ -498,6 +522,8 @@ function completeCampUpgrade(upgradeName) {
 
   updateCampUpgradeUI(upgradeName);
   updateCraftingSectionVisibility();
+  updateWorkTabsVisibility();
+  updateCurrentGoalUI();
   checkClearingComplete();
 }
 
@@ -595,6 +621,7 @@ function checkClearingComplete() {
 
   if (gameState.phase === "clearing" && hasSmallFire && hasCrudeLeanTo) {
     setPhase("expedition");
+    unlockAction("recover");
     setCurrentGoal("exploreOutskirts");
     addJournalEntry("campEstablished");
     showCampEstablishedPopup();
@@ -982,6 +1009,10 @@ function completeResearch(researchName) {
 
   updateResearchUI(researchName);
   updateCraftingSectionVisibility();
+
+  if (typeof updateResearchHistoryUI === "function") {
+    updateResearchHistoryUI();
+  }
 }
 
 function hookResourceCraftsToUI() {
@@ -1050,6 +1081,10 @@ function unlockResearch(researchName) {
   research.unlocked = true;
   updateResearchUI(researchName);
   updateCraftingSectionVisibility();
+
+  if (typeof updateResearchHistoryUI === "function") {
+    updateResearchHistoryUI();
+  }
 }
 
 function isResearchRequirementMet(research) {
@@ -1159,6 +1194,7 @@ function updateCraftingUIForCurrentContext() {
 
   updateCraftingButtons();
   updateCraftingSectionVisibility();
+  updateWorkTabsVisibility();
 }
 
 function getCurrentCraftLocationStorage() {
@@ -1212,4 +1248,299 @@ function addStorageProduces(produces) {
 
     storage[resourceName] += produces[resourceName];
   }
+}
+
+function isResearchSpotPurchased() {
+  return hasPurchasedCampUpgrade("researchSpot");
+}
+
+function updateWorkTabsVisibility() {
+  if (!ui.workTabs) return;
+
+  if (isResearchSpotPurchased()) {
+    showElement(ui.workTabs, "flex");
+  } else {
+    hideElement(ui.workTabs);
+    showWorkPanel("crafting");
+  }
+}
+
+function showWorkPanel(panelName) {
+  const showingResearch = panelName === "research" && isResearchSpotPurchased();
+
+  if (ui.craftingPanel) {
+    ui.craftingPanel.style.display = showingResearch ? "none" : "block";
+  }
+
+  if (ui.researchPanel) {
+    ui.researchPanel.style.display = showingResearch ? "block" : "none";
+  }
+
+  if (ui.craftingTabBtn) {
+    ui.craftingTabBtn.classList.toggle("active", !showingResearch);
+  }
+
+  if (ui.researchTabBtn) {
+    ui.researchTabBtn.classList.toggle("active", showingResearch);
+  }
+
+  if (showingResearch) {
+    updateResearchHistoryUI();
+  }
+}
+
+function getVisibleResearchEntries() {
+  const entries = [];
+
+  const recipes = getRecipeDefinitions();
+
+  for (let recipeName in recipes) {
+    const recipe = getRecipe(recipeName);
+
+    if (!recipe.unlocked && !recipe.discovered) continue;
+
+    entries.push({
+      id: recipeName,
+      type: "recipe",
+      label: recipe.label,
+      story: recipe.story || "",
+      unlocks: recipe.unlocks || [],
+      status: recipe.discovered ? "complete" : "available",
+    });
+  }
+
+  const researchDefinitions = getResearchDefinitions();
+
+  for (let researchName in researchDefinitions) {
+    const research = getResearch(researchName);
+
+    if (!research.unlocked && !research.completed) continue;
+
+    entries.push({
+      id: researchName,
+      type: "research",
+      label: research.label,
+      story: research.story || "",
+      unlocks: research.unlocks || [],
+      status: research.completed ? "complete" : "available",
+    });
+  }
+
+  return entries;
+}
+
+function getResearchEntry(entryType, entryId) {
+  return getVisibleResearchEntries().find(function (entry) {
+    return entry.type === entryType && entry.id === entryId;
+  });
+}
+
+function getResearchEntryKey(entry) {
+  return entry.type + ":" + entry.id;
+}
+
+function updateResearchHistoryUI() {
+  if (!ui.researchList || !ui.researchDetails) return;
+
+  const entries = getVisibleResearchEntries();
+
+  ui.researchList.innerHTML = "";
+
+  if (entries.length === 0) {
+    const empty = document.createElement("div");
+    empty.classList.add("research-empty");
+    empty.textContent = "No research recorded yet.";
+    ui.researchList.appendChild(empty);
+    renderResearchDetails(null);
+    return;
+  }
+
+  if (!gameState.selectedResearchEntry) {
+    gameState.selectedResearchEntry = getResearchEntryKey(entries[0]);
+  }
+
+  let selectedEntry = null;
+
+  entries.forEach(function (entry) {
+    const key = getResearchEntryKey(entry);
+
+    if (key === gameState.selectedResearchEntry) {
+      selectedEntry = entry;
+    }
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.classList.add("research-list-item");
+    button.classList.toggle("active", key === gameState.selectedResearchEntry);
+
+    const title = document.createElement("span");
+    title.textContent = entry.label;
+
+    const status = document.createElement("span");
+    status.classList.add("research-status");
+    status.textContent = entry.status === "complete" ? "Complete" : "Available";
+
+    button.appendChild(title);
+    button.appendChild(status);
+
+    button.addEventListener("click", function () {
+      gameState.selectedResearchEntry = key;
+      updateResearchHistoryUI();
+    });
+
+    ui.researchList.appendChild(button);
+  });
+
+  if (!selectedEntry) {
+    selectedEntry = entries[0];
+    gameState.selectedResearchEntry = getResearchEntryKey(selectedEntry);
+  }
+
+  renderResearchDetails(selectedEntry);
+}
+
+function renderResearchDetails(entry) {
+  if (!ui.researchDetails) return;
+
+  ui.researchDetails.innerHTML = "";
+
+  if (!entry) {
+    const empty = document.createElement("div");
+    empty.classList.add("research-empty");
+    empty.textContent = "Select research to view details.";
+    ui.researchDetails.appendChild(empty);
+    return;
+  }
+
+  const title = document.createElement("h4");
+  title.textContent = entry.label;
+
+  const status = document.createElement("div");
+  status.classList.add("research-detail-status");
+  status.textContent = entry.status === "complete" ? "Complete" : "Available";
+
+  const story = document.createElement("p");
+  story.textContent = entry.story || "No notes recorded.";
+
+  ui.researchDetails.appendChild(title);
+  ui.researchDetails.appendChild(status);
+  ui.researchDetails.appendChild(story);
+
+  const unlockTitle = document.createElement("h5");
+  unlockTitle.textContent = "Unlocks";
+  ui.researchDetails.appendChild(unlockTitle);
+
+  if (!entry.unlocks || entry.unlocks.length === 0) {
+    const none = document.createElement("div");
+    none.classList.add("research-empty");
+    none.textContent = "No unlocks recorded.";
+    ui.researchDetails.appendChild(none);
+  } else {
+    const list = document.createElement("ul");
+    list.classList.add("research-unlock-list");
+
+    entry.unlocks.forEach(function (unlock) {
+      const item = document.createElement("li");
+      item.textContent = getUnlockDisplayText(unlock);
+      list.appendChild(item);
+    });
+
+    ui.researchDetails.appendChild(list);
+  }
+
+  if (entry.type === "recipe" && entry.status === "available") {
+    const recipe = getRecipe(entry.id);
+
+    const costTitle = document.createElement("h5");
+    costTitle.textContent = "Cost";
+    ui.researchDetails.appendChild(costTitle);
+
+    const costText = document.createElement("div");
+    costText.classList.add("research-cost");
+    costText.textContent = formatCost(recipe.cost || {});
+    ui.researchDetails.appendChild(costText);
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.classList.add("action-btn", "research-complete-btn");
+    button.dataset.recipe = entry.id;
+    button.textContent = "Research " + entry.label;
+    button.disabled = !canAffordCost(recipe.cost || {});
+
+    const recipeName = entry.id;
+
+    button.addEventListener("click", function (event) {
+      event.preventDefault();
+
+      completeRecipeResearch(recipeName);
+      updateResearchHistoryUI();
+    });
+
+    ui.researchDetails.appendChild(button);
+  }
+}
+
+function updateSelectedResearchButtonState() {
+  if (!ui.researchDetails) return;
+
+  const button = ui.researchDetails.querySelector(".research-complete-btn");
+
+  if (!button || !button.dataset.recipe) return;
+
+  const recipe = getRecipe(button.dataset.recipe);
+
+  if (!recipe) return;
+
+  button.disabled = !recipe.unlocked || recipe.discovered || !canAffordCost(recipe.cost || {});
+}
+
+function getUnlockDisplayText(unlock) {
+  if (!unlock) return "Unknown";
+
+  if (unlock.type === "gearUpgrade") {
+    const gear = getGearUpgrade(unlock.id);
+    return gear ? gear.displayName || gear.label : unlock.id;
+  }
+
+  if (unlock.type === "campUpgrade") {
+    const upgrade = getCampUpgrade(unlock.id);
+    return upgrade ? upgrade.label : unlock.id;
+  }
+
+  if (unlock.type === "storageUpgrade") {
+    const upgrade = getStorageUpgrade(unlock.id);
+    return upgrade ? upgrade.label : unlock.id;
+  }
+
+  if (unlock.type === "resourceCraft") {
+    const craft = getResourceCraft(unlock.id);
+    return craft ? craft.label : unlock.id;
+  }
+
+  if (unlock.type === "resource") {
+    const resource = getResource(unlock.id);
+    return resource ? resource.label : unlock.id;
+  }
+
+  if (unlock.type === "action") {
+    const action = getAction(unlock.id);
+    return action ? action.label : unlock.id;
+  }
+
+  if (unlock.type === "research") {
+    const research = getResearch(unlock.id);
+    return research ? research.label : unlock.id;
+  }
+
+  if (unlock.type === "region") {
+    const region = getRegionDefinition(unlock.id);
+    return region ? region.label : unlock.id;
+  }
+
+  if (unlock.type === "journal") {
+    const journal = getJournalEntryDefinition(unlock.id);
+    return journal ? journal.title : unlock.id;
+  }
+
+  return unlock.id;
 }

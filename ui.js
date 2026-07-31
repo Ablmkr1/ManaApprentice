@@ -82,6 +82,24 @@ function hookDomToUI() {
   ui.tonicSlotsGroup = document.getElementById("tonicSlotsGroup");
   ui.tonicSlots = document.getElementById("tonicSlots");
   ui.manaCrystalAmount = document.getElementById("manaCrystalAmount");
+  ui.dungeonSection = document.getElementById("dungeonSection");
+  ui.dungeonTitle = document.getElementById("dungeonTitle");
+  ui.dungeonMap = document.getElementById("dungeonMap");
+  ui.dungeonRoomText = document.getElementById("dungeonRoomText");
+  ui.locationContent = document.getElementById("locationContent");
+  ui.locationDescription = document.getElementById("locationDescription");
+  ui.dungeonSection = document.getElementById("dungeonSection");
+  ui.dungeonTitle = document.getElementById("dungeonTitle");
+  ui.dungeonMap = document.getElementById("dungeonMap");
+  ui.dungeonRoomText = document.getElementById("dungeonRoomText");
+  ui.workTabs = document.getElementById("workTabs");
+  ui.craftingTabBtn = document.getElementById("craftingTabBtn");
+  ui.researchTabBtn = document.getElementById("researchTabBtn");
+  ui.craftingPanel = document.getElementById("craftingPanel");
+  ui.researchPanel = document.getElementById("researchPanel");
+  ui.researchList = document.getElementById("researchList");
+  ui.researchDetails = document.getElementById("researchDetails");
+  ui.focusAmount = document.getElementById("focusAmount");
 }
 
 //Hook Ui Maps Functions
@@ -100,6 +118,7 @@ function hookUIMaps() {
     iron: ui.ironAmount,
     herb: ui.herbAmount,
     manaCrystal: ui.manaCrystalAmount,
+    focus: ui.focusAmount,
   };
 
   panelElements = {
@@ -390,6 +409,22 @@ function isActionContextAvailable(actionName) {
     return !!location && !!location.storage && location.storage.herb !== undefined && gameState.expedition.carriedItems.herb > 0;
   }
 
+  if (actionName === "enterDungeon") {
+    const location = getExpeditionLocation(locationName);
+
+    return (
+      !!location &&
+      !!location.explored &&
+      !!location.dungeon &&
+      hasPurchasedGear("torch") &&
+      (!gameState.expedition.dungeon || !gameState.expedition.dungeon.active)
+    );
+  }
+
+  if (actionName === "leaveDungeon") {
+    return !!gameState.expedition.dungeon && gameState.expedition.dungeon.active;
+  }
+
   return true;
 }
 
@@ -525,7 +560,37 @@ function updateCurrentGoalUI() {
 
   showElement(ui.currentGoalSection, "block");
   safeSetText(ui.currentGoalTitle, goal.title);
-  safeSetText(ui.currentGoalText, goal.text);
+  ui.currentGoalText.innerHTML = "";
+
+  if (goal.text) {
+    const text = document.createElement("div");
+    text.textContent = goal.text;
+    ui.currentGoalText.appendChild(text);
+  }
+
+  if (Array.isArray(goal.items)) {
+    const list = document.createElement("ul");
+    list.classList.add("goal-checklist");
+
+    goal.items.forEach(function (item) {
+      const isComplete = item.isComplete ? item.isComplete() : false;
+      const listItem = document.createElement("li");
+      listItem.classList.toggle("complete", isComplete);
+
+      const status = document.createElement("span");
+      status.classList.add("goal-check");
+      status.textContent = isComplete ? "[x]" : "[ ]";
+
+      const label = document.createElement("span");
+      label.textContent = item.label;
+
+      listItem.appendChild(status);
+      listItem.appendChild(label);
+      list.appendChild(listItem);
+    });
+
+    ui.currentGoalText.appendChild(list);
+  }
 }
 
 function setCurrentGoal(goalId) {

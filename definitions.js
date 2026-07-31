@@ -13,7 +13,17 @@ const gameDefinitions = {
   goalDefinitions,
   journalDefinitions,
   regionDefinitions,
+  consumables,
+  clearingPlace,
 };
+
+function getClearingPlace() {
+  return gameDefinitions.clearingPlace;
+}
+
+function getClearingObjects() {
+  return getClearingPlace().explorableObjects;
+}
 
 function getExpeditionLocationDefinitions() {
   return gameDefinitions.expeditionLocations;
@@ -124,4 +134,12 @@ function getRegionDefinitions() {
 
 function getRegionDefinition(regionId) {
   return getRegionDefinitions()[regionId];
+}
+
+function getConsumable(consumableName) {
+  return consumables[consumableName];
+}
+
+function getConsumableDefinitions() {
+  return consumables;
 }

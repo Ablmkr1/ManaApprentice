@@ -22,6 +22,11 @@ function updateLocationActions() {
 
   lockLocationActions();
 
+  if (gameState.expedition.dungeon && gameState.expedition.dungeon.active) {
+    unlockAction("leaveDungeon");
+    return;
+  }
+
   if (!locationName) return;
 
   const location = getExpeditionLocation(locationName);
@@ -365,7 +370,6 @@ const expeditionReturnUnlocks = {
 
   stone: [
     { type: "campUpgrade", id: "stoneFirePit" },
-    { type: "campUpgrade", id: "packedStoneFloor" },
     { type: "storageUpgrade", id: "stoneStorage" },
   ],
 };
@@ -736,6 +740,7 @@ function updatePlacePanel() {
   const expedition = gameState.expedition;
   updateLocationStorageUI(null);
   renderLocationTravelActions(null);
+  updateDungeonUI();
 
   if (isTravelActivityActive()) {
     if (expedition.returning) {
@@ -768,6 +773,24 @@ function updatePlacePanel() {
     return;
   }
 
+  if (expedition.dungeon && expedition.dungeon.active) {
+    const dungeon = getCurrentDungeon();
+
+    safeSetText(ui.campPanelTitle, dungeon ? dungeon.label : "Dungeon");
+    safeSetText(ui.locationDescription, "You are beneath the roadside ruin.");
+
+    hideElement(ui.campContent);
+    showElement(ui.locationContent, "block");
+
+    renderLocationTravelActions(null);
+    updateTrapSitesUI(null);
+    updateLocationObjectActionsUI(null);
+    updateLocationStorageUI(null);
+    updateDungeonUI();
+
+    return;
+  }
+
   if (expedition.currentLocation) {
     const location = getExpeditionLocation(expedition.currentLocation);
 
@@ -776,6 +799,7 @@ function updatePlacePanel() {
     updateTrapSitesUI(location);
     updateLocationObjectActionsUI(location);
     updateLocationStorageUI(location);
+    updateDungeonUI();
 
     safeSetText(ui.campPanelTitle, getLocationLabel(expedition.currentLocation));
     safeSetText(ui.locationDescription, getLocationPanelText(location));
@@ -808,15 +832,40 @@ function updatePlacePanel() {
 
   updateStorageSectionVisibility();
   updateTrapSitesUI(null);
-  updateLocationObjectActionsUI(null);
+
+  if (gameState.phase === "clearing" && gameState.discoveredClearing) {
+    updateLocationObjectActionsUI(getClearingPlace());
+  } else {
+    updateLocationObjectActionsUI(null);
+  }
+}
+
+function getObjectPlace(placeName) {
+  if (placeName === "clearing") {
+    return getClearingPlace();
+  }
+
+  return getExpeditionLocation(placeName);
+}
+
+function getCurrentObjectPlaceName() {
+  if (gameState.expedition.currentLocation) {
+    return gameState.expedition.currentLocation;
+  }
+
+  if (gameState.phase === "clearing" && gameState.discoveredClearing) {
+    return "clearing";
+  }
+
+  return null;
 }
 
 function getLocationObject(locationName, objectName) {
-  const location = getExpeditionLocation(locationName);
+  const place = getObjectPlace(locationName);
 
-  if (!location || !location.explorableObjects) return null;
+  if (!place || !place.explorableObjects) return null;
 
-  return location.explorableObjects[objectName] || null;
+  return place.explorableObjects[objectName] || null;
 }
 
 function getLocationObjectButton(objectName) {
@@ -843,6 +892,8 @@ function getLocationObjectStages(object) {
 }
 
 function isLocationObjectComplete(object) {
+  if (object.flag && gameState[object.flag]) return true;
+
   return getLocationObjectProgress(object) >= getLocationObjectStages(object).length;
 }
 
@@ -854,7 +905,11 @@ function getCurrentLocationObjectStage(object) {
 }
 
 function startLocationObjectExploration(objectName) {
-  const locationName = gameState.expedition.currentLocation;
+  const locationName = getCurrentObjectPlaceName();
+
+  if (!locationName) return;
+
+  const place = getObjectPlace(locationName);
   const object = getLocationObject(locationName, objectName);
 
   if (!object || isLocationObjectComplete(object)) return;
@@ -873,16 +928,16 @@ function startLocationObjectExploration(objectName) {
     },
   });
 
-  updateLocationObjectActionsUI(getExpeditionLocation(locationName));
+  updateLocationObjectActionsUI(place);
   updateAllActionButtons();
   updateCraftingButtons();
 }
 
 function completeLocationObjectExploration(locationName, objectName) {
-  const location = getExpeditionLocation(locationName);
+  const place = getObjectPlace(locationName);
   const object = getLocationObject(locationName, objectName);
 
-  if (!location || !object || isLocationObjectComplete(object)) return;
+  if (!place || !object || isLocationObjectComplete(object)) return;
 
   const stage = getCurrentLocationObjectStage(object);
 
@@ -910,8 +965,13 @@ function completeLocationObjectExploration(locationName, objectName) {
     }
   }
 
+  if (isLocationObjectComplete(object) && object.onComplete) {
+    object.onComplete();
+  }
+
   checkRecipeDiscoveries();
-  updateLocationObjectActionsUI(location);
+  updateLocationObjectActionsUI(place);
+  updateCurrentGoalUI();
   updateAllActionButtons();
   updateCraftingButtons();
 }
@@ -1576,4 +1636,328 @@ function getLocationToLocationTravelDistance(fromLocation, targetLocation) {
   }
 
   return Math.abs(getLocationTravelDistance(targetLocation) - getLocationTravelDistance(fromLocation));
+}
+
+//Dungeon Helpers
+function getDungeonDefinitions() {
+  return dungeonDefinitions;
+}
+
+function getDungeon(dungeonId) {
+  return dungeonDefinitions[dungeonId];
+}
+
+function getDungeonNode(dungeonId, nodeId) {
+  const dungeon = getDungeon(dungeonId);
+
+  if (!dungeon || !dungeon.nodes) return null;
+
+  return dungeon.nodes[nodeId] || null;
+}
+
+function getDungeonNodes(dungeonId) {
+  const dungeon = getDungeon(dungeonId);
+
+  if (!dungeon || !dungeon.nodes) return {};
+
+  return dungeon.nodes;
+}
+
+function getDungeonNodeExit(node, targetNodeId) {
+  if (!node || !Array.isArray(node.exits)) return null;
+
+  return node.exits.find(function (exit) {
+    return exit.to === targetNodeId;
+  });
+}
+
+function getCurrentDungeonState() {
+  return gameState.expedition.dungeon;
+}
+
+function getCurrentDungeon() {
+  const dungeonState = getCurrentDungeonState();
+
+  if (!dungeonState || !dungeonState.active) return null;
+
+  return getDungeon(dungeonState.dungeonId);
+}
+
+function getCurrentDungeonNode() {
+  const dungeonState = getCurrentDungeonState();
+
+  if (!dungeonState || !dungeonState.active) return null;
+
+  return getDungeonNode(dungeonState.dungeonId, dungeonState.nodeId);
+}
+
+function updateDungeonUI() {
+  if (!ui.dungeonSection || !ui.dungeonMap || !ui.dungeonTitle || !ui.dungeonRoomText) return;
+
+  const dungeonState = getCurrentDungeonState();
+  const dungeon = getCurrentDungeon();
+  const currentNode = getCurrentDungeonNode();
+
+  ui.dungeonMap.innerHTML = "";
+
+  if (!dungeonState || !dungeonState.active || !dungeon || !currentNode) {
+    hideElement(ui.dungeonSection);
+    return;
+  }
+
+  showElement(ui.dungeonSection, "flex");
+  hideElement(ui.dungeonTitle);
+  safeSetText(ui.dungeonRoomText, currentNode.description || "");
+
+  const nodes = getDungeonNodes(dungeonState.dungeonId);
+
+  for (let nodeId in nodes) {
+    const node = nodes[nodeId];
+
+    const isCurrentNode = nodeId === dungeonState.nodeId;
+    const hasExitFromCurrentNode = !!getDungeonNodeExit(currentNode, nodeId);
+    const shouldShowNode = node.discovered || hasExitFromCurrentNode;
+    const isLocked = !canEnterDungeonNode(dungeonState.dungeonId, nodeId);
+    const requirementText = getDungeonRequirementText(node.requires);
+
+    if (!shouldShowNode) continue;
+
+    const roomButton = document.createElement("button");
+    roomButton.type = "button";
+    roomButton.className = "dungeon-room";
+    roomButton.dataset.node = nodeId;
+
+    const progressFill = document.createElement("div");
+    progressFill.classList.add("progressFill");
+
+    const label = document.createElement("span");
+    label.textContent = node.discovered ? node.label : "?";
+
+    roomButton.appendChild(progressFill);
+    roomButton.appendChild(label);
+
+    roomButton.style.gridColumn = node.x + 2;
+    roomButton.style.gridRow = node.y + 1;
+
+    if (isCurrentNode) {
+      roomButton.classList.add("current");
+    }
+
+    if (node.explored) {
+      roomButton.classList.add("explored");
+    } else {
+      roomButton.classList.add("discovered");
+    }
+
+    if (isLocked) {
+      roomButton.classList.add("locked");
+      roomButton.title = requirementText || "You are not ready to enter this room.";
+
+      if (hasExitFromCurrentNode) {
+        roomButton.disabled = false;
+
+        roomButton.addEventListener("click", function () {
+          safeSetText(ui.dungeonRoomText, requirementText || "Something blocks the way.");
+        });
+      } else if (nodeId !== dungeonState.nodeId) {
+        roomButton.disabled = true;
+      }
+    } else if (canMoveToDungeonNode(nodeId)) {
+      roomButton.classList.add("available");
+      roomButton.disabled = false;
+
+      roomButton.addEventListener("click", function () {
+        moveToDungeonNode(nodeId);
+      });
+    } else if (nodeId !== dungeonState.nodeId) {
+      roomButton.disabled = true;
+    }
+
+    if (!node.discovered) {
+      roomButton.classList.add("unknown");
+    }
+
+    ui.dungeonMap.appendChild(roomButton);
+  }
+}
+
+function canEnterDungeonNode(dungeonId, nodeId) {
+  const node = getDungeonNode(dungeonId, nodeId);
+
+  if (!node) return false;
+
+  return meetsDungeonRequirements(node.requires);
+}
+
+function meetsDungeonRequirements(requires) {
+  if (!requires) return true;
+
+  if (requires.gearPurchased) {
+    for (let i = 0; i < requires.gearPurchased.length; i++) {
+      if (!hasPurchasedGear(requires.gearPurchased[i])) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+function getDungeonRequirementText(requires) {
+  if (!requires) return "";
+
+  const missingRequirements = [];
+
+  if (requires.gearPurchased) {
+    requires.gearPurchased.forEach(function (gearName) {
+      if (!hasPurchasedGear(gearName)) {
+        const gear = getGearUpgrade(gearName);
+        missingRequirements.push(gear ? gear.displayName || gear.label || gearName : gearName);
+      }
+    });
+  }
+
+  if (missingRequirements.length === 0) return "";
+
+  return "Requires " + missingRequirements.join(", ") + ".";
+}
+
+function enterCurrentLocationDungeon() {
+  const locationName = gameState.expedition.currentLocation;
+  const location = getExpeditionLocation(locationName);
+
+  if (!location || !location.dungeon) return;
+
+  const dungeon = getDungeon(location.dungeon);
+
+  if (!dungeon) return;
+
+  gameState.expedition.dungeon = {
+    active: true,
+    dungeonId: location.dungeon,
+    nodeId: dungeon.startNode,
+  };
+
+  addStoryEntry("You descend into " + dungeon.label + ".");
+  updateLocationActions();
+  updateDungeonUI();
+  updatePlacePanel();
+}
+
+function leaveCurrentDungeon() {
+  const dungeonState = getCurrentDungeonState();
+
+  if (!dungeonState || !dungeonState.active) return;
+
+  gameState.expedition.dungeon.active = false;
+  gameState.expedition.dungeon.dungeonId = null;
+  gameState.expedition.dungeon.nodeId = null;
+
+  addStoryEntry("You return to the ruin entrance.");
+  updateLocationActions();
+  updateDungeonUI();
+  updatePlacePanel();
+}
+
+function canMoveToDungeonNode(targetNodeId) {
+  const dungeonState = getCurrentDungeonState();
+  const currentNode = getCurrentDungeonNode();
+
+  if (!dungeonState || !dungeonState.active || !currentNode) return false;
+
+  const targetNode = getDungeonNode(dungeonState.dungeonId, targetNodeId);
+
+  if (!targetNode) return false;
+  if (!getDungeonNodeExit(currentNode, targetNodeId)) return false;
+  if (!canEnterDungeonNode(dungeonState.dungeonId, targetNodeId)) return false;
+
+  return true;
+}
+
+function moveToDungeonNode(targetNodeId) {
+  if (!canMoveToDungeonNode(targetNodeId)) return;
+
+  const dungeonState = getCurrentDungeonState();
+  const targetNode = getDungeonNode(dungeonState.dungeonId, targetNodeId);
+
+  if (!targetNode.explored) {
+    startDungeonNodeExploration(targetNodeId);
+    return;
+  }
+
+  gameState.expedition.dungeon.nodeId = targetNodeId;
+
+  addStoryEntry("You move to " + targetNode.label + ".");
+  updateDungeonUI();
+  updatePlacePanel();
+}
+
+function startDungeonNodeExploration(targetNodeId) {
+  const dungeonState = getCurrentDungeonState();
+  const currentNode = getCurrentDungeonNode();
+
+  if (!dungeonState || !dungeonState.active || !currentNode) return;
+
+  const targetNode = getDungeonNode(dungeonState.dungeonId, targetNodeId);
+
+  if (!targetNode) return;
+  if (!getDungeonNodeExit(currentNode, targetNodeId)) return;
+  if (!canEnterDungeonNode(dungeonState.dungeonId, targetNodeId)) return;
+  if (isActivityActive()) return;
+  if (!spendCost(targetNode.exploreCost || {})) return;
+
+  startActivity({
+    kind: "dungeonNode",
+    id: targetNodeId,
+    duration: targetNode.exploreDuration || 1,
+    context: {
+      dungeonId: dungeonState.dungeonId,
+      nodeId: targetNodeId,
+    },
+  });
+
+  updateDungeonUI();
+  updateAllActionButtons();
+  updateCraftingButtons();
+}
+
+function completeDungeonNodeExploration(dungeonId, nodeId) {
+  const node = getDungeonNode(dungeonId, nodeId);
+
+  if (!node) return;
+
+  node.discovered = true;
+  node.explored = true;
+  gameState.expedition.dungeon.nodeId = nodeId;
+
+  addStoryEntry("You explore " + node.label + ".");
+
+  claimDungeonNodeReward(node);
+
+  updateDungeonUI();
+  updatePlacePanel();
+  updateAllActionButtons();
+  updateCraftingButtons();
+}
+
+function claimDungeonNodeReward(node) {
+  if (!node || node.rewardClaimed || !node.reward) return;
+
+  if (node.reward.carried) {
+    for (let itemName in node.reward.carried) {
+      const amount = node.reward.carried[itemName];
+      const carriedAmount = addCarriedItemUpToCapacity(itemName, amount);
+
+      if (carriedAmount > 0) {
+        addStoryEntry("You collect " + carriedAmount + " " + itemName + ".");
+        unlockResource(itemName);
+      }
+
+      if (carriedAmount < amount) {
+        addStoryEntry("You cannot carry everything you found.");
+      }
+    }
+  }
+
+  node.rewardClaimed = true;
 }

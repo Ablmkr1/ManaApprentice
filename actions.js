@@ -11,6 +11,14 @@ function hookActionCompletions() {
     }
   };
 
+  getAction("recover").onComplete = function () {
+    addResource("focus", 1);
+
+    if (getResource("focus").value >= getResource("focus").maxValue) {
+      stopAutoAction();
+    }
+  };
+
   getAction("gatherWood").onComplete = function () {
     addResource("wood", getResource("wood").perClick);
   };
@@ -355,6 +363,14 @@ function hookActionCompletions() {
     addStoryEntry("You pack " + amountPacked + " herbs.");
   };
 
+  getAction("enterDungeon").onComplete = function () {
+    enterCurrentLocationDungeon();
+  };
+
+  getAction("leaveDungeon").onComplete = function () {
+    leaveCurrentDungeon();
+  };
+
   getAction("packWater").onComplete = function () {
     const expedition = gameState.expedition;
 
@@ -598,6 +614,10 @@ function getActivityButton(activity) {
     return getLocationObjectButton(activity.context.objectName);
   }
 
+  if (activity.kind === "dungeonNode") {
+    return getDungeonNodeButton(activity.context.nodeId);
+  }
+
   return null;
 }
 
@@ -663,6 +683,14 @@ function processActivityTick() {
     }
   }
 
+  if (activity.kind === "dungeonNode" && button) {
+    const progressFill = button.querySelector(".progressFill");
+
+    if (progressFill) {
+      progressFill.style.width = progress * 100 + "%";
+    }
+  }
+
   if (activity.kind === "rest") {
     const restProgressFill = ui.restBtn.querySelector(".progressFill");
 
@@ -693,6 +721,7 @@ function completeActivity() {
       updateRestButton();
       updateAllActionButtons();
       updateCraftingButtons();
+      updatePlacePanel();
       resumeAutoActionAfterRest();
       return;
     }
@@ -810,6 +839,26 @@ function completeActivity() {
     return;
   }
 
+  if (activity.kind === "dungeonNode") {
+    const context = activity.context;
+    const button = getActivityButton(activity);
+
+    if (button) {
+      const progressFill = button.querySelector(".progressFill");
+
+      if (progressFill) {
+        progressFill.style.width = "0%";
+      }
+    }
+
+    resetActivity();
+
+    completeDungeonNodeExploration(context.dungeonId, context.nodeId);
+    updatePlacePanel();
+
+    return;
+  }
+
   if (activity.kind === "instant") {
     const instantId = activity.id;
     const context = activity.context;
@@ -921,4 +970,10 @@ function continueAutoAction(actionName) {
   }
 
   startActionExecution(actionName);
+}
+
+function getDungeonNodeButton(nodeId) {
+  if (!ui.dungeonMap) return null;
+
+  return ui.dungeonMap.querySelector('[data-node="' + nodeId + '"]');
 }

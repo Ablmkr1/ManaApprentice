@@ -20,10 +20,20 @@ const resources = {
     perClickDisplay: null,
     perSecondDisplay: null,
   },
+  focus: {
+    label: "Focus",
+    value: 0,
+    maxValue: 3,
+    perClick: 1,
+    perSecond: 0,
+    display: null,
+    perClickDisplay: null,
+    perSecondDisplay: null,
+  },
   manaCrystal: {
     label: "Mana Crystal",
     value: 0,
-    maxValue: 20,
+    maxValue: 100,
     perClick: 0,
     perSecond: 0,
     display: null,
@@ -43,7 +53,7 @@ const resources = {
   food: {
     label: "Food",
     value: 0,
-    maxValue: 10,
+    maxValue: 100,
     perClick: 1,
     perSecond: 0,
     display: null,
@@ -53,7 +63,7 @@ const resources = {
   wood: {
     label: "Wood",
     value: 0,
-    maxValue: 20,
+    maxValue: 100,
     perClick: 1,
     perSecond: 0,
     display: null,
@@ -63,7 +73,7 @@ const resources = {
   fiber: {
     label: "Fiber",
     value: 0,
-    maxValue: 20,
+    maxValue: 100,
     perClick: 1,
     perSecond: 0,
     display: null,
@@ -83,7 +93,7 @@ const resources = {
   pelt: {
     label: "Pelt",
     value: 0,
-    maxValue: 20,
+    maxValue: 100,
     perClick: 0,
     perSecond: 0,
     display: null,
@@ -93,7 +103,7 @@ const resources = {
   stone: {
     label: "Stone",
     value: 0,
-    maxValue: 20,
+    maxValue: 100,
     perClick: 0,
     perSecond: 0,
     display: null,
@@ -181,6 +191,20 @@ const actions = {
     progressBar: null,
     metaProgressBar: null,
 
+    onStart: function () {},
+    onComplete: function () {},
+  },
+
+  recover: {
+    label: "Recover",
+    duration: 3,
+    cost: { energy: 5, food: 1 },
+    auto: { resource: "focus", resumeAfterRest: true },
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
     onStart: function () {},
     onComplete: function () {},
   },
@@ -625,6 +649,32 @@ const actions = {
     onStart: function () {},
     onComplete: function () {},
   },
+
+  enterDungeon: {
+    label: "Enter Ruin",
+    duration: 0,
+    cost: {},
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+
+  leaveDungeon: {
+    label: "Leave Ruin",
+    duration: 0,
+    cost: {},
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
 };
 
 //State Engine
@@ -654,6 +704,8 @@ const gameState = {
   },
 
   currentGoalId: "surviveTheWoods",
+
+  selectedResearchEntry: null,
   journal: {
     entries: [],
   },
@@ -723,6 +775,12 @@ const gameState = {
     distance: 0,
     targetDistance: 100,
     tonicSlots: [],
+
+    dungeon: {
+      active: false,
+      dungeonId: null,
+      nodeId: null,
+    },
 
     carriedItems: {
       food: 0,
