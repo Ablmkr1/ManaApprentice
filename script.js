@@ -25,7 +25,7 @@ window.onload = function () {
   updateCurrentGoalUI();
   updateJournalUI();
   updateRegionalMapVisibility();
-  updateResource("energy");
+  updateAllResources();
   hookActionButtonsToUI(runAction);
   hookCampUpgradestoUI();
   hookStorageUpgradesToUI();

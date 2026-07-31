@@ -177,6 +177,14 @@ function updateResource(resourceName) {
   updateAllActionButtons();
 }
 
+function updateAllResources() {
+  const resourceDefinitions = getResourceDefinitions();
+
+  for (let resourceName in resourceDefinitions) {
+    updateResource(resourceName);
+  }
+}
+
 function updateAllActionButtons() {
   const actionDefinitions = getActionDefinitions();
 
