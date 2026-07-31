@@ -545,6 +545,7 @@ const recipes = {
       { type: "campUpgrade", id: "lessCrudeShelter" },
       { type: "storageUpgrade", id: "woodStorage" },
       { type: "storageUpgrade", id: "foodStorage" },
+      { type: "gearUpgrade", id: "foragingBasket" },
     ],
   },
 
@@ -1167,6 +1168,31 @@ const gearUpgrades = {
     },
   },
 
+  foragingBasket: {
+    label: "Foraging Basket (+1 Food)",
+    displayName: "Foraging Basket",
+    equipmentType: "tool",
+    slot: "forage",
+    slotLabel: "Foraging",
+    slotOrder: 0,
+    slotRank: 1,
+    duration: 5,
+    cost: {
+      fiber: 6,
+      wood: 2,
+      energy: 8,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      getResource("food").perClick += 1;
+      updateResource("food");
+      refreshExpeditionUI();
+    },
+  },
+
   waterskin: {
     label: "Waterskin (10 Water Capacity)",
     displayName: "Waterskin",
@@ -1256,7 +1282,7 @@ const gearUpgrades = {
     slotRank: 1,
     duration: 7,
     cost: {
-      pelt: 5,
+      pelt: 4,
     },
     unlocked: false,
     purchased: false,
