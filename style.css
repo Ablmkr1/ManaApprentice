@@ -895,6 +895,9 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  max-height: 270px;
+  overflow-y: auto;
+  align-self: start;
 }
 
 .research-list-item {

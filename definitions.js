@@ -7,9 +7,8 @@ const gameDefinitions = {
   storageUpgrades,
   gearUpgrades,
   expeditionModifiers,
-  recipes,
-  resourceCrafts: resourceCrafts,
   researchDefinitions,
+  resourceCrafts: resourceCrafts,
   goalDefinitions,
   journalDefinitions,
   regionDefinitions,
@@ -88,12 +87,12 @@ function getExpeditionModifier(modifierName) {
   return getExpeditionModifierDefinitions()[modifierName];
 }
 
-function getRecipeDefinitions() {
-  return gameDefinitions.recipes;
+function getResearchDefinitions() {
+  return gameDefinitions.researchDefinitions;
 }
 
-function getRecipe(recipeName) {
-  return getRecipeDefinitions()[recipeName];
+function getResearch(researchName) {
+  return getResearchDefinitions()[researchName];
 }
 
 function getResourceCraftDefinitions() {
@@ -102,14 +101,6 @@ function getResourceCraftDefinitions() {
 
 function getResourceCraft(craftName) {
   return getResourceCraftDefinitions()[craftName];
-}
-
-function getResearchDefinitions() {
-  return gameDefinitions.researchDefinitions;
-}
-
-function getResearch(researchName) {
-  return getResearchDefinitions()[researchName];
 }
 
 function getGoalDefinitions() {

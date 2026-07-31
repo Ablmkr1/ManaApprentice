@@ -20,9 +20,6 @@ const unlockHandlers = {
   location: function (id) {
     unlockLocation(id);
   },
-  recipe: function (id) {
-    unlockRecipe(id);
-  },
   resourceCraft: function (id) {
     unlockResourceCraft(id);
   },
@@ -37,6 +34,9 @@ const unlockHandlers = {
   },
   region: function (id) {
     unlockRegion(id);
+  },
+  goal: function (id) {
+    setCurrentGoal(id);
   },
 };
 
@@ -109,48 +109,51 @@ function unlockRegion(regionId) {
   gameState.world.regions[regionId].unlocked = true;
 }
 
-function applyRecipeUnlocks(recipeName) {
-  const recipe = getRecipe(recipeName);
+function applyResearchUnlocks(researchName) {
+  const research = getResearch(researchName);
 
-  if (!recipe || !Array.isArray(recipe.unlocks)) return;
+  if (!research || !Array.isArray(research.unlocks)) return;
 
-  applyUnlocks(recipe.unlocks);
+  applyUnlocks(research.unlocks);
 }
 
-function unlockRecipe(recipeName) {
-  const recipe = getRecipe(recipeName);
+function unlockResearch(researchName) {
+  const research = getResearch(researchName);
 
-  if (!recipe) {
-    console.warn("Unknown recipe:", recipeName);
+  if (!research) {
+    console.warn("Unknown research:", researchName);
     return;
   }
 
-  if (recipe.discovered || recipe.unlocked) return;
+  if (research.completed || research.unlocked) return;
 
-  recipe.unlocked = true;
+  research.unlocked = true;
+  research.unlockedAt = Date.now();
+  updateCraftingSectionVisibility();
+  updateWorkTabsVisibility();
 
   if (typeof updateResearchHistoryUI === "function") {
     updateResearchHistoryUI();
   }
 }
 
-function completeRecipeResearch(recipeName, costAlreadyPaid = false) {
-  const recipe = getRecipe(recipeName);
+function completeResearch(researchName, costAlreadyPaid = false) {
+  const research = getResearch(researchName);
 
-  if (!recipe || recipe.discovered) return;
-  if (!recipe.unlocked) return;
-  if (!costAlreadyPaid && !spendCost(recipe.cost || {})) return;
+  if (!research || research.completed) return;
+  if (!research.unlocked) return;
+  if (!costAlreadyPaid && !spendCost(research.cost || {})) return;
 
-  recipe.discovered = true;
-  recipe.unlocked = false;
+  research.completed = true;
+  research.unlocked = false;
 
-  if (recipe.story) {
-    addStoryEntry(recipe.story);
+  if (research.story) {
+    addStoryEntry(research.story);
   }
 
-  applyRecipeUnlocks(recipeName);
+  applyResearchUnlocks(researchName);
 
-  gameState.selectedResearchEntry = "recipe:" + recipeName;
+  gameState.selectedResearchEntry = "research:" + researchName;
 
   updateResearchHistoryUI();
   updateCraftingUIForCurrentContext();
@@ -158,47 +161,63 @@ function completeRecipeResearch(recipeName, costAlreadyPaid = false) {
   updateCurrentGoalUI();
 }
 
-function checkRecipeDiscoveries() {
-  const recipeDefinitions = getRecipeDefinitions();
+function checkResearchDiscoveries() {
+  const researchDefinitions = getResearchDefinitions();
 
-  for (let recipeName in recipeDefinitions) {
-    const recipe = getRecipe(recipeName);
+  for (let researchName in researchDefinitions) {
+    const research = getResearch(researchName);
 
-    if (!isRecipeDiscoverable(recipe)) continue;
+    if (!isResearchDiscoverable(research)) continue;
 
-    unlockRecipe(recipeName);
+    unlockResearch(researchName);
   }
 }
 
-function isRecipeDiscoverable(recipe) {
-  if (!recipe || recipe.discovered || recipe.unlocked) return false;
+function isResearchDiscoverable(research) {
+  if (!research || research.completed || research.unlocked) return false;
 
-  if (!recipe.requires) return false;
+  if (!research.requires) return false;
 
-  if (!hasRequiredRecipeLocations(recipe.requires.locationsExplored)) {
+  if (!hasRequiredResearchLocations(research.requires.locationsExplored)) {
     return false;
   }
 
-  if (!hasRequiredRecipeResources(recipe.requires.resources)) {
+  if (!hasRequiredResearchResources(research.requires.resources)) {
     return false;
   }
 
-  if (!hasRequiredRecipeCampUpgrades(recipe.requires.campUpgradesPurchased)) {
+  if (!hasRequiredResearchCampUpgrades(research.requires.campUpgradesPurchased)) {
     return false;
   }
 
-  if (!hasRequiredRecipeGear(recipe.requires.gearPurchased)) {
+  if (!hasRequiredResearchGear(research.requires.gearPurchased)) {
     return false;
   }
 
-  if (!hasRequiredRecipeRecipes(recipe.requires.recipesDiscovered)) {
+  if (!hasRequiredResearchCompleted(research.requires.researchCompleted)) {
+    return false;
+  }
+
+  if (!hasRequiredResearchFlags(research.requires.flags)) {
     return false;
   }
 
   return true;
 }
 
-function hasRequiredRecipeLocations(requiredLocations) {
+function hasRequiredResearchFlags(requiredFlags) {
+  if (!requiredFlags) return true;
+
+  for (let i = 0; i < requiredFlags.length; i++) {
+    if (!gameState[requiredFlags[i]]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function hasRequiredResearchLocations(requiredLocations) {
   if (!requiredLocations) return true;
 
   for (let i = 0; i < requiredLocations.length; i++) {
@@ -212,7 +231,7 @@ function hasRequiredRecipeLocations(requiredLocations) {
   return true;
 }
 
-function hasRequiredRecipeResources(requiredResources) {
+function hasRequiredResearchResources(requiredResources) {
   if (!requiredResources) return true;
 
   for (let resourceName in requiredResources) {
@@ -226,7 +245,7 @@ function hasRequiredRecipeResources(requiredResources) {
   return true;
 }
 
-function hasRequiredRecipeCampUpgrades(requiredUpgrades) {
+function hasRequiredResearchCampUpgrades(requiredUpgrades) {
   if (!requiredUpgrades) return true;
 
   for (let i = 0; i < requiredUpgrades.length; i++) {
@@ -240,7 +259,7 @@ function hasRequiredRecipeCampUpgrades(requiredUpgrades) {
   return true;
 }
 
-function hasRequiredRecipeGear(requiredGear) {
+function hasRequiredResearchGear(requiredGear) {
   if (!requiredGear) return true;
 
   for (let i = 0; i < requiredGear.length; i++) {
@@ -254,13 +273,13 @@ function hasRequiredRecipeGear(requiredGear) {
   return true;
 }
 
-function hasRequiredRecipeRecipes(requiredRecipes) {
-  if (!requiredRecipes) return true;
+function hasRequiredResearchCompleted(requiredResearch) {
+  if (!requiredResearch) return true;
 
-  for (let i = 0; i < requiredRecipes.length; i++) {
-    const recipe = getRecipe(requiredRecipes[i]);
+  for (let i = 0; i < requiredResearch.length; i++) {
+    const research = getResearch(requiredResearch[i]);
 
-    if (!recipe || !recipe.discovered) {
+    if (!research || !research.completed) {
       return false;
     }
   }
@@ -854,10 +873,6 @@ function getCraftDefinition(craftType, craftId) {
     return getResourceCraft(craftId);
   }
 
-  if (craftType === "recipe") {
-    return getRecipe(craftId);
-  }
-
   if (craftType === "research") {
     return getResearch(craftId);
   }
@@ -941,7 +956,7 @@ function startCrafting(craftType, craftId) {
   updateCraftingButtons();
   updateAllActionButtons();
 
-  if (craftType === "recipe") {
+  if (craftType === "research") {
     updateSelectedResearchButtonState();
   }
 }
@@ -975,10 +990,6 @@ function isCraftAvailable(craftType, craftId) {
 
   if (craftType === "research") {
     return craft.unlocked && !craft.completed;
-  }
-
-  if (craftType === "recipe") {
-    return craft.unlocked && !craft.discovered;
   }
 
   return false;
@@ -1055,69 +1066,6 @@ function hookResourceCraftsToUI() {
   }
 
   updateCraftingSectionVisibility();
-}
-
-function hookResearchToUI() {
-  const researchDefinitions = getResearchDefinitions();
-
-  for (let researchName in researchDefinitions) {
-    const research = getResearch(researchName);
-
-    research.button = document.getElementById(researchName + "ResearchBtn");
-
-    if (research.button) {
-      prepareCraftButton(research.button);
-      research.button.addEventListener("click", function () {
-        startCrafting("research", researchName);
-      });
-    }
-
-    updateResearchUI(researchName);
-  }
-
-  updateCraftingSectionVisibility();
-}
-
-function updateResearchUI(researchName) {
-  const research = getResearch(researchName);
-
-  if (!research || !research.button) return;
-
-  research.button.style.display = isCraftContextAvailable(research) && research.unlocked && !research.completed ? "inline-block" : "none";
-  updateCraftButtonLabel("research", researchName);
-  updateCraftingButtons();
-}
-
-function unlockResearch(researchName) {
-  const research = getResearch(researchName);
-
-  if (!research) {
-    console.warn("Unknown research:", researchName);
-    return;
-  }
-
-  if (research.completed || research.unlocked) return;
-  if (!isResearchRequirementMet(research)) return;
-
-  research.unlocked = true;
-  updateResearchUI(researchName);
-  updateCraftingSectionVisibility();
-
-  if (typeof updateResearchHistoryUI === "function") {
-    updateResearchHistoryUI();
-  }
-}
-
-function isResearchRequirementMet(research) {
-  if (!research.requires || !research.requires.flags) return true;
-
-  for (let i = 0; i < research.requires.flags.length; i++) {
-    if (!gameState[research.requires.flags[i]]) {
-      return false;
-    }
-  }
-
-  return true;
 }
 
 function updateResourceCraftUI(craftName) {
@@ -1207,15 +1155,13 @@ function updateCraftingUIForCurrentContext() {
 
   updateResourceCraftsUI();
 
-  const researchDefinitions = getResearchDefinitions();
-
-  for (let researchName in researchDefinitions) {
-    updateResearchUI(researchName);
-  }
-
   updateCraftingButtons();
   updateCraftingSectionVisibility();
   updateWorkTabsVisibility();
+
+  if (ui.researchPanel && ui.researchPanel.style.display !== "none") {
+    updateResearchHistoryUI();
+  }
 }
 
 function getCurrentCraftLocationStorage() {
@@ -1313,23 +1259,6 @@ function showWorkPanel(panelName) {
 function getVisibleResearchEntries() {
   const entries = [];
 
-  const recipes = getRecipeDefinitions();
-
-  for (let recipeName in recipes) {
-    const recipe = getRecipe(recipeName);
-
-    if (!recipe.unlocked && !recipe.discovered) continue;
-
-    entries.push({
-      id: recipeName,
-      type: "recipe",
-      label: recipe.label,
-      story: recipe.story || "",
-      unlocks: recipe.unlocks || [],
-      status: recipe.discovered ? "complete" : "available",
-    });
-  }
-
   const researchDefinitions = getResearchDefinitions();
 
   for (let researchName in researchDefinitions) {
@@ -1344,8 +1273,13 @@ function getVisibleResearchEntries() {
       story: research.story || "",
       unlocks: research.unlocks || [],
       status: research.completed ? "complete" : "available",
+      unlockedAt: research.unlockedAt || 0,
     });
   }
+
+  entries.sort(function (a, b) {
+    return (b.unlockedAt || 0) - (a.unlockedAt || 0);
+  });
 
   return entries;
 }
@@ -1469,8 +1403,8 @@ function renderResearchDetails(entry) {
     ui.researchDetails.appendChild(list);
   }
 
-  if (entry.type === "recipe" && entry.status === "available") {
-    const recipe = getRecipe(entry.id);
+  if (entry.type === "research" && entry.status === "available") {
+    const research = getResearch(entry.id);
 
     const costTitle = document.createElement("h5");
     costTitle.textContent = "Cost";
@@ -1478,24 +1412,24 @@ function renderResearchDetails(entry) {
 
     const costText = document.createElement("div");
     costText.classList.add("research-cost");
-    costText.textContent = formatCost(recipe.cost || {});
+    costText.textContent = formatCost(research.cost || {});
     ui.researchDetails.appendChild(costText);
 
     const button = document.createElement("button");
     button.type = "button";
     button.classList.add("action-btn", "research-complete-btn");
-    button.dataset.recipe = entry.id;
+    button.dataset.research = entry.id;
 
-    recipe.button = button;
+    research.button = button;
 
-    setCraftButtonLabel(button, "Research " + entry.label, formatCost(recipe.cost || {}));
+    setCraftButtonLabel(button, "Research " + entry.label, formatCost(research.cost || {}));
 
-    const recipeName = entry.id;
+    const researchName = entry.id;
 
     button.addEventListener("click", function (event) {
       event.preventDefault();
 
-      startCrafting("recipe", recipeName);
+      startCrafting("research", researchName);
     });
 
     ui.researchDetails.appendChild(button);
@@ -1508,17 +1442,17 @@ function updateSelectedResearchButtonState() {
 
   const button = ui.researchDetails.querySelector(".research-complete-btn");
 
-  if (!button || !button.dataset.recipe) return;
+  if (!button || !button.dataset.research) return;
 
-  const recipeName = button.dataset.recipe;
-  const recipe = getRecipe(recipeName);
+  const researchName = button.dataset.research;
+  const research = getResearch(researchName);
 
-  if (!recipe) return;
+  if (!research) return;
 
   const isActiveResearch =
-    isActivityActive() && gameState.activity.kind === "craft" && gameState.activity.type === "recipe" && gameState.activity.id === recipeName;
+    isActivityActive() && gameState.activity.kind === "craft" && gameState.activity.type === "research" && gameState.activity.id === researchName;
 
-  const canStartResearch = isCraftAvailable("recipe", recipeName) && canAffordCost(recipe.cost || {});
+  const canStartResearch = isCraftAvailable("research", researchName) && canAffordCost(research.cost || {});
 
   button.disabled = !isActiveResearch && (isActivityActive() || !canStartResearch);
   button.classList.toggle("running", isActiveResearch);
@@ -1570,6 +1504,11 @@ function getUnlockDisplayText(unlock) {
   if (unlock.type === "journal") {
     const journal = getJournalEntryDefinition(unlock.id);
     return journal ? journal.title : unlock.id;
+  }
+
+  if (unlock.type === "goal") {
+    const goal = getGoal(unlock.id);
+    return goal ? goal.title : unlock.id;
   }
 
   return unlock.id;

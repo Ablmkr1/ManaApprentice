@@ -364,7 +364,7 @@ function transferCarriedItemsToCamp() {
 
 //Unlock Return Unlocker
 // Immediate rewards for bringing a resource back to camp.
-// Deeper equipment/camp discoveries should live in recipes.
+// Deeper equipment/camp discoveries should live in research.
 const expeditionReturnUnlocks = {
   fiber: [{ type: "storageUpgrade", id: "fiberStorage" }],
 
@@ -547,7 +547,7 @@ function endExpedition(reason) {
   applyReturnPenalty();
   transferCarriedItemsToCamp();
   updateTrapCapacityUI();
-  checkRecipeDiscoveries();
+  checkResearchDiscoveries();
   clearCurrentLocationActions();
   setCampActionsAvailable(true);
 
@@ -612,7 +612,7 @@ function exploreCurrentLocation() {
       applyUnlocks(location.unlocks);
     }
 
-    checkRecipeDiscoveries();
+    checkResearchDiscoveries();
     updateCraftingUIForCurrentContext();
     updateLocationActions();
   }
@@ -978,7 +978,7 @@ function completeLocationObjectExploration(locationName, objectName) {
     object.onComplete();
   }
 
-  checkRecipeDiscoveries();
+  checkResearchDiscoveries();
   updateLocationObjectActionsUI(place);
   updateCurrentGoalUI();
   updateAllActionButtons();
@@ -1417,10 +1417,10 @@ function setPackingActionsAvailable(available) {
     lockAction("packTrap");
   }
 
-  const leatherworking = getRecipe("leatherworking");
+  const leatherworking = getResearch("leatherworking");
   const pelt = getResource("pelt");
 
-  if (leatherworking && leatherworking.discovered && pelt.value > 0) {
+  if (leatherworking && leatherworking.completed && pelt.value > 0) {
     unlockAction("packPelt");
   } else {
     lockAction("packPelt");

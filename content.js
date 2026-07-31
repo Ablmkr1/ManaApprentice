@@ -524,12 +524,12 @@ const dungeonDefinitions = {
   },
 };
 
-//Recepies Definitions
-const recipes = {
+// Research Definitions
+const researchDefinitions = {
   cordage: {
     label: "Cordage",
     duration: 5,
-    discovered: false,
+    completed: false,
     unlocked: false,
     cost: {
       energy: 10,
@@ -552,7 +552,7 @@ const recipes = {
   simpleTraps: {
     label: "Simple Traps",
     duration: 3,
-    discovered: false,
+    completed: false,
     unlocked: false,
     cost: {
       energy: 15,
@@ -574,7 +574,7 @@ const recipes = {
   hideworking: {
     label: "Hideworking",
     duration: 7,
-    discovered: false,
+    completed: false,
     unlocked: false,
     cost: {
       energy: 8,
@@ -583,7 +583,7 @@ const recipes = {
       focus: 2,
     },
     requires: {
-      recipesDiscovered: ["simpleTraps"],
+      researchCompleted: ["simpleTraps"],
       resources: {
         pelt: 1,
       },
@@ -598,7 +598,7 @@ const recipes = {
   leatherworking: {
     label: "Leatherworking",
     duration: 9,
-    discovered: false,
+    completed: false,
     unlocked: false,
     cost: {
       energy: 15,
@@ -622,7 +622,7 @@ const recipes = {
   crudeBackpack: {
     label: "Crude Backpack",
     duration: 5,
-    discovered: false,
+    completed: false,
     unlocked: false,
     cost: {
       energy: 3,
@@ -631,7 +631,7 @@ const recipes = {
       focus: 1,
     },
     requires: {
-      recipesDiscovered: ["hideworking"],
+      researchCompleted: ["hideworking"],
       gearPurchased: ["crudeSatchel"],
       resources: {},
     },
@@ -642,7 +642,7 @@ const recipes = {
   smellyShoes: {
     label: "Smelly Shoes",
     duration: 5,
-    discovered: false,
+    completed: false,
     unlocked: false,
     cost: {
       energy: 3,
@@ -651,7 +651,7 @@ const recipes = {
       focus: 1,
     },
     requires: {
-      recipesDiscovered: ["hideworking"],
+      researchCompleted: ["hideworking"],
       resources: {},
     },
     story: "Wrapped hide could soften the trail underfoot, even if the smell leaves something to be desired.",
@@ -661,7 +661,7 @@ const recipes = {
   scratchyClothes: {
     label: "Scratchy Clothes",
     duration: 5,
-    discovered: false,
+    completed: false,
     unlocked: false,
     cost: {
       energy: 15,
@@ -682,7 +682,7 @@ const recipes = {
   uncomfortableCot: {
     label: "Uncomfortable Cot",
     duration: 5,
-    discovered: false,
+    completed: false,
     unlocked: false,
     cost: {
       energy: 3,
@@ -691,7 +691,7 @@ const recipes = {
       focus: 1,
     },
     requires: {
-      recipesDiscovered: ["hideworking"],
+      researchCompleted: ["hideworking"],
       resources: {},
     },
     story: "A raised frame, layered pelts, and enough cordage might make sleep less punishing.",
@@ -701,7 +701,7 @@ const recipes = {
   stoneTools: {
     label: "Stone Tools",
     duration: 5,
-    discovered: false,
+    completed: false,
     unlocked: false,
     cost: {
       energy: 8,
@@ -722,10 +722,34 @@ const recipes = {
     ],
   },
 
+  ruinedTorch: {
+    label: "Ruined Torch",
+    duration: 8,
+    completed: false,
+    unlocked: false,
+    cost: {
+      energy: 20,
+      wood: 5,
+      fiber: 8,
+      focus: 1,
+    },
+    requires: {
+      flags: ["researchUnlocked", "ruinedTorchFound", "ruinedJournalFound"],
+    },
+    story:
+      "The ruined journal gives the torch shape again: bundled pitchwood, tight fiber binding, and enough structure to keep flame alive in the cave damp.",
+    unlocks: [
+      { type: "flag", id: "torchResearched" },
+      { type: "gearUpgrade", id: "torch" },
+      { type: "journal", id: "torchResearched" },
+      { type: "goal", id: "craftTorch" },
+    ],
+  },
+
   smelting: {
     label: "Smelting",
     duration: 5,
-    discovered: false,
+    completed: false,
     unlocked: false,
     cost: {
       energy: 8,
@@ -743,7 +767,7 @@ const recipes = {
   crudeIronPick: {
     label: "Crude Iron Pick",
     duration: 5,
-    discovered: false,
+    completed: false,
     unlocked: false,
     cost: {
       energy: 8,
@@ -752,7 +776,7 @@ const recipes = {
       focus: 3,
     },
     requires: {
-      recipesDiscovered: ["smelting"],
+      researchCompleted: ["smelting"],
       resources: {
         iron: 1,
       },
@@ -764,7 +788,7 @@ const recipes = {
   ironTools: {
     label: "Iron Tools",
     duration: 5,
-    discovered: false,
+    completed: false,
     unlocked: false,
     cost: {
       energy: 8,
@@ -773,7 +797,7 @@ const recipes = {
       focus: 3,
     },
     requires: {
-      recipesDiscovered: ["smelting", "leatherworking"],
+      researchCompleted: ["smelting", "leatherworking"],
       resources: {},
     },
     story: "Iron and leather together can make better tools.",
@@ -786,7 +810,7 @@ const recipes = {
   alchemy: {
     label: "Alchemy",
     duration: 5,
-    discovered: false,
+    completed: false,
     unlocked: false,
     cost: {
       energy: 8,
@@ -805,7 +829,7 @@ const recipes = {
   alchemyBelt2: {
     label: "Improved Tonic Belt",
     duration: 5,
-    discovered: false,
+    completed: false,
     unlocked: false,
     cost: {
       energy: 8,
@@ -815,7 +839,7 @@ const recipes = {
     },
     requires: {
       gearPurchased: ["simpleTonicBelt"],
-      recipesDiscovered: ["leatherworking"],
+      researchCompleted: ["leatherworking"],
     },
     story: "This belt could be upgraded further with Leather.",
     unlocks: [{ type: "gearUpgrade", id: "tonicBelt" }],
@@ -824,7 +848,7 @@ const recipes = {
   alchemyBelt3: {
     label: "Reinforced Tonic Belt",
     duration: 5,
-    discovered: false,
+    completed: false,
     unlocked: false,
     cost: {
       energy: 8,
@@ -834,7 +858,7 @@ const recipes = {
     },
     requires: {
       gearPurchased: ["tonicBelt"],
-      recipesDiscovered: ["smelting", "leatherworking"],
+      researchCompleted: ["smelting", "leatherworking"],
     },
     story: "This belt could be upgraded further with leather and iron.",
     unlocks: [{ type: "gearUpgrade", id: "reinforcedTonicBelt" }],
@@ -1682,29 +1706,6 @@ const consumables = {
     use() {
       addResource("energy", 20);
       updateResource("energy");
-    },
-  },
-};
-
-const researchDefinitions = {
-  ruinedTorch: {
-    label: "Research Ruined Torch",
-    duration: 8,
-    cost: {
-      energy: 20,
-      wood: 5,
-      fiber: 8,
-    },
-    unlocked: false,
-    completed: false,
-    requires: {
-      flags: ["researchUnlocked", "ruinedTorchFound"],
-    },
-    onComplete() {
-      gameState.torchResearched = true;
-      unlockGearUpgrade("torch");
-      setCurrentGoal("craftTorch");
-      addJournalEntry("torchResearched");
     },
   },
 };

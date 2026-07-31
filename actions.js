@@ -889,7 +889,7 @@ function completeActivity() {
         action.onComplete();
       }
 
-      checkRecipeDiscoveries();
+      checkResearchDiscoveries();
 
       updateAllActionButtons();
       updateCraftingButtons();
@@ -925,18 +925,14 @@ function completeActivity() {
     }
 
     if (craftType === "research") {
-      completeResearch(craftId);
-    }
-
-    if (craftType === "recipe") {
-      completeRecipeResearch(craftId, true);
+      completeResearch(craftId, true);
     }
 
     resetActivity();
     updateCraftingButtons();
     updateCraftingSectionVisibility();
     updateAllActionButtons();
-    checkRecipeDiscoveries();
+    checkResearchDiscoveries();
     return;
   }
 

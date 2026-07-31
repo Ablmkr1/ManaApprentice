@@ -1,6 +1,5 @@
 const SAVE_KEY = "manaApprenticeSaveV1";
-const SAVE_VERSION = 5;
-const FIRST_SAVE_VERSION = 1;
+const SAVE_VERSION = 6;
 let saveSuppressed = false;
 
 function createSaveData() {
@@ -16,10 +15,9 @@ function createSaveData() {
     storageUpgrades: createUpgradeSaveData(getStorageUpgradeDefinitions(), ["unlocked", "tier"]),
     gearUpgrades: createUpgradeSaveData(getGearUpgradeDefinitions(), ["unlocked", "purchased"]),
     resourceCrafts: createUpgradeSaveData(getResourceCraftDefinitions(), ["unlocked"]),
-    research: createUpgradeSaveData(getResearchDefinitions(), ["unlocked", "completed"]),
     expeditionLocations: createExpeditionLocationSaveData(),
     dungeons: createDungeonSaveData(),
-    recipes: createRecipeSaveData(),
+    research: createResearchSaveData(),
   };
 }
 
@@ -72,20 +70,21 @@ function createUpgradeSaveData(upgrades, fields) {
   return savedUpgrades;
 }
 
-function createRecipeSaveData() {
-  const savedRecipes = {};
-  const recipeDefinitions = getRecipeDefinitions();
+function createResearchSaveData() {
+  const savedResearch = {};
+  const researchDefinitions = getResearchDefinitions();
 
-  for (let recipeName in recipeDefinitions) {
-    const recipe = getRecipe(recipeName);
+  for (let researchName in researchDefinitions) {
+    const research = getResearch(researchName);
 
-    savedRecipes[recipeName] = {
-      discovered: recipe.discovered,
-      unlocked: recipe.unlocked,
+    savedResearch[researchName] = {
+      completed: research.completed,
+      unlocked: research.unlocked,
+      unlockedAt: research.unlockedAt || 0,
     };
   }
 
-  return savedRecipes;
+  return savedResearch;
 }
 
 function createExpeditionLocationSaveData() {
@@ -208,84 +207,14 @@ function migrateSaveData(saveData) {
     return null;
   }
 
-  const version = Number.isInteger(saveData.version) ? saveData.version : FIRST_SAVE_VERSION;
+  const version = Number.isInteger(saveData.version) ? saveData.version : 0;
 
-  if (version > SAVE_VERSION) {
-    console.warn("Save was created by a newer version of Mana Apprentice.");
+  if (version !== SAVE_VERSION) {
+    console.warn("Save version is not compatible with this update:", version);
     return null;
-  }
-
-  if (version < FIRST_SAVE_VERSION) {
-    console.warn("Unsupported save version:", version);
-    return null;
-  }
-
-  saveData.version = version;
-
-  while (saveData.version < SAVE_VERSION) {
-    const migration = getSaveMigration(saveData.version);
-
-    if (!migration) {
-      console.warn("Missing save migration for version:", saveData.version);
-      return null;
-    }
-
-    const previousVersion = saveData.version;
-
-    migration(saveData);
-
-    if (!Number.isInteger(saveData.version) || saveData.version <= previousVersion || saveData.version > SAVE_VERSION) {
-      console.warn("Save migration produced invalid version:", saveData.version);
-      return null;
-    }
   }
 
   return normalizeSaveData(saveData);
-}
-
-function getSaveMigration(version) {
-  if (version === 1) return migrateV1ToV2;
-  if (version === 2) return migrateV2ToV3;
-  if (version === 3) return migrateV3ToV4;
-  if (version === 4) return migrateV4ToV5;
-
-  return null;
-}
-
-function migrateV1ToV2(saveData) {
-  saveData.version = 2;
-}
-
-function migrateV2ToV3(saveData) {
-  saveData.recipes = {};
-  saveData.version = 3;
-}
-
-function migrateV3ToV4(saveData) {
-  saveData.resourceCrafts = {};
-
-  if (saveData.actions && saveData.actions.makeTrap && saveData.actions.makeTrap.unlocked) {
-    saveData.resourceCrafts.trap = {
-      unlocked: true,
-    };
-  }
-
-  saveData.version = 4;
-}
-
-function migrateV4ToV5(saveData) {
-  if (saveData.gameState) {
-    delete saveData.gameState.resting;
-    delete saveData.gameState.restStartTime;
-    delete saveData.gameState.crafting;
-
-    if (saveData.gameState.expedition) {
-      delete saveData.gameState.expedition.traveling;
-      delete saveData.gameState.expedition.travelStartTime;
-    }
-  }
-
-  saveData.version = 5;
 }
 
 function normalizeSaveData(saveData) {
@@ -295,7 +224,7 @@ function normalizeSaveData(saveData) {
   saveData.gameState.exploration = ensureObject(saveData.gameState.exploration);
   saveData.gameState.expedition = ensureObject(saveData.gameState.expedition);
   saveData.gameState.expedition.carriedItems = ensureObject(saveData.gameState.expedition.carriedItems);
-  saveData.recipes = ensureObject(saveData.recipes);
+  saveData.research = ensureObject(saveData.research);
   saveData.gameState.world = ensureObject(saveData.gameState.world);
   saveData.gameState.world.regions = ensureObject(saveData.gameState.world.regions);
 
@@ -305,7 +234,6 @@ function normalizeSaveData(saveData) {
   saveData.storageUpgrades = ensureObject(saveData.storageUpgrades);
   saveData.gearUpgrades = ensureObject(saveData.gearUpgrades);
   saveData.resourceCrafts = ensureObject(saveData.resourceCrafts);
-  saveData.research = ensureObject(saveData.research);
   saveData.expeditionLocations = ensureObject(saveData.expeditionLocations);
   saveData.dungeons = ensureObject(saveData.dungeons);
   saveData.gameState.journal = ensureObject(saveData.gameState.journal);
@@ -334,16 +262,16 @@ function applySavedFields(target, savedData, fields) {
   });
 }
 
-function applyRecipeSaveData(savedRecipes) {
-  if (!savedRecipes) return;
+function applyResearchSaveData(savedResearch) {
+  if (!savedResearch) return;
 
-  const recipeDefinitions = getRecipeDefinitions();
+  const researchDefinitions = getResearchDefinitions();
 
-  for (let recipeName in recipeDefinitions) {
-    const recipe = getRecipe(recipeName);
-    const savedRecipe = savedRecipes[recipeName];
+  for (let researchName in researchDefinitions) {
+    const research = getResearch(researchName);
+    const savedEntry = savedResearch[researchName];
 
-    applySavedFields(recipe, savedRecipe, ["discovered", "unlocked"]);
+    applySavedFields(research, savedEntry, ["completed", "unlocked", "unlockedAt"]);
   }
 }
 
@@ -612,7 +540,7 @@ function refreshGameUIAfterLoad() {
   updateCharacterPanelLocks();
   updateDestinationActions();
   updateLocationActions();
-  checkRecipeDiscoveries();
+  checkResearchDiscoveries();
   updateCraftingUIForCurrentContext();
   updateTrapCapacityUI();
   const canPackAfterLoad =
@@ -639,11 +567,10 @@ function loadGame() {
   applyUpgradeSaveData(getGearUpgradeDefinitions(), saveData.gearUpgrades, ["unlocked", "purchased"], updateGearUpgradeUI);
   repairExpeditionTonicSlots();
   applyUpgradeSaveData(getResourceCraftDefinitions(), saveData.resourceCrafts, ["unlocked"], updateResourceCraftUI);
-  applyUpgradeSaveData(getResearchDefinitions(), saveData.research, ["unlocked", "completed"], updateResearchUI);
   applyExpeditionLocationSaveData(saveData.expeditionLocations);
   applyDungeonSaveData(saveData.dungeons);
-  applyRecipeSaveData(saveData.recipes);
-  checkRecipeDiscoveries();
+  applyResearchSaveData(saveData.research);
+  checkResearchDiscoveries();
   refreshGameUIAfterLoad();
 
   return true;

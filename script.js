@@ -31,7 +31,6 @@ window.onload = function () {
   hookStorageUpgradesToUI();
   hookGearUpgradesToUI();
   hookResourceCraftsToUI();
-  hookResearchToUI();
   hookSaveControls();
   hookWorkTabs();
 
