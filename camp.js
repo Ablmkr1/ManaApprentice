@@ -322,19 +322,44 @@ function hookStorageUpgradesToUI() {
   }
 }
 
+function ensureCraftingButton(buttonId) {
+  let button = document.getElementById(buttonId);
+
+  if (button) return button;
+
+  const craftingActions = document.querySelector("#craftingPanel .crafting-actions");
+
+  if (!craftingActions) return null;
+
+  button = document.createElement("button");
+  button.id = buttonId;
+  button.type = "button";
+  button.style.display = "none";
+
+  craftingActions.appendChild(button);
+
+  return button;
+}
+
 function hookGearUpgradesToUI() {
   const gearUpgradeDefinitions = getGearUpgradeDefinitions();
 
   for (let upgradeName in gearUpgradeDefinitions) {
     const upgrade = getGearUpgrade(upgradeName);
 
-    upgrade.button = document.getElementById(upgradeName + "Btn");
+    upgrade.button = ensureCraftingButton(upgradeName + "Btn");
     upgrade.display = document.getElementById(upgradeName);
 
     if (upgrade.button) {
-      upgrade.button.addEventListener("click", function () {
-        buyGearUpgrade(upgradeName);
-      });
+      prepareCraftButton(upgrade.button);
+
+      if (!upgrade.button.dataset.gearHooked) {
+        upgrade.button.addEventListener("click", function () {
+          buyGearUpgrade(upgradeName);
+        });
+
+        upgrade.button.dataset.gearHooked = "true";
+      }
     }
 
     updateGearUpgradeUI(upgradeName);
