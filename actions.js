@@ -927,6 +927,10 @@ function completeActivity() {
       completeResearch(craftId);
     }
 
+    if (craftType === "recipe") {
+      completeRecipeResearch(craftId, true);
+    }
+
     resetActivity();
     updateCraftingButtons();
     updateCraftingSectionVisibility();

@@ -134,12 +134,12 @@ function unlockRecipe(recipeName) {
   }
 }
 
-function completeRecipeResearch(recipeName) {
+function completeRecipeResearch(recipeName, costAlreadyPaid = false) {
   const recipe = getRecipe(recipeName);
 
   if (!recipe || recipe.discovered) return;
   if (!recipe.unlocked) return;
-  if (!spendCost(recipe.cost || {})) return;
+  if (!costAlreadyPaid && !spendCost(recipe.cost || {})) return;
 
   recipe.discovered = true;
   recipe.unlocked = false;
@@ -523,6 +523,9 @@ function completeCampUpgrade(upgradeName) {
   updateCampUpgradeUI(upgradeName);
   updateCraftingSectionVisibility();
   updateWorkTabsVisibility();
+  if (upgradeName === "researchSpot") {
+    showWorkPanel("research");
+  }
   updateCurrentGoalUI();
   checkClearingComplete();
 }
@@ -808,6 +811,7 @@ function updateCraftingSectionVisibility() {
   const hasResourceCrafting = hasAvailableResourceCraft();
   const hasStorageCrafting = hasAvailableStorageUpgrade();
   const hasResearchCrafting = hasAvailableResearch();
+  const hasResearchWorkspace = isResearchSpotPurchased();
 
   if (hasCampCrafting || hasGearCrafting || hasStorageCrafting || hasResourceCrafting || hasResearchCrafting) {
     showElement(ui.craftingSection, "flex");
@@ -823,6 +827,10 @@ function getCraftDefinition(craftType, craftId) {
 
   if (craftType === "resourceCraft") {
     return getResourceCraft(craftId);
+  }
+
+  if (craftType === "recipe") {
+    return getRecipe(craftId);
   }
 
   if (craftType === "research") {
@@ -907,6 +915,10 @@ function startCrafting(craftType, craftId) {
 
   updateCraftingButtons();
   updateAllActionButtons();
+
+  if (craftType === "recipe") {
+    updateSelectedResearchButtonState();
+  }
 }
 
 function isCraftAvailable(craftType, craftId) {
@@ -938,6 +950,10 @@ function isCraftAvailable(craftType, craftId) {
 
   if (craftType === "research") {
     return craft.unlocked && !craft.completed;
+  }
+
+  if (craftType === "recipe") {
+    return craft.unlocked && !craft.discovered;
   }
 
   return false;
@@ -993,26 +1009,6 @@ function completeResourceCraft(craftName) {
   }
 
   updateResourceCraftUI(craftName);
-}
-
-function completeResearch(researchName) {
-  const research = getResearch(researchName);
-
-  if (!research || research.completed) return;
-
-  research.completed = true;
-  research.unlocked = false;
-
-  if (research.onComplete) {
-    research.onComplete();
-  }
-
-  updateResearchUI(researchName);
-  updateCraftingSectionVisibility();
-
-  if (typeof updateResearchHistoryUI === "function") {
-    updateResearchHistoryUI();
-  }
 }
 
 function hookResourceCraftsToUI() {
@@ -1464,19 +1460,21 @@ function renderResearchDetails(entry) {
     button.type = "button";
     button.classList.add("action-btn", "research-complete-btn");
     button.dataset.recipe = entry.id;
-    button.textContent = "Research " + entry.label;
-    button.disabled = !canAffordCost(recipe.cost || {});
+
+    recipe.button = button;
+
+    setCraftButtonLabel(button, "Research " + entry.label, formatCost(recipe.cost || {}));
 
     const recipeName = entry.id;
 
     button.addEventListener("click", function (event) {
       event.preventDefault();
 
-      completeRecipeResearch(recipeName);
-      updateResearchHistoryUI();
+      startCrafting("recipe", recipeName);
     });
 
     ui.researchDetails.appendChild(button);
+    updateSelectedResearchButtonState();
   }
 }
 
@@ -1487,11 +1485,18 @@ function updateSelectedResearchButtonState() {
 
   if (!button || !button.dataset.recipe) return;
 
-  const recipe = getRecipe(button.dataset.recipe);
+  const recipeName = button.dataset.recipe;
+  const recipe = getRecipe(recipeName);
 
   if (!recipe) return;
 
-  button.disabled = !recipe.unlocked || recipe.discovered || !canAffordCost(recipe.cost || {});
+  const isActiveResearch =
+    isActivityActive() && gameState.activity.kind === "craft" && gameState.activity.type === "recipe" && gameState.activity.id === recipeName;
+
+  const canStartResearch = isCraftAvailable("recipe", recipeName) && canAffordCost(recipe.cost || {});
+
+  button.disabled = !isActiveResearch && (isActivityActive() || !canStartResearch);
+  button.classList.toggle("running", isActiveResearch);
 }
 
 function getUnlockDisplayText(unlock) {

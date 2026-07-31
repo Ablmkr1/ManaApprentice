@@ -528,6 +528,7 @@ const dungeonDefinitions = {
 const recipes = {
   cordage: {
     label: "Cordage",
+    duration: 5,
     discovered: false,
     unlocked: false,
     cost: {
@@ -549,7 +550,15 @@ const recipes = {
 
   simpleTraps: {
     label: "Simple Traps",
+    duration: 3,
     discovered: false,
+    unlocked: false,
+    cost: {
+      energy: 15,
+      fiber: 2,
+      wood: 3,
+      focus: 1,
+    },
     requires: {
       locationsExplored: ["strangeTrails"],
     },
@@ -563,7 +572,15 @@ const recipes = {
 
   hideworking: {
     label: "Hideworking",
+    duration: 7,
     discovered: false,
+    unlocked: false,
+    cost: {
+      energy: 8,
+      pelt: 2,
+      wood: 3,
+      focus: 2,
+    },
     requires: {
       recipesDiscovered: ["simpleTraps"],
       resources: {
@@ -579,7 +596,16 @@ const recipes = {
 
   leatherworking: {
     label: "Leatherworking",
+    duration: 9,
     discovered: false,
+    unlocked: false,
+    cost: {
+      energy: 15,
+      pelt: 4,
+      wood: 3,
+      fiber: 2,
+      focus: 3,
+    },
     requires: {
       locationsExplored: ["huntersCabin"],
     },
@@ -594,7 +620,15 @@ const recipes = {
 
   crudeBackpack: {
     label: "Crude Backpack",
+    duration: 5,
     discovered: false,
+    unlocked: false,
+    cost: {
+      energy: 3,
+      pelt: 1,
+      wood: 3,
+      focus: 1,
+    },
     requires: {
       recipesDiscovered: ["hideworking"],
       gearPurchased: ["crudeSatchel"],
@@ -617,7 +651,14 @@ const recipes = {
 
   scratchyClothes: {
     label: "Scratchy Clothes",
+    duration: 5,
     discovered: false,
+    unlocked: false,
+    cost: {
+      energy: 15,
+      fiber: 2,
+      focus: 1,
+    },
     requires: {
       gearPurchased: ["crudeSatchel"],
       resources: {},
