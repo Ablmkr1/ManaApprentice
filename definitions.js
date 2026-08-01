@@ -14,6 +14,7 @@ const gameDefinitions = {
   regionDefinitions,
   consumables,
   clearingPlace,
+  spellDefinitions,
 };
 
 function getClearingPlace() {
@@ -133,4 +134,12 @@ function getConsumable(consumableName) {
 
 function getConsumableDefinitions() {
   return consumables;
+}
+
+function getSpellDefinitions() {
+  return gameDefinitions.spellDefinitions;
+}
+
+function getSpell(spellName) {
+  return getSpellDefinitions()[spellName];
 }

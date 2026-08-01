@@ -38,6 +38,9 @@ const unlockHandlers = {
   goal: function (id) {
     setCurrentGoal(id);
   },
+  spell: function (id) {
+    unlockSpell(id);
+  },
 };
 
 function applyUnlock(unlock) {
@@ -540,12 +543,22 @@ function setCampActionsAvailable(available) {
       lockAction("explore");
     }
 
+    if (gameState.phase === "expedition") {
+      unlockAction("recover");
+    }
+
+    if (hasPurchasedCampUpgrade("meditationSpot")) {
+      unlockAction("meditate");
+    }
+
     ui.restBtn.style.display = "inline-block";
   } else {
     lockAction("gatherWood");
     lockAction("gatherFood");
     lockAction("gatherWater");
     lockAction("explore");
+    lockAction("recover");
+    lockAction("meditate");
     ui.restBtn.style.display = "none";
   }
 }
@@ -680,7 +693,66 @@ function checkClearingComplete() {
 function updateEquipmentSlotUI() {
   renderEquipmentSlots(ui.gearSlotsGroup, ui.gearSlots, "gear");
   renderEquipmentSlots(ui.toolSlotsGroup, ui.toolSlots, "tool");
+  renderSpellSlots();
   renderTonicSlots();
+}
+
+function renderCampUpgradeSlots() {
+  if (!ui.campUpgradeSlots) return;
+
+  const slots = getPurchasedCampUpgradeSlots();
+  ui.campUpgradeSlots.innerHTML = "";
+
+  if (slots.length === 0) {
+    hideElement(ui.campUpgradeSection);
+    return;
+  }
+
+  showElement(ui.campUpgradeSection, "flex");
+
+  slots.forEach(function (slot) {
+    const slotEl = document.createElement("div");
+    slotEl.className = "equipment-slot";
+
+    const boxEl = document.createElement("div");
+    boxEl.className = "equipment-box";
+    boxEl.textContent = slot.current.displayName || slot.current.label;
+
+    const labelEl = document.createElement("div");
+    labelEl.className = "equipment-slot-label";
+    labelEl.textContent = slot.label;
+
+    slotEl.appendChild(boxEl);
+    slotEl.appendChild(labelEl);
+    ui.campUpgradeSlots.appendChild(slotEl);
+  });
+}
+
+function getPurchasedCampUpgradeSlots() {
+  const upgrades = getCampUpgradeDefinitions();
+  const slots = {};
+
+  for (let upgradeName in upgrades) {
+    const upgrade = getCampUpgrade(upgradeName);
+
+    if (!upgrade || !upgrade.campSlot || !upgrade.purchased) continue;
+
+    if (!slots[upgrade.campSlot]) {
+      slots[upgrade.campSlot] = {
+        label: upgrade.campSlotLabel,
+        order: upgrade.campSlotOrder || 99,
+        current: upgrade,
+      };
+    }
+
+    if ((upgrade.campSlotRank || 0) > (slots[upgrade.campSlot].current.campSlotRank || 0)) {
+      slots[upgrade.campSlot].current = upgrade;
+    }
+  }
+
+  return Object.values(slots).sort(function (a, b) {
+    return a.order - b.order;
+  });
 }
 
 function renderEquipmentSlots(groupEl, containerEl, equipmentType) {
@@ -765,6 +837,268 @@ function renderTonicSlots() {
     slotEl.appendChild(labelEl);
     ui.tonicSlots.appendChild(slotEl);
   });
+}
+
+function renderSpellSlots() {
+  if (!ui.spellSlotsGroup || !ui.spellSlots) return;
+
+  ui.spellSlots.innerHTML = "";
+
+  const spells = getSpellDefinitions();
+  const unlockedSpells = [];
+
+  for (let spellName in spells) {
+    const spell = getSpell(spellName);
+
+    if (spell && spell.unlocked) {
+      unlockedSpells.push({
+        id: spellName,
+        spell: spell,
+      });
+    }
+  }
+
+  if (unlockedSpells.length === 0) {
+    hideElement(ui.spellSlotsGroup);
+    return;
+  }
+
+  showElement(ui.spellSlotsGroup, "flex");
+
+  unlockedSpells.forEach(function (entry) {
+    const slotEl = document.createElement("div");
+    slotEl.className = "equipment-slot";
+
+    const boxEl = document.createElement("div");
+    boxEl.className = "equipment-box";
+
+    const nameEl = document.createElement("span");
+    nameEl.className = "spell-slot-name";
+    nameEl.textContent = entry.spell.label;
+
+    const progressFill = document.createElement("div");
+    progressFill.classList.add("progressFill");
+
+    boxEl.appendChild(nameEl);
+    boxEl.appendChild(progressFill);
+    entry.spell.button = boxEl;
+
+    const isActiveSpell = isActivityActive() && gameState.activity.kind === "spell" && gameState.activity.id === entry.id;
+
+    if (isActiveSpell) {
+      boxEl.classList.add("tonic-filled");
+      boxEl.title = "Casting " + entry.spell.label;
+    } else if (canCastSpell(entry.id)) {
+      boxEl.classList.add("tonic-filled");
+      boxEl.title = "Cast " + entry.spell.label;
+      boxEl.setAttribute("role", "button");
+      boxEl.setAttribute("tabindex", "0");
+
+      boxEl.addEventListener("click", function () {
+        castSpell(entry.id);
+      });
+
+      boxEl.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          castSpell(entry.id);
+        }
+      });
+    } else if (isActivityActive()) {
+      boxEl.title = "Something else is in progress.";
+    } else {
+      boxEl.title = "Nothing nearby answers this spell.";
+    }
+
+    const labelEl = document.createElement("div");
+    labelEl.className = "equipment-slot-label";
+    labelEl.textContent = "Spell";
+
+    slotEl.appendChild(boxEl);
+    slotEl.appendChild(labelEl);
+    ui.spellSlots.appendChild(slotEl);
+  });
+}
+
+function unlockSpell(spellName) {
+  const spell = getSpell(spellName);
+
+  if (!spell) {
+    console.warn("Unknown spell:", spellName);
+    return;
+  }
+
+  spell.unlocked = true;
+  updateEquipmentSlotUI();
+  updateCharacterPanelLocks();
+}
+
+function getCurrentManaSenseReveal() {
+  const place = getCurrentManaSensePlace();
+
+  if (!place || !place.manaSenseReveal) return null;
+
+  const reveal = place.manaSenseReveal;
+
+  if (gameState.magic.sensedReveals[reveal.id]) return null;
+
+  return reveal;
+}
+
+function getCurrentManaSensePlace() {
+  if (gameState.expedition.currentLocation) {
+    return getExpeditionLocation(gameState.expedition.currentLocation);
+  }
+
+  if (gameState.discoveredClearing) {
+    return getClearingPlace();
+  }
+
+  return null;
+}
+
+function canCastSpell(spellName) {
+  const spell = getSpell(spellName);
+
+  if (!spell || !spell.unlocked) return false;
+  if (isActivityActive()) return false;
+  if (!canAffordCost(spell.cost || {})) return false;
+
+  if (spellName === "manaSense") {
+    return !!getCurrentManaSenseReveal() || canAddManaSenseDungeonCharge();
+  }
+
+  return false;
+}
+
+function castSpell(spellName) {
+  const spell = getSpell(spellName);
+  const context = getSpellCastContext(spellName);
+
+  if (!spell || !canCastSpell(spellName)) return;
+  if (!spendCost(spell.cost || {})) return;
+
+  if (!startActivity({ kind: "spell", id: spellName, context: context })) {
+    refundCost(spell.cost || {});
+    return;
+  }
+
+  updateAllResources();
+  updateEquipmentSlotUI();
+  updateAllActionButtons();
+  updateCraftingButtons();
+}
+
+function canAddManaSenseDungeonCharge() {
+  const node = getCurrentDungeonNode();
+  const spell = getSpell("manaSense");
+
+  if (!node || !node.search || node.explored) return false;
+
+  const maxCharges = spell.effects.maxDungeonCharges || 0;
+
+  return (node.manaSenseCharges || 0) < maxCharges;
+}
+
+function getSpellCastContext(spellName) {
+  if (spellName === "manaSense") {
+    const reveal = getCurrentManaSenseReveal();
+
+    if (reveal) {
+      return {
+        type: "reveal",
+        revealId: reveal.id,
+        story: reveal.story,
+        journal: reveal.journal,
+        popup: reveal.popup,
+      };
+    }
+
+    const dungeonState = getCurrentDungeonState();
+    const node = getCurrentDungeonNode();
+
+    if (dungeonState && dungeonState.active && node && canAddManaSenseDungeonCharge()) {
+      return {
+        type: "dungeonCharge",
+        dungeonId: dungeonState.dungeonId,
+        nodeId: dungeonState.nodeId,
+      };
+    }
+  }
+
+  return null;
+}
+
+function completeSpellCast(spellName, context) {
+  if (spellName === "manaSense") {
+    if (context && context.type === "reveal") {
+      resolveManaSenseReveal(context);
+    }
+
+    if (context && context.type === "dungeonCharge") {
+      addManaSenseDungeonChargeForNode(context.dungeonId, context.nodeId);
+    }
+  }
+
+  updateEquipmentSlotUI();
+  updateAllActionButtons();
+  updateCraftingButtons();
+}
+
+function addManaSenseDungeonChargeForNode(dungeonId, nodeId) {
+  const node = getDungeonNode(dungeonId, nodeId);
+  const spell = getSpell("manaSense");
+
+  if (!node || !node.search || node.explored) return false;
+
+  const maxCharges = spell.effects.maxDungeonCharges || 0;
+  const currentCharges = node.manaSenseCharges || 0;
+
+  if (currentCharges >= maxCharges) return false;
+
+  node.manaSenseCharges = currentCharges + 1;
+
+  addStoryEntry("Mana Sense sharpens the shape of " + node.label + " in your mind.");
+
+  updateDungeonUI();
+
+  return true;
+}
+
+function resolveManaSenseReveal(revealContext) {
+  const reveal = revealContext || getCurrentManaSenseReveal();
+
+  if (!reveal) return;
+
+  const revealId = reveal.revealId || reveal.id;
+
+  if (!revealId || gameState.magic.sensedReveals[revealId]) return;
+
+  gameState.magic.sensedReveals[revealId] = true;
+
+  if (reveal.story) {
+    addStoryEntry(reveal.story);
+  }
+
+  if (reveal.journal) {
+    addJournalEntry(reveal.journal);
+  }
+
+  if (reveal.popup === "campFoundation") {
+    showCampFoundationPopup();
+  }
+}
+
+function repairSpellUnlocksFromFlags() {
+  const spells = getSpellDefinitions();
+
+  for (let spellName in spells) {
+    const spell = getSpell(spellName);
+
+    if (spell && spell.unlockFlag && gameState[spell.unlockFlag]) {
+      spell.unlocked = true;
+    }
+  }
 }
 
 function getPurchasedEquipmentSlots(equipmentType) {
@@ -929,6 +1263,18 @@ function getCraftDuration(craftType, craftId) {
   if (!craft) return 1;
 
   return craft.duration || 1;
+}
+
+function shouldContinueCrafting(craftType, craftId) {
+  const craft = getCraftDefinition(craftType, craftId);
+  const cost = getCraftCost(craftType, craftId);
+
+  if (!craft || !craft.auto || !cost) return false;
+  if (!isCraftAvailable(craftType, craftId)) return false;
+  if (!canAffordCost(cost)) return false;
+  if (!canAffordStorageCost(craft.storageCost)) return false;
+
+  return true;
 }
 
 function startCrafting(craftType, craftId) {

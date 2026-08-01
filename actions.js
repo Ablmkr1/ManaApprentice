@@ -240,12 +240,14 @@ function hookActionCompletions() {
 
   getAction("storePelt").onComplete = function () {
     const location = getExpeditionLocation(gameState.expedition.currentLocation);
+    const peltAmount = gameState.expedition.carriedItems.pelt || 0;
 
     if (!location || !location.storage) return;
-    if (!removeCarriedItem("pelt", 1)) return;
+    if (peltAmount <= 0) return;
+    if (!removeCarriedItem("pelt", peltAmount)) return;
 
-    location.storage.pelt++;
-    addStoryEntry("You store a pelt at the cabin.");
+    location.storage.pelt += peltAmount;
+    addStoryEntry("You store " + formatCarryAmount(peltAmount) + " pelts at the cabin.");
     updateLocationActions();
     updatePlacePanel();
   };
@@ -254,10 +256,12 @@ function hookActionCompletions() {
     const location = getExpeditionLocation(gameState.expedition.currentLocation);
 
     if (!location || !location.storage || location.storage.leather <= 0) return;
-    if (!addCarriedItem("leather", 1)) return;
+    const leatherAmount = addCarriedItemUpToCapacity("leather", location.storage.leather);
 
-    location.storage.leather--;
-    addStoryEntry("You pack a finished piece of leather.");
+    if (leatherAmount <= 0) return;
+
+    location.storage.leather -= leatherAmount;
+    addStoryEntry("You pack " + formatCarryAmount(leatherAmount) + " leather.");
     updateLocationActions();
     updatePlacePanel();
   };
@@ -270,12 +274,14 @@ function hookActionCompletions() {
 
   getAction("storeWood").onComplete = function () {
     const location = getExpeditionLocation(gameState.expedition.currentLocation);
+    const woodAmount = gameState.expedition.carriedItems.wood || 0;
 
     if (!location || !location.storage) return;
-    if (!removeCarriedItem("wood", 1)) return;
+    if (woodAmount <= 0) return;
+    if (!removeCarriedItem("wood", woodAmount)) return;
 
-    location.storage.wood++;
-    addStoryEntry("You stack wood at the miners' camp.");
+    location.storage.wood += woodAmount;
+    addStoryEntry("You stack " + formatCarryAmount(woodAmount) + " wood at the miners' camp.");
     updateLocationActions();
     updatePlacePanel();
   };
@@ -288,12 +294,14 @@ function hookActionCompletions() {
 
   getAction("storeOre").onComplete = function () {
     const location = getExpeditionLocation(gameState.expedition.currentLocation);
+    const oreAmount = gameState.expedition.carriedItems.ore || 0;
 
     if (!location || !location.storage) return;
-    if (!removeCarriedItem("ore", 1)) return;
+    if (oreAmount <= 0) return;
+    if (!removeCarriedItem("ore", oreAmount)) return;
 
-    location.storage.ore++;
-    addStoryEntry("You store ore at the miners' camp.");
+    location.storage.ore += oreAmount;
+    addStoryEntry("You store " + formatCarryAmount(oreAmount) + " ore at the miners' camp.");
     updateLocationActions();
     updatePlacePanel();
   };
@@ -615,8 +623,13 @@ function getActivityButton(activity) {
     return getLocationObjectButton(activity.context.objectName);
   }
 
-  if (activity.kind === "dungeonNode") {
-    return getDungeonNodeButton(activity.context.nodeId);
+  if (activity.kind === "spell") {
+    const spell = getSpell(activity.id);
+    return spell ? spell.button : null;
+  }
+
+  if (activity.kind === "dungeonSearch") {
+    return getDungeonActionButton("exploreRoom");
   }
 
   return null;
@@ -632,6 +645,11 @@ function getActivityDuration(activityRequest) {
 
   if (activityRequest.kind === "craft") {
     return getCraftDuration(activityRequest.type, activityRequest.id);
+  }
+
+  if (activityRequest.kind === "spell") {
+    const spell = getSpell(activityRequest.id);
+    return spell ? spell.duration || 0 : 0;
   }
 
   return 0;
@@ -684,7 +702,7 @@ function processActivityTick() {
     }
   }
 
-  if (activity.kind === "dungeonNode" && button) {
+  if (activity.kind === "spell" && button) {
     const progressFill = button.querySelector(".progressFill");
 
     if (progressFill) {
@@ -697,6 +715,14 @@ function processActivityTick() {
 
     if (restProgressFill) {
       restProgressFill.style.width = progress * 100 + "%";
+    }
+  }
+
+  if (activity.kind === "dungeonSearch" && button) {
+    const progressFill = button.querySelector(".progressFill");
+
+    if (progressFill) {
+      progressFill.style.width = progress * 100 + "%";
     }
   }
 
@@ -840,7 +866,25 @@ function completeActivity() {
     return;
   }
 
-  if (activity.kind === "dungeonNode") {
+  if (activity.kind === "spell") {
+    const spellName = activity.id;
+    const context = activity.context;
+    const button = getActivityButton(activity);
+
+    if (button) {
+      const progressFill = button.querySelector(".progressFill");
+
+      if (progressFill) {
+        progressFill.style.width = "0%";
+      }
+    }
+
+    resetActivity();
+    completeSpellCast(spellName, context);
+    return;
+  }
+
+  if (activity.kind === "dungeonSearch") {
     const context = activity.context;
     const button = getActivityButton(activity);
 
@@ -854,7 +898,7 @@ function completeActivity() {
 
     resetActivity();
 
-    completeDungeonNodeExploration(context.dungeonId, context.nodeId);
+    completeDungeonRoomSearch(context.dungeonId, context.nodeId);
     updatePlacePanel();
 
     return;
@@ -929,10 +973,16 @@ function completeActivity() {
     }
 
     resetActivity();
+    checkResearchDiscoveries();
+
+    if (shouldContinueCrafting(craftType, craftId)) {
+      startCrafting(craftType, craftId);
+      return;
+    }
+
     updateCraftingButtons();
     updateCraftingSectionVisibility();
     updateAllActionButtons();
-    checkResearchDiscoveries();
     return;
   }
 
@@ -971,10 +1021,4 @@ function continueAutoAction(actionName) {
   }
 
   startActionExecution(actionName);
-}
-
-function getDungeonNodeButton(nodeId) {
-  if (!ui.dungeonMap) return null;
-
-  return ui.dungeonMap.querySelector('[data-node="' + nodeId + '"]');
 }

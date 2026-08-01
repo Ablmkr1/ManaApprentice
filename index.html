@@ -52,6 +52,11 @@
             <h3>Tonics</h3>
             <div id="tonicSlots" class="equipment-slots"></div>
           </div>
+
+          <div id="spellSlotsGroup" class="equipment-group" style="display: none">
+            <h3>Spells</h3>
+            <div id="spellSlots" class="equipment-slots"></div>
+          </div>
         </div>
       </section>
 
@@ -64,6 +69,7 @@
             <div class="camp-resource-strip">
               <div id="foodAmount" class="resource-pill" style="display: none"></div>
               <div id="woodAmount" class="resource-pill" style="display: none"></div>
+              <div id="lumberAmount" class="resource-pill" style="display: none"></div>
               <div id="fiberAmount" class="resource-pill" style="display: none"></div>
               <div id="trapAmount" class="resource-pill" style="display: none"></div>
               <div id="peltAmount" class="resource-pill" style="display: none"></div>
@@ -71,6 +77,7 @@
               <div id="stoneAmount" class="resource-pill" style="display: none"></div>
               <div id="oreAmount" class="resource-pill" style="display: none"></div>
               <div id="ironAmount" class="resource-pill" style="display: none"></div>
+              <div id="nailsAmount" class="resource-pill" style="display: none"></div>
               <div id="herbAmount" class="resource-pill" style="display: none"></div>
               <div id="manaCrystalAmount" class="resource-pill" style="display: none"></div>
             </div>
@@ -78,13 +85,7 @@
           <div id="campUpgradeSection" class="camp-upgrade-section" style="display: none">
             <h3>Upgrades</h3>
             <div class="camp-upgrades-strip">
-              <div id="smallFire" style="display: none">Small Fire</div>
-              <div id="crudeLeanTo" style="display: none">Crude Lean-To</div>
-              <div id="lessCrudeShelter" style="display: none">Less Crude Shelter</div>
-              <div id="uncomfortableCot" style="display: none">Uncomfortable Cot</div>
-              <div id="stoneFirePit" style="display: none">Stone Fire Pit</div>
-              <div id="researchSpot" style="display: none">Research Spot</div>
-              <div id="meditationSpot" style="display: none">Meditation Spot</div>
+              <div id="campUpgradeSlots" class="camp-upgrades-strip"></div>
             </div>
           </div>
 
@@ -124,11 +125,6 @@
                 <span>Recover</span>
               </button>
 
-              <button id="meditateBtn" class="action-btn" data-action="meditate" style="display: none">
-                <div class="progressFill"></div>
-                <span>Meditate</span>
-              </button>
-
               <button id="gatherWoodBtn" class="action-btn" data-action="gatherWood" style="display: none">
                 <div class="progressFill"></div>
                 <span>Gather Wood</span>
@@ -153,6 +149,7 @@
             <h3 id="dungeonTitle"></h3>
             <div id="dungeonMap" class="dungeon-map" role="group" aria-label="Dungeon map"></div>
             <div id="dungeonRoomText" class="dungeon-room-text"></div>
+            <div id="dungeonActions" class="dungeon-actions"></div>
           </div>
           <div id="locationStorageSection" class="camp-resources-section" style="display: none">
             <h3>Stored Here</h3>
@@ -259,6 +256,13 @@
 
         <div id="locationObjectActions" class="location-object-actions"></div>
 
+        <div class="shared-actions-list">
+          <button id="meditateBtn" class="action-btn" data-action="meditate" style="display: none">
+            <div class="progressFill"></div>
+            <span>Meditate</span>
+          </button>
+        </div>
+
         <div id="craftingSection" class="crafting-section" style="display: none">
           <div id="workTabs" class="work-tabs" style="display: none">
             <button id="craftingTabBtn" class="work-tab active" type="button">Crafting</button>
@@ -276,6 +280,7 @@
               <button id="stoneFirePitBtn" style="display: none"></button>
               <button id="researchSpotBtn" style="display: none"></button>
               <button id="meditationSpotBtn" style="display: none"></button>
+              <button id="lumberMillBtn" style="display: none"></button>
 
               <!--<button id="woodStorageBtn" style="display: none"></button>
             <button id="foodStorageBtn" style="display: none"></button>
@@ -303,12 +308,14 @@
               <button id="ironKnifeBtn" style="display: none"></button>
               <button id="ironAxeBtn" style="display: none"></button>
               <button id="torchBtn" style="display: none"></button>
-              <button id="crudeIronPickBtn" style="display: none"></button>
+              <button id="crudeIronPickBtn" style="display: none"></button>-->
 
               <button id="trapCraftBtn" style="display: none"></button>
               <button id="leatherCraftBtn" style="display: none"></button>
               <button id="ironCraftBtn" style="display: none"></button>
-              <button id="staminaTonicCraftBtn" style="display: none"></button>-->
+              <button id="staminaTonicCraftBtn" style="display: none"></button>
+              <button id="nailsCraftBtn" style="display: none"></button>
+              <button id="lumberCraftBtn" style="display: none"></button>
             </div>
           </div>
 
@@ -526,6 +533,21 @@
         <p>Power gathers at the edge of your awareness. Forgotten no more a power, your power, blooms in your chest once more.</p>
 
         <button id="manaAwakenedContinueBtn">Continue</button>
+      </div>
+    </div>
+
+    <div id="campFoundationPopup" class="popup" style="display: none">
+      <div class="popup-content">
+        <h2>Buried Foundation</h2>
+
+        <p>
+          Mana Sense pulls your awareness downward. Beneath the clearing, hidden by soil and roots, old stone waits in a shape too deliberate to be
+          natural.
+        </p>
+
+        <p>Something once stood here, your camp was not the first thing built on this ground.</p>
+
+        <button id="campFoundationContinueBtn">Continue</button>
       </div>
     </div>
 

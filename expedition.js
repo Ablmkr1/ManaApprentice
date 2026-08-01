@@ -1,4 +1,5 @@
 const REGION_APPROACH_DISTANCE = 100;
+const INSTANT_MANUAL_RETURN_TO_CAMP = true;
 
 function setCurrentLocation(locationName) {
   gameState.expedition.currentLocation = locationName;
@@ -43,6 +44,10 @@ function updateLocationActions() {
       unlockAction(actionName);
     });
   }
+
+  if (locationName === "creepyCave" && gameState.magicUnlocked) {
+    unlockAction("meditate");
+  }
 }
 
 function lockLocationActions() {
@@ -52,7 +57,7 @@ function lockLocationActions() {
 }
 
 function getLocationActionNames() {
-  const actionNames = ["exploreLocation"];
+  const actionNames = ["exploreLocation", "meditate"];
 
   const locations = getExpeditionLocationDefinitions();
 
@@ -453,18 +458,44 @@ function applyExpeditionStep(step) {
   expedition.distance += step.distance;
 
   if (regionId !== "outskirts") {
-    const previousRegionalDistance = Math.max(0, previousDistance - REGION_APPROACH_DISTANCE);
     const currentRegionalDistance = Math.max(0, expedition.distance - REGION_APPROACH_DISTANCE);
-    const regionalProgressGained = currentRegionalDistance - previousRegionalDistance;
 
-    addRegionProgress(regionId, regionalProgressGained);
+    setRegionProgressAtLeast(regionId, currentRegionalDistance);
   }
+}
+
+function setRegionProgressAtLeast(regionId, progress) {
+  if (regionId === "outskirts") return;
+
+  const region = getRegionDefinition(regionId);
+  const regionState = gameState.world.regions[regionId];
+
+  if (!region || !regionState || !regionState.unlocked) return;
+
+  regionState.progress = Math.min(Math.max(regionState.progress, progress), region.maxProgress);
+
+  if (regionState.progress >= region.maxProgress) {
+    regionState.mastered = true;
+  }
+
+  updateRegionalMapVisibility();
 }
 
 function beginReturnToCamp(reason) {
   const expedition = gameState.expedition;
 
   if (!expedition.active) return;
+
+  if (shouldReturnToCampInstantly(reason)) {
+    addStoryEntry("You make your way back to camp by familiar paths.");
+    expedition.distance = 0;
+    expedition.destination = null;
+    expedition.currentLocation = null;
+    expedition.returning = false;
+    expedition.returnPenalty = 0;
+    endExpedition("returned");
+    return;
+  }
 
   expedition.returning = true;
 
@@ -489,6 +520,10 @@ function beginReturnToCamp(reason) {
   updatePlacePanel();
 }
 
+function shouldReturnToCampInstantly(reason) {
+  return INSTANT_MANUAL_RETURN_TO_CAMP && reason === "manual";
+}
+
 function completeTier2Exploration() {
   if (gameState.tier2Complete) return;
 
@@ -507,26 +542,9 @@ function completeRegionalExploration(regionId) {
 
   if (!region) return;
 
-  addRegionProgress(regionId, region.maxProgress);
+  setRegionProgressAtLeast(regionId, region.maxProgress);
 
   addStoryEntry("You complete a long route through " + region.label + ".");
-}
-
-function addRegionProgress(regionId, amount) {
-  if (regionId === "outskirts") return;
-
-  const region = getRegionDefinition(regionId);
-  const regionState = gameState.world.regions[regionId];
-
-  if (!region || !regionState || !regionState.unlocked) return;
-
-  regionState.progress = Math.min(regionState.progress + amount, region.maxProgress);
-
-  if (regionState.progress >= region.maxProgress) {
-    regionState.mastered = true;
-  }
-
-  updateRegionalMapVisibility();
 }
 
 function getOpenExpeditionTargetDistance() {
@@ -675,8 +693,10 @@ function checkDestinationArrival() {
   if (!location) return false;
 
   if (expedition.distance >= expedition.targetDistance) {
+    expedition.distance = expedition.targetDistance;
     setCurrentLocation(expedition.destination);
     expedition.destination = null;
+    refreshExpeditionUI();
 
     addStoryEntry("You arrive at " + location.label + ".");
     if (expedition.currentLocation === "mysteriousTrail") {
@@ -750,6 +770,7 @@ function updatePlacePanel() {
   updateLocationStorageUI(null);
   renderLocationTravelActions(null);
   updateDungeonUI();
+  updateEquipmentSlotUI();
 
   if (isTravelActivityActive()) {
     if (expedition.returning) {
@@ -979,6 +1000,7 @@ function completeLocationObjectExploration(locationName, objectName) {
   }
 
   checkResearchDiscoveries();
+  updateLocationActions();
   updateLocationObjectActionsUI(place);
   updateCurrentGoalUI();
   updateAllActionButtons();
@@ -1268,9 +1290,13 @@ function checkExpeditionDiscovery() {
     if (getLocationRegionId(location) !== regionId) continue;
     if (!isLocationDiscoverable(location)) continue;
 
-    if (expedition.distance >= getLocationTravelDistance(location)) {
+    const locationDistance = getLocationTravelDistance(location);
+
+    if (expedition.distance >= locationDistance) {
+      expedition.distance = locationDistance;
       location.discovered = true;
       setCurrentLocation(locationName);
+      refreshExpeditionUI();
 
       addStoryEntry(location.onDiscoverStory);
 
@@ -1281,6 +1307,45 @@ function checkExpeditionDiscovery() {
   }
 
   return false;
+}
+
+function getDisplayedExpeditionDistance() {
+  const expedition = gameState.expedition;
+
+  if (!expedition.active || expedition.returning || expedition.currentLocation) {
+    return expedition.distance;
+  }
+
+  const nextLocationDistance = getNextDiscoverableLocationDistance();
+
+  if (nextLocationDistance !== null && expedition.distance >= nextLocationDistance) {
+    return nextLocationDistance;
+  }
+
+  return expedition.distance;
+}
+
+function getNextDiscoverableLocationDistance() {
+  const regionId = getSelectedTravelRegionId();
+  const locations = getExpeditionLocationDefinitions();
+  let nextDistance = null;
+
+  for (let locationName in locations) {
+    const location = locations[locationName];
+
+    if (getLocationRegionId(location) !== regionId) continue;
+    if (!isLocationDiscoverable(location)) continue;
+
+    const locationDistance = getLocationTravelDistance(location);
+
+    if (gameState.expedition.distance >= locationDistance) {
+      if (nextDistance === null || locationDistance < nextDistance) {
+        nextDistance = locationDistance;
+      }
+    }
+  }
+
+  return nextDistance;
 }
 
 function hasRequiredResources(requiredResources) {
@@ -1755,6 +1820,10 @@ function updateDungeonUI() {
 
   ui.dungeonMap.innerHTML = "";
 
+  if (ui.dungeonActions) {
+    ui.dungeonActions.innerHTML = "";
+  }
+
   if (!dungeonState || !dungeonState.active || !dungeon || !currentNode) {
     hideElement(ui.dungeonSection);
     return;
@@ -1834,6 +1903,102 @@ function updateDungeonUI() {
 
     ui.dungeonMap.appendChild(roomButton);
   }
+
+  renderDungeonActions(currentNode);
+}
+
+function renderDungeonActions(node) {
+  if (!ui.dungeonActions) return;
+
+  ui.dungeonActions.innerHTML = "";
+
+  if (!node || !node.search || node.explored) {
+    hideElement(ui.dungeonActions);
+    return;
+  }
+
+  showElement(ui.dungeonActions, "flex");
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "action-btn";
+  button.dataset.dungeonAction = "exploreRoom";
+
+  const progressFill = document.createElement("div");
+  progressFill.className = "progressFill";
+
+  const label = document.createElement("span");
+  const chance = getDungeonSearchChance(node);
+  const charges = node.manaSenseCharges || 0;
+
+  label.textContent = charges > 0 ? "Explore Room (" + chance + "%, Sense " + charges + ")" : "Explore Room (" + chance + "%)";
+
+  button.appendChild(progressFill);
+  button.appendChild(label);
+
+  const isCurrentSearch =
+    isActivityActive() &&
+    gameState.activity.kind === "dungeonSearch" &&
+    gameState.activity.context &&
+    gameState.activity.context.nodeId === getCurrentDungeonState().nodeId;
+
+  button.classList.toggle("running", isCurrentSearch);
+  button.disabled = !isCurrentSearch && (isActivityActive() || !canAffordCost(node.search.cost || {}));
+
+  button.addEventListener("click", function () {
+    if (!isCurrentSearch) {
+      startDungeonRoomSearch();
+    }
+  });
+
+  ui.dungeonActions.appendChild(button);
+}
+
+function getDungeonActionButton(actionName) {
+  if (!ui.dungeonActions) return null;
+
+  return ui.dungeonActions.querySelector('[data-dungeon-action="' + actionName + '"]');
+}
+
+function startDungeonRoomSearch() {
+  const dungeonState = getCurrentDungeonState();
+  const node = getCurrentDungeonNode();
+
+  if (!dungeonState || !dungeonState.active || !node || !node.search) return;
+  if (node.explored) return;
+  if (isActivityActive()) return;
+  if (!spendCost(node.search.cost || {})) return;
+
+  startActivity({
+    kind: "dungeonSearch",
+    id: "exploreRoom",
+    duration: node.search.duration || 1,
+    context: {
+      dungeonId: dungeonState.dungeonId,
+      nodeId: dungeonState.nodeId,
+    },
+  });
+
+  updateDungeonUI();
+  updateAllActionButtons();
+  updateCraftingButtons();
+}
+
+function getDungeonSearchChance(node) {
+  if (!node || !node.search) return 0;
+
+  const baseChance = node.search.baseChance ?? 100;
+  const spell = getSpell("manaSense");
+  const bonusPerCharge = spell && spell.effects ? spell.effects.dungeonSearchBonus || 0 : 0;
+  const charges = node.manaSenseCharges || 0;
+
+  return Math.min(100, baseChance + charges * bonusPerCharge);
+}
+
+function rollDungeonSearchSuccess(node) {
+  const chance = getDungeonSearchChance(node);
+
+  return Math.random() * 100 < chance;
 }
 
 function canEnterDungeonNode(dungeonId, nodeId) {
@@ -1935,57 +2100,39 @@ function moveToDungeonNode(targetNodeId) {
   const dungeonState = getCurrentDungeonState();
   const targetNode = getDungeonNode(dungeonState.dungeonId, targetNodeId);
 
-  if (!targetNode.explored) {
-    startDungeonNodeExploration(targetNodeId);
-    return;
-  }
-
   gameState.expedition.dungeon.nodeId = targetNodeId;
 
-  addStoryEntry("You move to " + targetNode.label + ".");
+  if (!targetNode.discovered) {
+    targetNode.discovered = true;
+    addStoryEntry("You enter " + targetNode.label + ".");
+  } else {
+    addStoryEntry("You move to " + targetNode.label + ".");
+  }
+
   updateDungeonUI();
   updatePlacePanel();
-}
-
-function startDungeonNodeExploration(targetNodeId) {
-  const dungeonState = getCurrentDungeonState();
-  const currentNode = getCurrentDungeonNode();
-
-  if (!dungeonState || !dungeonState.active || !currentNode) return;
-
-  const targetNode = getDungeonNode(dungeonState.dungeonId, targetNodeId);
-
-  if (!targetNode) return;
-  if (!getDungeonNodeExit(currentNode, targetNodeId)) return;
-  if (!canEnterDungeonNode(dungeonState.dungeonId, targetNodeId)) return;
-  if (isActivityActive()) return;
-  if (!spendCost(targetNode.exploreCost || {})) return;
-
-  startActivity({
-    kind: "dungeonNode",
-    id: targetNodeId,
-    duration: targetNode.exploreDuration || 1,
-    context: {
-      dungeonId: dungeonState.dungeonId,
-      nodeId: targetNodeId,
-    },
-  });
-
-  updateDungeonUI();
   updateAllActionButtons();
   updateCraftingButtons();
 }
 
-function completeDungeonNodeExploration(dungeonId, nodeId) {
+function completeDungeonRoomSearch(dungeonId, nodeId) {
   const node = getDungeonNode(dungeonId, nodeId);
 
-  if (!node) return;
+  if (!node || !node.search || node.explored) return;
 
-  node.discovered = true;
+  if (!rollDungeonSearchSuccess(node)) {
+    addStoryEntry(node.search.failureText || "You search the room, but find nothing useful yet.");
+    updateDungeonUI();
+    updatePlacePanel();
+    updateAllActionButtons();
+    updateCraftingButtons();
+    return;
+  }
+
   node.explored = true;
-  gameState.expedition.dungeon.nodeId = nodeId;
+  node.manaSenseCharges = 0;
 
-  addStoryEntry("You explore " + node.label + ".");
+  addStoryEntry(node.search.successText || "You finish exploring the room.");
 
   claimDungeonNodeReward(node);
 
@@ -1996,11 +2143,15 @@ function completeDungeonNodeExploration(dungeonId, nodeId) {
 }
 
 function claimDungeonNodeReward(node) {
-  if (!node || node.rewardClaimed || !node.reward) return;
+  if (!node || node.rewardClaimed) return;
 
-  if (node.reward.carried) {
-    for (let itemName in node.reward.carried) {
-      const amount = node.reward.carried[itemName];
+  const reward = node.search && node.search.reward ? node.search.reward : node.reward;
+
+  if (!reward) return;
+
+  if (reward.carried) {
+    for (let itemName in reward.carried) {
+      const amount = reward.carried[itemName];
       const carriedAmount = addCarriedItemUpToCapacity(itemName, amount);
 
       if (carriedAmount > 0) {

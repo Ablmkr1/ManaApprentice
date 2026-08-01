@@ -21,6 +21,10 @@ window.onload = function () {
     ui.manaAwakenedPopup.style.display = "none";
   });
 
+  ui.campFoundationContinueBtn.addEventListener("click", function () {
+    ui.campFoundationPopup.style.display = "none";
+  });
+
   hookStatsToUI();
   updateCurrentGoalUI();
   updateJournalUI();

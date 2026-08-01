@@ -1,6 +1,13 @@
 // Clearing Definition
 const clearingPlace = {
   label: "Clearing",
+  manaSenseReveal: {
+    id: "campFoundation",
+    story:
+      "Mana gathers along lines beneath the camp. For a moment the soil becomes almost transparent to your awareness, and you sense a vast stone foundation buried below the clearing.",
+    journal: "campFoundationSensed",
+    popup: "campFoundation",
+  },
   explorableObjects: {
     soundOfWater: {
       label: "Follow Sound of Water",
@@ -177,7 +184,7 @@ const expeditionLocations = {
               { type: "flag", id: "magicUnlocked" },
               { type: "resource", id: "mana" },
               { type: "journal", id: "manaAwakened" },
-              { type: "campUpgrade", id: "meditationSpot" },
+              { type: "spell", id: "manaSense" },
             ],
           },
         ],
@@ -468,13 +475,18 @@ const dungeonDefinitions = {
         discovered: false,
         explored: false,
         rewardClaimed: false,
-        exploreDuration: 3,
-        exploreCost: {
-          energy: 6,
-        },
-        reward: {
-          carried: {
-            manaCrystal: 1,
+        manaSenseCharges: 0,
+        search: {
+          duration: 3,
+          baseChance: 30,
+          cost: {
+            energy: 6,
+          },
+          successText: "You trace the blue flecks through the cracked mortar and pry loose a small mana crystal.",
+          reward: {
+            carried: {
+              manaCrystal: 1,
+            },
           },
         },
         exits: [
@@ -491,16 +503,49 @@ const dungeonDefinitions = {
         discovered: false,
         explored: false,
         rewardClaimed: false,
-        exploreDuration: 7,
-        exploreCost: {
-          energy: 8,
-        },
-        reward: {
-          carried: {
-            manaCrystal: 2,
+        manaSenseCharges: 0,
+        search: {
+          duration: 7,
+          baseChance: 30,
+          cost: {
+            energy: 8,
+          },
+          successText: "You search the broken shelves and sweep crystal dust from a hidden niche.",
+          reward: {
+            carried: {
+              manaCrystal: 2,
+            },
           },
         },
-        exits: [{ label: "Return to the entry stair", to: "entryStair" }],
+        exits: [
+          { label: "Return to the entry stair", to: "entryStair" },
+          { label: "Approach the open door", to: "emptyRoom" },
+        ],
+      },
+
+      emptyRoom: {
+        x: 0,
+        y: 2,
+        label: "Empty Room",
+        description: "Debris cover the floor.  There is too much damage to tell what this room was used for.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        manaSenseCharges: 0,
+        search: {
+          duration: 7,
+          baseChance: 30,
+          cost: {
+            energy: 8,
+          },
+          successText: "You search the broken debris and collect two crystals from under broken furniture.",
+          reward: {
+            carried: {
+              manaCrystal: 2,
+            },
+          },
+        },
+        exits: [{ label: "Return to the side chamber", to: "sideChamber" }],
       },
 
       collapsedPassage: {
@@ -511,12 +556,17 @@ const dungeonDefinitions = {
         discovered: false,
         explored: false,
         rewardClaimed: false,
+        manaSenseCharges: 0,
         requires: {
           gearPurchased: ["crudeIronPick"],
         },
-        exploreDuration: 10,
-        exploreCost: {
-          energy: 10,
+        search: {
+          duration: 10,
+          baseChance: 30,
+          cost: {
+            energy: 10,
+          },
+          successText: "You clear enough fallen stone to understand the passage beyond.",
         },
         exits: [{ label: "Return to the cracked hall", to: "crackedHall" }],
       },
@@ -647,7 +697,6 @@ const researchDefinitions = {
     cost: {
       energy: 3,
       pelt: 1,
-      wood: 3,
       focus: 1,
     },
     requires: {
@@ -680,7 +729,7 @@ const researchDefinitions = {
   },
 
   uncomfortableCot: {
-    label: "Uncomfortable Cot",
+    label: "Ugly Cot",
     duration: 5,
     completed: false,
     unlocked: false,
@@ -761,7 +810,11 @@ const researchDefinitions = {
       locationsExplored: ["minersCamp"],
     },
     story: "The old smelter is crude, but the shape of the work is clear: ore, fuel, heat, and patience.",
-    unlocks: [{ type: "resourceCraft", id: "iron" }],
+    unlocks: [
+      { type: "resourceCraft", id: "iron" },
+      { type: "resource", id: "nails" },
+      { type: "resourceCraft", id: "nails" },
+    ],
   },
 
   crudeIronPick: {
@@ -805,6 +858,24 @@ const researchDefinitions = {
       { type: "gearUpgrade", id: "ironKnife" },
       { type: "gearUpgrade", id: "ironAxe" },
     ],
+  },
+
+  lumberMill: {
+    label: "Lumber Mill",
+    duration: 5,
+    completed: false,
+    unlocked: false,
+    cost: {
+      energy: 8,
+      nails: 1,
+      wood: 10,
+      focus: 3,
+    },
+    requires: {
+      resources: { nails: 1 },
+    },
+    story: "With iron fasteners and a proper frame, rough logs could be cut into reliable building lumber.",
+    unlocks: [{ type: "campUpgrade", id: "lumberMill" }],
   },
 
   alchemy: {
@@ -863,6 +934,26 @@ const researchDefinitions = {
     story: "This belt could be upgraded further with leather and iron.",
     unlocks: [{ type: "gearUpgrade", id: "reinforcedTonicBelt" }],
   },
+
+  meditation: {
+    label: "Meditation",
+    duration: 8,
+    completed: false,
+    unlocked: false,
+    cost: {
+      energy: 20,
+      focus: 3,
+      manaCrystal: 1,
+    },
+    requires: {
+      resources: {
+        manaCrystal: 1,
+      },
+    },
+    story:
+      "The crystal hums with the same quiet pressure as the cave runes. With the right place prepared, you could recover mana without returning underground.",
+    unlocks: [{ type: "campUpgrade", id: "meditationSpot" }],
+  },
 };
 
 // Exploration Definitions
@@ -887,6 +978,11 @@ const explorationStages = {
 const campUpgrades = {
   smallFire: {
     label: "Small Fire",
+    displayName: "Small fire",
+    campSlot: "fire",
+    campSlotLabel: "Fire",
+    campSlotOrder: 1,
+    campSlotRank: 1,
     duration: 3,
     cost: {
       wood: 5,
@@ -902,6 +998,11 @@ const campUpgrades = {
   },
   crudeLeanTo: {
     label: "Crude Lean-To",
+    displayName: "Crude Lean-To",
+    campSlot: "shelter",
+    campSlotLabel: "Shelter",
+    campSlotOrder: 2,
+    campSlotRank: 1,
     duration: 4,
     cost: {
       wood: 10,
@@ -918,6 +1019,11 @@ const campUpgrades = {
   },
   lessCrudeShelter: {
     label: "Less Crude Shelter",
+    displayName: "Less Crude Shelter",
+    campSlot: "shelter",
+    campSlotLabel: "Shelter",
+    campSlotOrder: 2,
+    campSlotRank: 2,
     duration: 6,
     cost: {
       wood: 10,
@@ -930,15 +1036,16 @@ const campUpgrades = {
     display: null,
     onComplete() {
       getResource("energy").restPerSecond += 1;
-
-      if (getCampUpgrade("crudeLeanTo").display) {
-        getCampUpgrade("crudeLeanTo").display.style.display = "none";
-      }
     },
   },
 
   uncomfortableCot: {
-    label: "Uncomfortable Cot",
+    label: "Ugly Cot",
+    displayName: "Ugly Cot",
+    campSlot: "rest",
+    campSlotLabel: "Rest",
+    campSlotOrder: 3,
+    campSlotRank: 1,
     duration: 5,
     cost: {
       wood: 10,
@@ -957,6 +1064,11 @@ const campUpgrades = {
   },
   stoneFirePit: {
     label: "Stone Fire Pit",
+    displayName: "Stone Fire Pit",
+    campSlot: "fire",
+    campSlotLabel: "Fire",
+    campSlotOrder: 1,
+    campSlotRank: 2,
     duration: 6,
     cost: {
       wood: 10,
@@ -970,15 +1082,16 @@ const campUpgrades = {
     onComplete() {
       getResource("energy").maxValue += 20;
       updateResource("energy");
-
-      if (getCampUpgrade("smallFire").display) {
-        getCampUpgrade("smallFire").display.style.display = "none";
-      }
     },
   },
 
   researchSpot: {
     label: "Research Spot",
+    displayName: "Research Spot",
+    campSlot: "research",
+    campSlotLabel: "Research",
+    campSlotOrder: 4,
+    campSlotRank: 1,
     duration: 1,
     cost: {
       energy: 1,
@@ -993,12 +1106,16 @@ const campUpgrades = {
 
   meditationSpot: {
     label: "Meditation Spot",
+    displayName: "Meditation Spot",
+    campSlot: "meditation",
+    campSlotLabel: "Meditation",
+    campSlotOrder: 5,
+    campSlotRank: 1,
     duration: 10,
     cost: {
-      fiber: 12,
-      wood: 7,
-      pelt: 3,
       stone: 8,
+      manaCrystal: 4,
+      focus: 1,
       energy: 10,
     },
     unlocked: false,
@@ -1007,6 +1124,36 @@ const campUpgrades = {
     display: null,
     onComplete() {
       unlockAction("meditate");
+    },
+  },
+
+  lumberMill: {
+    label: "Lumber Mill",
+    displayName: "Lumber Mill",
+    campSlot: "mill",
+    campSlotLabel: "Mill",
+    campSlotOrder: 6,
+    campSlotRank: 1,
+    duration: 12,
+    cost: {
+      nails: 20,
+      wood: 40,
+      iron: 3,
+      energy: 100,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      unlockResource("lumber");
+      unlockResourceCraft("lumber");
+
+      getResource("wood").maxValue = 500;
+      getResource("lumber").maxValue = 500;
+      updateResource("wood");
+      updateResource("lumber");
+      updateCampResourcesSectionVisibility();
     },
   },
 };
@@ -1251,6 +1398,7 @@ const gearUpgrades = {
     cost: {
       leather: 2,
       fiber: 6,
+      energy: 30,
     },
     unlocked: false,
     purchased: false,
@@ -1327,7 +1475,7 @@ const gearUpgrades = {
     slotRank: 2,
     duration: 7,
     cost: {
-      leather: 3,
+      leather: 4,
     },
     unlocked: false,
     purchased: false,
@@ -1447,6 +1595,7 @@ const gearUpgrades = {
     cost: {
       pelt: 5,
       fiber: 10,
+      energy: 20,
     },
     unlocked: false,
     purchased: false,
@@ -1478,6 +1627,9 @@ const gearUpgrades = {
     duration: 10,
     cost: {
       leather: 3,
+      wood: 2,
+      fiber: 3,
+      energy: 45,
     },
     unlocked: false,
     purchased: false,
@@ -1678,6 +1830,35 @@ const resourceCrafts = {
     unlocked: false,
     button: null,
   },
+  nails: {
+    label: "Forge Nails",
+    duration: 2,
+    cost: {
+      energy: 4,
+      iron: 1,
+    },
+    produces: {
+      resource: "nails",
+      amount: 10,
+    },
+    unlocked: false,
+    button: null,
+  },
+  lumber: {
+    label: "Saw Lumber",
+    duration: 2,
+    cost: {
+      energy: 4,
+      wood: 2,
+    },
+    produces: {
+      resource: "lumber",
+      amount: 1,
+    },
+    auto: true,
+    unlocked: false,
+    button: null,
+  },
   staminaTonic: {
     label: "Brew Stamina Tonic",
     requiredLocation: "alchemistsHut",
@@ -1706,6 +1887,22 @@ const consumables = {
     use() {
       addResource("energy", 20);
       updateResource("energy");
+    },
+  },
+};
+
+const spellDefinitions = {
+  manaSense: {
+    label: "Mana Sense",
+    unlockFlag: "magicUnlocked",
+    duration: 1,
+    unlocked: false,
+    cost: {
+      mana: 1,
+    },
+    effects: {
+      dungeonSearchBonus: 25,
+      maxDungeonCharges: 3,
     },
   },
 };
@@ -1807,6 +2004,10 @@ const journalDefinitions = {
   manaAwakened: {
     title: "Mana Awakened",
     text: "The runes answered something inside you. Mana is not new to you, only forgotten.",
+  },
+  campFoundationSensed: {
+    title: "Buried Foundation",
+    text: "Mana Sense revealed a large stone foundation beneath camp. It feels deliberate, old, and far too large for a simple shelter.",
   },
 };
 

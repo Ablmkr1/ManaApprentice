@@ -100,6 +100,14 @@ function hookDomToUI() {
   ui.researchList = document.getElementById("researchList");
   ui.researchDetails = document.getElementById("researchDetails");
   ui.focusAmount = document.getElementById("focusAmount");
+  ui.campUpgradeSlots = document.getElementById("campUpgradeSlots");
+  ui.spellSlotsGroup = document.getElementById("spellSlotsGroup");
+  ui.spellSlots = document.getElementById("spellSlots");
+  ui.campFoundationPopup = document.getElementById("campFoundationPopup");
+  ui.campFoundationContinueBtn = document.getElementById("campFoundationContinueBtn");
+  ui.dungeonActions = document.getElementById("dungeonActions");
+  ui.lumberAmount = document.getElementById("lumberAmount");
+  ui.nailsAmount = document.getElementById("nailsAmount");
 }
 
 //Hook Ui Maps Functions
@@ -119,6 +127,8 @@ function hookUIMaps() {
     herb: ui.herbAmount,
     manaCrystal: ui.manaCrystalAmount,
     focus: ui.focusAmount,
+    lumber: ui.lumberAmount,
+    nails: ui.nailsAmount,
   };
 
   panelElements = {
@@ -210,7 +220,7 @@ function unlockResource(resourceName) {
 function updateCampResourcesSectionVisibility() {
   if (!ui.campResourcesSection) return;
 
-  const campResourceNames = ["food", "wood", "fiber", "trap", "pelt", "stone", "leather", "ore", "iron", "herb", "manaCrystal"];
+  const campResourceNames = ["food", "wood", "fiber", "trap", "pelt", "stone", "leather", "ore", "iron", "herb", "manaCrystal", "nails", "lumber"];
 
   for (let i = 0; i < campResourceNames.length; i++) {
     const resourceElement = resourceElements[campResourceNames[i]];
@@ -256,11 +266,15 @@ function showManaAwakenedPopup() {
   ui.manaAwakenedPopup.style.display = "flex";
 }
 
+function showCampFoundationPopup() {
+  ui.campFoundationPopup.style.display = "flex";
+}
+
 //Update Expedition UI
 function updateExpeditionUI(carriedTotal, carriedSummary) {
   const expedition = gameState.expedition;
   const travelTargetDistance = expedition.active ? expedition.targetDistance : getSelectedTravelDistance();
-  const travelDistance = expedition.active ? expedition.distance : 0;
+  const travelDistance = expedition.active ? getDisplayedExpeditionDistance() : 0;
 
   safeSetText(ui.expeditionDistanceAmount, "Distance: " + formatDistance(travelDistance) + " / " + formatDistance(travelTargetDistance));
 
@@ -304,11 +318,11 @@ function updateCampUpgradeDisplay(upgrade) {
     upgrade.button.style.display = isCraftContextAvailable(upgrade) && upgrade.unlocked && !upgrade.purchased ? "inline-block" : "none";
   }
 
-  if (upgrade.display) {
-    upgrade.display.style.display = upgrade.purchased ? "flex" : "none";
+  if (typeof renderCampUpgradeSlots === "function") {
+    renderCampUpgradeSlots();
+  } else {
+    updateCampUpgradeSectionVisibility();
   }
-
-  updateCampUpgradeSectionVisibility();
 }
 
 function updateCampUpgradeSectionVisibility() {
@@ -513,7 +527,7 @@ function updateCharacterPanelLocks() {
   if (campUnlocked) {
     showElement(ui.carriedInventoryStrip, "flex");
 
-    if (hasUnlockedOrPurchasedGear()) {
+    if (hasUnlockedOrPurchasedGear() || hasUnlockedSpell()) {
       showElement(ui.gearSection, "block");
     }
   } else {
@@ -529,6 +543,20 @@ function hasUnlockedOrPurchasedGear() {
     const gear = getGearUpgrade(gearName);
 
     if (gear.purchased) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function hasUnlockedSpell() {
+  const spells = getSpellDefinitions();
+
+  for (let spellName in spells) {
+    const spell = getSpell(spellName);
+
+    if (spell && spell.unlocked) {
       return true;
     }
   }

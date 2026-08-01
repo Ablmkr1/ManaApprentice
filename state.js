@@ -113,7 +113,7 @@ const resources = {
   leather: {
     label: "Leather",
     value: 0,
-    maxValue: 20,
+    maxValue: 100,
     perClick: 0,
     perSecond: 0,
     display: null,
@@ -123,7 +123,7 @@ const resources = {
   ore: {
     label: "Ore",
     value: 0,
-    maxValue: 20,
+    maxValue: 100,
     perClick: 0,
     perSecond: 0,
     display: null,
@@ -133,7 +133,27 @@ const resources = {
   iron: {
     label: "Iron",
     value: 0,
-    maxValue: 20,
+    maxValue: 100,
+    perClick: 0,
+    perSecond: 0,
+    display: null,
+    perClickDisplay: null,
+    perSecondDisplay: null,
+  },
+  nails: {
+    label: "Nails",
+    value: 0,
+    maxValue: 100,
+    perClick: 0,
+    perSecond: 0,
+    display: null,
+    perClickDisplay: null,
+    perSecondDisplay: null,
+  },
+  lumber: {
+    label: "Lumber",
+    value: 0,
+    maxValue: 100,
     perClick: 0,
     perSecond: 0,
     display: null,
@@ -759,6 +779,10 @@ const gameState = {
   researchUnlocked: false,
   torchResearched: false,
   magicUnlocked: false,
+
+  magic: {
+    sensedReveals: {},
+  },
 
   destination: null,
 

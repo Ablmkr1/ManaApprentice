@@ -84,7 +84,6 @@ h1 {
 }
 
 .camp-resource-strip .resource-pill,
-.camp-upgrades-strip > div,
 .storage-list > div {
   padding: 8px 10px;
   border: 1px solid #d8ccb8;
@@ -173,6 +172,8 @@ h1 {
 }
 
 .equipment-box {
+  position: relative;
+  overflow: hidden;
   width: 60px;
   height: 40px;
   padding: 6px;
@@ -186,6 +187,11 @@ h1 {
   font-size: 11px;
   line-height: 1.15;
   overflow-wrap: anywhere;
+}
+
+.spell-slot-name {
+  position: relative;
+  z-index: 2;
 }
 
 .equipment-box.tonic-filled {
@@ -449,6 +455,8 @@ button:disabled {
 
 .camp-actions-list,
 .location-object-actions,
+.shared-actions-list,
+.dungeon-actions,
 .travel-actions,
 .packing-actions {
   display: flex;
@@ -754,6 +762,8 @@ button:disabled {
 
 .camp-actions-list .action-btn,
 .location-object-actions .action-btn,
+.shared-actions-list .action-btn,
+.dungeon-actions .action-btn,
 .travel-actions .action-btn,
 .packing-actions .action-btn {
   flex: 0 1 auto;
@@ -846,6 +856,10 @@ button:disabled {
 .dungeon-room span {
   position: relative;
   z-index: 1;
+}
+
+.dungeon-actions .action-btn.running {
+  opacity: 1;
 }
 
 .work-tabs {

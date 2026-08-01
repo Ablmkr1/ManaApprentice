@@ -14,6 +14,7 @@ function createSaveData() {
     campUpgrades: createUpgradeSaveData(getCampUpgradeDefinitions(), ["unlocked", "purchased"]),
     storageUpgrades: createUpgradeSaveData(getStorageUpgradeDefinitions(), ["unlocked", "tier"]),
     gearUpgrades: createUpgradeSaveData(getGearUpgradeDefinitions(), ["unlocked", "purchased"]),
+    spells: createUpgradeSaveData(getSpellDefinitions(), ["unlocked"]),
     resourceCrafts: createUpgradeSaveData(getResourceCraftDefinitions(), ["unlocked"]),
     expeditionLocations: createExpeditionLocationSaveData(),
     dungeons: createDungeonSaveData(),
@@ -160,6 +161,7 @@ function createDungeonSaveData() {
         discovered: !!node.discovered,
         explored: !!node.explored,
         rewardClaimed: !!node.rewardClaimed,
+        manaSenseCharges: node.manaSenseCharges || 0,
       };
     }
   }
@@ -224,6 +226,8 @@ function normalizeSaveData(saveData) {
   saveData.gameState.exploration = ensureObject(saveData.gameState.exploration);
   saveData.gameState.expedition = ensureObject(saveData.gameState.expedition);
   saveData.gameState.expedition.carriedItems = ensureObject(saveData.gameState.expedition.carriedItems);
+  saveData.gameState.magic = ensureObject(saveData.gameState.magic);
+  saveData.gameState.magic.sensedReveals = ensureObject(saveData.gameState.magic.sensedReveals);
   saveData.research = ensureObject(saveData.research);
   saveData.gameState.world = ensureObject(saveData.gameState.world);
   saveData.gameState.world.regions = ensureObject(saveData.gameState.world.regions);
@@ -233,6 +237,7 @@ function normalizeSaveData(saveData) {
   saveData.campUpgrades = ensureObject(saveData.campUpgrades);
   saveData.storageUpgrades = ensureObject(saveData.storageUpgrades);
   saveData.gearUpgrades = ensureObject(saveData.gearUpgrades);
+  saveData.spells = ensureObject(saveData.spells);
   saveData.resourceCrafts = ensureObject(saveData.resourceCrafts);
   saveData.expeditionLocations = ensureObject(saveData.expeditionLocations);
   saveData.dungeons = ensureObject(saveData.dungeons);
@@ -326,6 +331,10 @@ function applyGameStateSaveData(savedGameState) {
   ]);
 
   applySavedFields(gameState.exploration, savedGameState.exploration, ["currentStage", "count"]);
+
+  if (savedGameState.magic) {
+    gameState.magic.sensedReveals = structuredClone(ensureObject(savedGameState.magic.sensedReveals));
+  }
 
   if (savedGameState.expedition) {
     applySavedFields(gameState.expedition, savedGameState.expedition, [
@@ -483,7 +492,7 @@ function applyDungeonSaveData(savedDungeons) {
       const node = dungeon.nodes[nodeId];
       const savedNode = savedDungeon.nodes[nodeId];
 
-      applySavedFields(node, savedNode, ["discovered", "explored", "rewardClaimed"]);
+      applySavedFields(node, savedNode, ["discovered", "explored", "rewardClaimed", "manaSenseCharges"]);
     }
   }
 }
@@ -494,6 +503,7 @@ function refreshGameUIAfterLoad() {
   hideElement(ui.outskirtsCompletePopup);
   hideElement(ui.torchSparkPopup);
   hideElement(ui.manaAwakenedPopup);
+  hideElement(ui.campFoundationPopup);
 
   const resourceDefinitions = getResourceDefinitions();
 
@@ -537,6 +547,7 @@ function refreshGameUIAfterLoad() {
   updateCurrentGoalUI();
   updateJournalUI();
   updateRegionalMapVisibility();
+  updateEquipmentSlotUI();
   updateCharacterPanelLocks();
   updateDestinationActions();
   updateLocationActions();
@@ -565,6 +576,8 @@ function loadGame() {
   applyUpgradeSaveData(getCampUpgradeDefinitions(), saveData.campUpgrades, ["unlocked", "purchased"], updateCampUpgradeUI);
   applyUpgradeSaveData(getStorageUpgradeDefinitions(), saveData.storageUpgrades, ["unlocked", "tier"], updateStorageUpgradeUI);
   applyUpgradeSaveData(getGearUpgradeDefinitions(), saveData.gearUpgrades, ["unlocked", "purchased"], updateGearUpgradeUI);
+  applyUpgradeSaveData(getSpellDefinitions(), saveData.spells, ["unlocked"]);
+  repairSpellUnlocksFromFlags();
   repairExpeditionTonicSlots();
   applyUpgradeSaveData(getResourceCraftDefinitions(), saveData.resourceCrafts, ["unlocked"], updateResourceCraftUI);
   applyExpeditionLocationSaveData(saveData.expeditionLocations);
