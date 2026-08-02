@@ -106,8 +106,10 @@ function hookDomToUI() {
   ui.campFoundationPopup = document.getElementById("campFoundationPopup");
   ui.campFoundationContinueBtn = document.getElementById("campFoundationContinueBtn");
   ui.dungeonActions = document.getElementById("dungeonActions");
-  ui.lumberAmount = document.getElementById("lumberAmount");
   ui.nailsAmount = document.getElementById("nailsAmount");
+  ui.automationTabBtn = document.getElementById("automationTabBtn");
+  ui.automationPanel = document.getElementById("automationPanel");
+  ui.automationList = document.getElementById("automationList");
 }
 
 //Hook Ui Maps Functions
@@ -127,7 +129,6 @@ function hookUIMaps() {
     herb: ui.herbAmount,
     manaCrystal: ui.manaCrystalAmount,
     focus: ui.focusAmount,
-    lumber: ui.lumberAmount,
     nails: ui.nailsAmount,
   };
 
@@ -220,7 +221,7 @@ function unlockResource(resourceName) {
 function updateCampResourcesSectionVisibility() {
   if (!ui.campResourcesSection) return;
 
-  const campResourceNames = ["food", "wood", "fiber", "trap", "pelt", "stone", "leather", "ore", "iron", "herb", "manaCrystal", "nails", "lumber"];
+  const campResourceNames = ["food", "wood", "fiber", "trap", "pelt", "stone", "leather", "ore", "iron", "herb", "manaCrystal", "nails"];
 
   for (let i = 0; i < campResourceNames.length; i++) {
     const resourceElement = resourceElements[campResourceNames[i]];

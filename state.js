@@ -150,16 +150,6 @@ const resources = {
     perClickDisplay: null,
     perSecondDisplay: null,
   },
-  lumber: {
-    label: "Lumber",
-    value: 0,
-    maxValue: 100,
-    perClick: 0,
-    perSecond: 0,
-    display: null,
-    perClickDisplay: null,
-    perSecondDisplay: null,
-  },
   herb: {
     label: "Herb",
     value: 0,

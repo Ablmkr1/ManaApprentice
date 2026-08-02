@@ -19,6 +19,7 @@ function createSaveData() {
     expeditionLocations: createExpeditionLocationSaveData(),
     dungeons: createDungeonSaveData(),
     research: createResearchSaveData(),
+    automation: createAutomationSaveData(),
   };
 }
 
@@ -86,6 +87,23 @@ function createResearchSaveData() {
   }
 
   return savedResearch;
+}
+
+function createAutomationSaveData() {
+  const savedAutomation = {};
+  const machines = getAutomationDefinitions();
+
+  for (let machineName in machines) {
+    const machine = getAutomation(machineName);
+
+    savedAutomation[machineName] = {
+      unlocked: machine.unlocked,
+      cycles: machine.cycles || 0,
+      progress: machine.progress || 0,
+    };
+  }
+
+  return savedAutomation;
 }
 
 function createExpeditionLocationSaveData() {
@@ -241,6 +259,7 @@ function normalizeSaveData(saveData) {
   saveData.resourceCrafts = ensureObject(saveData.resourceCrafts);
   saveData.expeditionLocations = ensureObject(saveData.expeditionLocations);
   saveData.dungeons = ensureObject(saveData.dungeons);
+  saveData.automation = ensureObject(saveData.automation);
   saveData.gameState.journal = ensureObject(saveData.gameState.journal);
   if (!Array.isArray(saveData.gameState.journal.entries)) {
     saveData.gameState.journal.entries = [];
@@ -277,6 +296,19 @@ function applyResearchSaveData(savedResearch) {
     const savedEntry = savedResearch[researchName];
 
     applySavedFields(research, savedEntry, ["completed", "unlocked", "unlockedAt"]);
+  }
+}
+
+function applyAutomationSaveData(savedAutomation) {
+  if (!savedAutomation) return;
+
+  const machines = getAutomationDefinitions();
+
+  for (let machineName in machines) {
+    const machine = getAutomation(machineName);
+    const savedMachine = savedAutomation[machineName];
+
+    applySavedFields(machine, savedMachine, ["unlocked", "cycles", "progress"]);
   }
 }
 
@@ -544,6 +576,7 @@ function refreshGameUIAfterLoad() {
   }
 
   updateWorkTabsVisibility();
+  updateAutomationUI();
   updateCurrentGoalUI();
   updateJournalUI();
   updateRegionalMapVisibility();
@@ -583,6 +616,7 @@ function loadGame() {
   applyExpeditionLocationSaveData(saveData.expeditionLocations);
   applyDungeonSaveData(saveData.dungeons);
   applyResearchSaveData(saveData.research);
+  applyAutomationSaveData(saveData.automation);
   checkResearchDiscoveries();
   refreshGameUIAfterLoad();
 

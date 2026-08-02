@@ -15,6 +15,7 @@ const gameDefinitions = {
   consumables,
   clearingPlace,
   spellDefinitions,
+  automationDefinitions,
 };
 
 function getClearingPlace() {
@@ -142,4 +143,12 @@ function getSpellDefinitions() {
 
 function getSpell(spellName) {
   return getSpellDefinitions()[spellName];
+}
+
+function getAutomationDefinitions() {
+  return gameDefinitions.automationDefinitions;
+}
+
+function getAutomation(machineName) {
+  return getAutomationDefinitions()[machineName];
 }

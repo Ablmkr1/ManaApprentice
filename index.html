@@ -69,7 +69,6 @@
             <div class="camp-resource-strip">
               <div id="foodAmount" class="resource-pill" style="display: none"></div>
               <div id="woodAmount" class="resource-pill" style="display: none"></div>
-              <div id="lumberAmount" class="resource-pill" style="display: none"></div>
               <div id="fiberAmount" class="resource-pill" style="display: none"></div>
               <div id="trapAmount" class="resource-pill" style="display: none"></div>
               <div id="peltAmount" class="resource-pill" style="display: none"></div>
@@ -267,6 +266,7 @@
           <div id="workTabs" class="work-tabs" style="display: none">
             <button id="craftingTabBtn" class="work-tab active" type="button">Crafting</button>
             <button id="researchTabBtn" class="work-tab" type="button">Research</button>
+            <button id="automationTabBtn" class="work-tab" type="button" style="display: none">Automation</button>
           </div>
 
           <div id="craftingPanel" class="work-panel">
@@ -276,11 +276,15 @@
               <button id="smallFireBtn" style="display: none"></button>
               <button id="crudeLeanToBtn" style="display: none"></button>
               <button id="lessCrudeShelterBtn" style="display: none"></button>
+              <button id="smallHutBtn" style="display: none"></button>
               <button id="uncomfortableCotBtn" style="display: none"></button>
+              <button id="warmCotBtn" style="display: none"></button>
               <button id="stoneFirePitBtn" style="display: none"></button>
               <button id="researchSpotBtn" style="display: none"></button>
               <button id="meditationSpotBtn" style="display: none"></button>
               <button id="lumberMillBtn" style="display: none"></button>
+              <button id="foragingLureBtn" style="display: none"></button>
+              <button id="researchBenchBtn" style="display: none"></button>
 
               <!--<button id="woodStorageBtn" style="display: none"></button>
             <button id="foodStorageBtn" style="display: none"></button>
@@ -315,7 +319,6 @@
               <button id="ironCraftBtn" style="display: none"></button>
               <button id="staminaTonicCraftBtn" style="display: none"></button>
               <button id="nailsCraftBtn" style="display: none"></button>
-              <button id="lumberCraftBtn" style="display: none"></button>
             </div>
           </div>
 
@@ -329,6 +332,11 @@
                 <div class="research-empty">Select research to view details.</div>
               </div>
             </div>
+          </div>
+
+          <div id="automationPanel" class="work-panel automation-panel" style="display: none">
+            <h3>Automation</h3>
+            <div id="automationList" class="automation-list"></div>
           </div>
         </div>
       </section>

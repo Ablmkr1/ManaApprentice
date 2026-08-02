@@ -41,6 +41,9 @@ const unlockHandlers = {
   spell: function (id) {
     unlockSpell(id);
   },
+  automation: function (id) {
+    unlockAutomation(id);
+  },
 };
 
 function applyUnlock(unlock) {
@@ -1570,36 +1573,56 @@ function isResearchSpotPurchased() {
 function updateWorkTabsVisibility() {
   if (!ui.workTabs) return;
 
-  if (isResearchSpotPurchased()) {
+  const hasResearch = isResearchSpotPurchased();
+  const hasAutomation = hasUnlockedAutomation();
+
+  if (hasResearch || hasAutomation) {
     showElement(ui.workTabs, "flex");
   } else {
     hideElement(ui.workTabs);
     showWorkPanel("crafting");
   }
+
+  if (ui.researchTabBtn) {
+    ui.researchTabBtn.style.display = hasResearch ? "inline-block" : "none";
+  }
+
+  if (ui.automationTabBtn) {
+    ui.automationTabBtn.style.display = hasAutomation ? "inline-block" : "none";
+  }
 }
 
 function showWorkPanel(panelName) {
   const showingResearch = panelName === "research" && isResearchSpotPurchased();
+  const showingAutomation = panelName === "automation" && hasUnlockedAutomation();
+  const showingCrafting = !showingResearch && !showingAutomation;
 
   if (ui.craftingPanel) {
-    ui.craftingPanel.style.display = showingResearch ? "none" : "block";
+    ui.craftingPanel.style.display = showingCrafting ? "block" : "none";
   }
 
   if (ui.researchPanel) {
     ui.researchPanel.style.display = showingResearch ? "block" : "none";
   }
 
+  if (ui.automationPanel) {
+    ui.automationPanel.style.display = showingAutomation ? "block" : "none";
+  }
+
   if (ui.craftingTabBtn) {
-    ui.craftingTabBtn.classList.toggle("active", !showingResearch);
+    ui.craftingTabBtn.classList.toggle("active", showingCrafting);
   }
 
   if (ui.researchTabBtn) {
     ui.researchTabBtn.classList.toggle("active", showingResearch);
   }
 
-  if (showingResearch) {
-    updateResearchHistoryUI();
+  if (ui.automationTabBtn) {
+    ui.automationTabBtn.classList.toggle("active", showingAutomation);
   }
+
+  if (showingResearch) updateResearchHistoryUI();
+  if (showingAutomation) updateAutomationUI();
 }
 
 function getVisibleResearchEntries() {
@@ -1858,4 +1881,166 @@ function getUnlockDisplayText(unlock) {
   }
 
   return unlock.id;
+}
+
+function unlockAutomation(machineName) {
+  const machine = getAutomation(machineName);
+
+  if (!machine) {
+    console.warn("Unknown automation:", machineName);
+    return;
+  }
+
+  if (machine.unlocked) return;
+
+  machine.unlocked = true;
+
+  if (typeof updateAutomationUI === "function") {
+    updateAutomationUI();
+  }
+
+  updateWorkTabsVisibility();
+}
+
+function hasUnlockedAutomation() {
+  const machines = getAutomationDefinitions();
+
+  for (let machineName in machines) {
+    if (machines[machineName].unlocked) return true;
+  }
+
+  return false;
+}
+
+function updateAutomationUI() {
+  if (!ui.automationList) return;
+
+  ui.automationList.innerHTML = "";
+
+  const machines = getAutomationDefinitions();
+
+  for (let machineName in machines) {
+    const machine = machines[machineName];
+
+    if (!machine.unlocked) continue;
+
+    const row = document.createElement("div");
+    row.className = "automation-row";
+    row.dataset.automation = machineName;
+
+    const title = document.createElement("strong");
+    title.textContent = machine.label;
+
+    const details = document.createElement("div");
+    details.className = "automation-details";
+    details.textContent = "Cycles: " + machine.cycles;
+
+    const progress = document.createElement("div");
+    progress.className = "automation-progress";
+
+    const fill = document.createElement("div");
+    fill.className = "progressFill";
+    fill.style.width = Math.floor((machine.progress || 0) * 100) + "%";
+
+    progress.appendChild(fill);
+
+    const button = document.createElement("button");
+    button.className = "action-btn automation-imbue-btn";
+    button.type = "button";
+    button.textContent = "Imbue Mana";
+    button.disabled = !canImbueAutomation(machineName);
+    button.addEventListener("click", function () {
+      imbueAutomation(machineName);
+    });
+
+    row.appendChild(title);
+    row.appendChild(details);
+    row.appendChild(progress);
+    row.appendChild(button);
+    ui.automationList.appendChild(row);
+  }
+}
+
+function canImbueAutomation(machineName) {
+  const machine = getAutomation(machineName);
+
+  if (!machine || !machine.unlocked) return false;
+
+  return canAffordCost(machine.fuelCost);
+}
+
+function imbueAutomation(machineName) {
+  const machine = getAutomation(machineName);
+
+  if (!machine || !machine.unlocked) return;
+  if (!spendCost(machine.fuelCost)) return;
+
+  machine.cycles += machine.cyclesPerMana;
+  updateAutomationUI();
+}
+
+function canReceiveAutomationProduces(machine) {
+  if (!machine || !machine.produces) return false;
+
+  const resource = getResource(machine.produces.resource);
+
+  if (!resource) return false;
+
+  return resource.value + machine.produces.amount <= resource.maxValue;
+}
+
+function processAutomation(deltaSeconds) {
+  const machines = getAutomationDefinitions();
+
+  for (let machineName in machines) {
+    const machine = machines[machineName];
+
+    if (!machine.unlocked || machine.cycles <= 0) continue;
+    if (!canReceiveAutomationProduces(machine)) continue;
+
+    machine.progress += deltaSeconds / machine.duration;
+
+    while (machine.progress >= 1 && machine.cycles > 0) {
+      if (!canReceiveAutomationProduces(machine)) break;
+
+      addResource(machine.produces.resource, machine.produces.amount);
+      machine.cycles--;
+      machine.progress -= 1;
+    }
+
+    if (machine.cycles <= 0) {
+      machine.progress = 0;
+    }
+  }
+
+  updateAutomationProgressUI();
+}
+
+function updateAutomationProgressUI() {
+  if (!ui.automationList || !ui.automationPanel || ui.automationPanel.style.display === "none") return;
+
+  const machines = getAutomationDefinitions();
+
+  for (let machineName in machines) {
+    const row = ui.automationList.querySelector('[data-automation="' + machineName + '"]');
+    const machine = machines[machineName];
+
+    if (!row || !machine) continue;
+
+    const fill = row.querySelector(".progressFill");
+    const details = row.querySelector(".automation-details");
+    const button = row.querySelector(".automation-imbue-btn");
+
+    if (fill) {
+      fill.style.width = Math.floor((machine.progress || 0) * 100) + "%";
+    }
+
+    if (details) {
+      details.textContent = "Cycles: " + machine.cycles;
+    }
+
+    if (button) {
+      button.disabled = !canImbueAutomation(machineName);
+    }
+  }
 }

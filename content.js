@@ -444,6 +444,29 @@ const expeditionLocations = {
     },
     availableActions: ["enterDungeon"],
   },
+
+  silentGearworks: {
+    region: "west",
+    label: "Silent Gearworks",
+    exploredLabel: "Silent Gearworks",
+    distance: 140,
+    dungeon: "silentGearworksDepths",
+    discovered: false,
+    explored: false,
+    explorationProgress: 0,
+    explorationRequired: 2,
+    onDiscoverStory:
+      "The broken road passes a low stone building sunk into the hillside. No smoke rises from it, but something inside waits with patient precision.",
+    exploreStory: [
+      "The outer stones are fitted too tightly for age to loosen them.",
+      "Past the cracked threshold, silent mechanisms sit in rows. They look less abandoned than asleep.",
+    ],
+    panelText: {
+      discovered: "A low ruin waits beside the broken road. The air near it feels organized, like a held breath.",
+      explored: "The gearworks entrance is clear. Old mechanisms wait below, still enough to study.",
+    },
+    availableActions: ["enterDungeon"],
+  },
 };
 
 //Dungeon Definitions
@@ -572,6 +595,205 @@ const dungeonDefinitions = {
       },
     },
   },
+
+  silentGearworksDepths: {
+    label: "Silent Gearworks Depths",
+    entryLocation: "silentGearworks",
+    startNode: "entryGallery",
+    nodes: {
+      entryGallery: {
+        x: 0,
+        y: 1,
+        label: "Entry Gallery",
+        description: "Stone benches line the room. Brass tracks run through the floor and vanish beneath sealed doors.",
+        discovered: true,
+        explored: true,
+        rewardClaimed: false,
+        exits: [{ label: "Follow the brass tracks", to: "cycleHall" }],
+      },
+
+      cycleHall: {
+        x: 1,
+        y: 1,
+        label: "Cycle Hall",
+        description: "Small gearframes sit motionless along the wall, each built to repeat a single task.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        manaSenseCharges: 0,
+        search: {
+          duration: 6,
+          baseChance: 45,
+          cost: { energy: 8 },
+          successText: "You trace the repeated motion of the old frames: task, rhythm, reset.",
+        },
+        exits: [
+          { label: "Return to the entry gallery", to: "entryGallery" },
+
+          { label: "Follow the conveyor", to: "conveyorGallery" },
+          { label: "Enter the gear nest", to: "gearNest" },
+        ],
+      },
+
+      gaugeRoom: {
+        x: 2,
+        y: 2,
+        label: "Gauge Room",
+        description: "Cracked dials cover the walls. A few needles still twitch when mana stirs nearby.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        manaSenseCharges: 0,
+        search: {
+          duration: 7,
+          baseChance: 40,
+          cost: { energy: 8 },
+          successText: "Behind a broken dial, you find a small crystal still holding a faint charge.",
+          reward: { carried: { manaCrystal: 1 } },
+        },
+        exits: [
+          { label: "Follow the pressure lines", to: "manaReservoir" },
+          { label: "Return through the gear nest", to: "gearNest" },
+        ],
+      },
+
+      manaReservoir: {
+        x: 3,
+        y: 2,
+        label: "Mana Reservoir",
+        description: "A dry basin of etched stone waits beneath glass tubes and corroded valves.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        manaSenseCharges: 0,
+        search: {
+          duration: 9,
+          baseChance: 35,
+          cost: { energy: 10 },
+          successText: "You pry loose two crystals from the reservoir housing.",
+          reward: { carried: { manaCrystal: 2 } },
+        },
+        exits: [
+          { label: "Return to the gauge room", to: "gaugeRoom" },
+          { label: "A small passage appears ahead", to: "smallPassage" },
+        ],
+      },
+
+      smallPassage: {
+        x: 4,
+        y: 2,
+        label: "Small Passage",
+        description: "A small passage behind a ruined portrait.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        manaSenseCharges: 0,
+        search: {
+          duration: 9,
+          baseChance: 75,
+          cost: { energy: 5 },
+          successText: "A crystal is on the floor of the passage.",
+          reward: { carried: { manaCrystal: 1 } },
+        },
+        exits: [
+          { label: "Return to the mana reservoir", to: "manaReservoir" },
+          { label: "Approach the control dais", to: "controlDais" },
+        ],
+      },
+
+      conveyorGallery: {
+        x: 2,
+        y: 1,
+        label: "Conveyor Gallery",
+        description: "A narrow belt of linked brass plates runs through the chamber, frozen mid-task.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        manaSenseCharges: 0,
+        search: {
+          duration: 7,
+          baseChance: 45,
+          cost: { energy: 8 },
+          successText: "The conveyor's pattern is simple: receive, carry, release, repeat.",
+        },
+        exits: [
+          { label: "Return to the cycle hall", to: "cycleHall" },
+          { label: "Follow the belt forward", to: "sortingFloor" },
+        ],
+      },
+
+      sortingFloor: {
+        x: 3,
+        y: 1,
+        label: "Sorting Floor",
+        description: "Stone trays sit beneath a rack of delicate arms, each one angled toward a different bin.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        manaSenseCharges: 0,
+        search: {
+          duration: 8,
+          baseChance: 40,
+          cost: { energy: 10 },
+          successText: "One sorting arm releases a crystal chip when you nudge the old mechanism.",
+          reward: { carried: { manaCrystal: 1 } },
+        },
+        exits: [
+          { label: "Return to the conveyor gallery", to: "conveyorGallery" },
+          { label: "Approach the control dais", to: "controlDais" },
+        ],
+      },
+
+      gearNest: {
+        x: 1,
+        y: 2,
+        label: "Gear Nest",
+        description: "Loose gears crowd the floor like fallen leaves, all arranged around an empty socket.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        manaSenseCharges: 0,
+        search: {
+          duration: 8,
+          baseChance: 40,
+          cost: { energy: 10 },
+          successText: "You find a crystal caught in the socket where the gear nest once turned.",
+          reward: { carried: { manaCrystal: 1 } },
+        },
+        exits: [
+          { label: "Return to the cycle hall", to: "cycleHall" },
+          { label: "Inspect the gauge room", to: "gaugeRoom" },
+        ],
+      },
+
+      controlDais: {
+        x: 4,
+        y: 1,
+        label: "Control Dais",
+        description: "A raised platform holds a ring of inactive controls. Every track in the ruin leads here.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        manaSenseCharges: 0,
+        search: {
+          duration: 12,
+          baseChance: 35,
+          cost: { energy: 12 },
+          successText: "The ruin's lesson locks into place: mana can hold a task in motion for a fixed number of cycles.",
+          reward: {
+            unlocks: [
+              { type: "research", id: "automationPrinciples" },
+              { type: "journal", id: "automationPrinciplesFound" },
+            ],
+          },
+        },
+        exits: [
+          { label: "Return to the sorting floor", to: "sortingFloor" },
+          { label: "Return through the small passage", to: "smallPassage" },
+        ],
+      },
+    },
+  },
 };
 
 // Research Definitions
@@ -666,6 +888,9 @@ const researchDefinitions = {
       { type: "gearUpgrade", id: "reinforcedWaterskin" },
       { type: "gearUpgrade", id: "travelBoots" },
       { type: "gearUpgrade", id: "repairedLeatherBackpack" },
+      { type: "gearUpgrade", id: "leatherShirt" },
+      { type: "gearUpgrade", id: "leatherPants" },
+      { type: "campUpgrade", id: "warmCot" },
     ],
   },
 
@@ -814,6 +1039,7 @@ const researchDefinitions = {
       { type: "resourceCraft", id: "iron" },
       { type: "resource", id: "nails" },
       { type: "resourceCraft", id: "nails" },
+      { type: "campUpgrade", id: "researchBench" },
     ],
   },
 
@@ -860,22 +1086,45 @@ const researchDefinitions = {
     ],
   },
 
-  lumberMill: {
-    label: "Lumber Mill",
+  sturdyConstruction: {
+    label: "Sturdy Construction",
     duration: 5,
     completed: false,
     unlocked: false,
     cost: {
       energy: 8,
-      nails: 1,
+      iron: 1,
       wood: 10,
       focus: 3,
     },
     requires: {
-      resources: { nails: 1 },
+      researchCompleted: ["smelting", "leatherworking", "automationPrinciples"],
+      resources: {},
     },
-    story: "With iron fasteners and a proper frame, rough logs could be cut into reliable building lumber.",
-    unlocks: [{ type: "campUpgrade", id: "lumberMill" }],
+    story: "With more and better resources you can build sturdier buildings.",
+    unlocks: [{ type: "campUpgrade", id: "smallHut" }],
+  },
+
+  automationPrinciples: {
+    label: "Automation Principles",
+    duration: 8,
+    completed: false,
+    unlocked: false,
+    cost: {
+      energy: 12,
+      focus: 4,
+      manaCrystal: 2,
+      iron: 1,
+    },
+    requires: {
+      locationsExplored: ["silentGearworks"],
+    },
+    story:
+      "The ruin's mechanisms are not alive, exactly. They remember motion when mana is fed into them: a task, a rhythm, a cycle repeated until the charge fades.",
+    unlocks: [
+      { type: "campUpgrade", id: "lumberMill" },
+      { type: "campUpgrade", id: "foragingLure" },
+    ],
   },
 
   alchemy: {
@@ -981,7 +1230,7 @@ const campUpgrades = {
     displayName: "Small fire",
     campSlot: "fire",
     campSlotLabel: "Fire",
-    campSlotOrder: 1,
+    campSlotOrder: 2,
     campSlotRank: 1,
     duration: 3,
     cost: {
@@ -1001,7 +1250,7 @@ const campUpgrades = {
     displayName: "Crude Lean-To",
     campSlot: "shelter",
     campSlotLabel: "Shelter",
-    campSlotOrder: 2,
+    campSlotOrder: 1,
     campSlotRank: 1,
     duration: 4,
     cost: {
@@ -1022,7 +1271,7 @@ const campUpgrades = {
     displayName: "Less Crude Shelter",
     campSlot: "shelter",
     campSlotLabel: "Shelter",
-    campSlotOrder: 2,
+    campSlotOrder: 1,
     campSlotRank: 2,
     duration: 6,
     cost: {
@@ -1036,6 +1285,31 @@ const campUpgrades = {
     display: null,
     onComplete() {
       getResource("energy").restPerSecond += 1;
+    },
+  },
+
+  smallHut: {
+    label: "Small Hut",
+    displayName: "Small Hut",
+    campSlot: "shelter",
+    campSlotLabel: "Shelter",
+    campSlotOrder: 1,
+    campSlotRank: 3,
+    duration: 15,
+    cost: {
+      wood: 200,
+      stone: 20,
+      nails: 20,
+      energy: 100,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      getResource("focus").maxValue += 1;
+      getResource("energy").restPerSecond += 3;
+      updateResource("energy");
     },
   },
 
@@ -1062,12 +1336,38 @@ const campUpgrades = {
       updateResource("energy");
     },
   },
+
+  warmCot: {
+    label: "Warm Cot",
+    displayName: "Warm Cot",
+    campSlot: "rest",
+    campSlotLabel: "Rest",
+    campSlotOrder: 3,
+    campSlotRank: 2,
+    duration: 10,
+    cost: {
+      wood: 20,
+      fiber: 20,
+      leather: 4,
+      energy: 60,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      getResource("focus").maxValue += 1;
+      getResource("energy").restPerSecond += 1;
+      updateResource("energy");
+    },
+  },
+
   stoneFirePit: {
     label: "Stone Fire Pit",
     displayName: "Stone Fire Pit",
     campSlot: "fire",
     campSlotLabel: "Fire",
-    campSlotOrder: 1,
+    campSlotOrder: 2,
     campSlotRank: 2,
     duration: 6,
     cost: {
@@ -1102,6 +1402,31 @@ const campUpgrades = {
     button: null,
     display: null,
     onComplete() {},
+  },
+
+  researchBench: {
+    label: "Research Bench",
+    displayName: "Research Bench",
+    campSlot: "research",
+    campSlotLabel: "Research",
+    campSlotOrder: 4,
+    campSlotRank: 2,
+    duration: 12,
+    cost: {
+      wood: 40,
+      nails: 10,
+      iron: 2,
+      manaCrystal: 2,
+      energy: 80,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      getResource("focus").maxValue += 3;
+      updateResource("focus");
+    },
   },
 
   meditationSpot: {
@@ -1146,13 +1471,35 @@ const campUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      unlockResource("lumber");
-      unlockResourceCraft("lumber");
-
       getResource("wood").maxValue = 500;
-      getResource("lumber").maxValue = 500;
       updateResource("wood");
-      updateResource("lumber");
+      unlockAutomation("lumberMill");
+      updateCampResourcesSectionVisibility();
+    },
+  },
+
+  foragingLure: {
+    label: "Foraging Lure",
+    displayName: "Foraging Lure",
+    campSlot: "foodAutomation",
+    campSlotLabel: "Food",
+    campSlotOrder: 7,
+    campSlotRank: 1,
+    duration: 10,
+    cost: {
+      wood: 20,
+      fiber: 20,
+      manaCrystal: 2,
+      energy: 60,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      getResource("food").maxValue = 500;
+      updateResource("food");
+      unlockAutomation("foragingLure");
       updateCampResourcesSectionVisibility();
     },
   },
@@ -1312,8 +1659,31 @@ const gearUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      getResource("energy").maxValue += 10;
-      updateResource("energy");
+      updateDungeonUI();
+      refreshExpeditionUI();
+    },
+  },
+  leatherShirt: {
+    label: "Leather Shirt",
+    displayName: "Leather Shirt",
+    equipmentType: "gear",
+    slot: "chest",
+    slotLabel: "Chest",
+    slotOrder: 4,
+    slotRank: 2,
+    duration: 8,
+    cost: {
+      leather: 3,
+      fiber: 6,
+      energy: 35,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      updateDungeonUI();
+      refreshExpeditionUI();
     },
   },
   scratchyPants: {
@@ -1337,6 +1707,26 @@ const gearUpgrades = {
       getResource("energy").maxValue += 10;
       updateResource("energy");
     },
+  },
+  leatherPants: {
+    label: "Leather Pants",
+    displayName: "Leather Pants",
+    equipmentType: "gear",
+    slot: "legs",
+    slotLabel: "Legs",
+    slotOrder: 5,
+    slotRank: 2,
+    duration: 8,
+    cost: {
+      leather: 4,
+      fiber: 6,
+      energy: 40,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {},
   },
 
   foragingBasket: {
@@ -1780,6 +2170,32 @@ const gearUpgrades = {
   },
 };
 
+const automationDefinitions = {
+  lumberMill: {
+    label: "Lumber Mill",
+    description: "A mana-turned frame that helps process nearby wood.",
+    duration: 3,
+    cyclesPerMana: 5,
+    fuelCost: { mana: 1 },
+    produces: { resource: "wood", amount: 1 },
+    unlocked: false,
+    cycles: 0,
+    progress: 0,
+  },
+
+  foragingLure: {
+    label: "Foraging Lure",
+    description: "A quiet charm that draws small edible finds back toward camp.",
+    duration: 5,
+    cyclesPerMana: 5,
+    fuelCost: { mana: 1 },
+    produces: { resource: "food", amount: 1 },
+    unlocked: false,
+    cycles: 0,
+    progress: 0,
+  },
+};
+
 const resourceCrafts = {
   trap: {
     label: "Trap",
@@ -1813,6 +2229,7 @@ const resourceCrafts = {
     unlocked: false,
     button: null,
   },
+
   iron: {
     label: "Smelt Iron",
     requiredLocation: "minersCamp",
@@ -1830,6 +2247,7 @@ const resourceCrafts = {
     unlocked: false,
     button: null,
   },
+
   nails: {
     label: "Forge Nails",
     duration: 2,
@@ -1844,21 +2262,7 @@ const resourceCrafts = {
     unlocked: false,
     button: null,
   },
-  lumber: {
-    label: "Saw Lumber",
-    duration: 2,
-    cost: {
-      energy: 4,
-      wood: 2,
-    },
-    produces: {
-      resource: "lumber",
-      amount: 1,
-    },
-    auto: true,
-    unlocked: false,
-    button: null,
-  },
+
   staminaTonic: {
     label: "Brew Stamina Tonic",
     requiredLocation: "alchemistsHut",
@@ -2008,6 +2412,10 @@ const journalDefinitions = {
   campFoundationSensed: {
     title: "Buried Foundation",
     text: "Mana Sense revealed a large stone foundation beneath camp. It feels deliberate, old, and far too large for a simple shelter.",
+  },
+  automationPrinciplesFound: {
+    title: "Automation Principles",
+    text: "The Silent Gearworks used mana to repeat simple tasks. The machines were not intelligent, but they could remember a pattern while the charge lasted.",
   },
 };
 

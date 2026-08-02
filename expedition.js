@@ -419,7 +419,12 @@ function resolveExpeditionStep() {
     step.modifiersUsed.push(modifierName);
   }
 
-  const finalEnergyCost = step.energyCost;
+  if (hasPurchasedGear("leatherPants")) {
+    step.energyCost *= 0.9;
+  }
+
+  const finalEnergyCost = Math.max(0.1, Math.round(step.energyCost * 10) / 10);
+  step.energyCost = finalEnergyCost;
 
   if (!canAffordCost({ energy: finalEnergyCost })) {
     return {
@@ -1943,7 +1948,7 @@ function renderDungeonActions(node) {
     gameState.activity.context.nodeId === getCurrentDungeonState().nodeId;
 
   button.classList.toggle("running", isCurrentSearch);
-  button.disabled = !isCurrentSearch && (isActivityActive() || !canAffordCost(node.search.cost || {}));
+  button.disabled = !isCurrentSearch && (isActivityActive() || !canAffordCost(getDungeonSearchCost(node)));
 
   button.addEventListener("click", function () {
     if (!isCurrentSearch) {
@@ -1967,7 +1972,7 @@ function startDungeonRoomSearch() {
   if (!dungeonState || !dungeonState.active || !node || !node.search) return;
   if (node.explored) return;
   if (isActivityActive()) return;
-  if (!spendCost(node.search.cost || {})) return;
+  if (!spendCost(getDungeonSearchCost(node))) return;
 
   startActivity({
     kind: "dungeonSearch",
@@ -2165,5 +2170,19 @@ function claimDungeonNodeReward(node) {
     }
   }
 
+  if (reward.unlocks) {
+    applyUnlocks(reward.unlocks);
+  }
+
   node.rewardClaimed = true;
+}
+
+function getDungeonSearchCost(node) {
+  const cost = { ...(node.search.cost || {}) };
+
+  if (hasPurchasedGear("leatherShirt") && cost.energy) {
+    cost.energy = Math.max(1, cost.energy - 1);
+  }
+
+  return cost;
 }

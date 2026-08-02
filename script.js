@@ -91,6 +91,12 @@ function hookWorkTabs() {
       showWorkPanel("research");
     });
   }
+
+  if (ui.automationTabBtn) {
+    ui.automationTabBtn.addEventListener("click", function () {
+      showWorkPanel("automation");
+    });
+  }
 }
 
 // Rest Button Text Toggle
@@ -120,6 +126,7 @@ function gameTick() {
     }
   }
 
+  processAutomation(deltaSeconds);
   processActivityTick();
 }
 
