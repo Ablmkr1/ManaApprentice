@@ -56,6 +56,7 @@
           <div id="spellSlotsGroup" class="equipment-group" style="display: none">
             <h3>Spells</h3>
             <div id="spellSlots" class="equipment-slots"></div>
+            <div id="attunementTargetMenu" class="attunement-target-menu" style="display: none"></div>
           </div>
         </div>
       </section>
@@ -165,11 +166,6 @@
           <button class="action-btn" data-action="gatherFiber" style="display: none">
             <div class="progressFill"></div>
             <span>Gather Fiber</span>
-          </button>
-
-          <button class="action-btn" data-action="gatherFiber5" style="display: none">
-            <div class="progressFill"></div>
-            <span>5x Gather Fiber</span>
           </button>
 
           <button class="action-btn" data-action="gatherHerbs" style="display: none">
@@ -514,6 +510,24 @@
         </p>
 
         <button id="outskirtsCompleteContinueBtn">Continue</button>
+      </div>
+    </div>
+
+    <div id="recallAwakenedPopup" class="popup" style="display: none">
+      <div class="popup-content">
+        <h2>Recall</h2>
+
+        <p>
+          A faint thread disappears into the trees in the direction of camp. Instinctively, you pluck the thread, and between blinks of an eye you
+          appear back at camp.
+        </p>
+
+        <p>
+          You don't know how, but you're back without having to travel the forest in between. The thread remains in the back of your mind, ready for
+          your next expedition.
+        </p>
+
+        <button id="recallAwakenedContinueBtn">Continue</button>
       </div>
     </div>
 

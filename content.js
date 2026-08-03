@@ -99,7 +99,7 @@ const expeditionLocations = {
       discovered: "Clusters of unfamiliar plants grow beside the path, their pale stems twisting around one another.",
       explored: "Fibrous plants grow in dense clumps here.",
     },
-    availableActions: ["gatherFiber", "gatherFiber5"],
+    availableActions: ["gatherFiber"],
     unlocks: [{ type: "campUpgrade", id: "researchSpot" }],
   },
 
@@ -312,6 +312,69 @@ const expeditionLocations = {
     panelText: {
       discovered: "A weathered cabin waits in the deepwood. Whoever used it knew how to turn hides into something sturdier.",
       explored: "The cabin's ruined tools have taught you how to process pelts into leather.",
+    },
+  },
+
+  quietGrove: {
+    region: "east",
+    label: "Quiet Grove",
+    exploredLabel: "Quiet Grove",
+    distance: 250,
+    discovered: false,
+    explored: false,
+    explorationProgress: 0,
+    explorationRequired: 2,
+    onDiscoverStory:
+      "The deepwood opens into a still grove. The tracks here are too light for their size, as if something large barely touched the earth.",
+    exploreStory: [
+      "Silver scratches mark the bark at shoulder height. Whatever made them moved with impossible grace.",
+      "You glimpse a stag between the trees, its antlers bright as glass. Mana bends around it, then settles before you can understand how.",
+    ],
+    panelText: {
+      discovered: "A still grove waits deep in the eastern forest. Something magical moves here.",
+      explored: "The grove is quiet, but the glass-antler stag returns when you wait and watch.",
+    },
+    availableActions: [],
+    explorableObjects: {
+      observeGlassAntlerStag: {
+        label: "Observe Glass-Antler Stag",
+        duration: 3,
+        cost: {
+          energy: 8,
+        },
+        progress: 0,
+        manaSenseCharges: 0,
+        manaSense: {
+          required: 3,
+          stories: [
+            "Mana Sense catches the faint path of force through the stag's legs.",
+            "The pattern returns around its hide, brief and protective.",
+            "The shape is clearer now. The stag is not changing itself; it is emphasizing what is already there.",
+          ],
+        },
+        requires: {
+          locationsExplored: ["quietGrove"],
+          manaSenseCharges: 3,
+        },
+        stages: [
+          {
+            story:
+              "The stag steps across soft moss without sinking into it. Mana gathers in its legs, not changing them, only making their natural grace sharper.",
+          },
+          {
+            story:
+              "A branch falls nearby. The stag's hide flashes with pale light for a heartbeat, turning the impact aside before fading back to ordinary fur.",
+          },
+          {
+            story:
+              "You follow the pattern with your own mana and feel it answer through your equipment. The lesson is clear: mana can strengthen what is already there.",
+            unlocks: [
+              { type: "spell", id: "attunement" },
+              { type: "journal", id: "attunementLearned" },
+            ],
+          },
+        ],
+      },
     },
   },
 
@@ -1199,6 +1262,7 @@ const researchDefinitions = {
         manaCrystal: 1,
       },
     },
+    discoveryStory: "The mana crystal keeps a quiet pressure in your thoughts. There may be a way to recover mana without returning underground.",
     story:
       "The crystal hums with the same quiet pressure as the cave runes. With the right place prepared, you could recover mana without returning underground.",
     unlocks: [{ type: "campUpgrade", id: "meditationSpot" }],
@@ -1394,7 +1458,6 @@ const campUpgrades = {
     campSlotRank: 1,
     duration: 1,
     cost: {
-      energy: 1,
       focus: 1,
     },
     unlocked: false,
@@ -1659,6 +1722,7 @@ const gearUpgrades = {
     button: null,
     display: null,
     onComplete() {
+      getResource("energy").maxValue += 10;
       updateDungeonUI();
       refreshExpeditionUI();
     },
@@ -2309,6 +2373,59 @@ const spellDefinitions = {
       maxDungeonCharges: 3,
     },
   },
+  attunement: {
+    label: "Attunement",
+    duration: 1,
+    unlocked: false,
+    targeted: true,
+    sustained: true,
+  },
+};
+
+const attunementDefinitions = {
+  feetTravel: {
+    label: "Attune Footwear",
+    description: "+0.5 travel distance per step",
+    equipmentType: "gear",
+    slot: "feet",
+    cost: { mana: 2 },
+    effects: {
+      travelDistanceFlat: 0.5,
+    },
+  },
+
+  packCapacity: {
+    label: "Attune Pack",
+    description: "+10 carried capacity",
+    equipmentType: "gear",
+    slot: "pack",
+    cost: { mana: 2 },
+    effects: {
+      carryCapacityFlat: 10,
+    },
+  },
+
+  knifeHunting: {
+    label: "Attune Knife",
+    description: "+1 pelt from successful hunts",
+    equipmentType: "tool",
+    slot: "knife",
+    cost: { mana: 2 },
+    effects: {
+      huntRewardFlat: 1,
+    },
+  },
+
+  pickMining: {
+    label: "Attune Pick",
+    description: "+1 ore from mining",
+    equipmentType: "tool",
+    slot: "pick",
+    cost: { mana: 2 },
+    effects: {
+      mineOreFlat: 1,
+    },
+  },
 };
 
 const goalDefinitions = {
@@ -2416,6 +2533,10 @@ const journalDefinitions = {
   automationPrinciplesFound: {
     title: "Automation Principles",
     text: "The Silent Gearworks used mana to repeat simple tasks. The machines were not intelligent, but they could remember a pattern while the charge lasted.",
+  },
+  attunementLearned: {
+    title: "Attunement",
+    text: "The glass-antler stag did not transform itself. It briefly strengthened qualities it already possessed. You can imitate that pattern through your own gear and tools.",
   },
 };
 

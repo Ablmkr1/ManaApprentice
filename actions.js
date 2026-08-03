@@ -43,14 +43,6 @@ function hookActionCompletions() {
     }
   };
 
-  getAction("gatherFiber5").onComplete = function () {
-    const fiberCarried = addCarriedItemUpToCapacity("fiber", getResource("fiber").perClick * 5);
-
-    if (fiberCarried <= 0) {
-      addStoryEntry("Your hands are full. You cannot carry more.");
-    }
-  };
-
   getAction("gatherStone").onComplete = function () {
     if (!addCarriedItem("stone", 1)) {
       addStoryEntry("The stones are too heavy to carry more.");
@@ -211,7 +203,8 @@ function hookActionCompletions() {
     hunt.tracked = false;
 
     if (Math.random() < hunt.successChance) {
-      const rewardAmount = hunt.rewardAmount || 1;
+      const ironKnifeStagBonus = locationName === "stagRuns" && getGearUpgrade("ironKnife").purchased ? 1 : 0;
+      const rewardAmount = (hunt.rewardAmount || 1) + ironKnifeStagBonus + getActiveAttunementEffectTotal("huntRewardFlat");
       const carriedAmount = addCarriedItemUpToCapacity(hunt.reward, rewardAmount);
 
       if (carriedAmount > 0) {
@@ -319,7 +312,9 @@ function hookActionCompletions() {
   };
 
   getAction("mineOre").onComplete = function () {
-    if (addCarriedItem("ore", 2)) {
+    const oreAmount = 2 + getActiveAttunementEffectTotal("mineOreFlat");
+
+    if (addCarriedItem("ore", oreAmount)) {
       addStoryEntry("You break ore from the mine wall.");
     } else {
       addStoryEntry("The ore is too heavy to carry more.");
@@ -331,10 +326,14 @@ function hookActionCompletions() {
 
     if (herbAmount <= 0) {
       addStoryEntry("You search the patch but find no usable herbs this time.");
-    } else if (addCarriedItem("herb", herbAmount)) {
-      addStoryEntry("You gather " + herbAmount + " useful herbs.");
     } else {
-      addStoryEntry("You cannot carry more herbs.");
+      const herbCarried = addCarriedItemUpToCapacity("herb", herbAmount);
+
+      if (herbCarried > 0) {
+        addStoryEntry("You gather " + herbCarried + " useful herbs.");
+      } else {
+        addStoryEntry("You cannot carry more herbs.");
+      }
     }
 
     updateLocationActions();
@@ -449,13 +448,27 @@ function shouldStopAutoAction(actionName) {
 
   if (!action || !action.auto) return true;
 
-  const targetResource = getResource(action.auto.resource);
+  if (action.auto.resource) {
+    const targetResource = getResource(action.auto.resource);
 
-  if (targetResource && targetResource.value >= targetResource.maxValue) {
+    if (targetResource && targetResource.value >= targetResource.maxValue) {
+      return true;
+    }
+  }
+
+  if (action.auto.carriedItem && !hasCarrySpace(action.auto.carriedItem, getAutoActionCarryAmount(actionName))) {
     return true;
   }
 
   return false;
+}
+
+function getAutoActionCarryAmount(actionName) {
+  if (actionName === "mineOre") {
+    return 2 + getActiveAttunementEffectTotal("mineOreFlat");
+  }
+
+  return 1;
 }
 
 function pauseAutoActionForRest(actionName) {
@@ -563,8 +576,12 @@ function startActionExecution(actionName) {
   }
 
   if (!spendCost(action.cost)) {
-    if (isAutoAction(actionName) && action.auto.resumeAfterRest) {
-      pauseAutoActionForRest(actionName);
+    if (isAutoAction(actionName)) {
+      if (action.auto.resumeAfterRest) {
+        pauseAutoActionForRest(actionName);
+      } else {
+        stopAutoAction();
+      }
     }
 
     return;
@@ -1015,8 +1032,15 @@ function continueAutoAction(actionName) {
     return;
   }
 
-  if (!canAffordCost(getAction(actionName).cost)) {
-    pauseAutoActionForRest(actionName);
+  const action = getAction(actionName);
+
+  if (!canAffordCost(action.cost)) {
+    if (action.auto.resumeAfterRest) {
+      pauseAutoActionForRest(actionName);
+    } else {
+      stopAutoAction();
+    }
+
     return;
   }
 

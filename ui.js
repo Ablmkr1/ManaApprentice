@@ -110,6 +110,9 @@ function hookDomToUI() {
   ui.automationTabBtn = document.getElementById("automationTabBtn");
   ui.automationPanel = document.getElementById("automationPanel");
   ui.automationList = document.getElementById("automationList");
+  ui.recallAwakenedPopup = document.getElementById("recallAwakenedPopup");
+  ui.recallAwakenedContinueBtn = document.getElementById("recallAwakenedContinueBtn");
+  ui.attunementTargetMenu = document.getElementById("attunementTargetMenu");
 }
 
 //Hook Ui Maps Functions
@@ -259,6 +262,10 @@ function showOutskirtsCompletePopup() {
   ui.outskirtsCompletePopup.style.display = "flex";
 }
 
+function showRecallAwakenedPopup() {
+  ui.recallAwakenedPopup.style.display = "flex";
+}
+
 function showTorchSparkPopup() {
   ui.torchSparkPopup.style.display = "flex";
 }
@@ -288,7 +295,7 @@ function updateExpeditionUI(carriedTotal, carriedSummary) {
 
   updateBeginExpeditionButtonLabel();
 
-  safeSetText(ui.carriedAmount, "Carried: " + carriedTotal + " / " + expedition.carryCapacity + " (" + carriedSummary + ")");
+  safeSetText(ui.carriedAmount, "Carried: " + carriedTotal + " / " + getEffectiveCarryCapacity() + " (" + carriedSummary + ")");
   safeSetText(ui.carriedWaterAmount, "Water: " + expedition.water + " / " + expedition.waterCapacity);
 }
 
@@ -520,6 +527,7 @@ function hookActionButtonsToUI(onActionClick) {
       onActionClick(actionName);
     });
   });
+  updateReturnToCampButtonLabel();
 }
 
 function updateCharacterPanelLocks() {
@@ -846,4 +854,16 @@ function updateLocationStorageUI(location) {
   }
 
   showElement(ui.locationStorageSection, "block");
+}
+
+function updateReturnToCampButtonLabel() {
+  const action = getAction("returnToCamp");
+
+  if (!action || !action.button) return;
+
+  const label = action.button.querySelector("span");
+
+  if (!label) return;
+
+  label.textContent = gameState.recallUnlocked ? "Recall" : "Return to Camp";
 }

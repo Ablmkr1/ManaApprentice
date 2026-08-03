@@ -153,6 +153,7 @@ function createLocationObjectSaveData(explorableObjects) {
   for (let objectName in explorableObjects) {
     savedObjects[objectName] = {
       progress: explorableObjects[objectName].progress || 0,
+      manaSenseCharges: explorableObjects[objectName].manaSenseCharges || 0,
     };
   }
 
@@ -246,6 +247,15 @@ function normalizeSaveData(saveData) {
   saveData.gameState.expedition.carriedItems = ensureObject(saveData.gameState.expedition.carriedItems);
   saveData.gameState.magic = ensureObject(saveData.gameState.magic);
   saveData.gameState.magic.sensedReveals = ensureObject(saveData.gameState.magic.sensedReveals);
+  saveData.gameState.magic.attunements = ensureObject(saveData.gameState.magic.attunements);
+
+  if (!Array.isArray(saveData.gameState.magic.attunements.active)) {
+    saveData.gameState.magic.attunements.active = [];
+  }
+
+  if (!Number.isFinite(saveData.gameState.magic.attunements.capacity) || saveData.gameState.magic.attunements.capacity <= 0) {
+    saveData.gameState.magic.attunements.capacity = 1;
+  }
   saveData.research = ensureObject(saveData.research);
   saveData.gameState.world = ensureObject(saveData.gameState.world);
   saveData.gameState.world.regions = ensureObject(saveData.gameState.world.regions);
@@ -358,6 +368,7 @@ function applyGameStateSaveData(savedGameState) {
     "researchUnlocked",
     "torchResearched",
     "magicUnlocked",
+    "recallUnlocked",
     "destination",
     "hasCamp",
   ]);
@@ -366,7 +377,16 @@ function applyGameStateSaveData(savedGameState) {
 
   if (savedGameState.magic) {
     gameState.magic.sensedReveals = structuredClone(ensureObject(savedGameState.magic.sensedReveals));
+
+    const savedAttunements = ensureObject(savedGameState.magic.attunements);
+
+    gameState.magic.attunements = {
+      capacity: Number.isFinite(savedAttunements.capacity) && savedAttunements.capacity > 0 ? savedAttunements.capacity : 1,
+      active: Array.isArray(savedAttunements.active) ? structuredClone(savedAttunements.active) : [],
+    };
   }
+
+  getAttunementState();
 
   if (savedGameState.expedition) {
     applySavedFields(gameState.expedition, savedGameState.expedition, [
@@ -505,7 +525,7 @@ function applyLocationObjectSaveData(explorableObjects, savedObjects) {
     const object = explorableObjects[objectName];
     const savedObject = savedObjects[objectName];
 
-    applySavedFields(object, savedObject, ["progress"]);
+    applySavedFields(object, savedObject, ["progress", "manaSenseCharges"]);
   }
 }
 
@@ -533,6 +553,7 @@ function refreshGameUIAfterLoad() {
   hideElement(ui.introPopup);
   hideElement(ui.campEstablishedPopup);
   hideElement(ui.outskirtsCompletePopup);
+  hideElement(ui.recallAwakenedPopup);
   hideElement(ui.torchSparkPopup);
   hideElement(ui.manaAwakenedPopup);
   hideElement(ui.campFoundationPopup);
@@ -576,6 +597,7 @@ function refreshGameUIAfterLoad() {
   }
 
   updateWorkTabsVisibility();
+  updateReturnToCampButtonLabel();
   updateAutomationUI();
   updateCurrentGoalUI();
   updateJournalUI();

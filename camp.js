@@ -135,6 +135,11 @@ function unlockResearch(researchName) {
 
   research.unlocked = true;
   research.unlockedAt = Date.now();
+
+  if (research.discoveryStory) {
+    addStoryEntry(research.discoveryStory);
+  }
+
   updateCraftingSectionVisibility();
   updateWorkTabsVisibility();
 
@@ -779,6 +784,15 @@ function renderEquipmentSlots(groupEl, containerEl, equipmentType) {
     boxEl.className = "equipment-box";
     boxEl.textContent = slot.current.displayName || slot.current.label;
 
+    if (isEquipmentSlotAttuned(equipmentType, slot.current.slot)) {
+      boxEl.classList.add("attuned");
+
+      const starEl = document.createElement("span");
+      starEl.className = "attunement-star";
+      starEl.textContent = "*";
+      boxEl.appendChild(starEl);
+    }
+
     const labelEl = document.createElement("div");
     labelEl.className = "equipment-slot-label";
     labelEl.textContent = slot.label;
@@ -886,6 +900,10 @@ function renderSpellSlots() {
     boxEl.appendChild(progressFill);
     entry.spell.button = boxEl;
 
+    if (entry.id === "attunement") {
+      renderAttunementPips(boxEl);
+    }
+
     const isActiveSpell = isActivityActive() && gameState.activity.kind === "spell" && gameState.activity.id === entry.id;
 
     if (isActiveSpell) {
@@ -898,12 +916,23 @@ function renderSpellSlots() {
       boxEl.setAttribute("tabindex", "0");
 
       boxEl.addEventListener("click", function () {
+        if (entry.id === "attunement") {
+          toggleAttunementTargetMenu();
+          return;
+        }
+
         castSpell(entry.id);
       });
 
       boxEl.addEventListener("keydown", function (event) {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
+
+          if (entry.id === "attunement") {
+            toggleAttunementTargetMenu();
+            return;
+          }
+
           castSpell(entry.id);
         }
       });
@@ -968,7 +997,23 @@ function canCastSpell(spellName) {
   if (!canAffordCost(spell.cost || {})) return false;
 
   if (spellName === "manaSense") {
-    return !!getCurrentManaSenseReveal() || canAddManaSenseDungeonCharge();
+    return !!getCurrentManaSenseReveal() || canAddManaSenseLocationObjectCharge() || canAddManaSenseDungeonCharge();
+  }
+
+  if (spellName === "attunement") {
+    return hasAvailableAttunementTarget();
+  }
+
+  return false;
+}
+
+function hasAvailableAttunementTarget() {
+  const definitions = getAttunementDefinitions();
+
+  for (let attunementName in definitions) {
+    if (isAttunementTargetAvailable(attunementName)) {
+      return true;
+    }
   }
 
   return false;
@@ -1003,6 +1048,36 @@ function canAddManaSenseDungeonCharge() {
   return (node.manaSenseCharges || 0) < maxCharges;
 }
 
+function getCurrentManaSenseLocationObjectTarget() {
+  const locationName = getCurrentObjectPlaceName();
+  const place = getObjectPlace(locationName);
+
+  if (!locationName || !place || !place.explorableObjects) return null;
+
+  for (let objectName in place.explorableObjects) {
+    const object = getLocationObject(locationName, objectName);
+
+    if (!object || !object.manaSense) continue;
+    if (isLocationObjectComplete(object)) continue;
+    if (!isLocationObjectAvailable(object, { ignoreManaSenseCharges: true })) continue;
+
+    const required = object.manaSense.required || 1;
+
+    if ((object.manaSenseCharges || 0) >= required) continue;
+
+    return {
+      locationName,
+      objectName,
+    };
+  }
+
+  return null;
+}
+
+function canAddManaSenseLocationObjectCharge() {
+  return !!getCurrentManaSenseLocationObjectTarget();
+}
+
 function getSpellCastContext(spellName) {
   if (spellName === "manaSense") {
     const reveal = getCurrentManaSenseReveal();
@@ -1014,6 +1089,16 @@ function getSpellCastContext(spellName) {
         story: reveal.story,
         journal: reveal.journal,
         popup: reveal.popup,
+      };
+    }
+
+    const objectTarget = getCurrentManaSenseLocationObjectTarget();
+
+    if (objectTarget) {
+      return {
+        type: "locationObjectCharge",
+        locationName: objectTarget.locationName,
+        objectName: objectTarget.objectName,
       };
     }
 
@@ -1041,6 +1126,16 @@ function completeSpellCast(spellName, context) {
     if (context && context.type === "dungeonCharge") {
       addManaSenseDungeonChargeForNode(context.dungeonId, context.nodeId);
     }
+
+    if (context && context.type === "locationObjectCharge") {
+      addManaSenseLocationObjectCharge(context.locationName, context.objectName);
+    }
+  }
+
+  if (spellName === "attunement") {
+    if (context && context.type === "attunement") {
+      applyAttunement(context.attunementId);
+    }
   }
 
   updateEquipmentSlotUI();
@@ -1064,6 +1159,33 @@ function addManaSenseDungeonChargeForNode(dungeonId, nodeId) {
   addStoryEntry("Mana Sense sharpens the shape of " + node.label + " in your mind.");
 
   updateDungeonUI();
+
+  return true;
+}
+
+function addManaSenseLocationObjectCharge(locationName, objectName) {
+  const place = getObjectPlace(locationName);
+  const object = getLocationObject(locationName, objectName);
+
+  if (!place || !object || !object.manaSense) return false;
+
+  const required = object.manaSense.required || 1;
+  const currentCharges = object.manaSenseCharges || 0;
+
+  if (currentCharges >= required) return false;
+
+  object.manaSenseCharges = currentCharges + 1;
+
+  const stories = object.manaSense.stories || [];
+  const story = stories[currentCharges];
+
+  if (story) {
+    addStoryEntry(story);
+  } else {
+    addStoryEntry("Mana Sense sharpens your understanding of " + object.label + ".");
+  }
+
+  updateLocationObjectActionsUI(place);
 
   return true;
 }
@@ -2043,4 +2165,225 @@ function updateAutomationProgressUI() {
       button.disabled = !canImbueAutomation(machineName);
     }
   }
+}
+
+function getAttunementState() {
+  if (!gameState.magic.attunements) {
+    gameState.magic.attunements = {
+      capacity: 1,
+      active: [],
+    };
+  }
+
+  if (!Array.isArray(gameState.magic.attunements.active)) {
+    gameState.magic.attunements.active = [];
+  }
+
+  if (!gameState.magic.attunements.capacity) {
+    gameState.magic.attunements.capacity = 1;
+  }
+
+  return gameState.magic.attunements;
+}
+
+function getActiveAttunements() {
+  return getAttunementState().active;
+}
+
+function hasActiveAttunement(attunementName) {
+  return getActiveAttunements().some(function (entry) {
+    return entry.id === attunementName;
+  });
+}
+
+function getActiveAttunementEffectTotal(effectName) {
+  return getActiveAttunements().reduce(function (total, entry) {
+    const definition = getAttunementDefinition(entry.id);
+    const effects = definition ? definition.effects || {} : {};
+
+    return total + (effects[effectName] || 0);
+  }, 0);
+}
+
+function clearActiveAttunements() {
+  getAttunementState().active = [];
+  updateEquipmentSlotUI();
+}
+
+function hideAttunementTargetMenu() {
+  if (!ui.attunementTargetMenu) return;
+
+  ui.attunementTargetMenu.innerHTML = "";
+  hideElement(ui.attunementTargetMenu);
+}
+
+function toggleAttunementTargetMenu() {
+  if (!ui.attunementTargetMenu) return;
+
+  if (ui.attunementTargetMenu.style.display !== "none") {
+    hideAttunementTargetMenu();
+    return;
+  }
+
+  renderAttunementTargetMenu();
+}
+
+function renderAttunementTargetMenu() {
+  if (!ui.attunementTargetMenu) return;
+
+  ui.attunementTargetMenu.innerHTML = "";
+
+  const definitions = getAttunementDefinitions();
+  let hasTargets = false;
+
+  for (let attunementName in definitions) {
+    if (!isAttunementTargetAvailable(attunementName)) continue;
+
+    hasTargets = true;
+
+    const definition = getAttunementDefinition(attunementName);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "attunement-target-btn";
+
+    const label = document.createElement("span");
+    label.className = "attunement-target-label";
+    label.textContent = definition.label;
+
+    const description = document.createElement("span");
+    description.className = "attunement-target-description";
+    description.textContent = definition.description || "";
+
+    button.appendChild(label);
+    button.appendChild(description);
+
+    button.disabled = !canApplyAttunement(attunementName);
+
+    button.addEventListener("click", function () {
+      castTargetedSpell("attunement", {
+        type: "attunement",
+        attunementId: attunementName,
+      });
+    });
+
+    ui.attunementTargetMenu.appendChild(button);
+  }
+
+  if (!hasTargets) {
+    ui.attunementTargetMenu.textContent = "No available targets.";
+  }
+
+  showElement(ui.attunementTargetMenu, "block");
+}
+
+function renderAttunementPips(boxEl) {
+  const state = getAttunementState();
+
+  const pipRow = document.createElement("div");
+  pipRow.className = "attunement-pips";
+
+  for (let i = 0; i < state.capacity; i++) {
+    const pip = document.createElement("span");
+    pip.className = "attunement-pip";
+
+    if (i < state.active.length) {
+      pip.classList.add("filled");
+    }
+
+    pipRow.appendChild(pip);
+  }
+
+  boxEl.appendChild(pipRow);
+}
+
+function getPurchasedEquipmentForSlot(equipmentType, slotName) {
+  const slots = getPurchasedEquipmentSlots(equipmentType);
+
+  for (let i = 0; i < slots.length; i++) {
+    if (slots[i].current && slots[i].current.slot === slotName) {
+      return slots[i].current;
+    }
+  }
+
+  return null;
+}
+
+function isAttunementTargetAvailable(attunementName) {
+  const definition = getAttunementDefinition(attunementName);
+
+  if (!definition) return false;
+  if (hasActiveAttunement(attunementName)) return false;
+
+  return !!getPurchasedEquipmentForSlot(definition.equipmentType, definition.slot);
+}
+
+function canApplyAttunement(attunementName) {
+  const state = getAttunementState();
+  const definition = getAttunementDefinition(attunementName);
+
+  if (!definition) return false;
+  if (!getSpell("attunement") || !getSpell("attunement").unlocked) return false;
+  if (isActivityActive()) return false;
+  if (state.active.length >= state.capacity) return false;
+  if (!isAttunementTargetAvailable(attunementName)) return false;
+
+  return canAffordCost(definition.cost || {});
+}
+
+function castTargetedSpell(spellName, context) {
+  const spell = getSpell(spellName);
+
+  if (!spell || !spell.unlocked) return;
+  if (isActivityActive()) return;
+
+  let cost = spell.cost || {};
+
+  if (spellName === "attunement") {
+    if (!context || context.type !== "attunement") return;
+    if (!canApplyAttunement(context.attunementId)) return;
+
+    const definition = getAttunementDefinition(context.attunementId);
+    cost = definition.cost || {};
+  }
+
+  if (!spendCost(cost)) return;
+
+  if (!startActivity({ kind: "spell", id: spellName, context: context })) {
+    refundCost(cost);
+    return;
+  }
+
+  hideAttunementTargetMenu();
+  updateAllResources();
+  updateEquipmentSlotUI();
+  updateAllActionButtons();
+  updateCraftingButtons();
+}
+
+function applyAttunement(attunementName) {
+  const state = getAttunementState();
+  const definition = getAttunementDefinition(attunementName);
+
+  if (!definition) return false;
+  if (hasActiveAttunement(attunementName)) return false;
+  if (state.active.length >= state.capacity) return false;
+
+  const equipment = getPurchasedEquipmentForSlot(definition.equipmentType, definition.slot);
+
+  if (!equipment) return false;
+
+  state.active.push({
+    id: attunementName,
+    equipmentType: definition.equipmentType,
+    slot: definition.slot,
+  });
+
+  addStoryEntry("You attune to " + (equipment.displayName || equipment.label) + ".");
+  return true;
+}
+
+function isEquipmentSlotAttuned(equipmentType, slotName) {
+  return getActiveAttunements().some(function (entry) {
+    return entry.equipmentType === equipmentType && entry.slot === slotName;
+  });
 }

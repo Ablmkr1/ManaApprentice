@@ -13,6 +13,10 @@ window.onload = function () {
     ui.outskirtsCompletePopup.style.display = "none";
   });
 
+  ui.recallAwakenedContinueBtn.addEventListener("click", function () {
+    ui.recallAwakenedPopup.style.display = "none";
+  });
+
   ui.torchSparkContinueBtn.addEventListener("click", function () {
     ui.torchSparkPopup.style.display = "none";
   });

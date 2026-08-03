@@ -121,7 +121,11 @@ function getCarriedItemWeight(itemName) {
 }
 
 function hasCarrySpace(itemName, amount) {
-  return getCarriedTotal() + amount * getCarriedItemWeight(itemName) <= gameState.expedition.carryCapacity;
+  return getCarriedTotal() + amount * getCarriedItemWeight(itemName) <= getEffectiveCarryCapacity();
+}
+
+function getEffectiveCarryCapacity() {
+  return gameState.expedition.carryCapacity + getActiveAttunementEffectTotal("carryCapacityFlat");
 }
 
 function addCarriedItem(itemName, amount) {
@@ -141,7 +145,7 @@ function addCarriedItem(itemName, amount) {
 
 function addCarriedItemUpToCapacity(itemName, amount) {
   const itemWeight = getCarriedItemWeight(itemName);
-  const availableSpace = gameState.expedition.carryCapacity - getCarriedTotal();
+  const availableSpace = getEffectiveCarryCapacity() - getCarriedTotal();
   const amountToCarry = Math.min(amount, Math.floor(availableSpace / itemWeight));
 
   if (amountToCarry <= 0) return 0;
@@ -402,6 +406,8 @@ function resolveExpeditionStep() {
     step.distance += 0.5;
   }
 
+  step.distance += getActiveAttunementEffectTotal("travelDistanceFlat");
+
   if (isKnownPathTravelActive() || isOutskirtsTravelActive()) {
     step.distance *= 1.2;
   }
@@ -492,13 +498,18 @@ function beginReturnToCamp(reason) {
   if (!expedition.active) return;
 
   if (shouldReturnToCampInstantly(reason)) {
-    addStoryEntry("You make your way back to camp by familiar paths.");
+    const awakened = unlockRecallMagic();
+
+    if (!awakened) {
+      addStoryEntry("You pluck the faint thread leading back to camp and the camp appears.");
+    }
+
     expedition.distance = 0;
     expedition.destination = null;
     expedition.currentLocation = null;
     expedition.returning = false;
     expedition.returnPenalty = 0;
-    endExpedition("returned");
+    endExpedition("recalled");
     return;
   }
 
@@ -518,7 +529,7 @@ function beginReturnToCamp(reason) {
   }
 
   if (reason === "exhausted") {
-    addStoryEntry("Your strength gives out. You turn back toward camp with what you can carry.");
+    addStoryEntry("Your strength gives out. You pluck the faint thread and the camp appears.");
   }
 
   refreshExpeditionUI();
@@ -526,7 +537,7 @@ function beginReturnToCamp(reason) {
 }
 
 function shouldReturnToCampInstantly(reason) {
-  return INSTANT_MANUAL_RETURN_TO_CAMP && reason === "manual";
+  return INSTANT_MANUAL_RETURN_TO_CAMP && (reason === "manual" || reason === "exhausted");
 }
 
 function completeTier2Exploration() {
@@ -566,6 +577,8 @@ function endExpedition(reason) {
 
   expedition.active = false;
   expedition.returning = false;
+
+  clearActiveAttunements();
 
   applyReturnPenalty();
   transferCarriedItemsToCamp();
@@ -1073,7 +1086,7 @@ function updateLocationObjectActionsUI(location) {
   }
 }
 
-function isLocationObjectAvailable(object) {
+function isLocationObjectAvailable(object, options = {}) {
   if (!object.requires) return true;
 
   if (object.requires.gearPurchased) {
@@ -1092,6 +1105,21 @@ function isLocationObjectAvailable(object) {
     }
   }
 
+  if (object.requires.locationsExplored) {
+    for (let i = 0; i < object.requires.locationsExplored.length; i++) {
+      const requiredLocation = getExpeditionLocation(object.requires.locationsExplored[i]);
+
+      if (!requiredLocation || !requiredLocation.explored) {
+        return false;
+      }
+    }
+  }
+
+  if (!options.ignoreManaSenseCharges && object.requires.manaSenseCharges !== undefined) {
+    if ((object.manaSenseCharges || 0) < object.requires.manaSenseCharges) {
+      return false;
+    }
+  }
   return true;
 }
 
@@ -2185,4 +2213,14 @@ function getDungeonSearchCost(node) {
   }
 
   return cost;
+}
+
+function unlockRecallMagic() {
+  if (gameState.recallUnlocked) return false;
+
+  gameState.recallUnlocked = true;
+  showRecallAwakenedPopup();
+  updateReturnToCampButtonLabel();
+
+  return true;
 }

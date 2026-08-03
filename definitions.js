@@ -16,6 +16,7 @@ const gameDefinitions = {
   clearingPlace,
   spellDefinitions,
   automationDefinitions,
+  attunementDefinitions,
 };
 
 function getClearingPlace() {
@@ -151,4 +152,12 @@ function getAutomationDefinitions() {
 
 function getAutomation(machineName) {
   return getAutomationDefinitions()[machineName];
+}
+
+function getAttunementDefinitions() {
+  return gameDefinitions.attunementDefinitions;
+}
+
+function getAttunementDefinition(attunementName) {
+  return getAttunementDefinitions()[attunementName];
 }
