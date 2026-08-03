@@ -799,7 +799,7 @@ const dungeonDefinitions = {
           baseChance: 40,
           cost: { energy: 10 },
           successText: "One sorting arm releases a crystal chip when you nudge the old mechanism.",
-          reward: { carried: { manaCrystal: 1 } },
+          reward: { carried: { manaCrystal: 2 } },
         },
         exits: [
           { label: "Return to the conveyor gallery", to: "conveyorGallery" },
@@ -1272,7 +1272,7 @@ const researchDefinitions = {
 // Exploration Definitions
 const explorationStages = {
   findClearing: {
-    required: 1,
+    required: 3,
     story: ["You stumble forward, mind in a daze...", "The forest clears ahead...", "You can rest here."],
     unlocks: [{ type: "panel", id: "camp" }],
     onComplete: function () {
