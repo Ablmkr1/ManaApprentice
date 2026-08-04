@@ -154,6 +154,7 @@ function createLocationObjectSaveData(explorableObjects) {
     savedObjects[objectName] = {
       progress: explorableObjects[objectName].progress || 0,
       manaSenseCharges: explorableObjects[objectName].manaSenseCharges || 0,
+      spellCharges: structuredClone(getLocationObjectSpellCharges(explorableObjects[objectName])),
     };
   }
 
@@ -525,7 +526,7 @@ function applyLocationObjectSaveData(explorableObjects, savedObjects) {
     const object = explorableObjects[objectName];
     const savedObject = savedObjects[objectName];
 
-    applySavedFields(object, savedObject, ["progress", "manaSenseCharges"]);
+    applySavedFields(object, savedObject, ["progress", "manaSenseCharges", "spellCharges"]);
   }
 }
 

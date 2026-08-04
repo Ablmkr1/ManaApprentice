@@ -17,6 +17,8 @@ const gameDefinitions = {
   spellDefinitions,
   automationDefinitions,
   attunementDefinitions,
+  imbueDefinitions,
+  arcaneHeatDefinitions,
 };
 
 function getClearingPlace() {
@@ -160,4 +162,20 @@ function getAttunementDefinitions() {
 
 function getAttunementDefinition(attunementName) {
   return getAttunementDefinitions()[attunementName];
+}
+
+function getImbueDefinitions() {
+  return gameDefinitions.imbueDefinitions;
+}
+
+function getImbueDefinition(imbueName) {
+  return getImbueDefinitions()[imbueName];
+}
+
+function getArcaneHeatDefinitions() {
+  return gameDefinitions.arcaneHeatDefinitions;
+}
+
+function getArcaneHeatDefinition(arcaneHeatName) {
+  return getArcaneHeatDefinitions()[arcaneHeatName];
 }

@@ -343,18 +343,22 @@ const expeditionLocations = {
           energy: 8,
         },
         progress: 0,
-        manaSenseCharges: 0,
-        manaSense: {
-          required: 3,
-          stories: [
-            "Mana Sense catches the faint path of force through the stag's legs.",
-            "The pattern returns around its hide, brief and protective.",
-            "The shape is clearer now. The stag is not changing itself; it is emphasizing what is already there.",
-          ],
+        spellCharges: {},
+        spellInteractions: {
+          manaSense: {
+            required: 3,
+            stories: [
+              "Mana Sense catches the faint path of force through the stag's legs.",
+              "The pattern returns around its hide, brief and protective.",
+              "The shape is clearer now. The stag is not changing itself; it is emphasizing what is already there.",
+            ],
+          },
         },
         requires: {
           locationsExplored: ["quietGrove"],
-          manaSenseCharges: 3,
+          spellCharges: {
+            manaSense: 3,
+          },
         },
         stages: [
           {
@@ -421,6 +425,43 @@ const expeditionLocations = {
       explored: "The miners' camp has water, storage, and the remains of a smelter. It could become the northern workshop.",
     },
     availableActions: ["storeWood", "storeOre", "takeIron"],
+    explorableObjects: {
+      studySmelterHeat: {
+        label: "Study Smelter Heat",
+        duration: 3,
+        cost: {
+          energy: 8,
+        },
+        progress: 0,
+        spellCharges: {},
+        spellInteractions: {
+          manaSense: {
+            required: 3,
+            stories: [
+              "Mana Sense settles over the cold smelter. The old stones remember heat, but not ordinary flame.",
+              "The smelter's shape guides pressure as much as fire. Mana could hold iron soft without letting it collapse.",
+              "The pattern becomes clear: heat, force, and restraint braided tightly enough to shape metal by will.",
+            ],
+          },
+        },
+        requires: {
+          locationsExplored: ["minersCamp"],
+          spellCharges: {
+            manaSense: 3,
+          },
+        },
+        stages: [
+          {
+            story:
+              "You study the smelter's remembered heat until the lesson catches in your hands. Iron can be persuaded, not merely hammered.",
+            unlocks: [
+              { type: "spell", id: "arcaneHeat" },
+              { type: "journal", id: "arcaneHeatLearned" },
+            ],
+          },
+        ],
+      },
+    },
   },
 
   ironMine: {
@@ -469,6 +510,7 @@ const expeditionLocations = {
     distance: 40,
     storage: {
       herb: 0,
+      staminaTonicBase: 0,
     },
     discovered: false,
     explored: false,
@@ -484,6 +526,43 @@ const expeditionLocations = {
       explored: "The abandoned hut has storage, tools, and enough old notes to begin simple alchemy.",
     },
     availableActions: ["storeHerb"],
+    explorableObjects: {
+      studyInfusionPattern: {
+        label: "Study Infusion Pattern",
+        duration: 3,
+        cost: {
+          energy: 8,
+        },
+        progress: 0,
+        spellCharges: {},
+        spellInteractions: {
+          manaSense: {
+            required: 3,
+            stories: [
+              "Mana Sense settles over the stained bowls. The old residue holds a pattern, faint but deliberate.",
+              "The notes make more sense now: herbs provide the shape, but mana fixes the effect into the brew.",
+              "The final step is clear. A tonic is not finished until mana is bound into the prepared base.",
+            ],
+          },
+        },
+        requires: {
+          locationsDiscovered: ["alchemistsHut"],
+          spellCharges: {
+            manaSense: 3,
+          },
+        },
+        stages: [
+          {
+            story:
+              "You trace the infusion pattern from bowl to note to old stain. Mana can be held inside prepared matter, waiting for the right moment to release.",
+            unlocks: [
+              { type: "spell", id: "imbue" },
+              { type: "journal", id: "imbueLearned" },
+            ],
+          },
+        ],
+      },
+    },
   },
 
   roadsideRuin: {
@@ -1101,7 +1180,6 @@ const researchDefinitions = {
     unlocks: [
       { type: "resourceCraft", id: "iron" },
       { type: "resource", id: "nails" },
-      { type: "resourceCraft", id: "nails" },
       { type: "campUpgrade", id: "researchBench" },
     ],
   },
@@ -1975,7 +2053,7 @@ const gearUpgrades = {
     slotRank: 2,
     cost: {
       leather: 1,
-      iron: 1,
+      ironKnifeBlade: 1,
       energy: 30,
     },
     unlocked: false,
@@ -2024,7 +2102,7 @@ const gearUpgrades = {
     cost: {
       leather: 2,
       wood: 5,
-      iron: 3,
+      ironAxeHead: 1,
       energy: 40,
     },
     unlocked: false,
@@ -2138,7 +2216,7 @@ const gearUpgrades = {
     duration: 15,
     cost: {
       wood: 5,
-      iron: 3,
+      crudeIronPickHead: 1,
       fiber: 2,
       energy: 15,
     },
@@ -2312,35 +2390,18 @@ const resourceCrafts = {
     button: null,
   },
 
-  nails: {
-    label: "Forge Nails",
-    duration: 2,
-    cost: {
-      energy: 4,
-      iron: 1,
-    },
-    produces: {
-      resource: "nails",
-      amount: 10,
-    },
-    unlocked: false,
-    button: null,
-  },
-
   staminaTonic: {
-    label: "Brew Stamina Tonic",
+    label: "Brew Stamina Tonic Base",
     requiredLocation: "alchemistsHut",
     duration: 4,
     cost: {
       energy: 15,
-      mana: 10,
     },
     storageCost: {
       herb: 25,
     },
-    producesConsumable: {
-      resource: "staminaTonic",
-      amount: 1,
+    storageProduces: {
+      staminaTonicBase: 1,
     },
     unlocked: false,
     button: null,
@@ -2379,6 +2440,18 @@ const spellDefinitions = {
     unlocked: false,
     targeted: true,
     sustained: true,
+  },
+  imbue: {
+    label: "Imbue",
+    duration: 2,
+    unlocked: false,
+    targeted: true,
+  },
+  arcaneHeat: {
+    label: "Arcane Heat",
+    duration: 2,
+    unlocked: false,
+    targeted: true,
   },
 };
 
@@ -2425,6 +2498,108 @@ const attunementDefinitions = {
     effects: {
       mineOreFlat: 1,
     },
+  },
+};
+
+const imbueDefinitions = {
+  staminaTonic: {
+    label: "Imbue Stamina Tonic",
+    description: "Bind mana into one stamina tonic base, filling an empty tonic slot.",
+    requiredLocation: "alchemistsHut",
+    cost: {
+      mana: 8,
+    },
+    storageCost: {
+      staminaTonicBase: 1,
+    },
+    producesConsumable: {
+      resource: "staminaTonic",
+      amount: 1,
+    },
+    story: "You bind mana into the prepared base. The tonic sharpens, bitter and ready.",
+  },
+};
+
+const arcaneHeatDefinitions = {
+  nails: {
+    label: "Shape Nails",
+    description: "Use controlled magical heat to shape one iron into ten nails.",
+    requiredLocation: "camp",
+    cost: {
+      mana: 4,
+      iron: 1,
+    },
+    produces: {
+      resource: "nails",
+      amount: 10,
+    },
+    story: "You hold the iron in a precise heat until it draws into a neat row of nails.",
+  },
+
+  crudeIronPickHead: {
+    label: "Shape Pick Head",
+    description: "Shape the iron head needed to assemble a crude iron pick.",
+    requiredLocation: "camp",
+    cost: {
+      mana: 10,
+      iron: 3,
+    },
+    produces: {
+      resource: "crudeIronPickHead",
+      amount: 1,
+    },
+    requires: {
+      researchCompleted: ["crudeIronPick"],
+      notPurchasedGear: ["crudeIronPick"],
+      resourcesBelowMax: {
+        crudeIronPickHead: 1,
+      },
+    },
+    story: "You press heat through the iron until it draws into the rough wedge of a pick head.",
+  },
+
+  ironKnifeBlade: {
+    label: "Shape Knife Blade",
+    description: "Shape the iron blade needed to assemble an iron knife.",
+    requiredLocation: "camp",
+    cost: {
+      mana: 5,
+      iron: 1,
+    },
+    produces: {
+      resource: "ironKnifeBlade",
+      amount: 1,
+    },
+    requires: {
+      researchCompleted: ["ironTools"],
+      notPurchasedGear: ["ironKnife"],
+      resourcesBelowMax: {
+        ironKnifeBlade: 1,
+      },
+    },
+    story: "You pull the iron thin and keen, holding the edge in shape with focused heat.",
+  },
+
+  ironAxeHead: {
+    label: "Shape Axe Head",
+    description: "Shape the iron head needed to assemble an iron axe.",
+    requiredLocation: "camp",
+    cost: {
+      mana: 10,
+      iron: 3,
+    },
+    produces: {
+      resource: "ironAxeHead",
+      amount: 1,
+    },
+    requires: {
+      researchCompleted: ["ironTools"],
+      notPurchasedGear: ["ironAxe"],
+      resourcesBelowMax: {
+        ironAxeHead: 1,
+      },
+    },
+    story: "You fold force through the iron until the axe head holds its weight and bite.",
   },
 };
 
@@ -2537,6 +2712,14 @@ const journalDefinitions = {
   attunementLearned: {
     title: "Attunement",
     text: "The glass-antler stag did not transform itself. It briefly strengthened qualities it already possessed. You can imitate that pattern through your own gear and tools.",
+  },
+  imbueLearned: {
+    title: "Imbuement",
+    text: "The alchemist's old notes revealed that prepared matter can hold mana after you release it. Herbs shape the effect; Imbue fixes that effect into the finished tonic.",
+  },
+  arcaneHeatLearned: {
+    title: "Arcane Heat",
+    text: "The miners' smelter taught you that magical heat can shape iron through pressure, restraint, and will. It is not fire; it is control.",
   },
 };
 

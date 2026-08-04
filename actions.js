@@ -999,6 +999,7 @@ function completeActivity() {
 
     updateCraftingButtons();
     updateCraftingSectionVisibility();
+    updateEquipmentSlotUI();
     updateAllActionButtons();
     return;
   }

@@ -525,6 +525,12 @@ function formatCost(cost) {
   for (let resourceName in cost) {
     const resource = getResource(resourceName);
     const label = resource ? resource.label : resourceName;
+
+    if (resource && resource.hidden && resource.missingLabel && resource.value < cost[resourceName]) {
+      parts.push(resource.missingLabel);
+      continue;
+    }
+
     parts.push(cost[resourceName] + " " + label);
   }
 
@@ -921,6 +927,11 @@ function renderSpellSlots() {
           return;
         }
 
+        if (isProductionSpell(entry.id)) {
+          toggleProductionSpellTargetMenu(entry.id);
+          return;
+        }
+
         castSpell(entry.id);
       });
 
@@ -930,6 +941,11 @@ function renderSpellSlots() {
 
           if (entry.id === "attunement") {
             toggleAttunementTargetMenu();
+            return;
+          }
+
+          if (isProductionSpell(entry.id)) {
+            toggleProductionSpellTargetMenu(entry.id);
             return;
           }
 
@@ -997,11 +1013,15 @@ function canCastSpell(spellName) {
   if (!canAffordCost(spell.cost || {})) return false;
 
   if (spellName === "manaSense") {
-    return !!getCurrentManaSenseReveal() || canAddManaSenseLocationObjectCharge() || canAddManaSenseDungeonCharge();
+    return !!getCurrentManaSenseReveal() || canAddLocationObjectSpellCharge("manaSense") || canAddManaSenseDungeonCharge();
   }
 
   if (spellName === "attunement") {
     return hasAvailableAttunementTarget();
+  }
+
+  if (isProductionSpell(spellName)) {
+    return hasAvailableProductionSpellTarget(spellName);
   }
 
   return false;
@@ -1048,7 +1068,21 @@ function canAddManaSenseDungeonCharge() {
   return (node.manaSenseCharges || 0) < maxCharges;
 }
 
-function getCurrentManaSenseLocationObjectTarget() {
+function getLocationObjectSpellInteraction(object, spellName) {
+  if (!object) return null;
+
+  if (object.spellInteractions && object.spellInteractions[spellName]) {
+    return object.spellInteractions[spellName];
+  }
+
+  if (spellName === "manaSense" && object.manaSense) {
+    return object.manaSense;
+  }
+
+  return null;
+}
+
+function getCurrentLocationObjectSpellTarget(spellName) {
   const locationName = getCurrentObjectPlaceName();
   const place = getObjectPlace(locationName);
 
@@ -1056,14 +1090,15 @@ function getCurrentManaSenseLocationObjectTarget() {
 
   for (let objectName in place.explorableObjects) {
     const object = getLocationObject(locationName, objectName);
+    const interaction = getLocationObjectSpellInteraction(object, spellName);
 
-    if (!object || !object.manaSense) continue;
+    if (!object || !interaction) continue;
     if (isLocationObjectComplete(object)) continue;
-    if (!isLocationObjectAvailable(object, { ignoreManaSenseCharges: true })) continue;
+    if (!isLocationObjectAvailable(object, { ignoreSpellChargesFor: spellName, ignoreManaSenseCharges: spellName === "manaSense" })) continue;
 
-    const required = object.manaSense.required || 1;
+    const required = interaction.required || 1;
 
-    if ((object.manaSenseCharges || 0) >= required) continue;
+    if (getLocationObjectSpellCharge(object, spellName) >= required) continue;
 
     return {
       locationName,
@@ -1074,8 +1109,16 @@ function getCurrentManaSenseLocationObjectTarget() {
   return null;
 }
 
+function getCurrentManaSenseLocationObjectTarget() {
+  return getCurrentLocationObjectSpellTarget("manaSense");
+}
+
+function canAddLocationObjectSpellCharge(spellName) {
+  return !!getCurrentLocationObjectSpellTarget(spellName);
+}
+
 function canAddManaSenseLocationObjectCharge() {
-  return !!getCurrentManaSenseLocationObjectTarget();
+  return canAddLocationObjectSpellCharge("manaSense");
 }
 
 function getSpellCastContext(spellName) {
@@ -1092,13 +1135,14 @@ function getSpellCastContext(spellName) {
       };
     }
 
-    const objectTarget = getCurrentManaSenseLocationObjectTarget();
+    const objectTarget = getCurrentLocationObjectSpellTarget("manaSense");
 
     if (objectTarget) {
       return {
-        type: "locationObjectCharge",
+        type: "locationObjectSpellCharge",
         locationName: objectTarget.locationName,
         objectName: objectTarget.objectName,
+        spellName: "manaSense",
       };
     }
 
@@ -1128,13 +1172,27 @@ function completeSpellCast(spellName, context) {
     }
 
     if (context && context.type === "locationObjectCharge") {
-      addManaSenseLocationObjectCharge(context.locationName, context.objectName);
+      addLocationObjectSpellCharge(context.locationName, context.objectName, "manaSense");
+    }
+
+    if (context && context.type === "locationObjectSpellCharge") {
+      addLocationObjectSpellCharge(context.locationName, context.objectName, context.spellName);
     }
   }
 
   if (spellName === "attunement") {
     if (context && context.type === "attunement") {
       applyAttunement(context.attunementId);
+    }
+  }
+
+  if (isProductionSpell(spellName)) {
+    if (context && context.type === "productionSpell" && context.spellName === spellName) {
+      applyProductionSpellTarget(spellName, context.targetId);
+    }
+
+    if (spellName === "imbue" && context && context.type === "imbue") {
+      applyImbue(context.imbueId);
     }
   }
 
@@ -1163,31 +1221,38 @@ function addManaSenseDungeonChargeForNode(dungeonId, nodeId) {
   return true;
 }
 
-function addManaSenseLocationObjectCharge(locationName, objectName) {
+function addLocationObjectSpellCharge(locationName, objectName, spellName) {
   const place = getObjectPlace(locationName);
   const object = getLocationObject(locationName, objectName);
+  const interaction = getLocationObjectSpellInteraction(object, spellName);
+  const spell = getSpell(spellName);
 
-  if (!place || !object || !object.manaSense) return false;
+  if (!place || !object || !interaction) return false;
 
-  const required = object.manaSense.required || 1;
-  const currentCharges = object.manaSenseCharges || 0;
+  const required = interaction.required || 1;
+  const currentCharges = getLocationObjectSpellCharge(object, spellName);
 
   if (currentCharges >= required) return false;
 
-  object.manaSenseCharges = currentCharges + 1;
+  setLocationObjectSpellCharge(object, spellName, currentCharges + 1);
 
-  const stories = object.manaSense.stories || [];
+  const stories = interaction.stories || [];
   const story = stories[currentCharges];
 
   if (story) {
     addStoryEntry(story);
   } else {
-    addStoryEntry("Mana Sense sharpens your understanding of " + object.label + ".");
+    const spellLabel = spell ? spell.label : spellName;
+    addStoryEntry(spellLabel + " sharpens your understanding of " + object.label + ".");
   }
 
   updateLocationObjectActionsUI(place);
 
   return true;
+}
+
+function addManaSenseLocationObjectCharge(locationName, objectName) {
+  return addLocationObjectSpellCharge(locationName, objectName, "manaSense");
 }
 
 function resolveManaSenseReveal(revealContext) {
@@ -1524,13 +1589,18 @@ function hookResourceCraftsToUI() {
   for (let craftName in crafts) {
     const craft = getResourceCraft(craftName);
 
-    craft.button = document.getElementById(craftName + "CraftBtn");
+    craft.button = ensureCraftingButton(craftName + "CraftBtn");
 
     if (craft.button) {
       prepareCraftButton(craft.button);
-      craft.button.addEventListener("click", function () {
-        startCrafting("resourceCraft", craftName);
-      });
+
+      if (!craft.button.dataset.resourceCraftHooked) {
+        craft.button.addEventListener("click", function () {
+          startCrafting("resourceCraft", craftName);
+        });
+
+        craft.button.dataset.resourceCraftHooked = "true";
+      }
     }
 
     updateResourceCraftUI(craftName);
@@ -1997,6 +2067,11 @@ function getUnlockDisplayText(unlock) {
     return journal ? journal.title : unlock.id;
   }
 
+  if (unlock.type === "spell") {
+    const spell = getSpell(unlock.id);
+    return spell ? spell.label : unlock.id;
+  }
+
   if (unlock.type === "goal") {
     const goal = getGoal(unlock.id);
     return goal ? goal.title : unlock.id;
@@ -2210,22 +2285,41 @@ function clearActiveAttunements() {
   updateEquipmentSlotUI();
 }
 
-function hideAttunementTargetMenu() {
+function hideSpellTargetMenu() {
   if (!ui.attunementTargetMenu) return;
 
   ui.attunementTargetMenu.innerHTML = "";
   hideElement(ui.attunementTargetMenu);
 }
 
+function hideAttunementTargetMenu() {
+  hideSpellTargetMenu();
+}
+
 function toggleAttunementTargetMenu() {
   if (!ui.attunementTargetMenu) return;
 
   if (ui.attunementTargetMenu.style.display !== "none") {
-    hideAttunementTargetMenu();
+    hideSpellTargetMenu();
     return;
   }
 
   renderAttunementTargetMenu();
+}
+
+function toggleImbueTargetMenu() {
+  toggleProductionSpellTargetMenu("imbue");
+}
+
+function toggleProductionSpellTargetMenu(spellName) {
+  if (!ui.attunementTargetMenu) return;
+
+  if (ui.attunementTargetMenu.style.display !== "none") {
+    hideSpellTargetMenu();
+    return;
+  }
+
+  renderProductionSpellTargetMenu(spellName);
 }
 
 function renderAttunementTargetMenu() {
@@ -2263,6 +2357,59 @@ function renderAttunementTargetMenu() {
       castTargetedSpell("attunement", {
         type: "attunement",
         attunementId: attunementName,
+      });
+    });
+
+    ui.attunementTargetMenu.appendChild(button);
+  }
+
+  if (!hasTargets) {
+    ui.attunementTargetMenu.textContent = "No available targets.";
+  }
+
+  showElement(ui.attunementTargetMenu, "block");
+}
+
+function renderImbueTargetMenu() {
+  renderProductionSpellTargetMenu("imbue");
+}
+
+function renderProductionSpellTargetMenu(spellName) {
+  if (!ui.attunementTargetMenu) return;
+
+  ui.attunementTargetMenu.innerHTML = "";
+
+  const definitions = getProductionSpellDefinitions(spellName);
+  let hasTargets = false;
+
+  for (let targetName in definitions) {
+    if (!isProductionSpellTargetAvailable(spellName, targetName)) continue;
+
+    hasTargets = true;
+
+    const definition = getProductionSpellDefinition(spellName, targetName);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "attunement-target-btn";
+
+    const label = document.createElement("span");
+    label.className = "attunement-target-label";
+    label.textContent = definition.label;
+
+    const description = document.createElement("span");
+    description.className = "attunement-target-description";
+    description.textContent = definition.description || "";
+
+    button.appendChild(label);
+    button.appendChild(description);
+
+    button.disabled = !canApplyProductionSpellTarget(spellName, targetName);
+
+    button.addEventListener("click", function () {
+      castTargetedSpell(spellName, {
+        type: "productionSpell",
+        spellName,
+        targetId: targetName,
       });
     });
 
@@ -2317,6 +2464,117 @@ function isAttunementTargetAvailable(attunementName) {
   return !!getPurchasedEquipmentForSlot(definition.equipmentType, definition.slot);
 }
 
+function getProductionSpellDefinitions(spellName) {
+  if (spellName === "imbue") return getImbueDefinitions();
+  if (spellName === "arcaneHeat") return getArcaneHeatDefinitions();
+
+  return null;
+}
+
+function getProductionSpellDefinition(spellName, targetName) {
+  const definitions = getProductionSpellDefinitions(spellName);
+
+  if (!definitions) return null;
+
+  return definitions[targetName];
+}
+
+function isProductionSpell(spellName) {
+  return !!getProductionSpellDefinitions(spellName);
+}
+
+function hasAvailableImbueTarget() {
+  return hasAvailableProductionSpellTarget("imbue");
+}
+
+function hasAvailableProductionSpellTarget(spellName) {
+  const definitions = getProductionSpellDefinitions(spellName);
+
+  if (!definitions) return false;
+
+  for (let targetName in definitions) {
+    if (canApplyProductionSpellTarget(spellName, targetName)) return true;
+  }
+
+  return false;
+}
+
+function isImbueTargetAvailable(imbueName) {
+  return isProductionSpellTargetAvailable("imbue", imbueName);
+}
+
+function isProductionSpellTargetAvailable(spellName, targetName) {
+  const definition = getProductionSpellDefinition(spellName, targetName);
+
+  if (!definition) return false;
+
+  if (!isProductionSpellTargetContextAvailable(definition)) return false;
+  if (!areProductionSpellTargetRequirementsMet(definition.requires)) return false;
+
+  if (!canAffordStorageCost(definition.storageCost)) return false;
+
+  if (definition.producesConsumable && !hasConsumableSpace(definition.producesConsumable.resource, definition.producesConsumable.amount)) {
+    return false;
+  }
+
+  return true;
+}
+
+function areProductionSpellTargetRequirementsMet(requires) {
+  if (!requires) return true;
+
+  if (requires.researchCompleted) {
+    for (let i = 0; i < requires.researchCompleted.length; i++) {
+      const research = getResearch(requires.researchCompleted[i]);
+
+      if (!research || !research.completed) return false;
+    }
+  }
+
+  if (requires.notPurchasedGear) {
+    for (let i = 0; i < requires.notPurchasedGear.length; i++) {
+      if (hasPurchasedGear(requires.notPurchasedGear[i])) return false;
+    }
+  }
+
+  if (requires.resourcesBelowMax) {
+    for (let resourceName in requires.resourcesBelowMax) {
+      const resource = getResource(resourceName);
+      const max = requires.resourcesBelowMax[resourceName];
+
+      if (!resource || resource.value >= max) return false;
+    }
+  }
+
+  return true;
+}
+
+function isProductionSpellTargetContextAvailable(definition) {
+  const requiredLocation = definition.requiredLocation || "camp";
+
+  if (requiredLocation === "camp") {
+    return !gameState.expedition.active && !gameState.expedition.currentLocation;
+  }
+
+  return gameState.expedition.currentLocation === requiredLocation;
+}
+
+function canApplyImbue(imbueName) {
+  return canApplyProductionSpellTarget("imbue", imbueName);
+}
+
+function canApplyProductionSpellTarget(spellName, targetName) {
+  const definition = getProductionSpellDefinition(spellName, targetName);
+  const spell = getSpell(spellName);
+
+  if (!definition) return false;
+  if (!spell || !spell.unlocked) return false;
+  if (isActivityActive()) return false;
+  if (!isProductionSpellTargetAvailable(spellName, targetName)) return false;
+
+  return canAffordCost(definition.cost || {});
+}
+
 function canApplyAttunement(attunementName) {
   const state = getAttunementState();
   const definition = getAttunementDefinition(attunementName);
@@ -2346,6 +2604,14 @@ function castTargetedSpell(spellName, context) {
     cost = definition.cost || {};
   }
 
+  if (isProductionSpell(spellName)) {
+    if (!context || context.type !== "productionSpell" || context.spellName !== spellName) return;
+    if (!canApplyProductionSpellTarget(spellName, context.targetId)) return;
+
+    const definition = getProductionSpellDefinition(spellName, context.targetId);
+    cost = definition.cost || {};
+  }
+
   if (!spendCost(cost)) return;
 
   if (!startActivity({ kind: "spell", id: spellName, context: context })) {
@@ -2353,7 +2619,7 @@ function castTargetedSpell(spellName, context) {
     return;
   }
 
-  hideAttunementTargetMenu();
+  hideSpellTargetMenu();
   updateAllResources();
   updateEquipmentSlotUI();
   updateAllActionButtons();
@@ -2379,6 +2645,48 @@ function applyAttunement(attunementName) {
   });
 
   addStoryEntry("You attune to " + (equipment.displayName || equipment.label) + ".");
+  return true;
+}
+
+function applyImbue(imbueName) {
+  return applyProductionSpellTarget("imbue", imbueName);
+}
+
+function applyProductionSpellTarget(spellName, targetName) {
+  const definition = getProductionSpellDefinition(spellName, targetName);
+
+  if (!definition) return false;
+  if (!isProductionSpellTargetAvailable(spellName, targetName)) return false;
+  if (!spendStorageCost(definition.storageCost)) return false;
+
+  if (definition.produces) {
+    addResource(definition.produces.resource, definition.produces.amount);
+  }
+
+  if (definition.storageProduces) {
+    addStorageProduces(definition.storageProduces);
+  }
+
+  if (definition.producesConsumable) {
+    for (let i = 0; i < definition.producesConsumable.amount; i++) {
+      addConsumableToSlot(definition.producesConsumable.resource);
+    }
+  }
+
+  if (definition.story) {
+    addStoryEntry(definition.story);
+  }
+
+  if (gameState.expedition.currentLocation) {
+    updateLocationStorageUI(getExpeditionLocation(gameState.expedition.currentLocation));
+  }
+
+  refreshExpeditionUI();
+  updateEquipmentSlotUI();
+  updateAllResources();
+  updateAllActionButtons();
+  updateCraftingButtons();
+
   return true;
 }
 

@@ -917,6 +917,45 @@ function getLocationObject(locationName, objectName) {
   return place.explorableObjects[objectName] || null;
 }
 
+function getLocationObjectSpellCharges(object) {
+  if (!object) return {};
+
+  if (!object.spellCharges || typeof object.spellCharges !== "object" || Array.isArray(object.spellCharges)) {
+    object.spellCharges = {};
+  }
+
+  if (object.manaSenseCharges && !object.spellCharges.manaSense) {
+    object.spellCharges.manaSense = object.manaSenseCharges;
+  }
+
+  return object.spellCharges;
+}
+
+function getLocationObjectSpellCharge(object, spellName) {
+  const charges = getLocationObjectSpellCharges(object);
+
+  return charges[spellName] || 0;
+}
+
+function setLocationObjectSpellCharge(object, spellName, amount) {
+  const charges = getLocationObjectSpellCharges(object);
+
+  charges[spellName] = amount;
+
+  if (spellName === "manaSense") {
+    object.manaSenseCharges = amount;
+  }
+}
+
+function shouldIgnoreLocationObjectSpellChargeRequirement(options, spellName) {
+  if (!options) return false;
+  if (options.ignoreSpellCharges === true) return true;
+  if (options.ignoreSpellChargesFor === spellName) return true;
+  if (Array.isArray(options.ignoreSpellChargesFor) && options.ignoreSpellChargesFor.includes(spellName)) return true;
+
+  return false;
+}
+
 function getLocationObjectButton(objectName) {
   if (!ui.locationObjectActions) return null;
 
@@ -1043,7 +1082,18 @@ function updateLocationObjectActionsUI(location) {
     const object = objects[objectName];
 
     if (isLocationObjectComplete(object)) continue;
-    if (!isLocationObjectAvailable(object)) continue;
+
+    const isAvailable = isLocationObjectAvailable(object);
+    const spellRequirementText = getLocationObjectSpellRequirementText(object);
+    const isSpellLocked =
+      !isAvailable &&
+      !!spellRequirementText &&
+      isLocationObjectAvailable(object, {
+        ignoreManaSenseCharges: true,
+        ignoreSpellCharges: true,
+      });
+
+    if (!isAvailable && !isSpellLocked) continue;
 
     hasVisibleObject = true;
 
@@ -1059,7 +1109,9 @@ function updateLocationObjectActionsUI(location) {
     const stages = getLocationObjectStages(object);
     const progress = getLocationObjectProgress(object);
 
-    if (stages.length > 1) {
+    if (isSpellLocked) {
+      label.textContent = object.label + " (" + spellRequirementText + ")";
+    } else if (stages.length > 1) {
       label.textContent = object.label + " (" + (progress + 1) + "/" + stages.length + ")";
     } else {
       label.textContent = object.label;
@@ -1071,11 +1123,13 @@ function updateLocationObjectActionsUI(location) {
     const isCurrentObjectActivity =
       isActivityActive() && gameState.activity.kind === "locationObject" && gameState.activity.context.objectName === objectName;
 
-    button.disabled = !isCurrentObjectActivity && (isActivityActive() || !canAffordCost(object.cost || {}));
+    button.disabled = isSpellLocked || (!isCurrentObjectActivity && (isActivityActive() || !canAffordCost(object.cost || {})));
 
-    button.addEventListener("click", function () {
-      startLocationObjectExploration(objectName);
-    });
+    if (!isSpellLocked) {
+      button.addEventListener("click", function () {
+        startLocationObjectExploration(objectName);
+      });
+    }
 
     ui.locationObjectActions.appendChild(button);
   }
@@ -1085,6 +1139,41 @@ function updateLocationObjectActionsUI(location) {
   } else {
     hideElement(ui.locationObjectActions);
   }
+}
+
+function getLocationObjectSpellRequirementText(object) {
+  if (!object || !object.requires) return "";
+
+  const requirements = [];
+
+  if (object.requires.manaSenseCharges !== undefined) {
+    const current = getLocationObjectSpellCharge(object, "manaSense");
+    const required = object.requires.manaSenseCharges;
+
+    if (current < required) {
+      requirements.push(getLocationObjectSpellRequirementPart("manaSense", current, required));
+    }
+  }
+
+  if (object.requires.spellCharges) {
+    for (let spellName in object.requires.spellCharges) {
+      const current = getLocationObjectSpellCharge(object, spellName);
+      const required = object.requires.spellCharges[spellName];
+
+      if (current < required) {
+        requirements.push(getLocationObjectSpellRequirementPart(spellName, current, required));
+      }
+    }
+  }
+
+  return requirements.join(", ");
+}
+
+function getLocationObjectSpellRequirementPart(spellName, current, required) {
+  const spell = getSpell(spellName);
+  const label = spell ? spell.label : spellName;
+
+  return label + " " + current + "/" + required;
 }
 
 function isLocationObjectAvailable(object, options = {}) {
@@ -1116,11 +1205,36 @@ function isLocationObjectAvailable(object, options = {}) {
     }
   }
 
-  if (!options.ignoreManaSenseCharges && object.requires.manaSenseCharges !== undefined) {
-    if ((object.manaSenseCharges || 0) < object.requires.manaSenseCharges) {
+  if (object.requires.locationsDiscovered) {
+    for (let i = 0; i < object.requires.locationsDiscovered.length; i++) {
+      const requiredLocation = getExpeditionLocation(object.requires.locationsDiscovered[i]);
+
+      if (!requiredLocation || !requiredLocation.discovered) {
+        return false;
+      }
+    }
+  }
+
+  if (
+    !options.ignoreManaSenseCharges &&
+    !shouldIgnoreLocationObjectSpellChargeRequirement(options, "manaSense") &&
+    object.requires.manaSenseCharges !== undefined
+  ) {
+    if (getLocationObjectSpellCharge(object, "manaSense") < object.requires.manaSenseCharges) {
       return false;
     }
   }
+
+  if (object.requires.spellCharges) {
+    for (let spellName in object.requires.spellCharges) {
+      if (shouldIgnoreLocationObjectSpellChargeRequirement(options, spellName)) continue;
+
+      if (getLocationObjectSpellCharge(object, spellName) < object.requires.spellCharges[spellName]) {
+        return false;
+      }
+    }
+  }
+
   return true;
 }
 
