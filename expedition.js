@@ -57,7 +57,7 @@ function lockLocationActions() {
 }
 
 function getLocationActionNames() {
-  const actionNames = ["exploreLocation", "meditate"];
+  const actionNames = ["exploreLocation", "meditate", "leaveDungeon"];
 
   const locations = getExpeditionLocationDefinitions();
 
@@ -857,6 +857,7 @@ function updatePlacePanel() {
   }
 
   const restLabel = ui.restBtn ? ui.restBtn.querySelector("span") : null;
+  setCampActionsAvailable(true);
 
   if (gameState.phase === "expedition") {
     safeSetText(ui.campPanelTitle, "Camp");

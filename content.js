@@ -1197,7 +1197,7 @@ const researchDefinitions = {
     unlocked: false,
     cost: {
       energy: 8,
-      herbs: 10,
+      herb: 10,
       focus: 3,
     },
     requires: {
@@ -1216,7 +1216,7 @@ const researchDefinitions = {
     unlocked: false,
     cost: {
       energy: 8,
-      herbs: 10,
+      herb: 10,
       leather: 1,
       focus: 3,
     },
@@ -2239,7 +2239,7 @@ const automationDefinitions = {
     label: "Lumber Mill",
     description: "A mana-turned frame that helps process nearby wood.",
     duration: 3,
-    cyclesPerMana: 5,
+    cyclesPerMana: 10,
     fuelCost: { mana: 1 },
     produces: { resource: "wood", amount: 1 },
     unlocked: false,
@@ -2251,7 +2251,7 @@ const automationDefinitions = {
     label: "Foraging Lure",
     description: "A quiet charm that draws small edible finds back toward camp.",
     duration: 5,
-    cyclesPerMana: 5,
+    cyclesPerMana: 10,
     fuelCost: { mana: 1 },
     produces: { resource: "food", amount: 1 },
     unlocked: false,
