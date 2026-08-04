@@ -5,7 +5,7 @@ const resources = {
     maxValue: 10,
     perClick: 1,
     perSecond: 0,
-    restPerSecond: 11,
+    restPerSecond: 1,
     display: null,
     perClickDisplay: null,
     perSecondDisplay: null,
