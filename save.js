@@ -1,5 +1,5 @@
 const SAVE_KEY = "manaApprenticeSaveV1";
-const SAVE_VERSION = 6;
+const SAVE_VERSION = 7;
 let saveSuppressed = false;
 
 function createSaveData() {
@@ -231,12 +231,20 @@ function migrateSaveData(saveData) {
 
   const version = Number.isInteger(saveData.version) ? saveData.version : 0;
 
-  if (version !== SAVE_VERSION) {
+  if (version !== 6 && version !== SAVE_VERSION) {
     console.warn("Save version is not compatible with this update:", version);
     return null;
   }
 
-  return normalizeSaveData(saveData);
+  const normalizedSaveData = normalizeSaveData(saveData);
+
+  if (version === 6) {
+    migrateV6SaveDataToV7(normalizedSaveData);
+  }
+
+  normalizedSaveData.version = SAVE_VERSION;
+
+  return normalizedSaveData;
 }
 
 function normalizeSaveData(saveData) {
@@ -246,6 +254,7 @@ function normalizeSaveData(saveData) {
   saveData.gameState.exploration = ensureObject(saveData.gameState.exploration);
   saveData.gameState.expedition = ensureObject(saveData.gameState.expedition);
   saveData.gameState.expedition.carriedItems = ensureObject(saveData.gameState.expedition.carriedItems);
+  saveData.gameState.skills = ensureObject(saveData.gameState.skills);
   saveData.gameState.magic = ensureObject(saveData.gameState.magic);
   saveData.gameState.magic.sensedReveals = ensureObject(saveData.gameState.magic.sensedReveals);
   saveData.gameState.magic.attunements = ensureObject(saveData.gameState.magic.attunements);
@@ -277,6 +286,37 @@ function normalizeSaveData(saveData) {
   }
 
   return saveData;
+}
+
+function migrateV6SaveDataToV7(saveData) {
+  seedSavedSkillFromResourceCapacity(saveData, "conditioning", "energy", "distance");
+  seedSavedSkillFromResourceCapacity(saveData, "concentration", "focus", "deepThought");
+  seedSavedSkillFromResourceCapacity(saveData, "manaCycling", "mana", "successfulCycles");
+}
+
+function seedSavedSkillFromResourceCapacity(saveData, skillName, resourceName, progressField) {
+  const savedResources = ensureObject(saveData.resources);
+  const savedResource = ensureObject(savedResources[resourceName]);
+  const savedSkills = ensureObject(saveData.gameState.skills);
+  const savedSkill = ensureObject(savedSkills[skillName]);
+  const maxValue = Number.isFinite(savedResource.maxValue) ? savedResource.maxValue : getResource(resourceName).maxValue;
+  const rank = Math.max(Number.isFinite(savedSkill.rank) ? savedSkill.rank : 0, getSkillRankFromCapacity(skillName, maxValue));
+  const threshold = getSkillThresholdForRank(skillName, rank);
+
+  const migratedSkill = {
+    ...getDefaultSkillState(skillName),
+    ...savedSkill,
+    rank,
+    [progressField]: Math.max(Number.isFinite(savedSkill[progressField]) ? savedSkill[progressField] : 0, threshold),
+    revealed: !!savedSkill.revealed || rank > 0,
+  };
+
+  if (skillName === "conditioning") {
+    migratedSkill.pending = false;
+  }
+
+  savedSkills[skillName] = migratedSkill;
+  saveData.gameState.skills = savedSkills;
 }
 
 function ensureObject(value) {
@@ -445,6 +485,14 @@ function applyGameStateSaveData(savedGameState) {
     }
   }
 
+  if (savedGameState.skills) {
+    ensureSkillsState();
+    applySavedFields(gameState.skills.conditioning, savedGameState.skills.conditioning, ["rank", "distance", "pending", "revealed"]);
+    applySavedFields(gameState.skills.concentration, savedGameState.skills.concentration, ["rank", "deepThought", "revealed"]);
+    applySavedFields(gameState.skills.manaCycling, savedGameState.skills.manaCycling, ["rank", "successfulCycles", "revealed"]);
+    ensureSkillsState();
+  }
+
   resetActivity();
   gameState.autoAction.actionName = null;
   gameState.autoAction.pausedForRest = false;
@@ -610,6 +658,7 @@ function refreshGameUIAfterLoad() {
   checkResearchDiscoveries();
   updateCraftingUIForCurrentContext();
   updateTrapCapacityUI();
+  updateTrainingUI();
   const canPackAfterLoad =
     gameState.expedition.active && !gameState.expedition.returning && !gameState.expedition.currentLocation && gameState.expedition.distance <= 0;
 
@@ -640,6 +689,9 @@ function loadGame() {
   applyDungeonSaveData(saveData.dungeons);
   applyResearchSaveData(saveData.research);
   applyAutomationSaveData(saveData.automation);
+  ensureSkillsState();
+  recalculateCharacterStats();
+  recalculateCampEffects();
   checkResearchDiscoveries();
   refreshGameUIAfterLoad();
 

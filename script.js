@@ -4,6 +4,9 @@ window.onload = function () {
   hookDomToUI();
   hookUIMaps();
   hookActionCompletions();
+  ensureSkillsState();
+  recalculateCharacterStats();
+  recalculateCampEffects();
 
   ui.campEstablishedContinueBtn.addEventListener("click", function () {
     ui.campEstablishedPopup.style.display = "none";

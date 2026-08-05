@@ -7,6 +7,7 @@ const gameDefinitions = {
   storageUpgrades,
   gearUpgrades,
   expeditionModifiers,
+  skillDefinitions,
   researchDefinitions,
   resourceCrafts: resourceCrafts,
   goalDefinitions,
@@ -90,6 +91,14 @@ function getExpeditionModifierDefinitions() {
 
 function getExpeditionModifier(modifierName) {
   return getExpeditionModifierDefinitions()[modifierName];
+}
+
+function getSkillDefinitions() {
+  return gameDefinitions.skillDefinitions;
+}
+
+function getSkillDefinition(skillName) {
+  return getSkillDefinitions()[skillName];
 }
 
 function getResearchDefinitions() {

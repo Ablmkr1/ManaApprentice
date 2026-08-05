@@ -12,11 +12,15 @@ function hookActionCompletions() {
   };
 
   getAction("recover").onComplete = function () {
-    addResource("focus", 1);
+    addResource("focus", getFireFocusRecoveryAmount());
 
     if (getResource("focus").value >= getResource("focus").maxValue) {
       stopAutoAction();
     }
+  };
+
+  getAction("practiceManaCycling").onComplete = function () {
+    recordManaCycle();
   };
 
   getAction("gatherWood").onComplete = function () {
@@ -575,7 +579,7 @@ function startActionExecution(actionName) {
     return;
   }
 
-  if (!spendCost(action.cost)) {
+  if (!spendCost(getActionCost(actionName))) {
     if (isAutoAction(actionName)) {
       if (action.auto.resumeAfterRest) {
         pauseAutoActionForRest(actionName);
@@ -657,7 +661,7 @@ function getActivityDuration(activityRequest) {
 
   if (activityRequest.kind === "action") {
     const action = getAction(activityRequest.id);
-    return action ? action.duration : 0;
+    return action ? getActionDuration(activityRequest.id) : 0;
   }
 
   if (activityRequest.kind === "craft") {
@@ -1035,7 +1039,7 @@ function continueAutoAction(actionName) {
 
   const action = getAction(actionName);
 
-  if (!canAffordCost(action.cost)) {
+  if (!canAffordCost(getActionCost(actionName))) {
     if (action.auto.resumeAfterRest) {
       pauseAutoActionForRest(actionName);
     } else {

@@ -216,7 +216,8 @@ h1 {
 }
 
 .character-stats,
-.gear-section {
+.gear-section,
+.training-section {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -238,6 +239,59 @@ h1 {
 .gear-section h3 {
   margin: 4px 0 0;
   font-size: 14px;
+}
+
+.training-section h3 {
+  margin: 4px 0 0;
+  font-size: 14px;
+}
+
+.training-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.training-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px;
+  border: 1px solid #d8ccb8;
+  border-radius: 6px;
+  background: rgba(255, 250, 240, 0.65);
+  font-size: 13px;
+}
+
+.training-entry-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.training-entry-header span,
+.training-progress-text,
+.training-detail {
+  color: #5f5140;
+  font-size: 12px;
+}
+
+.training-progress-track {
+  height: 8px;
+  overflow: hidden;
+  border: 1px solid #c8bda8;
+  border-radius: 999px;
+  background: #e5dac8;
+}
+
+.training-progress-fill {
+  height: 100%;
+  width: 0;
+  background: #6e5637;
+}
+
+.training-action-btn {
+  align-self: flex-start;
 }
 
 @media (max-width: 760px) {

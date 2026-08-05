@@ -153,7 +153,7 @@ function completeResearch(researchName, costAlreadyPaid = false) {
 
   if (!research || research.completed) return;
   if (!research.unlocked) return;
-  if (!costAlreadyPaid && !spendCost(research.cost || {})) return;
+  if (!costAlreadyPaid && !spendCost(getResearchCost(researchName))) return;
 
   research.completed = true;
   research.unlocked = false;
@@ -163,6 +163,11 @@ function completeResearch(researchName, costAlreadyPaid = false) {
   }
 
   applyResearchUnlocks(researchName);
+  recordDeepThought(research.deepThought || 1, research.label);
+
+  if (researchName === "manaCycling") {
+    revealSkill("manaCycling");
+  }
 
   gameState.selectedResearchEntry = "research:" + researchName;
 
@@ -453,9 +458,9 @@ function getBasicCraftButtonName(craft) {
   return craft.label;
 }
 
-function getBasicCraftButtonCost(craft) {
+function getBasicCraftButtonCost(craft, craftType, craftId) {
   const costs = [];
-  const resourceCost = formatCost(craft.cost);
+  const resourceCost = formatCost(getCraftCost(craftType, craftId));
   const storageCost = formatStorageCost(craft.storageCost);
 
   if (resourceCost) costs.push(resourceCost);
@@ -496,7 +501,7 @@ function updateCraftButtonLabel(craftType, craftId) {
     return;
   }
 
-  setCraftButtonLabel(craft.button, getBasicCraftButtonName(craft), getBasicCraftButtonCost(craft));
+  setCraftButtonLabel(craft.button, getBasicCraftButtonName(craft), getBasicCraftButtonCost(craft, craftType, craftId));
 }
 
 function setCraftButtonLabel(button, name, costText) {
@@ -587,9 +592,9 @@ function completeCampUpgrade(upgradeName) {
 
   if (!upgrade || !upgrade.unlocked || upgrade.purchased) return;
 
-  upgrade.onComplete();
   upgrade.purchased = true;
   upgrade.unlocked = false;
+  upgrade.onComplete();
 
   updateCampUpgradeUI(upgradeName);
   updateCraftingSectionVisibility();
@@ -695,6 +700,8 @@ function checkClearingComplete() {
 
   if (gameState.phase === "clearing" && hasSmallFire && hasCrudeLeanTo) {
     setPhase("expedition");
+    gameState.hasCamp = true;
+    recalculateCharacterStats();
     unlockAction("recover");
     setCurrentGoal("exploreOutskirts");
     addJournalEntry("campEstablished");
@@ -1363,9 +1370,9 @@ function completeGearUpgrade(upgradeName) {
 
   if (!upgrade || !upgrade.unlocked || upgrade.purchased) return;
 
-  upgrade.onComplete();
   upgrade.purchased = true;
   upgrade.unlocked = false;
+  upgrade.onComplete();
 
   updateGearUpgradeUI(upgradeName);
   updateCharacterPanelLocks();
@@ -1444,6 +1451,10 @@ function getCraftCost(craftType, craftId) {
     return craft.costs[craft.tier];
   }
 
+  if (craftType === "research") {
+    return getResearchCost(craftId);
+  }
+
   return craft.cost;
 }
 
@@ -1451,6 +1462,10 @@ function getCraftDuration(craftType, craftId) {
   const craft = getCraftDefinition(craftType, craftId);
 
   if (!craft) return 1;
+
+  if (craftType === "research") {
+    return getResearchDuration(craftId);
+  }
 
   return craft.duration || 1;
 }
@@ -1973,7 +1988,7 @@ function renderResearchDetails(entry) {
 
     const costText = document.createElement("div");
     costText.classList.add("research-cost");
-    costText.textContent = formatCost(research.cost || {});
+    costText.textContent = formatCost(getCraftCost("research", entry.id));
     ui.researchDetails.appendChild(costText);
 
     const button = document.createElement("button");
@@ -1983,7 +1998,7 @@ function renderResearchDetails(entry) {
 
     research.button = button;
 
-    setCraftButtonLabel(button, "Research " + entry.label, formatCost(research.cost || {}));
+    setCraftButtonLabel(button, "Research " + entry.label, formatCost(getCraftCost("research", entry.id)));
 
     const researchName = entry.id;
 
@@ -2013,7 +2028,7 @@ function updateSelectedResearchButtonState() {
   const isActiveResearch =
     isActivityActive() && gameState.activity.kind === "craft" && gameState.activity.type === "research" && gameState.activity.id === researchName;
 
-  const canStartResearch = isCraftAvailable("research", researchName) && canAffordCost(research.cost || {});
+  const canStartResearch = isCraftAvailable("research", researchName) && canAffordCost(getCraftCost("research", researchName));
 
   button.disabled = !isActiveResearch && (isActivityActive() || !canStartResearch);
   button.classList.toggle("running", isActiveResearch);

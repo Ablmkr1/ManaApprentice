@@ -24,8 +24,7 @@ const clearingPlace = {
         },
       ],
       onComplete: function () {
-        getResource("energy").maxValue += 10;
-        updateResource("energy");
+        recalculateCharacterStats();
       },
     },
 
@@ -48,8 +47,7 @@ const clearingPlace = {
         },
       ],
       onComplete: function () {
-        getResource("energy").maxValue += 10;
-        updateResource("energy");
+        recalculateCharacterStats();
       },
     },
 
@@ -157,6 +155,7 @@ const expeditionLocations = {
         cost: {
           energy: 6,
         },
+        deepThought: 5,
         progress: 0,
         requires: {
           gearPurchased: ["torch"],
@@ -342,6 +341,7 @@ const expeditionLocations = {
         cost: {
           energy: 8,
         },
+        deepThought: 5,
         progress: 0,
         spellCharges: {},
         spellInteractions: {
@@ -432,6 +432,7 @@ const expeditionLocations = {
         cost: {
           energy: 8,
         },
+        deepThought: 5,
         progress: 0,
         spellCharges: {},
         spellInteractions: {
@@ -533,6 +534,7 @@ const expeditionLocations = {
         cost: {
           energy: 8,
         },
+        deepThought: 5,
         progress: 0,
         spellCharges: {},
         spellInteractions: {
@@ -920,6 +922,7 @@ const dungeonDefinitions = {
         search: {
           duration: 12,
           baseChance: 35,
+          deepThought: 6,
           cost: { energy: 12 },
           successText: "The ruin's lesson locks into place: mana can hold a task in motion for a fixed number of cycles.",
           reward: {
@@ -943,6 +946,7 @@ const researchDefinitions = {
   cordage: {
     label: "Cordage",
     duration: 5,
+    deepThought: 1,
     completed: false,
     unlocked: false,
     cost: {
@@ -966,6 +970,7 @@ const researchDefinitions = {
   simpleTraps: {
     label: "Simple Traps",
     duration: 3,
+    deepThought: 1,
     completed: false,
     unlocked: false,
     cost: {
@@ -988,6 +993,7 @@ const researchDefinitions = {
   hideworking: {
     label: "Hideworking",
     duration: 7,
+    deepThought: 2,
     completed: false,
     unlocked: false,
     cost: {
@@ -1012,6 +1018,7 @@ const researchDefinitions = {
   leatherworking: {
     label: "Leatherworking",
     duration: 9,
+    deepThought: 3,
     completed: false,
     unlocked: false,
     cost: {
@@ -1039,6 +1046,7 @@ const researchDefinitions = {
   crudeBackpack: {
     label: "Crude Backpack",
     duration: 5,
+    deepThought: 1,
     completed: false,
     unlocked: false,
     cost: {
@@ -1059,6 +1067,7 @@ const researchDefinitions = {
   smellyShoes: {
     label: "Smelly Shoes",
     duration: 5,
+    deepThought: 1,
     completed: false,
     unlocked: false,
     cost: {
@@ -1077,6 +1086,7 @@ const researchDefinitions = {
   scratchyClothes: {
     label: "Scratchy Clothes",
     duration: 5,
+    deepThought: 1,
     completed: false,
     unlocked: false,
     cost: {
@@ -1098,6 +1108,7 @@ const researchDefinitions = {
   uncomfortableCot: {
     label: "Ugly Cot",
     duration: 5,
+    deepThought: 1,
     completed: false,
     unlocked: false,
     cost: {
@@ -1117,6 +1128,7 @@ const researchDefinitions = {
   stoneTools: {
     label: "Stone Tools",
     duration: 5,
+    deepThought: 1,
     completed: false,
     unlocked: false,
     cost: {
@@ -1141,6 +1153,7 @@ const researchDefinitions = {
   ruinedTorch: {
     label: "Ruined Torch",
     duration: 8,
+    deepThought: 2,
     completed: false,
     unlocked: false,
     cost: {
@@ -1165,6 +1178,7 @@ const researchDefinitions = {
   smelting: {
     label: "Smelting",
     duration: 5,
+    deepThought: 3,
     completed: false,
     unlocked: false,
     cost: {
@@ -1187,6 +1201,7 @@ const researchDefinitions = {
   crudeIronPick: {
     label: "Crude Iron Pick",
     duration: 5,
+    deepThought: 2,
     completed: false,
     unlocked: false,
     cost: {
@@ -1208,6 +1223,7 @@ const researchDefinitions = {
   ironTools: {
     label: "Iron Tools",
     duration: 5,
+    deepThought: 2,
     completed: false,
     unlocked: false,
     cost: {
@@ -1230,6 +1246,7 @@ const researchDefinitions = {
   sturdyConstruction: {
     label: "Sturdy Construction",
     duration: 5,
+    deepThought: 3,
     completed: false,
     unlocked: false,
     cost: {
@@ -1249,6 +1266,7 @@ const researchDefinitions = {
   automationPrinciples: {
     label: "Automation Principles",
     duration: 8,
+    deepThought: 5,
     completed: false,
     unlocked: false,
     cost: {
@@ -1271,6 +1289,7 @@ const researchDefinitions = {
   alchemy: {
     label: "Alchemy",
     duration: 5,
+    deepThought: 3,
     completed: false,
     unlocked: false,
     cost: {
@@ -1290,6 +1309,7 @@ const researchDefinitions = {
   alchemyBelt2: {
     label: "Improved Tonic Belt",
     duration: 5,
+    deepThought: 2,
     completed: false,
     unlocked: false,
     cost: {
@@ -1309,6 +1329,7 @@ const researchDefinitions = {
   alchemyBelt3: {
     label: "Reinforced Tonic Belt",
     duration: 5,
+    deepThought: 2,
     completed: false,
     unlocked: false,
     cost: {
@@ -1328,6 +1349,7 @@ const researchDefinitions = {
   meditation: {
     label: "Meditation",
     duration: 8,
+    deepThought: 4,
     completed: false,
     unlocked: false,
     cost: {
@@ -1344,6 +1366,27 @@ const researchDefinitions = {
     story:
       "The crystal hums with the same quiet pressure as the cave runes. With the right place prepared, you could recover mana without returning underground.",
     unlocks: [{ type: "campUpgrade", id: "meditationSpot" }],
+  },
+
+  manaCycling: {
+    label: "Mana Cycling",
+    duration: 8,
+    deepThought: 4,
+    completed: false,
+    unlocked: false,
+    cost: {
+      energy: 20,
+      focus: 3,
+      manaCrystal: 1,
+    },
+    requires: {
+      flags: ["magicUnlocked"],
+      campUpgradesPurchased: ["meditationSpot"],
+    },
+    discoveryStory:
+      "As mana returns, you begin to notice that it does not simply appear. It follows a path through you. With practice, that path might be widened.",
+    story: "Careful meditation reveals the first safe path for cycling mana through yourself instead of casting it outward.",
+    unlocks: [{ type: "action", id: "practiceManaCycling" }],
   },
 };
 
@@ -1384,7 +1427,7 @@ const campUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      getResource("energy").restPerSecond++;
+      recalculateCampEffects();
     },
   },
   crudeLeanTo: {
@@ -1404,8 +1447,8 @@ const campUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      getResource("energy").maxValue += 10;
-      updateResource("energy");
+      recalculateCampEffects();
+      recalculateCharacterStats();
     },
   },
   lessCrudeShelter: {
@@ -1426,7 +1469,7 @@ const campUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      getResource("energy").restPerSecond += 1;
+      recalculateCampEffects();
     },
   },
 
@@ -1449,9 +1492,8 @@ const campUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      getResource("focus").maxValue += 1;
-      getResource("energy").restPerSecond += 3;
-      updateResource("energy");
+      recalculateCampEffects();
+      recalculateCharacterStats();
     },
   },
 
@@ -1474,8 +1516,7 @@ const campUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      getResource("energy").maxValue += 20;
-      updateResource("energy");
+      updateAllActionButtons();
     },
   },
 
@@ -1498,9 +1539,7 @@ const campUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      getResource("focus").maxValue += 1;
-      getResource("energy").restPerSecond += 1;
-      updateResource("energy");
+      updateAllActionButtons();
     },
   },
 
@@ -1522,8 +1561,7 @@ const campUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      getResource("energy").maxValue += 20;
-      updateResource("energy");
+      updateAllActionButtons();
     },
   },
 
@@ -1565,8 +1603,8 @@ const campUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      getResource("focus").maxValue += 3;
-      updateResource("focus");
+      updateResearchHistoryUI();
+      updateCraftingButtons();
     },
   },
 
@@ -1783,13 +1821,16 @@ const gearUpgrades = {
     },
   },
   scratchyShirt: {
-    label: "Scratchy Shirt",
+    label: "Scratchy Shirt (-1 Exploration Energy)",
     displayName: "Scratchy Shirt",
     equipmentType: "gear",
     slot: "chest",
     slotLabel: "Chest",
     slotOrder: 4,
     slotRank: 1,
+    effects: {
+      explorationEnergyReduction: 1,
+    },
     duration: 5,
     cost: {
       fiber: 8,
@@ -1800,19 +1841,22 @@ const gearUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      getResource("energy").maxValue += 10;
       updateDungeonUI();
       refreshExpeditionUI();
+      updateAllActionButtons();
     },
   },
   leatherShirt: {
-    label: "Leather Shirt",
+    label: "Leather Shirt (-2 Exploration Energy)",
     displayName: "Leather Shirt",
     equipmentType: "gear",
     slot: "chest",
     slotLabel: "Chest",
     slotOrder: 4,
     slotRank: 2,
+    effects: {
+      explorationEnergyReduction: 2,
+    },
     duration: 8,
     cost: {
       leather: 3,
@@ -1826,16 +1870,20 @@ const gearUpgrades = {
     onComplete() {
       updateDungeonUI();
       refreshExpeditionUI();
+      updateAllActionButtons();
     },
   },
   scratchyPants: {
-    label: "Scratchy Pants",
+    label: "Scratchy Pants (-10% Travel Energy)",
     displayName: "Scratchy Pants",
     equipmentType: "gear",
     slot: "legs",
     slotLabel: "Legs",
     slotOrder: 5,
     slotRank: 1,
+    effects: {
+      travelEnergyMultiplier: 0.9,
+    },
     duration: 5,
     cost: {
       fiber: 12,
@@ -1846,18 +1894,21 @@ const gearUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      getResource("energy").maxValue += 10;
-      updateResource("energy");
+      refreshExpeditionUI();
+      updateAllActionButtons();
     },
   },
   leatherPants: {
-    label: "Leather Pants",
+    label: "Leather Pants (-20% Travel Energy)",
     displayName: "Leather Pants",
     equipmentType: "gear",
     slot: "legs",
     slotLabel: "Legs",
     slotOrder: 5,
     slotRank: 2,
+    effects: {
+      travelEnergyMultiplier: 0.8,
+    },
     duration: 8,
     cost: {
       leather: 4,
@@ -1868,7 +1919,10 @@ const gearUpgrades = {
     purchased: false,
     button: null,
     display: null,
-    onComplete() {},
+    onComplete() {
+      refreshExpeditionUI();
+      updateAllActionButtons();
+    },
   },
 
   foragingBasket: {

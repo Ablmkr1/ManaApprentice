@@ -25,6 +25,8 @@ function hookDomToUI() {
   ui.carriedAmount = document.getElementById("carriedAmount");
   ui.carriedWaterAmount = document.getElementById("carriedWaterAmount");
   ui.characterEnergyAmount = document.getElementById("characterEnergyAmount");
+  ui.trainingSection = document.getElementById("trainingSection");
+  ui.trainingList = document.getElementById("trainingList");
   ui.campPanelTitle = document.getElementById("campPanelTitle");
   ui.gearSection = document.getElementById("gearSection");
   ui.crudeSatchel = document.getElementById("crudeSatchel");
@@ -375,7 +377,7 @@ function canUseAction(actionName) {
 
   if (action.running) return true;
 
-  if (!canAffordCost(action.cost)) return false;
+  if (!canAffordCost(getActionCost(actionName))) return false;
 
   if (!isActionContextAvailable(actionName)) return false;
 
@@ -459,6 +461,18 @@ function isActionContextAvailable(actionName) {
 
   if (actionName === "leaveDungeon") {
     return !!gameState.expedition.dungeon && gameState.expedition.dungeon.active;
+  }
+
+  if (actionName === "recover") {
+    return gameState.phase === "expedition" && !gameState.expedition.active && getFireFocusRecoveryAmount() > 0;
+  }
+
+  if (actionName === "meditate") {
+    return !gameState.expedition.active && !gameState.expedition.currentLocation && hasPurchasedCampUpgrade("meditationSpot");
+  }
+
+  if (actionName === "practiceManaCycling") {
+    return !gameState.expedition.active && !gameState.expedition.currentLocation && getSkillState("manaCycling").revealed;
   }
 
   return true;

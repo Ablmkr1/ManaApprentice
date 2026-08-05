@@ -425,9 +425,7 @@ function resolveExpeditionStep() {
     step.modifiersUsed.push(modifierName);
   }
 
-  if (hasPurchasedGear("leatherPants")) {
-    step.energyCost *= 0.9;
-  }
+  step.energyCost *= getTravelEnergyMultiplier();
 
   const finalEnergyCost = Math.max(0.1, Math.round(step.energyCost * 10) / 10);
   step.energyCost = finalEnergyCost;
@@ -457,6 +455,9 @@ function resolveExpeditionStep() {
 
 function applyExpeditionStep(step) {
   const expedition = gameState.expedition;
+  const traveledDistance = expedition.returning ? Math.min(step.distance, expedition.distance) : step.distance;
+
+  recordPhysicalTravelDistance(traveledDistance);
 
   if (expedition.returning) {
     expedition.distance = Math.max(0, expedition.distance - step.distance);
@@ -582,6 +583,7 @@ function endExpedition(reason) {
 
   applyReturnPenalty();
   transferCarriedItemsToCamp();
+  applyPendingConditioningAtCamp();
   updateTrapCapacityUI();
   checkResearchDiscoveries();
   clearCurrentLocationActions();
@@ -1004,7 +1006,7 @@ function startLocationObjectExploration(objectName) {
   if (!isLocationObjectAvailable(object)) return;
 
   if (isActivityActive()) return;
-  if (!spendCost(object.cost || {})) return;
+  if (!spendCost(getLocationObjectCost(object))) return;
 
   startActivity({
     kind: "locationObject",
@@ -1055,6 +1057,10 @@ function completeLocationObjectExploration(locationName, objectName) {
 
   if (isLocationObjectComplete(object) && object.onComplete) {
     object.onComplete();
+  }
+
+  if (isLocationObjectComplete(object) && object.deepThought) {
+    recordDeepThought(object.deepThought, object.label);
   }
 
   checkResearchDiscoveries();
@@ -1123,7 +1129,7 @@ function updateLocationObjectActionsUI(location) {
     const isCurrentObjectActivity =
       isActivityActive() && gameState.activity.kind === "locationObject" && gameState.activity.context.objectName === objectName;
 
-    button.disabled = isSpellLocked || (!isCurrentObjectActivity && (isActivityActive() || !canAffordCost(object.cost || {})));
+    button.disabled = isSpellLocked || (!isCurrentObjectActivity && (isActivityActive() || !canAffordCost(getLocationObjectCost(object))));
 
     if (!isSpellLocked) {
       button.addEventListener("click", function () {
@@ -2281,6 +2287,7 @@ function completeDungeonRoomSearch(dungeonId, nodeId) {
   node.manaSenseCharges = 0;
 
   addStoryEntry(node.search.successText || "You finish exploring the room.");
+  recordDeepThought(node.search.deepThought || 0, node.label);
 
   claimDungeonNodeReward(node);
 
@@ -2323,8 +2330,8 @@ function claimDungeonNodeReward(node) {
 function getDungeonSearchCost(node) {
   const cost = { ...(node.search.cost || {}) };
 
-  if (hasPurchasedGear("leatherShirt") && cost.energy) {
-    cost.energy = Math.max(1, cost.energy - 1);
+  if (cost.energy) {
+    cost.energy = Math.max(1, cost.energy - getExplorationEnergyReduction());
   }
 
   return cost;

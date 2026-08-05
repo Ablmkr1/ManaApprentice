@@ -696,6 +696,19 @@ const actions = {
     onComplete: function () {},
   },
 
+  practiceManaCycling: {
+    label: "Practice Mana Cycling",
+    duration: 5,
+    cost: { energy: 10, focus: 1, mana: 5 },
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+
   enterDungeon: {
     label: "Enter Ruin",
     duration: 0,
@@ -720,6 +733,53 @@ const actions = {
     metaProgressBar: null,
     onStart: function () {},
     onComplete: function () {},
+  },
+};
+
+const skillDefinitions = {
+  conditioning: {
+    label: "Conditioning",
+    progressLabel: "Distance traveled",
+    capacityLabel: "Maximum Energy",
+    revealAt: 50,
+    ranks: [
+      { rank: 0, threshold: 0, capacity: 40 },
+      { rank: 1, threshold: 100, capacity: 50 },
+      { rank: 2, threshold: 350, capacity: 60 },
+      { rank: 3, threshold: 850, capacity: 70 },
+      { rank: 4, threshold: 1850, capacity: 80 },
+      { rank: 5, threshold: 3850, capacity: 90 },
+      { rank: 6, threshold: 7850, capacity: 100 },
+    ],
+  },
+
+  concentration: {
+    label: "Concentration",
+    progressLabel: "Deep Thought",
+    capacityLabel: "Maximum Focus",
+    revealAt: 5,
+    ranks: [
+      { rank: 0, threshold: 0, capacity: 3 },
+      { rank: 1, threshold: 5, capacity: 4 },
+      { rank: 2, threshold: 15, capacity: 5 },
+      { rank: 3, threshold: 35, capacity: 6 },
+      { rank: 4, threshold: 70, capacity: 7 },
+      { rank: 5, threshold: 130, capacity: 8 },
+    ],
+  },
+
+  manaCycling: {
+    label: "Mana Cycling",
+    progressLabel: "Successful cycles",
+    capacityLabel: "Maximum Mana",
+    ranks: [
+      { rank: 0, threshold: 0, capacity: 10 },
+      { rank: 1, threshold: 5, capacity: 12 },
+      { rank: 2, threshold: 13, capacity: 14 },
+      { rank: 3, threshold: 25, capacity: 16 },
+      { rank: 4, threshold: 42, capacity: 18 },
+      { rank: 5, threshold: 65, capacity: 20 },
+    ],
   },
 };
 
@@ -818,6 +878,27 @@ const gameState = {
   destination: null,
 
   hasCamp: false,
+
+  skills: {
+    conditioning: {
+      rank: 0,
+      distance: 0,
+      pending: false,
+      revealed: false,
+    },
+
+    concentration: {
+      rank: 0,
+      deepThought: 0,
+      revealed: false,
+    },
+
+    manaCycling: {
+      rank: 0,
+      successfulCycles: 0,
+      revealed: false,
+    },
+  },
 
   expedition: {
     active: false,
