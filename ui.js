@@ -491,7 +491,12 @@ function isActionContextAvailable(actionName) {
   }
 
   if (actionName === "meditate") {
-    return !gameState.expedition.active && !gameState.expedition.currentLocation && hasPurchasedCampUpgrade("meditationSpot");
+    const cave = getExpeditionLocation("creepyCave");
+    const canMeditateAtCamp = !gameState.expedition.active && !gameState.expedition.currentLocation && hasPurchasedCampUpgrade("meditationSpot");
+    const canMeditateAtCave =
+      gameState.expedition.currentLocation === "creepyCave" && !!cave && cave.explored && gameState.magicUnlocked;
+
+    return canMeditateAtCamp || canMeditateAtCave;
   }
 
   if (actionName === "practiceManaCycling") {
