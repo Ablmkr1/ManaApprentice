@@ -7,6 +7,7 @@ window.onload = function () {
   ensureSkillsState();
   recalculateCharacterStats();
   recalculateCampEffects();
+  recalculateToolEffects();
 
   ui.campEstablishedContinueBtn.addEventListener("click", function () {
     ui.campEstablishedPopup.style.display = "none";

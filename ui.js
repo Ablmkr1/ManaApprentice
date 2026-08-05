@@ -80,10 +80,12 @@ function hookDomToUI() {
   ui.oreAmount = document.getElementById("oreAmount");
   ui.ironAmount = document.getElementById("ironAmount");
   ui.herbAmount = document.getElementById("herbAmount");
+  ui.huntingLureAmount = document.getElementById("huntingLureAmount");
   ui.locationTravelSection = document.getElementById("locationTravelSection");
   ui.tonicSlotsGroup = document.getElementById("tonicSlotsGroup");
   ui.tonicSlots = document.getElementById("tonicSlots");
   ui.manaCrystalAmount = document.getElementById("manaCrystalAmount");
+  ui.chargedCrystalAmount = document.getElementById("chargedCrystalAmount");
   ui.dungeonSection = document.getElementById("dungeonSection");
   ui.dungeonTitle = document.getElementById("dungeonTitle");
   ui.dungeonMap = document.getElementById("dungeonMap");
@@ -132,7 +134,9 @@ function hookUIMaps() {
     ore: ui.oreAmount,
     iron: ui.ironAmount,
     herb: ui.herbAmount,
+    huntingLure: ui.huntingLureAmount,
     manaCrystal: ui.manaCrystalAmount,
+    chargedCrystal: ui.chargedCrystalAmount,
     focus: ui.focusAmount,
     nails: ui.nailsAmount,
   };
@@ -226,7 +230,22 @@ function unlockResource(resourceName) {
 function updateCampResourcesSectionVisibility() {
   if (!ui.campResourcesSection) return;
 
-  const campResourceNames = ["food", "wood", "fiber", "trap", "pelt", "stone", "leather", "ore", "iron", "herb", "manaCrystal", "nails"];
+  const campResourceNames = [
+    "food",
+    "wood",
+    "fiber",
+    "trap",
+    "pelt",
+    "stone",
+    "leather",
+    "ore",
+    "iron",
+    "herb",
+    "huntingLure",
+    "manaCrystal",
+    "chargedCrystal",
+    "nails",
+  ];
 
   for (let i = 0; i < campResourceNames.length; i++) {
     const resourceElement = resourceElements[campResourceNames[i]];
@@ -411,6 +430,10 @@ function isActionContextAvailable(actionName) {
 
   if (actionName === "huntGame") {
     return !!locationName && canHuntGame(locationName);
+  }
+
+  if (actionName === "useHuntingLure") {
+    return !!locationName && canUseHuntingLure(locationName);
   }
 
   if (actionName === "storePelt") {

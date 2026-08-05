@@ -24,11 +24,11 @@ function hookActionCompletions() {
   };
 
   getAction("gatherWood").onComplete = function () {
-    addResource("wood", getResource("wood").perClick);
+    addResource("wood", getGatherResourceYield("wood"));
   };
 
   getAction("gatherFood").onComplete = function () {
-    addResource("food", getResource("food").perClick);
+    addResource("food", getGatherResourceYield("food"));
   };
 
   getAction("gatherWater").onComplete = function () {
@@ -40,7 +40,7 @@ function hookActionCompletions() {
   };
 
   getAction("gatherFiber").onComplete = function () {
-    const fiberCarried = addCarriedItemUpToCapacity("fiber", getResource("fiber").perClick);
+    const fiberCarried = addCarriedItemUpToCapacity("fiber", getGatherResourceYield("fiber"));
 
     if (fiberCarried <= 0) {
       addStoryEntry("Your hands are full. You cannot carry more.");
@@ -207,8 +207,7 @@ function hookActionCompletions() {
     hunt.tracked = false;
 
     if (Math.random() < hunt.successChance) {
-      const ironKnifeStagBonus = locationName === "stagRuns" && getGearUpgrade("ironKnife").purchased ? 1 : 0;
-      const rewardAmount = (hunt.rewardAmount || 1) + ironKnifeStagBonus + getActiveAttunementEffectTotal("huntRewardFlat");
+      const rewardAmount = getHuntRewardAmount(hunt.rewardAmount || 1);
       const carriedAmount = addCarriedItemUpToCapacity(hunt.reward, rewardAmount);
 
       if (carriedAmount > 0) {
@@ -220,6 +219,17 @@ function hookActionCompletions() {
       addStoryEntry("The trail breaks apart before you can close the distance.");
     }
 
+    updateLocationActions();
+  };
+
+  getAction("useHuntingLure").onComplete = function () {
+    const locationName = gameState.expedition.currentLocation;
+    const hunt = getHuntData(locationName);
+
+    if (!hunt) return;
+
+    hunt.tracked = true;
+    addStoryEntry("You set the lure and the signs gather into an easy trail.");
     updateLocationActions();
   };
 
@@ -316,7 +326,7 @@ function hookActionCompletions() {
   };
 
   getAction("mineOre").onComplete = function () {
-    const oreAmount = 2 + getActiveAttunementEffectTotal("mineOreFlat");
+    const oreAmount = getMineOreAmount();
 
     if (addCarriedItem("ore", oreAmount)) {
       addStoryEntry("You break ore from the mine wall.");
@@ -326,7 +336,7 @@ function hookActionCompletions() {
   };
 
   getAction("gatherHerbs").onComplete = function () {
-    const herbAmount = Math.floor(Math.random() * 6);
+    const herbAmount = Math.floor(Math.random() * 6) + getHerbGatherBonus();
 
     if (herbAmount <= 0) {
       addStoryEntry("You search the patch but find no usable herbs this time.");
@@ -469,7 +479,11 @@ function shouldStopAutoAction(actionName) {
 
 function getAutoActionCarryAmount(actionName) {
   if (actionName === "mineOre") {
-    return 2 + getActiveAttunementEffectTotal("mineOreFlat");
+    return getMineOreAmount();
+  }
+
+  if (actionName === "gatherFiber") {
+    return getGatherResourceYield("fiber");
   }
 
   return 1;

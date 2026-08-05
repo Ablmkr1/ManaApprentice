@@ -1,4 +1,9 @@
 const HUMAN_ENERGY_CAP = 100;
+const BASE_TOOL_GATHER_YIELDS = {
+  food: 1,
+  wood: 1,
+  fiber: 1,
+};
 
 function getDefaultSkillState(skillName) {
   if (skillName === "conditioning") {
@@ -308,13 +313,79 @@ function getManaCyclingCost() {
   };
 }
 
+function getEquipmentEffectValue(equipmentType, slotName, effectName, fallback = 0) {
+  if (typeof getPurchasedEquipmentForSlot !== "function") return fallback;
+
+  const equipment = getPurchasedEquipmentForSlot(equipmentType, slotName);
+  const effects = equipment ? equipment.effects || {} : {};
+
+  if (Object.prototype.hasOwnProperty.call(effects, effectName)) {
+    return effects[effectName];
+  }
+
+  return fallback;
+}
+
+function getToolEffectValue(slotName, effectName, fallback = 0) {
+  return getEquipmentEffectValue("tool", slotName, effectName, fallback);
+}
+
+function getForageYieldBonus() {
+  return getToolEffectValue("forage", "forageYieldFlat", 0);
+}
+
+function getCuttingYieldBonus() {
+  return getToolEffectValue("knife", "cuttingYieldFlat", 0);
+}
+
+function getHuntingToolRewardBonus() {
+  return getToolEffectValue("knife", "huntRewardFlat", 0);
+}
+
+function getChoppingYieldBonus() {
+  return getToolEffectValue("axe", "choppingYieldFlat", 0);
+}
+
+function getMiningYieldBase() {
+  return getToolEffectValue("pick", "miningYieldBase", 2);
+}
+
+function getGatherResourceYield(resourceName) {
+  if (resourceName === "food") return BASE_TOOL_GATHER_YIELDS.food + getForageYieldBonus();
+  if (resourceName === "wood") return BASE_TOOL_GATHER_YIELDS.wood + getChoppingYieldBonus();
+  if (resourceName === "fiber") return BASE_TOOL_GATHER_YIELDS.fiber + getCuttingYieldBonus();
+
+  return 1;
+}
+
+function getHerbGatherBonus() {
+  return getForageYieldBonus();
+}
+
+function getHuntRewardAmount(baseAmount) {
+  return baseAmount + getHuntingToolRewardBonus() + getActiveAttunementEffectTotal("huntRewardFlat");
+}
+
+function getMineOreAmount() {
+  return getMiningYieldBase() + getActiveAttunementEffectTotal("mineOreFlat");
+}
+
+function recalculateToolEffects() {
+  for (let resourceName in BASE_TOOL_GATHER_YIELDS) {
+    const resource = getResource(resourceName);
+
+    if (!resource) continue;
+
+    resource.perClick = getGatherResourceYield(resourceName);
+
+    if (resource.display) {
+      updateResource(resourceName);
+    }
+  }
+}
+
 function getExplorationEnergyReduction() {
-  if (typeof hasPurchasedGear !== "function") return 0;
-
-  if (hasPurchasedGear("leatherShirt")) return 2;
-  if (hasPurchasedGear("scratchyShirt")) return 1;
-
-  return 0;
+  return getEquipmentEffectValue("gear", "chest", "explorationEnergyReduction", 0);
 }
 
 function reduceEnergyCost(cost, reduction) {
@@ -388,12 +459,7 @@ function getLocationObjectCost(object) {
 }
 
 function getTravelEnergyMultiplier() {
-  if (typeof hasPurchasedGear !== "function") return 1;
-
-  if (hasPurchasedGear("leatherPants")) return 0.8;
-  if (hasPurchasedGear("scratchyPants")) return 0.9;
-
-  return 1;
+  return getEquipmentEffectValue("gear", "legs", "travelEnergyMultiplier", 1);
 }
 
 function formatTrainingNumber(value) {

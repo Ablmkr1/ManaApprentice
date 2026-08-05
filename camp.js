@@ -2165,10 +2165,20 @@ function updateAutomationUI() {
       imbueAutomation(machineName);
     });
 
+    const crystalButton = document.createElement("button");
+    crystalButton.className = "action-btn automation-crystal-btn";
+    crystalButton.type = "button";
+    crystalButton.textContent = "Use Charged Crystal";
+    crystalButton.disabled = !canChargeAutomationWithCrystal(machineName);
+    crystalButton.addEventListener("click", function () {
+      chargeAutomationWithCrystal(machineName);
+    });
+
     row.appendChild(title);
     row.appendChild(details);
     row.appendChild(progress);
     row.appendChild(button);
+    row.appendChild(crystalButton);
     ui.automationList.appendChild(row);
   }
 }
@@ -2188,6 +2198,24 @@ function imbueAutomation(machineName) {
   if (!spendCost(machine.fuelCost)) return;
 
   machine.cycles += machine.cyclesPerMana;
+  updateAutomationUI();
+}
+
+function canChargeAutomationWithCrystal(machineName) {
+  const machine = getAutomation(machineName);
+
+  if (!machine || !machine.unlocked) return false;
+
+  return canAffordCost({ chargedCrystal: 1 });
+}
+
+function chargeAutomationWithCrystal(machineName) {
+  const machine = getAutomation(machineName);
+
+  if (!machine || !machine.unlocked) return;
+  if (!spendCost({ chargedCrystal: 1 })) return;
+
+  machine.cycles += 100;
   updateAutomationUI();
 }
 
@@ -2242,6 +2270,7 @@ function updateAutomationProgressUI() {
     const fill = row.querySelector(".progressFill");
     const details = row.querySelector(".automation-details");
     const button = row.querySelector(".automation-imbue-btn");
+    const crystalButton = row.querySelector(".automation-crystal-btn");
 
     if (fill) {
       fill.style.width = Math.floor((machine.progress || 0) * 100) + "%";
@@ -2253,6 +2282,10 @@ function updateAutomationProgressUI() {
 
     if (button) {
       button.disabled = !canImbueAutomation(machineName);
+    }
+
+    if (crystalButton) {
+      crystalButton.disabled = !canChargeAutomationWithCrystal(machineName);
     }
   }
 }
@@ -2527,9 +2560,44 @@ function isProductionSpellTargetAvailable(spellName, targetName) {
   if (!areProductionSpellTargetRequirementsMet(definition.requires)) return false;
 
   if (!canAffordStorageCost(definition.storageCost)) return false;
+  if (!canReceiveProductionProduces(definition.produces)) return false;
+  if (!canReceiveStorageProduces(definition.storageProduces)) return false;
 
   if (definition.producesConsumable && !hasConsumableSpace(definition.producesConsumable.resource, definition.producesConsumable.amount)) {
     return false;
+  }
+
+  if (typeof definition.canApply === "function" && !definition.canApply(spellName, targetName)) {
+    return false;
+  }
+
+  return true;
+}
+
+function canReceiveProductionProduces(produces) {
+  if (!produces) return true;
+
+  const resource = getResource(produces.resource);
+
+  if (!resource) return false;
+
+  return resource.value + produces.amount <= resource.maxValue;
+}
+
+function canReceiveStorageProduces(produces) {
+  if (!produces) return true;
+
+  const storage = getCurrentCraftLocationStorage();
+
+  if (!storage) return false;
+
+  for (let resourceName in produces) {
+    const resource = getResource(resourceName);
+    const current = storage[resourceName] || 0;
+
+    if (resource && Number.isFinite(resource.maxValue) && current + produces[resourceName] > resource.maxValue) {
+      return false;
+    }
   }
 
   return true;
@@ -2676,6 +2744,10 @@ function applyProductionSpellTarget(spellName, targetName) {
 
   if (definition.produces) {
     addResource(definition.produces.resource, definition.produces.amount);
+
+    if (typeof unlockResource === "function") {
+      unlockResource(definition.produces.resource);
+    }
   }
 
   if (definition.storageProduces) {
@@ -2686,6 +2758,10 @@ function applyProductionSpellTarget(spellName, targetName) {
     for (let i = 0; i < definition.producesConsumable.amount; i++) {
       addConsumableToSlot(definition.producesConsumable.resource);
     }
+  }
+
+  if (typeof definition.apply === "function") {
+    definition.apply(spellName, targetName);
   }
 
   if (definition.story) {

@@ -1,5 +1,5 @@
 const SAVE_KEY = "manaApprenticeSaveV1";
-const SAVE_VERSION = 7;
+const SAVE_VERSION = 8;
 let saveSuppressed = false;
 
 function createSaveData() {
@@ -231,7 +231,7 @@ function migrateSaveData(saveData) {
 
   const version = Number.isInteger(saveData.version) ? saveData.version : 0;
 
-  if (version !== 6 && version !== SAVE_VERSION) {
+  if (version !== 6 && version !== 7 && version !== SAVE_VERSION) {
     console.warn("Save version is not compatible with this update:", version);
     return null;
   }
@@ -240,6 +240,10 @@ function migrateSaveData(saveData) {
 
   if (version === 6) {
     migrateV6SaveDataToV7(normalizedSaveData);
+  }
+
+  if (version <= 7) {
+    migrateV7SaveDataToV8(normalizedSaveData);
   }
 
   normalizedSaveData.version = SAVE_VERSION;
@@ -292,6 +296,29 @@ function migrateV6SaveDataToV7(saveData) {
   seedSavedSkillFromResourceCapacity(saveData, "conditioning", "energy", "distance");
   seedSavedSkillFromResourceCapacity(saveData, "concentration", "focus", "deepThought");
   seedSavedSkillFromResourceCapacity(saveData, "manaCycling", "mana", "successfulCycles");
+}
+
+function migrateV7SaveDataToV8(saveData) {
+  resetSavedDerivedGatherPerClick(saveData);
+}
+
+function resetSavedDerivedGatherPerClick(saveData) {
+  const basePerClick = {
+    food: 1,
+    wood: 1,
+    fiber: 1,
+  };
+
+  const savedResources = ensureObject(saveData.resources);
+
+  for (let resourceName in basePerClick) {
+    const savedResource = ensureObject(savedResources[resourceName]);
+
+    savedResource.perClick = basePerClick[resourceName];
+    savedResources[resourceName] = savedResource;
+  }
+
+  saveData.resources = savedResources;
 }
 
 function seedSavedSkillFromResourceCapacity(saveData, skillName, resourceName, progressField) {
@@ -692,6 +719,7 @@ function loadGame() {
   ensureSkillsState();
   recalculateCharacterStats();
   recalculateCampEffects();
+  recalculateToolEffects();
   checkResearchDiscoveries();
   refreshGameUIAfterLoad();
 

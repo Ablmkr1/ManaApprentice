@@ -45,6 +45,10 @@ function updateLocationActions() {
     });
   }
 
+  if (location.hunt) {
+    unlockAction("useHuntingLure");
+  }
+
   if (locationName === "creepyCave" && gameState.magicUnlocked) {
     unlockAction("meditate");
   }
@@ -57,7 +61,7 @@ function lockLocationActions() {
 }
 
 function getLocationActionNames() {
-  const actionNames = ["exploreLocation", "meditate", "leaveDungeon"];
+  const actionNames = ["exploreLocation", "meditate", "leaveDungeon", "useHuntingLure"];
 
   const locations = getExpeditionLocationDefinitions();
 
@@ -1832,6 +1836,13 @@ function canHuntGame(locationName) {
   const hunt = getHuntData(locationName);
 
   return !!hunt && hunt.tracked;
+}
+
+function canUseHuntingLure(locationName) {
+  const hunt = getHuntData(locationName);
+  const lure = getResource("huntingLure");
+
+  return !!hunt && !hunt.tracked && !!lure && lure.value > 0;
 }
 
 function renderLocationTravelActions(locationName) {

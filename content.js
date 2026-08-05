@@ -512,6 +512,7 @@ const expeditionLocations = {
     storage: {
       herb: 0,
       staminaTonicBase: 0,
+      concentratedTonicBase: 0,
     },
     discovered: false,
     explored: false,
@@ -1926,13 +1927,16 @@ const gearUpgrades = {
   },
 
   foragingBasket: {
-    label: "Foraging Basket (+1 Food)",
+    label: "Foraging Basket (+1 Food/Herb)",
     displayName: "Foraging Basket",
     equipmentType: "tool",
     slot: "forage",
     slotLabel: "Foraging",
     slotOrder: 0,
     slotRank: 1,
+    effects: {
+      forageYieldFlat: 1,
+    },
     duration: 5,
     cost: {
       fiber: 6,
@@ -1944,8 +1948,7 @@ const gearUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      getResource("food").perClick += 1;
-      updateResource("food");
+      recalculateToolEffects();
       refreshExpeditionUI();
     },
   },
@@ -2081,6 +2084,10 @@ const gearUpgrades = {
     slotLabel: "Knife",
     slotOrder: 1,
     slotRank: 1,
+    effects: {
+      cuttingYieldFlat: 1,
+      huntRewardFlat: 1,
+    },
     cost: {
       pelt: 1,
       fiber: 2,
@@ -2091,7 +2098,7 @@ const gearUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      getResource("fiber").perClick += 1;
+      recalculateToolEffects();
       refreshExpeditionUI();
     },
   },
@@ -2105,6 +2112,10 @@ const gearUpgrades = {
     slotLabel: "Knife",
     slotOrder: 1,
     slotRank: 2,
+    effects: {
+      cuttingYieldFlat: 2,
+      huntRewardFlat: 2,
+    },
     cost: {
       leather: 1,
       ironKnifeBlade: 1,
@@ -2115,7 +2126,7 @@ const gearUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      getResource("fiber").perClick += 1;
+      recalculateToolEffects();
       refreshExpeditionUI();
     },
   },
@@ -2128,6 +2139,9 @@ const gearUpgrades = {
     slotLabel: "Axe",
     slotOrder: 2,
     slotRank: 1,
+    effects: {
+      choppingYieldFlat: 1,
+    },
     duration: 10,
     cost: {
       pelt: 2,
@@ -2139,7 +2153,7 @@ const gearUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      getResource("wood").perClick += 1;
+      recalculateToolEffects();
       refreshExpeditionUI();
     },
   },
@@ -2152,6 +2166,9 @@ const gearUpgrades = {
     slotLabel: "Axe",
     slotOrder: 2,
     slotRank: 2,
+    effects: {
+      choppingYieldFlat: 2,
+    },
     duration: 15,
     cost: {
       leather: 2,
@@ -2164,7 +2181,7 @@ const gearUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      getResource("wood").perClick += 1;
+      recalculateToolEffects();
       refreshExpeditionUI();
     },
   },
@@ -2267,6 +2284,9 @@ const gearUpgrades = {
     slotLabel: "Pick",
     slotOrder: 3,
     slotRank: 1,
+    effects: {
+      miningYieldBase: 2,
+    },
     duration: 15,
     cost: {
       wood: 5,
@@ -2278,7 +2298,10 @@ const gearUpgrades = {
     purchased: false,
     button: null,
     display: null,
-    onComplete() {},
+    onComplete() {
+      recalculateToolEffects();
+      refreshExpeditionUI();
+    },
   },
 
   simpleTonicBelt: {
@@ -2472,6 +2495,22 @@ const consumables = {
       updateResource("energy");
     },
   },
+
+  improvedStaminaTonic: {
+    label: "Improved Stamina Tonic",
+    carriedItem: "improvedStaminaTonic",
+    effectText: "You drink a bright, biting tonic and strength floods back into your limbs.",
+    use() {
+      addResource("energy", 30);
+      updateResource("energy");
+    },
+  },
+
+  huntingLure: {
+    label: "Hunting Lure",
+    carriedItem: "huntingLure",
+    effectText: "The lure pulls nearby game toward a trail you can read.",
+  },
 };
 
 const spellDefinitions = {
@@ -2556,6 +2595,21 @@ const attunementDefinitions = {
 };
 
 const imbueDefinitions = {
+  huntingLure: {
+    label: "Imbue Hunting Lure",
+    description: "Bind mana into a small food lure that can skip tracking at a hunt location.",
+    requiredLocation: "camp",
+    cost: {
+      food: 1,
+      mana: 2,
+    },
+    produces: {
+      resource: "huntingLure",
+      amount: 1,
+    },
+    story: "You fold mana into the food until it carries a tempting, deliberate trail-scent.",
+  },
+
   staminaTonic: {
     label: "Imbue Stamina Tonic",
     description: "Bind mana into one stamina tonic base, filling an empty tonic slot.",
@@ -2572,9 +2626,57 @@ const imbueDefinitions = {
     },
     story: "You bind mana into the prepared base. The tonic sharpens, bitter and ready.",
   },
+
+  improvedStaminaTonic: {
+    label: "Imbue Improved Stamina Tonic",
+    description: "Bind mana into one concentrated tonic base, filling an empty tonic slot with a stronger tonic.",
+    requiredLocation: "alchemistsHut",
+    cost: {
+      mana: 8,
+    },
+    storageCost: {
+      concentratedTonicBase: 1,
+    },
+    producesConsumable: {
+      resource: "improvedStaminaTonic",
+      amount: 1,
+    },
+    story: "You bind mana into the concentrated base. The tonic clears, sharp and potent.",
+  },
+
+  chargedCrystal: {
+    label: "Imbue Charged Crystal",
+    description: "Store mana inside a crystal for later use in camp automation.",
+    requiredLocation: "silentGearworks",
+    cost: {
+      mana: 5,
+      manaCrystal: 1,
+    },
+    produces: {
+      resource: "chargedCrystal",
+      amount: 1,
+    },
+    story: "The crystal catches the Gearworks rhythm and holds a steady inner charge.",
+  },
 };
 
 const arcaneHeatDefinitions = {
+  concentrateTonicBase: {
+    label: "Concentrate Tonic Base",
+    description: "Use controlled magical heat to reduce two tonic bases into one stronger base.",
+    requiredLocation: "alchemistsHut",
+    cost: {
+      mana: 4,
+    },
+    storageCost: {
+      staminaTonicBase: 2,
+    },
+    storageProduces: {
+      concentratedTonicBase: 1,
+    },
+    story: "You draw heat through the tonic bases until the excess boils away and the strength condenses.",
+  },
+
   nails: {
     label: "Shape Nails",
     description: "Use controlled magical heat to shape one iron into ten nails.",
