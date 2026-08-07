@@ -89,6 +89,10 @@
               <div id="ironAmount" class="resource-pill" style="display: none"></div>
               <div id="nailsAmount" class="resource-pill" style="display: none"></div>
               <div id="herbAmount" class="resource-pill" style="display: none"></div>
+              <div id="glimmerleafAmount" class="resource-pill" style="display: none"></div>
+              <div id="staminaTonicBaseAmount" class="resource-pill" style="display: none"></div>
+              <div id="manaTonicBaseAmount" class="resource-pill" style="display: none"></div>
+              <div id="concentratedTonicBaseAmount" class="resource-pill" style="display: none"></div>
               <div id="huntingLureAmount" class="resource-pill" style="display: none"></div>
               <div id="manaCrystalAmount" class="resource-pill" style="display: none"></div>
               <div id="chargedCrystalAmount" class="resource-pill" style="display: none"></div>
@@ -98,18 +102,6 @@
             <h3>Upgrades</h3>
             <div class="camp-upgrades-strip">
               <div id="campUpgradeSlots" class="camp-upgrades-strip"></div>
-            </div>
-          </div>
-
-          <div id="storageSection" class="storage-section" style="display: none">
-            <h3>Storage</h3>
-            <div id="storageList" class="storage-list">
-              <div id="woodStorage" style="display: none">Wood Storage 0/4</div>
-              <div id="foodStorage" style="display: none">Food Storage 0/4</div>
-              <div id="fiberStorage" style="display: none">Fiber Storage 0/4</div>
-              <!--<div id="waterStorage" style="display: none">Water Storage 0/4</div>-->
-              <div id="peltStorage" style="display: none">Pelt Storage 0/4</div>
-              <div id="stoneStorage" style="display: none">Stone Storage 0/4</div>
             </div>
           </div>
 
@@ -185,6 +177,11 @@
             <span>Gather Herbs</span>
           </button>
 
+          <button class="action-btn" data-action="gatherGlimmerleaf" style="display: none">
+            <div class="progressFill"></div>
+            <span>Gather Glimmerleaf</span>
+          </button>
+
           <button class="action-btn" data-action="scoutTrapSite" style="display: none">
             <div class="progressFill"></div>
             <span>Scout Trail</span>
@@ -250,6 +247,11 @@
             <span>Store Herb</span>
           </button>
 
+          <button class="action-btn" data-action="storeGlimmerleaf" style="display: none">
+            <div class="progressFill"></div>
+            <span>Store Glimmerleaf</span>
+          </button>
+
           <button class="action-btn" data-action="takeIron" style="display: none">
             <div class="progressFill"></div>
             <span>Take Iron</span>
@@ -298,13 +300,6 @@
               <button id="lumberMillBtn" style="display: none"></button>
               <button id="foragingLureBtn" style="display: none"></button>
               <button id="researchBenchBtn" style="display: none"></button>
-
-              <!--<button id="woodStorageBtn" style="display: none"></button>
-            <button id="foodStorageBtn" style="display: none"></button>
-            <button id="fiberStorageBtn" style="display: none"></button>
-            <button id="waterStorageBtn" style="display: none"></button>
-            <button id="peltStorageBtn" style="display: none"></button>
-            <button id="stoneStorageBtn" style="display: none"></button>-->
 
               <!--<button id="crudeSatchelBtn" style="display: none"></button>
               <button id="crudeBackpackBtn" style="display: none"></button>
@@ -460,6 +455,11 @@
             <button class="action-btn" data-action="packHerb" style="display: none">
               <div class="progressFill"></div>
               <span>Pack Herbs</span>
+            </button>
+
+            <button class="action-btn" data-action="packGlimmerleaf" style="display: none">
+              <div class="progressFill"></div>
+              <span>Pack Glimmerleaf</span>
             </button>
           </div>
         </div>

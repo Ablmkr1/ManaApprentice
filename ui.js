@@ -36,7 +36,6 @@ function hookDomToUI() {
   ui.locationDescription = document.getElementById("locationDescription");
   ui.stoneAmount = document.getElementById("stoneAmount");
   ui.inventorySection = document.getElementById("inventorySection");
-  ui.storageSection = document.getElementById("storageSection");
   ui.trapSitesList = document.getElementById("trapSitesList");
   ui.locationObjectActions = document.getElementById("locationObjectActions");
   ui.expeditionDistanceBar = document.getElementById("expeditionDistanceBar");
@@ -80,6 +79,10 @@ function hookDomToUI() {
   ui.oreAmount = document.getElementById("oreAmount");
   ui.ironAmount = document.getElementById("ironAmount");
   ui.herbAmount = document.getElementById("herbAmount");
+  ui.glimmerleafAmount = document.getElementById("glimmerleafAmount");
+  ui.staminaTonicBaseAmount = document.getElementById("staminaTonicBaseAmount");
+  ui.manaTonicBaseAmount = document.getElementById("manaTonicBaseAmount");
+  ui.concentratedTonicBaseAmount = document.getElementById("concentratedTonicBaseAmount");
   ui.huntingLureAmount = document.getElementById("huntingLureAmount");
   ui.locationTravelSection = document.getElementById("locationTravelSection");
   ui.tonicSlotsGroup = document.getElementById("tonicSlotsGroup");
@@ -134,6 +137,10 @@ function hookUIMaps() {
     ore: ui.oreAmount,
     iron: ui.ironAmount,
     herb: ui.herbAmount,
+    glimmerleaf: ui.glimmerleafAmount,
+    staminaTonicBase: ui.staminaTonicBaseAmount,
+    manaTonicBase: ui.manaTonicBaseAmount,
+    concentratedTonicBase: ui.concentratedTonicBaseAmount,
     huntingLure: ui.huntingLureAmount,
     manaCrystal: ui.manaCrystalAmount,
     chargedCrystal: ui.chargedCrystalAmount,
@@ -184,7 +191,7 @@ function hookStatsToUI() {
 function updateResource(resourceName) {
   const resource = getResource(resourceName);
 
-  const text = resource.label + ": " + Math.floor(resource.value * 10) / 10 + " / " + resource.maxValue;
+  const text = resource.label + ": " + formatResourceAmountForDisplay(resource.value) + " / " + resource.maxValue;
 
   safeSetText(resource.display, text);
 
@@ -241,6 +248,10 @@ function updateCampResourcesSectionVisibility() {
     "ore",
     "iron",
     "herb",
+    "glimmerleaf",
+    "staminaTonicBase",
+    "manaTonicBase",
+    "concentratedTonicBase",
     "huntingLure",
     "manaCrystal",
     "chargedCrystal",
@@ -470,16 +481,13 @@ function isActionContextAvailable(actionName) {
     return !!location && !!location.storage && location.storage.herb !== undefined && gameState.expedition.carriedItems.herb > 0;
   }
 
-  if (actionName === "enterDungeon") {
+  if (actionName === "storeGlimmerleaf") {
     const location = getExpeditionLocation(locationName);
+    return !!location && !!location.storage && location.storage.glimmerleaf !== undefined && gameState.expedition.carriedItems.glimmerleaf > 0;
+  }
 
-    return (
-      !!location &&
-      !!location.explored &&
-      !!location.dungeon &&
-      hasPurchasedGear("torch") &&
-      (!gameState.expedition.dungeon || !gameState.expedition.dungeon.active)
-    );
+  if (actionName === "enterDungeon") {
+    return canEnterLocationDungeon(locationName) && (!gameState.expedition.dungeon || !gameState.expedition.dungeon.active);
   }
 
   if (actionName === "leaveDungeon") {
@@ -756,7 +764,9 @@ function getRegionStatus(regionId) {
   const state = getRegionState(regionId);
 
   if (!state.unlocked) return "Locked";
-  if (state.mastered || state.progress >= definition.maxProgress) return "Mastered";
+  if (state.mastered || state.progress >= definition.maxProgress) {
+    return regionId === "outskirts" ? "Mastered" : "Mastered (+20% travel here)";
+  }
   if (state.progress <= 0) return "Unexplored";
   if (state.progress < definition.maxProgress * 0.25) return "Surveying";
   if (state.progress < definition.maxProgress * 0.75) return "Known route";

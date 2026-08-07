@@ -354,6 +354,20 @@ function hookActionCompletions() {
     updatePlacePanel();
   };
 
+  getAction("gatherGlimmerleaf").onComplete = function () {
+    const glimmerleafAmount = Math.floor(Math.random() * 2) + 1;
+    const glimmerleafCarried = addCarriedItemUpToCapacity("glimmerleaf", glimmerleafAmount);
+
+    if (glimmerleafCarried > 0) {
+      addStoryEntry("You gather " + glimmerleafCarried + " glimmerleaf.");
+    } else {
+      addStoryEntry("You cannot carry more glimmerleaf.");
+    }
+
+    updateLocationActions();
+    updatePlacePanel();
+  };
+
   getAction("storeHerb").onComplete = function () {
     const location = getExpeditionLocation(gameState.expedition.currentLocation);
 
@@ -366,6 +380,22 @@ function hookActionCompletions() {
 
     location.storage.herb += herbAmount;
     addStoryEntry("You dry and store herbs at the alchemist's hut.");
+    updateLocationActions();
+    updatePlacePanel();
+  };
+
+  getAction("storeGlimmerleaf").onComplete = function () {
+    const location = getExpeditionLocation(gameState.expedition.currentLocation);
+
+    if (!location || !location.storage) return;
+    const glimmerleafAmount = gameState.expedition.carriedItems.glimmerleaf || 0;
+
+    if (glimmerleafAmount <= 0) return;
+
+    if (!removeCarriedItem("glimmerleaf", glimmerleafAmount)) return;
+
+    location.storage.glimmerleaf += glimmerleafAmount;
+    addStoryEntry("You dry and store glimmerleaf at the alchemist's hut.");
     updateLocationActions();
     updatePlacePanel();
   };
@@ -383,6 +413,21 @@ function hookActionCompletions() {
     herb.value -= amountPacked;
     updateResource("herb");
     addStoryEntry("You pack " + amountPacked + " herbs.");
+  };
+
+  getAction("packGlimmerleaf").onComplete = function () {
+    const glimmerleaf = getResource("glimmerleaf");
+    const amountToTry = Math.min(5, glimmerleaf.value);
+    const amountPacked = addCarriedItemUpToCapacity("glimmerleaf", amountToTry);
+
+    if (amountPacked <= 0) {
+      addStoryEntry("Your pack is too full to carry more glimmerleaf.");
+      return;
+    }
+
+    glimmerleaf.value = roundResourceAmount(glimmerleaf.value - amountPacked);
+    updateResource("glimmerleaf");
+    addStoryEntry("You pack " + amountPacked + " glimmerleaf.");
   };
 
   getAction("enterDungeon").onComplete = function () {
@@ -683,8 +728,7 @@ function getActivityDuration(activityRequest) {
   }
 
   if (activityRequest.kind === "spell") {
-    const spell = getSpell(activityRequest.id);
-    return spell ? spell.duration || 0 : 0;
+    return getSpellCastDuration(activityRequest.id, activityRequest.context);
   }
 
   return 0;
@@ -993,10 +1037,6 @@ function completeActivity() {
 
     if (craftType === "gearUpgrade") {
       completeGearUpgrade(craftId);
-    }
-
-    if (craftType === "storageUpgrade") {
-      completeStorageUpgrade(craftId);
     }
 
     if (craftType === "resourceCraft") {

@@ -261,7 +261,8 @@ function recalculateCharacterStats() {
 
 function getEnergyRecoveryPerSecond() {
   if (typeof hasPurchasedCampUpgrade === "function") {
-    if (hasPurchasedCampUpgrade("smallHut")) return 8;
+    if (hasPurchasedCampUpgrade("smallHut")) return 12;
+    if (hasPurchasedCampUpgrade("framedShelter")) return 8;
     if (hasPurchasedCampUpgrade("lessCrudeShelter")) return 4;
     if (hasPurchasedCampUpgrade("crudeLeanTo")) return 2;
   }

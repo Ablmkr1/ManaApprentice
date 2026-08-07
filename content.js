@@ -247,6 +247,7 @@ const expeditionLocations = {
             story: "Beneath the collapsed shelter, you find the remains of a blackened torch.",
             unlocks: [
               { type: "flag", id: "ruinedTorchFound" },
+              { type: "research", id: "salvagedSheltercraft" },
               { type: "journal", id: "ruinedTorchFound" },
             ],
           },
@@ -511,7 +512,9 @@ const expeditionLocations = {
     distance: 40,
     storage: {
       herb: 0,
+      glimmerleaf: 0,
       staminaTonicBase: 0,
+      manaTonicBase: 0,
       concentratedTonicBase: 0,
     },
     discovered: false,
@@ -527,7 +530,7 @@ const expeditionLocations = {
       discovered: "A vine-covered hut waits in the southern overgrowth. Strange scents cling to the air around it.",
       explored: "The abandoned hut has storage, tools, and enough old notes to begin simple alchemy.",
     },
-    availableActions: ["storeHerb"],
+    availableActions: ["storeHerb", "storeGlimmerleaf"],
     explorableObjects: {
       studyInfusionPattern: {
         label: "Study Infusion Pattern",
@@ -566,6 +569,27 @@ const expeditionLocations = {
         ],
       },
     },
+  },
+
+  overgrownFields: {
+    region: "south",
+    label: "Overgrown Fields",
+    exploredLabel: "Overgrown Fields",
+    distance: 250,
+    discovered: false,
+    explored: false,
+    explorationProgress: 0,
+    explorationRequired: 2,
+    onDiscoverStory: "The southern growth opens into old fields, their rows almost erased beneath waist-high green.",
+    exploreStory: [
+      "Beneath the weeds, the ground still rises in long, deliberate rows. This place was cultivated before it was abandoned.",
+      "Tiny silver-veined leaves shimmer among the ordinary growth. They hold a cool pressure that feels almost like mana.",
+    ],
+    panelText: {
+      discovered: "Old cultivated fields lie buried beneath the overgrowth. The plants here seem less wild than unsupervised.",
+      explored: "Glimmerleaf grows in the abandoned rows. It is rare, but careful gathering can preserve it.",
+    },
+    availableActions: ["gatherGlimmerleaf"],
   },
 
   roadsideRuin: {
@@ -611,6 +635,91 @@ const expeditionLocations = {
       explored: "The gearworks entrance is clear. Old mechanisms wait below, still enough to study.",
     },
     availableActions: ["enterDungeon"],
+  },
+
+  arcaneArchive: {
+    region: "west",
+    label: "Arcane Archive",
+    exploredLabel: "Arcane Archive",
+    distance: 250,
+    dungeon: "arcaneArchiveDepths",
+    dungeonUnlockedFlag: "archiveDoorOpened",
+    discovered: false,
+    explored: false,
+    explorationProgress: 0,
+    explorationRequired: 3,
+    onDiscoverStory:
+      "The broken road ends at a low, windowless building of pale stone. Its single door is sealed beneath four overlapping patterns of mana.",
+    exploreStory: [
+      "The archive walls are nearly seamless. Even the moss seems reluctant to cling to them.",
+      "A ring of old script surrounds the door. Each section answers to a different shape of magic.",
+      "The seal is not a lock so much as a question. Mana Sense, Arcane Heat, Imbue, and Attunement will all be needed to answer it.",
+    ],
+    panelText: {
+      discovered: "A pale stone archive waits at the end of the western road. Its door is sealed by old magic.",
+      explored: "The archive door waits under four linked spell-patterns. Opening it will take a complete ritual in one visit.",
+    },
+    availableActions: ["enterDungeon"],
+    explorableObjects: {
+      sealedArchiveDoor: {
+        label: "Open Archive Door",
+        duration: 5,
+        cost: {
+          energy: 12,
+        },
+        progress: 0,
+        flag: "archiveDoorOpened",
+        resetSpellChargesOnLeave: true,
+        spellCharges: {},
+        spellInteractions: {
+          manaSense: {
+            required: 1,
+            cost: { mana: 1 },
+            duration: 1,
+            stories: ["Mana Sense finds the first shape of the seal: meaning, not mechanism."],
+          },
+          arcaneHeat: {
+            required: 1,
+            cost: { mana: 4 },
+            duration: 3,
+            stories: ["Arcane Heat closes hairline fractures in the door's inner hinge until the old metal remembers how to move."],
+          },
+          imbue: {
+            required: 1,
+            cost: { mana: 5 },
+            duration: 2,
+            stories: ["Imbue settles into the repaired channel, leaving mana held inside the seal instead of sliding off its surface."],
+          },
+          attunement: {
+            required: 1,
+            cost: { mana: 4 },
+            duration: 2,
+            stories: ["Attunement lets your hands match the door's weight. The final ring turns beneath your palms."],
+          },
+        },
+        requires: {
+          locationsExplored: ["arcaneArchive"],
+          resourceMaximums: {
+            mana: 14,
+          },
+          spellCharges: {
+            manaSense: 1,
+            arcaneHeat: 1,
+            imbue: 1,
+            attunement: 1,
+          },
+        },
+        stages: [
+          {
+            story: "The four spell-patterns align. The archive door opens inward without a sound.",
+            unlocks: [
+              { type: "flag", id: "archiveDoorOpened" },
+              { type: "journal", id: "arcaneArchiveOpened" },
+            ],
+          },
+        ],
+      },
+    },
   },
 };
 
@@ -940,6 +1049,478 @@ const dungeonDefinitions = {
       },
     },
   },
+
+  arcaneArchiveDepths: {
+    label: "Arcane Archive Depths",
+    entryLocation: "arcaneArchive",
+    startNode: "archiveEntry",
+    layers: {
+      upper: "Upper Archive",
+      lower: "Lower Archive",
+    },
+    nodes: {
+      archiveEntry: {
+        layer: "upper",
+        x: 0,
+        y: 1,
+        label: "Archive Entry",
+        description: "The opened door leads to a quiet vestibule. Pale shelves wait beyond a curtain of dust.",
+        discovered: true,
+        explored: true,
+        rewardClaimed: false,
+        exits: [{ label: "Enter the threshold hall", to: "thresholdHall" }],
+      },
+
+      thresholdHall: {
+        layer: "upper",
+        x: 1,
+        y: 1,
+        label: "Threshold Hall",
+        description: "Four inlaid lines run from the door to the archive interior, each carrying the memory of one spell.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        manaSenseCharges: 0,
+        search: {
+          duration: 7,
+          baseChance: 55,
+          cost: { energy: 10 },
+          successText: "You map the spell-lines enough to move through the hall without disturbing the old wards.",
+        },
+        exits: [
+          { label: "Return to the archive entry", to: "archiveEntry" },
+          { label: "Follow the main stacks", to: "catalogHall" },
+          { label: "Enter the west stacks", to: "westStacks" },
+          { label: "Enter the east stacks", to: "eastStacks" },
+        ],
+      },
+
+      catalogHall: {
+        layer: "upper",
+        x: 2,
+        y: 1,
+        label: "Catalog Hall",
+        description: "Stone catalog blocks sit in long rows. Most labels are worn smooth, but a few still answer to touch.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        manaSenseCharges: 0,
+        search: {
+          duration: 8,
+          baseChance: 50,
+          cost: { energy: 10 },
+          successText: "You piece together the archive's old ordering: craft, vessel, structure, tower.",
+          reward: { carried: { manaCrystal: 1 } },
+        },
+        exits: [
+          { label: "Return to the threshold hall", to: "thresholdHall" },
+          { label: "Enter the reading room", to: "readingRoom" },
+          { label: "Follow the map corridor", to: "mapRotunda" },
+        ],
+      },
+
+      westStacks: {
+        layer: "upper",
+        x: 1,
+        y: 0,
+        label: "West Stacks",
+        description: "Shelves have collapsed into careful drifts. Thin tablets gleam between splinters of old wood.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        manaSenseCharges: 0,
+        search: {
+          duration: 8,
+          baseChance: 45,
+          cost: { energy: 10 },
+          successText: "You recover a tablet whose diagrams describe preparing workspaces for repeated craft.",
+          reward: { carried: { manaCrystal: 2 } },
+        },
+        exits: [
+          { label: "Return to the threshold hall", to: "thresholdHall" },
+          { label: "Search the preservation lab", to: "preservationLab" },
+          { label: "Cross to the reading room", to: "readingRoom" },
+        ],
+      },
+
+      eastStacks: {
+        layer: "upper",
+        x: 1,
+        y: 2,
+        label: "East Stacks",
+        description: "Cracked cases hold sketches of hides, metal, herbs, and stranger materials arranged by process.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        manaSenseCharges: 0,
+        search: {
+          duration: 8,
+          baseChance: 45,
+          cost: { energy: 10 },
+          successText: "You sort the surviving diagrams by craft and mark the useful shelves.",
+          reward: { carried: { manaCrystal: 2 } },
+        },
+        exits: [
+          { label: "Return to the threshold hall", to: "thresholdHall" },
+          { label: "Study the pattern gallery", to: "patternGallery" },
+          { label: "Cross to the reading room", to: "readingRoom" },
+        ],
+      },
+
+      readingRoom: {
+        layer: "upper",
+        x: 2,
+        y: 0,
+        label: "Reading Room",
+        description: "A semicircle of stone desks faces a blank wall. Notes are carved directly into the work surfaces.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        manaSenseCharges: 0,
+        search: {
+          duration: 9,
+          baseChance: 45,
+          cost: { energy: 12 },
+          successText: "The room teaches a simple archive habit: every useful plan was copied into at least two neighboring chambers.",
+        },
+        exits: [
+          { label: "Return to the catalog hall", to: "catalogHall" },
+          { label: "Return to the west stacks", to: "westStacks" },
+          { label: "Return to the east stacks", to: "eastStacks" },
+          { label: "Search the keeper's office", to: "keeperOffice" },
+        ],
+      },
+
+      preservationLab: {
+        layer: "upper",
+        x: 3,
+        y: 0,
+        label: "Preservation Lab",
+        description: "Glass jars line a stone counter. The air still smells faintly of herbs preserved past their natural span.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        manaSenseCharges: 0,
+        search: {
+          duration: 10,
+          baseChance: 45,
+          deepThought: 4,
+          cost: { energy: 12 },
+          successText: "You copy plans for building an alchemy station at camp.",
+          reward: {
+            unlocks: [
+              { type: "flag", id: "campAlchemyPlansFound" },
+              { type: "journal", id: "campAlchemyPlansFound" },
+            ],
+          },
+        },
+        exits: [
+          { label: "Return to the west stacks", to: "westStacks" },
+          { label: "Inspect the heat diagram hall", to: "heatDiagramHall" },
+        ],
+      },
+
+      patternGallery: {
+        layer: "upper",
+        x: 2,
+        y: 3,
+        label: "Pattern Gallery",
+        description: "Thin hides are pressed between etched plates, their fibers preserved in diagrams rather than flesh.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        manaSenseCharges: 0,
+        search: {
+          duration: 10,
+          baseChance: 45,
+          deepThought: 4,
+          cost: { energy: 12 },
+          successText: "You copy plans for building a tannery at camp.",
+          reward: {
+            unlocks: [
+              { type: "flag", id: "campTanningPlansFound" },
+              { type: "journal", id: "campTanningPlansFound" },
+            ],
+          },
+        },
+        exits: [
+          { label: "Return to the east stacks", to: "eastStacks" },
+          { label: "Inspect the heat diagram hall", to: "heatDiagramHall" },
+        ],
+      },
+
+      heatDiagramHall: {
+        layer: "upper",
+        x: 3,
+        y: 1,
+        label: "Heat Diagram Hall",
+        description: "The walls show iron softening under blue-white pressure, each step marked with tiny channels for mana flow.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        manaSenseCharges: 0,
+        search: {
+          duration: 10,
+          baseChance: 40,
+          deepThought: 4,
+          cost: { energy: 12 },
+          successText: "You copy plans for building a camp smelter that can hold arcane heat safely.",
+          reward: {
+            unlocks: [
+              { type: "flag", id: "campSmeltingPlansFound" },
+              { type: "journal", id: "campSmeltingPlansFound" },
+            ],
+          },
+        },
+        exits: [
+          { label: "Return to the preservation lab", to: "preservationLab" },
+          { label: "Return to the pattern gallery", to: "patternGallery" },
+          { label: "Enter the map rotunda", to: "mapRotunda" },
+        ],
+      },
+
+      mapRotunda: {
+        layer: "upper",
+        x: 4,
+        y: 1,
+        label: "Map Rotunda",
+        description: "A circular room maps the archive below as a second ring beneath the first.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        manaSenseCharges: 0,
+        search: {
+          duration: 9,
+          baseChance: 45,
+          cost: { energy: 12 },
+          successText: "The lower archive layout resolves: ducts, machines, and a drafting room lie below.",
+        },
+        exits: [
+          { label: "Return to the catalog hall", to: "catalogHall" },
+          { label: "Return to the heat diagram hall", to: "heatDiagramHall" },
+          { label: "Enter the keeper's office", to: "keeperOffice" },
+          { label: "Find the lower stair", to: "lowerStair" },
+        ],
+      },
+
+      keeperOffice: {
+        layer: "upper",
+        x: 4,
+        y: 0,
+        label: "Keeper's Office",
+        description: "A narrow office watches the archive from behind a slit window. The desk is stone, the chair long gone.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        manaSenseCharges: 0,
+        search: {
+          duration: 9,
+          baseChance: 40,
+          cost: { energy: 12 },
+          successText: "Inside the desk, you find two mana crystals wrapped in brittle cloth.",
+          reward: { carried: { manaCrystal: 2 } },
+        },
+        exits: [
+          { label: "Return to the reading room", to: "readingRoom" },
+          { label: "Return to the map rotunda", to: "mapRotunda" },
+        ],
+      },
+
+      lowerStair: {
+        layer: "upper",
+        x: 5,
+        y: 1,
+        label: "Lower Stair",
+        description: "A tight stair curls down through the archive's foundation. Cool mana rises from below.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        manaSenseCharges: 0,
+        search: {
+          duration: 8,
+          baseChance: 50,
+          cost: { energy: 10 },
+          successText: "You clear the dust from the stair and mark the safest descent.",
+        },
+        exits: [
+          { label: "Return to the map rotunda", to: "mapRotunda" },
+          { label: "Descend to the lower archive", to: "lowerLanding" },
+        ],
+      },
+
+      lowerLanding: {
+        layer: "lower",
+        x: 0,
+        y: 1,
+        label: "Lower Landing",
+        description: "The stair ends in a low hall. The air hums with the slow pressure of old machines.",
+        discovered: false,
+        explored: true,
+        rewardClaimed: false,
+        exits: [
+          { label: "Climb to the upper archive", to: "lowerStair" },
+          { label: "Follow the mana ducts", to: "manaDucts" },
+          { label: "Enter the sealed stacks", to: "sealedStacks" },
+        ],
+      },
+
+      manaDucts: {
+        layer: "lower",
+        x: 1,
+        y: 0,
+        label: "Mana Ducts",
+        description: "Glass-lined channels run through the floor. Their old flow points toward a chamber deeper in.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        manaSenseCharges: 0,
+        search: {
+          duration: 10,
+          baseChance: 40,
+          cost: { energy: 12 },
+          successText: "You trace the duct pattern and recover a crystal from a cracked junction.",
+          reward: { carried: { manaCrystal: 1 } },
+        },
+        exits: [
+          { label: "Return to the lower landing", to: "lowerLanding" },
+          { label: "Enter the machine nave", to: "machineNave" },
+        ],
+      },
+
+      sealedStacks: {
+        layer: "lower",
+        x: 1,
+        y: 2,
+        label: "Sealed Stacks",
+        description: "Metal shutters cover these shelves, but several have warped open over the years.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        manaSenseCharges: 0,
+        search: {
+          duration: 10,
+          baseChance: 40,
+          cost: { energy: 12 },
+          successText: "You open a warped shutter and find a bundle of stable archive slates.",
+          reward: { carried: { manaCrystal: 1 } },
+        },
+        exits: [
+          { label: "Return to the lower landing", to: "lowerLanding" },
+          { label: "Enter the machine nave", to: "machineNave" },
+          { label: "Search the deep repository", to: "deepRepository" },
+        ],
+      },
+
+      machineNave: {
+        layer: "lower",
+        x: 2,
+        y: 1,
+        label: "Machine Nave",
+        description: "Tall frames stand in two rows like silent columns. Each one once guided mana into useful motion.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        manaSenseCharges: 0,
+        search: {
+          duration: 11,
+          baseChance: 35,
+          cost: { energy: 14 },
+          successText: "The frames are too damaged to use, but their alignment points toward a dedicated condenser chamber.",
+          reward: { carried: { manaCrystal: 2 } },
+        },
+        exits: [
+          { label: "Return to the mana ducts", to: "manaDucts" },
+          { label: "Return to the sealed stacks", to: "sealedStacks" },
+          { label: "Enter the condenser gallery", to: "condenserGallery" },
+          { label: "Enter the drafting room", to: "towerDraftingRoom" },
+        ],
+      },
+
+      condenserGallery: {
+        layer: "lower",
+        x: 3,
+        y: 0,
+        label: "Condenser Gallery",
+        description: "A ring-shaped device has been disassembled across three tables. Its purpose is unmistakable: gather, cool, condense.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        manaSenseCharges: 0,
+        search: {
+          duration: 12,
+          baseChance: 35,
+          deepThought: 5,
+          cost: { energy: 14 },
+          successText: "You copy the ancient mana condenser plans. With enough work, camp could produce mana crystals instead of only finding them.",
+          reward: {
+            unlocks: [
+              { type: "flag", id: "manaCondenserPlansFound" },
+              { type: "journal", id: "manaCondenserPlansFound" },
+            ],
+          },
+        },
+        exits: [
+          { label: "Return to the machine nave", to: "machineNave" },
+          { label: "Search the deep repository", to: "deepRepository" },
+        ],
+      },
+
+      towerDraftingRoom: {
+        layer: "lower",
+        x: 3,
+        y: 2,
+        label: "Tower Drafting Room",
+        description: "Huge foundation circles cover the walls. The drawings are incomplete, but the scale matches the buried foundation at camp.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        manaSenseCharges: 0,
+        search: {
+          duration: 12,
+          baseChance: 35,
+          deepThought: 5,
+          cost: { energy: 14 },
+          successText: "You copy the partial tower plans. They are not enough to build from, but they prove the camp foundation was only the beginning.",
+          reward: {
+            unlocks: [
+              { type: "flag", id: "partialTowerPlansFound" },
+              { type: "journal", id: "partialTowerPlansFound" },
+              { type: "research", id: "towerFoundations" },
+            ],
+          },
+        },
+        exits: [
+          { label: "Return to the machine nave", to: "machineNave" },
+          { label: "Search the deep repository", to: "deepRepository" },
+        ],
+      },
+
+      deepRepository: {
+        layer: "lower",
+        x: 4,
+        y: 1,
+        label: "Deep Repository",
+        description: "The final room is mostly empty. Its shelves were cleared deliberately, not looted.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        manaSenseCharges: 0,
+        search: {
+          duration: 13,
+          baseChance: 30,
+          deepThought: 3,
+          cost: { energy: 16 },
+          successText: "You find a few intact fragments and the unsettling outline of plans removed before the archive was sealed.",
+          reward: { carried: { manaCrystal: 3 } },
+        },
+        exits: [
+          { label: "Return to the condenser gallery", to: "condenserGallery" },
+          { label: "Return to the drafting room", to: "towerDraftingRoom" },
+          { label: "Return to the sealed stacks", to: "sealedStacks" },
+        ],
+      },
+    },
+  },
 };
 
 // Research Definitions
@@ -962,8 +1543,6 @@ const researchDefinitions = {
     unlocks: [
       { type: "gearUpgrade", id: "crudeSatchel" },
       { type: "campUpgrade", id: "lessCrudeShelter" },
-      { type: "storageUpgrade", id: "woodStorage" },
-      { type: "storageUpgrade", id: "foodStorage" },
       { type: "gearUpgrade", id: "foragingBasket" },
     ],
   },
@@ -1010,10 +1589,7 @@ const researchDefinitions = {
       },
     },
     story: "The pelt can be more than a trophy. Scraped, stretched, and sealed, it might carry water or protect supplies.",
-    unlocks: [
-      { type: "gearUpgrade", id: "waterskin" },
-      { type: "storageUpgrade", id: "peltStorage" },
-    ],
+    unlocks: [{ type: "gearUpgrade", id: "waterskin" }],
   },
 
   leatherworking: {
@@ -1244,6 +1820,26 @@ const researchDefinitions = {
     ],
   },
 
+  salvagedSheltercraft: {
+    label: "Salvaged Sheltercraft",
+    duration: 6,
+    deepThought: 2,
+    completed: false,
+    unlocked: false,
+    cost: {
+      energy: 20,
+      wood: 25,
+      fiber: 10,
+      focus: 2,
+    },
+    requires: {
+      flags: ["ruinedTorchFound"],
+    },
+    story:
+      "The abandoned shelter failed from rot, not design. Its angled frame gives you a better way to brace your own shelter against weather.",
+    unlocks: [{ type: "campUpgrade", id: "framedShelter" }],
+  },
+
   sturdyConstruction: {
     label: "Sturdy Construction",
     duration: 5,
@@ -1258,6 +1854,7 @@ const researchDefinitions = {
     },
     requires: {
       researchCompleted: ["smelting", "leatherworking", "automationPrinciples"],
+      campUpgradesPurchased: ["framedShelter"],
       resources: {},
     },
     story: "With more and better resources you can build sturdier buildings.",
@@ -1307,6 +1904,28 @@ const researchDefinitions = {
       { type: "gearUpgrade", id: "simpleTonicBelt" },
     ],
   },
+
+  manaTonics: {
+    label: "Mana Tonics",
+    duration: 6,
+    deepThought: 3,
+    completed: false,
+    unlocked: false,
+    cost: {
+      energy: 12,
+      glimmerleaf: 5,
+      focus: 3,
+    },
+    requires: {
+      locationsExplored: ["overgrownFields"],
+      researchCompleted: ["alchemy"],
+      flags: ["magicUnlocked"],
+    },
+    story:
+      "Glimmerleaf does not restore mana on its own. Prepared properly, though, it can hold a charge until you need it away from a place of meditation.",
+    unlocks: [{ type: "resourceCraft", id: "manaTonicBase" }],
+  },
+
   alchemyBelt2: {
     label: "Improved Tonic Belt",
     duration: 5,
@@ -1388,6 +2007,107 @@ const researchDefinitions = {
       "As mana returns, you begin to notice that it does not simply appear. It follows a path through you. With practice, that path might be widened.",
     story: "Careful meditation reveals the first safe path for cycling mana through yourself instead of casting it outward.",
     unlocks: [{ type: "action", id: "practiceManaCycling" }],
+  },
+
+  campTanning: {
+    label: "Camp Tanning",
+    duration: 8,
+    deepThought: 3,
+    completed: false,
+    unlocked: false,
+    cost: {
+      energy: 30,
+      focus: 4,
+      leather: 4,
+      iron: 2,
+    },
+    requires: {
+      flags: ["campTanningPlansFound"],
+      researchCompleted: ["leatherworking"],
+    },
+    story: "The archive plans adapt the cabin's old hidework into a compact camp tannery.",
+    unlocks: [{ type: "campUpgrade", id: "campTannery" }],
+  },
+
+  campSmelting: {
+    label: "Camp Smelting",
+    duration: 10,
+    deepThought: 4,
+    completed: false,
+    unlocked: false,
+    cost: {
+      energy: 40,
+      focus: 4,
+      iron: 6,
+      nails: 20,
+      stone: 4,
+    },
+    requires: {
+      flags: ["campSmeltingPlansFound"],
+      researchCompleted: ["smelting"],
+    },
+    story: "The heat diagrams show how to brace a small smelter so arcane heat can work safely at camp.",
+    unlocks: [{ type: "campUpgrade", id: "campSmelterFoundation" }],
+  },
+
+  campAlchemy: {
+    label: "Camp Alchemy",
+    duration: 8,
+    deepThought: 3,
+    completed: false,
+    unlocked: false,
+    cost: {
+      energy: 35,
+      focus: 4,
+      herb: 25,
+      glimmerleaf: 5,
+      manaCrystal: 2,
+    },
+    requires: {
+      flags: ["campAlchemyPlansFound", "magicUnlocked"],
+      researchCompleted: ["alchemy"],
+    },
+    story: "The preservation lab plans bring the alchemist's workbench home, with enough containment for mana-bound tonics.",
+    unlocks: [{ type: "campUpgrade", id: "campAlchemyStation" }],
+  },
+
+  ancientManaCondenser: {
+    label: "Ancient Mana Condenser",
+    duration: 12,
+    deepThought: 5,
+    completed: false,
+    unlocked: false,
+    cost: {
+      energy: 60,
+      focus: 5,
+      iron: 8,
+      nails: 30,
+      manaCrystal: 10,
+      chargedCrystal: 2,
+    },
+    requires: {
+      flags: ["manaCondenserPlansFound"],
+      researchCompleted: ["automationPrinciples"],
+    },
+    story: "The archive's condenser design is slow, exacting, and too valuable to leave as theory.",
+    unlocks: [{ type: "campUpgrade", id: "manaCondenserFrame" }],
+  },
+
+  towerFoundations: {
+    label: "Tower Foundations",
+    duration: 1,
+    deepThought: 0,
+    completed: false,
+    unlocked: false,
+    blocked: true,
+    lockedReason: "The archive plans confirm what the buried foundation was for, but too many pages are missing to begin construction.",
+    cost: {},
+    requires: {
+      flags: ["partialTowerPlansFound"],
+    },
+    story:
+      "The partial tower plans match the foundation beneath camp. The design is incomplete, but the shape is unmistakable: someone meant to build upward from your clearing.",
+    unlocks: [],
   },
 };
 
@@ -1474,13 +2194,36 @@ const campUpgrades = {
     },
   },
 
+  framedShelter: {
+    label: "Framed Shelter",
+    displayName: "Framed Shelter",
+    campSlot: "shelter",
+    campSlotLabel: "Shelter",
+    campSlotOrder: 1,
+    campSlotRank: 3,
+    duration: 10,
+    cost: {
+      wood: 60,
+      fiber: 30,
+      stone: 10,
+      energy: 50,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      recalculateCampEffects();
+    },
+  },
+
   smallHut: {
     label: "Small Hut",
     displayName: "Small Hut",
     campSlot: "shelter",
     campSlotLabel: "Shelter",
     campSlotOrder: 1,
-    campSlotRank: 3,
+    campSlotRank: 4,
     duration: 15,
     cost: {
       wood: 200,
@@ -1683,117 +2426,153 @@ const campUpgrades = {
       updateCampResourcesSectionVisibility();
     },
   },
-};
 
-// Camp Storage Upgrade Defintions
-const storageUpgrades = {
-  woodStorage: {
-    label: "Wood Storage",
-    resource: "wood",
-    duration: 5,
-    tier: 0,
-    maxTier: 4,
-    maxValueIncrease: 100,
-    tierNames: ["Wood Pile", "Covered Woodpile", "Lumber Rack", "Storage Yard"],
+  campTannery: {
+    label: "Camp Tannery",
+    displayName: "Camp Tannery",
+    campSlot: "tannery",
+    campSlotLabel: "Tannery",
+    campSlotOrder: 8,
+    campSlotRank: 1,
+    duration: 10,
+    cost: {
+      energy: 80,
+      wood: 60,
+      leather: 20,
+      nails: 15,
+    },
     unlocked: false,
+    purchased: false,
     button: null,
     display: null,
-    costs: [
-      { wood: 10, iron: 5, energy: 10 },
-      { wood: 20, fiber: 20, energy: 20 },
-      { wood: 30, stone: 10, energy: 50 },
-      { wood: 40, stone: 20, energy: 75 },
-    ],
+    onComplete() {
+      updateResourceCraftUI("leather");
+      updateCraftingButtons();
+    },
   },
-  foodStorage: {
-    label: "Food Storage",
-    resource: "food",
-    duration: 5,
-    tier: 0,
-    maxTier: 4,
-    maxValueIncrease: 10,
-    tierNames: ["Food Basket", "Pantry", "Smokehouse", "Root Cellar"],
+
+  campSmelterFoundation: {
+    label: "Camp Smelter Foundation",
+    displayName: "Smelter Foundation",
+    campSlot: "forge",
+    campSlotLabel: "Forge",
+    campSlotOrder: 9,
+    campSlotRank: 1,
+    duration: 8,
+    cost: {
+      energy: 70,
+      stone: 35,
+      iron: 4,
+      nails: 10,
+    },
     unlocked: false,
+    purchased: false,
     button: null,
     display: null,
-    costs: [
-      { fiber: 10, iron: 5 },
-      { wood: 20, fiber: 5, energy: 20 },
-      { wood: 20, fiber: 10, stone: 2, energy: 45 },
-      { wood: 30, fiber: 10, stone: 5, energy: 50 },
-    ],
+    onComplete() {
+      unlockCampUpgrade("campSmelter");
+    },
   },
-  fiberStorage: {
-    label: "Fiber Storage",
-    resource: "fiber",
-    duration: 5,
-    tier: 0,
-    maxTier: 4,
-    maxValueIncrease: 20,
-    tierNames: ["Fiber Bundle", "Fiber Rack", "Cordage Rack", "Weaving Shed"],
+
+  campSmelter: {
+    label: "Camp Smelter",
+    displayName: "Camp Smelter",
+    campSlot: "forge",
+    campSlotLabel: "Forge",
+    campSlotOrder: 9,
+    campSlotRank: 2,
+    duration: 10,
+    cost: {
+      energy: 70,
+      stone: 25,
+      iron: 4,
+      nails: 15,
+      manaCrystal: 4,
+    },
     unlocked: false,
+    purchased: false,
     button: null,
     display: null,
-    costs: [
-      { wood: 10, iron: 5, energy: 10 },
-      { wood: 20, fiber: 10, energy: 20 },
-      { wood: 20, fiber: 20, pelt: 2, energy: 20 },
-      { wood: 30, fiber: 20, pelt: 5, energy: 20 },
-    ],
+    onComplete() {
+      updateResourceCraftUI("iron");
+      updateCraftingButtons();
+    },
   },
-  waterStorage: {
-    label: "Water Storage",
-    resource: "water",
-    duration: 5,
-    tier: 0,
-    maxTier: 4,
-    maxValueIncrease: 10,
-    tierNames: ["Water Bucket", "Water Barrel", "Cistern", "Well"],
+
+  campAlchemyStation: {
+    label: "Camp Alchemy Station",
+    displayName: "Camp Alchemy Station",
+    campSlot: "alchemy",
+    campSlotLabel: "Alchemy",
+    campSlotOrder: 10,
+    campSlotRank: 1,
+    duration: 10,
+    cost: {
+      energy: 100,
+      wood: 50,
+      iron: 4,
+      leather: 4,
+      manaCrystal: 6,
+    },
     unlocked: false,
+    purchased: false,
     button: null,
     display: null,
-    costs: [
-      { wood: 2, iron: 5, energy: 20 },
-      { fiber: 10, wood: 20, energy: 20 },
-      { stone: 6, wood: 20, energy: 20 },
-      { wood: 20, stone: 30, energy: 80 },
-    ],
+    onComplete() {
+      updateResourceCraftUI("staminaTonic");
+      updateResourceCraftUI("manaTonicBase");
+      updateCraftingButtons();
+    },
   },
-  peltStorage: {
-    label: "Pelt Storage",
-    resource: "pelt",
-    duration: 5,
-    tier: 0,
-    maxTier: 4,
-    maxValueIncrease: 10,
-    tierNames: ["Pelt Bundle", "Drying Frame", "Tanning Rack", "Hide Shed"],
+
+  manaCondenserFrame: {
+    label: "Mana Condenser Frame",
+    displayName: "Condenser Frame",
+    campSlot: "condenser",
+    campSlotLabel: "Condenser",
+    campSlotOrder: 11,
+    campSlotRank: 1,
+    duration: 10,
+    cost: {
+      energy: 90,
+      stone: 40,
+      iron: 5,
+      nails: 20,
+      manaCrystal: 6,
+    },
     unlocked: false,
+    purchased: false,
     button: null,
     display: null,
-    costs: [
-      { wood: 10, iron: 2, energy: 20 },
-      { wood: 20, pelt: 5, energy: 20 },
-      { fiber: 10, pelt: 10, energy: 20 },
-      { fiber: 20, pelt: 15, stone: 5, energy: 20 },
-    ],
+    onComplete() {
+      unlockCampUpgrade("manaCondenser");
+    },
   },
-  stoneStorage: {
-    label: "Stone Storage",
-    resource: "stone",
-    duration: 5,
-    tier: 0,
-    maxTier: 4,
-    maxValueIncrease: 20,
-    tierNames: ["Stone Pile", "Reinforced Stone Stack", "Mason's Yard", "Stone Depot"],
+
+  manaCondenser: {
+    label: "Mana Condenser",
+    displayName: "Mana Condenser",
+    campSlot: "condenser",
+    campSlotLabel: "Condenser",
+    campSlotOrder: 11,
+    campSlotRank: 2,
+    duration: 12,
+    cost: {
+      energy: 90,
+      stone: 20,
+      iron: 5,
+      nails: 20,
+      manaCrystal: 6,
+      chargedCrystal: 2,
+    },
     unlocked: false,
+    purchased: false,
     button: null,
     display: null,
-    costs: [
-      { wood: 10, iron: 5, energy: 20 },
-      { wood: 20, stone: 10, energy: 20 },
-      { wood: 20, stone: 20, energy: 20 },
-      { wood: 30, stone: 30, pelt: 5, energy: 20 },
-    ],
+    onComplete() {
+      unlockAutomation("manaCondenser");
+      updateWorkTabsVisibility();
+    },
   },
 };
 
@@ -2413,6 +3192,19 @@ const automationDefinitions = {
     cycles: 0,
     progress: 0,
   },
+
+  manaCondenser: {
+    label: "Mana Condenser",
+    description: "An archive device that condenses diffuse mana into new crystals.",
+    duration: 30,
+    cyclesPerMana: 10,
+    cyclesPerOutput: 20,
+    fuelCost: { mana: 1 },
+    produces: { resource: "manaCrystal", amount: 1 },
+    unlocked: false,
+    cycles: 0,
+    progress: 0,
+  },
 };
 
 const resourceCrafts = {
@@ -2435,15 +3227,24 @@ const resourceCrafts = {
   leather: {
     label: "Tan Leather",
     requiredLocation: "huntersCabin",
+    campUpgradeRequired: "campTannery",
     duration: 2,
     cost: {
       energy: 6,
+    },
+    campCost: {
+      energy: 6,
+      pelt: 3,
     },
     storageCost: {
       pelt: 3,
     },
     storageProduces: {
       leather: 1,
+    },
+    campProduces: {
+      resource: "leather",
+      amount: 1,
     },
     unlocked: false,
     button: null,
@@ -2452,9 +3253,15 @@ const resourceCrafts = {
   iron: {
     label: "Smelt Iron",
     requiredLocation: "minersCamp",
+    campUpgradeRequired: "campSmelter",
     duration: 4,
     cost: {
       energy: 8,
+    },
+    campCost: {
+      energy: 8,
+      ore: 3,
+      wood: 5,
     },
     storageCost: {
       ore: 3,
@@ -2463,6 +3270,10 @@ const resourceCrafts = {
     storageProduces: {
       iron: 1,
     },
+    campProduces: {
+      resource: "iron",
+      amount: 1,
+    },
     unlocked: false,
     button: null,
   },
@@ -2470,15 +3281,50 @@ const resourceCrafts = {
   staminaTonic: {
     label: "Brew Stamina Tonic Base",
     requiredLocation: "alchemistsHut",
+    campUpgradeRequired: "campAlchemyStation",
     duration: 4,
     cost: {
       energy: 15,
+    },
+    campCost: {
+      energy: 15,
+      herb: 25,
     },
     storageCost: {
       herb: 25,
     },
     storageProduces: {
       staminaTonicBase: 1,
+    },
+    campProduces: {
+      resource: "staminaTonicBase",
+      amount: 1,
+    },
+    unlocked: false,
+    button: null,
+  },
+
+  manaTonicBase: {
+    label: "Brew Mana Tonic Base",
+    requiredLocation: "alchemistsHut",
+    campUpgradeRequired: "campAlchemyStation",
+    duration: 4,
+    cost: {
+      energy: 10,
+    },
+    campCost: {
+      energy: 10,
+      glimmerleaf: 4,
+    },
+    storageCost: {
+      glimmerleaf: 4,
+    },
+    storageProduces: {
+      manaTonicBase: 1,
+    },
+    campProduces: {
+      resource: "manaTonicBase",
+      amount: 1,
     },
     unlocked: false,
     button: null,
@@ -2503,6 +3349,16 @@ const consumables = {
     use() {
       addResource("energy", 30);
       updateResource("energy");
+    },
+  },
+
+  manaTonic: {
+    label: "Mana Tonic",
+    carriedItem: "manaTonic",
+    effectText: "You drink a cool, silver-edged tonic and feel mana settle back into reach.",
+    use() {
+      addResource("mana", 5);
+      updateResource("mana");
     },
   },
 
@@ -2614,8 +3470,13 @@ const imbueDefinitions = {
     label: "Imbue Stamina Tonic",
     description: "Bind mana into one stamina tonic base, filling an empty tonic slot.",
     requiredLocation: "alchemistsHut",
+    campUpgradeRequired: "campAlchemyStation",
     cost: {
       mana: 8,
+    },
+    campCost: {
+      mana: 8,
+      staminaTonicBase: 1,
     },
     storageCost: {
       staminaTonicBase: 1,
@@ -2631,8 +3492,13 @@ const imbueDefinitions = {
     label: "Imbue Improved Stamina Tonic",
     description: "Bind mana into one concentrated tonic base, filling an empty tonic slot with a stronger tonic.",
     requiredLocation: "alchemistsHut",
+    campUpgradeRequired: "campAlchemyStation",
     cost: {
       mana: 8,
+    },
+    campCost: {
+      mana: 8,
+      concentratedTonicBase: 1,
     },
     storageCost: {
       concentratedTonicBase: 1,
@@ -2642,6 +3508,28 @@ const imbueDefinitions = {
       amount: 1,
     },
     story: "You bind mana into the concentrated base. The tonic clears, sharp and potent.",
+  },
+
+  manaTonic: {
+    label: "Imbue Mana Tonic",
+    description: "Bind mana into one mana tonic base, filling an empty tonic slot with field-ready mana recovery.",
+    requiredLocation: "alchemistsHut",
+    campUpgradeRequired: "campAlchemyStation",
+    cost: {
+      mana: 5,
+    },
+    campCost: {
+      mana: 5,
+      manaTonicBase: 1,
+    },
+    storageCost: {
+      manaTonicBase: 1,
+    },
+    producesConsumable: {
+      resource: "manaTonic",
+      amount: 1,
+    },
+    story: "You bind a steady charge into the glimmerleaf base. The tonic cools around the mana instead of letting it fade.",
   },
 
   chargedCrystal: {
@@ -2665,14 +3553,24 @@ const arcaneHeatDefinitions = {
     label: "Concentrate Tonic Base",
     description: "Use controlled magical heat to reduce two tonic bases into one stronger base.",
     requiredLocation: "alchemistsHut",
+    campUpgradeRequired: "campAlchemyStation",
+    duration: 3,
     cost: {
       mana: 4,
+    },
+    campCost: {
+      mana: 4,
+      staminaTonicBase: 2,
     },
     storageCost: {
       staminaTonicBase: 2,
     },
     storageProduces: {
       concentratedTonicBase: 1,
+    },
+    campProduces: {
+      resource: "concentratedTonicBase",
+      amount: 1,
     },
     story: "You draw heat through the tonic bases until the excess boils away and the strength condenses.",
   },
@@ -2681,6 +3579,7 @@ const arcaneHeatDefinitions = {
     label: "Shape Nails",
     description: "Use controlled magical heat to shape one iron into ten nails.",
     requiredLocation: "camp",
+    duration: 2,
     cost: {
       mana: 4,
       iron: 1,
@@ -2696,6 +3595,7 @@ const arcaneHeatDefinitions = {
     label: "Shape Pick Head",
     description: "Shape the iron head needed to assemble a crude iron pick.",
     requiredLocation: "camp",
+    duration: 10,
     cost: {
       mana: 10,
       iron: 3,
@@ -2718,6 +3618,7 @@ const arcaneHeatDefinitions = {
     label: "Shape Knife Blade",
     description: "Shape the iron blade needed to assemble an iron knife.",
     requiredLocation: "camp",
+    duration: 5,
     cost: {
       mana: 5,
       iron: 1,
@@ -2740,6 +3641,7 @@ const arcaneHeatDefinitions = {
     label: "Shape Axe Head",
     description: "Shape the iron head needed to assemble an iron axe.",
     requiredLocation: "camp",
+    duration: 8,
     cost: {
       mana: 10,
       iron: 3,
@@ -2876,6 +3778,30 @@ const journalDefinitions = {
   arcaneHeatLearned: {
     title: "Arcane Heat",
     text: "The miners' smelter taught you that magical heat can shape iron through pressure, restraint, and will. It is not fire; it is control.",
+  },
+  arcaneArchiveOpened: {
+    title: "Arcane Archive Opened",
+    text: "The archive door required all four spells in one sustained ritual. Whatever waited inside was meant for someone with a broader command of mana.",
+  },
+  campAlchemyPlansFound: {
+    title: "Camp Alchemy Plans",
+    text: "Archive diagrams show how to build an alchemy station at camp, bringing the tonic workflow home instead of relying on the abandoned hut.",
+  },
+  campTanningPlansFound: {
+    title: "Camp Tanning Plans",
+    text: "The archive preserved a compact tannery design. With the right materials, camp could process hides without returning to the hunter's cabin.",
+  },
+  campSmeltingPlansFound: {
+    title: "Camp Smelting Plans",
+    text: "The heat diagrams describe a camp smelter built to hold arcane heat safely enough for regular iron work.",
+  },
+  manaCondenserPlansFound: {
+    title: "Ancient Mana Condenser",
+    text: "The condenser plans describe a machine that gathers diffuse mana and slowly condenses it into crystals.",
+  },
+  partialTowerPlansFound: {
+    title: "Partial Tower Plans",
+    text: "The tower plans match the buried foundation beneath camp, but the archive only preserved fragments. More plans will be needed before construction can begin.",
   },
 };
 

@@ -40,7 +40,6 @@ window.onload = function () {
   updateAllResources();
   hookActionButtonsToUI(runAction);
   hookCampUpgradestoUI();
-  hookStorageUpgradesToUI();
   hookGearUpgradesToUI();
   hookResourceCraftsToUI();
   hookSaveControls();

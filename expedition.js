@@ -1,4 +1,8 @@
 const REGION_APPROACH_DISTANCE = 100;
+const REGION_MASTERY_TRAVEL_MULTIPLIER = 1.2;
+const EXPEDITION_ROUTE_OPEN = "open";
+const EXPEDITION_ROUTE_DESTINATION = "destination";
+const EXPEDITION_ROUTE_INTRA_REGION = "intraRegion";
 const INSTANT_MANUAL_RETURN_TO_CAMP = true;
 
 function setCurrentLocation(locationName) {
@@ -10,12 +14,28 @@ function setCurrentLocation(locationName) {
 }
 
 function clearCurrentLocation() {
+  resetTemporaryLocationObjectSpellCharges(gameState.expedition.currentLocation);
   gameState.expedition.currentLocation = null;
 
   updateLocationActions();
   updateCraftingUIForCurrentContext();
   updatePlacePanel();
   updateRegionalMapVisibility();
+}
+
+function resetTemporaryLocationObjectSpellCharges(locationName) {
+  const location = getExpeditionLocation(locationName);
+
+  if (!location || !location.explorableObjects) return;
+
+  for (let objectName in location.explorableObjects) {
+    const object = location.explorableObjects[objectName];
+
+    if (!object || !object.resetSpellChargesOnLeave || isLocationObjectComplete(object)) continue;
+
+    object.spellCharges = {};
+    object.manaSenseCharges = 0;
+  }
 }
 
 function updateLocationActions() {
@@ -117,6 +137,7 @@ const carriedItemWeights = {
   stone: 2,
   ore: 2,
   herb: 0.2,
+  glimmerleaf: 0.2,
   manaCrystal: 0.5,
 };
 
@@ -379,12 +400,7 @@ function transferCarriedItemsToCamp() {
 // Immediate rewards for bringing a resource back to camp.
 // Deeper equipment/camp discoveries should live in research.
 const expeditionReturnUnlocks = {
-  fiber: [{ type: "storageUpgrade", id: "fiberStorage" }],
-
-  stone: [
-    { type: "campUpgrade", id: "stoneFirePit" },
-    { type: "storageUpgrade", id: "stoneStorage" },
-  ],
+  stone: [{ type: "campUpgrade", id: "stoneFirePit" }],
 };
 
 function clearCurrentLocationActions() {
@@ -412,9 +428,7 @@ function resolveExpeditionStep() {
 
   step.distance += getActiveAttunementEffectTotal("travelDistanceFlat");
 
-  if (isKnownPathTravelActive() || isOutskirtsTravelActive()) {
-    step.distance *= 1.2;
-  }
+  step.distance *= getRouteTravelDistanceMultiplier();
 
   const expedition = gameState.expedition;
   const canUseTravelModifiers = !expedition.returning || canAffordCost({ energy: step.energyCost });
@@ -431,7 +445,7 @@ function resolveExpeditionStep() {
 
   step.energyCost *= getTravelEnergyMultiplier();
 
-  const finalEnergyCost = Math.max(0.1, Math.round(step.energyCost * 10) / 10);
+  const finalEnergyCost = Math.max(0.01, roundResourceAmount(step.energyCost));
   step.energyCost = finalEnergyCost;
 
   if (!canAffordCost({ energy: finalEnergyCost })) {
@@ -511,6 +525,7 @@ function beginReturnToCamp(reason) {
 
     expedition.distance = 0;
     expedition.destination = null;
+    resetTemporaryLocationObjectSpellCharges(expedition.currentLocation);
     expedition.currentLocation = null;
     expedition.returning = false;
     expedition.returnPenalty = 0;
@@ -522,7 +537,19 @@ function beginReturnToCamp(reason) {
 
   expedition.returnPenalty = reason === "exhausted" ? 0.25 : 0;
 
+  if (expedition.currentLocation) {
+    const location = getExpeditionLocation(expedition.currentLocation);
+
+    if (location) {
+      expedition.regionId = getLocationRegionId(location);
+      expedition.distance = getLocationTravelDistance(location);
+      expedition.targetDistance = expedition.distance;
+      expedition.routeType = EXPEDITION_ROUTE_DESTINATION;
+    }
+  }
+
   expedition.destination = null;
+  resetTemporaryLocationObjectSpellCharges(expedition.currentLocation);
   expedition.currentLocation = null;
 
   lockAction("returnToCamp");
@@ -754,12 +781,14 @@ function isKnownPathTravelActive() {
   const expedition = gameState.expedition;
 
   if (!gameState.knownOutskirtsPathsUnlocked) return false;
+  if (!expedition.active) return false;
+  if (getExpeditionRouteType(expedition) === EXPEDITION_ROUTE_INTRA_REGION) return false;
 
   if (!expedition.destination) return false;
 
   const location = getExpeditionLocation(expedition.destination);
 
-  return !!location && !!location.knownPathDistance;
+  return !!location && getLocationRegionId(location) === "outskirts" && !!location.knownPathDistance;
 }
 
 function isOutskirtsTravelActive() {
@@ -767,10 +796,59 @@ function isOutskirtsTravelActive() {
 
   if (!gameState.knownOutskirtsPathsUnlocked) return false;
   if (!expedition.active || expedition.returning) return false;
+  if (getExpeditionRouteType(expedition) === EXPEDITION_ROUTE_INTRA_REGION) return false;
 
   if (!expedition.regionId || expedition.regionId === "outskirts") return true;
 
   return expedition.distance < REGION_APPROACH_DISTANCE;
+}
+
+function getExpeditionRouteType(expedition) {
+  if (!expedition) return EXPEDITION_ROUTE_OPEN;
+
+  if (
+    expedition.routeType === EXPEDITION_ROUTE_OPEN ||
+    expedition.routeType === EXPEDITION_ROUTE_DESTINATION ||
+    expedition.routeType === EXPEDITION_ROUTE_INTRA_REGION
+  ) {
+    return expedition.routeType;
+  }
+
+  return expedition.destination ? EXPEDITION_ROUTE_DESTINATION : EXPEDITION_ROUTE_OPEN;
+}
+
+function getRouteTravelDistanceMultiplier() {
+  if (isKnownPathTravelActive() || isOutskirtsTravelActive() || isRegionalMasteryTravelActive()) {
+    return REGION_MASTERY_TRAVEL_MULTIPLIER;
+  }
+
+  return 1;
+}
+
+function isRegionalMasteryTravelActive() {
+  const expedition = gameState.expedition;
+
+  if (!expedition.active) return false;
+
+  const regionId = expedition.regionId || "outskirts";
+
+  if (regionId === "outskirts") return false;
+  if (!isRegionMastered(regionId)) return false;
+
+  if (getExpeditionRouteType(expedition) === EXPEDITION_ROUTE_INTRA_REGION) return true;
+
+  if (expedition.returning) {
+    return expedition.distance > REGION_APPROACH_DISTANCE;
+  }
+
+  return expedition.distance >= REGION_APPROACH_DISTANCE;
+}
+
+function isRegionMastered(regionId) {
+  const definition = getRegionDefinition(regionId);
+  const state = gameState.world.regions[regionId];
+
+  return !!definition && !!state && (state.mastered || state.progress >= definition.maxProgress);
 }
 
 function updateDestinationActions() {
@@ -879,13 +957,6 @@ function updatePlacePanel() {
   showElement(ui.campContent, "block");
   hideElement(ui.locationContent);
 
-  const storageUpgradeDefinitions = getStorageUpgradeDefinitions();
-
-  for (let upgradeName in storageUpgradeDefinitions) {
-    updateStorageUpgradeUI(upgradeName);
-  }
-
-  updateStorageSectionVisibility();
   updateTrapSitesUI(null);
 
   if (gameState.phase === "clearing" && gameState.discoveredClearing) {
@@ -1094,16 +1165,17 @@ function updateLocationObjectActionsUI(location) {
     if (isLocationObjectComplete(object)) continue;
 
     const isAvailable = isLocationObjectAvailable(object);
-    const spellRequirementText = getLocationObjectSpellRequirementText(object);
-    const isSpellLocked =
+    const requirementText = getLocationObjectRequirementText(object);
+    const isRequirementLocked =
       !isAvailable &&
-      !!spellRequirementText &&
+      !!requirementText &&
       isLocationObjectAvailable(object, {
         ignoreManaSenseCharges: true,
         ignoreSpellCharges: true,
+        ignoreResourceMaximums: true,
       });
 
-    if (!isAvailable && !isSpellLocked) continue;
+    if (!isAvailable && !isRequirementLocked) continue;
 
     hasVisibleObject = true;
 
@@ -1119,8 +1191,8 @@ function updateLocationObjectActionsUI(location) {
     const stages = getLocationObjectStages(object);
     const progress = getLocationObjectProgress(object);
 
-    if (isSpellLocked) {
-      label.textContent = object.label + " (" + spellRequirementText + ")";
+    if (isRequirementLocked) {
+      label.textContent = object.label + " (" + requirementText + ")";
     } else if (stages.length > 1) {
       label.textContent = object.label + " (" + (progress + 1) + "/" + stages.length + ")";
     } else {
@@ -1133,9 +1205,9 @@ function updateLocationObjectActionsUI(location) {
     const isCurrentObjectActivity =
       isActivityActive() && gameState.activity.kind === "locationObject" && gameState.activity.context.objectName === objectName;
 
-    button.disabled = isSpellLocked || (!isCurrentObjectActivity && (isActivityActive() || !canAffordCost(getLocationObjectCost(object))));
+    button.disabled = isRequirementLocked || (!isCurrentObjectActivity && (isActivityActive() || !canAffordCost(getLocationObjectCost(object))));
 
-    if (!isSpellLocked) {
+    if (!isRequirementLocked) {
       button.addEventListener("click", function () {
         startLocationObjectExploration(objectName);
       });
@@ -1151,10 +1223,24 @@ function updateLocationObjectActionsUI(location) {
   }
 }
 
-function getLocationObjectSpellRequirementText(object) {
+function getLocationObjectRequirementText(object) {
   if (!object || !object.requires) return "";
 
   const requirements = [];
+
+  if (object.requires.resourceMaximums) {
+    for (let resourceName in object.requires.resourceMaximums) {
+      const resource = getResource(resourceName);
+      const required = object.requires.resourceMaximums[resourceName];
+
+      if (!resource || resource.maxValue < required) {
+        const label = resource ? resource.label : resourceName;
+        const current = resource ? resource.maxValue : 0;
+
+        requirements.push("Maximum " + label + " " + current + "/" + required);
+      }
+    }
+  }
 
   if (object.requires.manaSenseCharges !== undefined) {
     const current = getLocationObjectSpellCharge(object, "manaSense");
@@ -1220,6 +1306,16 @@ function isLocationObjectAvailable(object, options = {}) {
       const requiredLocation = getExpeditionLocation(object.requires.locationsDiscovered[i]);
 
       if (!requiredLocation || !requiredLocation.discovered) {
+        return false;
+      }
+    }
+  }
+
+  if (!options.ignoreResourceMaximums && object.requires.resourceMaximums) {
+    for (let resourceName in object.requires.resourceMaximums) {
+      const resource = getResource(resourceName);
+
+      if (!resource || resource.maxValue < object.requires.resourceMaximums[resourceName]) {
         return false;
       }
     }
@@ -1614,6 +1710,7 @@ function setPackingActionsAvailable(available) {
     lockAction("packWood");
     lockAction("packOre");
     lockAction("packHerb");
+    lockAction("packGlimmerleaf");
     hideElement(ui.packingSection);
     return;
   }
@@ -1672,6 +1769,14 @@ function setPackingActionsAvailable(available) {
   } else {
     lockAction("packHerb");
   }
+
+  const glimmerleaf = getResource("glimmerleaf");
+
+  if (glimmerleaf.value > 0) {
+    unlockAction("packGlimmerleaf");
+  } else {
+    lockAction("packGlimmerleaf");
+  }
 }
 
 function enterExpeditionPreparation() {
@@ -1705,6 +1810,7 @@ function enterExpeditionPreparation() {
 function prepareOpenExpedition() {
   gameState.expedition.destination = null;
   gameState.expedition.regionId = gameState.world.selectedRegion || "outskirts";
+  gameState.expedition.routeType = EXPEDITION_ROUTE_OPEN;
 
   enterExpeditionPreparation();
 
@@ -1722,6 +1828,7 @@ function prepareDestinationTravel(locationName) {
 
   gameState.expedition.destination = locationName;
   gameState.expedition.regionId = getLocationRegionId(location);
+  gameState.expedition.routeType = EXPEDITION_ROUTE_DESTINATION;
 
   enterExpeditionPreparation();
   renderDestinationActions();
@@ -1899,10 +2006,10 @@ function beginLocationToLocationTravel(fromLocationName, targetLocationName) {
 
   gameState.expedition.destination = targetLocationName;
   gameState.expedition.regionId = getLocationRegionId(targetLocation);
+  gameState.expedition.routeType = EXPEDITION_ROUTE_INTRA_REGION;
   gameState.expedition.distance = 0;
   gameState.expedition.targetDistance = distance;
   gameState.expedition.returning = false;
-  gameState.expedition.currentLocation = null;
 
   clearCurrentLocation();
   unlockAction("travel");
@@ -1946,6 +2053,16 @@ function getDungeonNodes(dungeonId) {
   if (!dungeon || !dungeon.nodes) return {};
 
   return dungeon.nodes;
+}
+
+function getDungeonNodeLayer(node) {
+  return node && node.layer ? node.layer : "main";
+}
+
+function getDungeonLayerLabel(dungeon, layerId) {
+  if (!dungeon || !dungeon.layers || !layerId) return "";
+
+  return dungeon.layers[layerId] || "";
 }
 
 function getDungeonNodeExit(node, targetNodeId) {
@@ -1995,7 +2112,11 @@ function updateDungeonUI() {
   }
 
   showElement(ui.dungeonSection, "flex");
-  hideElement(ui.dungeonTitle);
+  const currentLayer = getDungeonNodeLayer(currentNode);
+  const layerLabel = getDungeonLayerLabel(dungeon, currentLayer);
+
+  safeSetText(ui.dungeonTitle, layerLabel ? dungeon.label + " - " + layerLabel : dungeon.label);
+  showElement(ui.dungeonTitle, "block");
   safeSetText(ui.dungeonRoomText, currentNode.description || "");
 
   const nodes = getDungeonNodes(dungeonState.dungeonId);
@@ -2005,7 +2126,8 @@ function updateDungeonUI() {
 
     const isCurrentNode = nodeId === dungeonState.nodeId;
     const hasExitFromCurrentNode = !!getDungeonNodeExit(currentNode, nodeId);
-    const shouldShowNode = node.discovered || hasExitFromCurrentNode;
+    const isCurrentLayerNode = getDungeonNodeLayer(node) === currentLayer;
+    const shouldShowNode = (isCurrentLayerNode && node.discovered) || hasExitFromCurrentNode;
     const isLocked = !canEnterDungeonNode(dungeonState.dungeonId, nodeId);
     const requirementText = getDungeonRequirementText(node.requires);
 
@@ -2207,11 +2329,22 @@ function getDungeonRequirementText(requires) {
   return "Requires " + missingRequirements.join(", ") + ".";
 }
 
+function canEnterLocationDungeon(locationName) {
+  const location = getExpeditionLocation(locationName);
+
+  if (!location || !location.explored || !location.dungeon) return false;
+  if (!hasPurchasedGear("torch")) return false;
+  if (location.dungeonUnlockedFlag && !gameState[location.dungeonUnlockedFlag]) return false;
+  if (!getDungeon(location.dungeon)) return false;
+
+  return true;
+}
+
 function enterCurrentLocationDungeon() {
   const locationName = gameState.expedition.currentLocation;
   const location = getExpeditionLocation(locationName);
 
-  if (!location || !location.dungeon) return;
+  if (!canEnterLocationDungeon(locationName)) return;
 
   const dungeon = getDungeon(location.dungeon);
 
@@ -2333,6 +2466,7 @@ function claimDungeonNodeReward(node) {
 
   if (reward.unlocks) {
     applyUnlocks(reward.unlocks);
+    checkResearchDiscoveries();
   }
 
   node.rewardClaimed = true;

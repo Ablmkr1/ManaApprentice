@@ -4,7 +4,6 @@ const gameDefinitions = {
   explorationStages,
   expeditionLocations,
   campUpgrades,
-  storageUpgrades,
   gearUpgrades,
   expeditionModifiers,
   skillDefinitions,
@@ -67,14 +66,6 @@ function getCampUpgradeDefinitions() {
 
 function getCampUpgrade(upgradeName) {
   return getCampUpgradeDefinitions()[upgradeName];
-}
-
-function getStorageUpgradeDefinitions() {
-  return gameDefinitions.storageUpgrades;
-}
-
-function getStorageUpgrade(upgradeName) {
-  return getStorageUpgradeDefinitions()[upgradeName];
 }
 
 function getGearUpgradeDefinitions() {

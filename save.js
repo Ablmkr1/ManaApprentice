@@ -12,7 +12,6 @@ function createSaveData() {
     resources: createResourceSaveData(),
     actions: createActionSaveData(),
     campUpgrades: createUpgradeSaveData(getCampUpgradeDefinitions(), ["unlocked", "purchased"]),
-    storageUpgrades: createUpgradeSaveData(getStorageUpgradeDefinitions(), ["unlocked", "tier"]),
     gearUpgrades: createUpgradeSaveData(getGearUpgradeDefinitions(), ["unlocked", "purchased"]),
     spells: createUpgradeSaveData(getSpellDefinitions(), ["unlocked"]),
     resourceCrafts: createUpgradeSaveData(getResourceCraftDefinitions(), ["unlocked"]),
@@ -32,7 +31,7 @@ function createResourceSaveData() {
     const resource = getResource(resourceName);
 
     savedResources[resourceName] = {
-      value: resource.value,
+      value: roundResourceAmount(resource.value),
       maxValue: resource.maxValue,
       perClick: resource.perClick,
       perSecond: resource.perSecond,
@@ -277,7 +276,6 @@ function normalizeSaveData(saveData) {
   saveData.resources = ensureObject(saveData.resources);
   saveData.actions = ensureObject(saveData.actions);
   saveData.campUpgrades = ensureObject(saveData.campUpgrades);
-  saveData.storageUpgrades = ensureObject(saveData.storageUpgrades);
   saveData.gearUpgrades = ensureObject(saveData.gearUpgrades);
   saveData.spells = ensureObject(saveData.spells);
   saveData.resourceCrafts = ensureObject(saveData.resourceCrafts);
@@ -402,6 +400,7 @@ function applyResourceSaveData(savedResources) {
     if (!resource || !savedResource) continue;
 
     applySavedFields(resource, savedResource, ["value", "maxValue", "perClick", "perSecond", "restPerSecond"]);
+    resource.value = Math.min(roundResourceAmount(resource.value), resource.maxValue);
 
     if (resource.display) {
       if (savedResource.visible || resourceName === "energy") {
@@ -437,6 +436,12 @@ function applyGameStateSaveData(savedGameState) {
     "torchResearched",
     "magicUnlocked",
     "recallUnlocked",
+    "archiveDoorOpened",
+    "campAlchemyPlansFound",
+    "campTanningPlansFound",
+    "campSmeltingPlansFound",
+    "manaCondenserPlansFound",
+    "partialTowerPlansFound",
     "destination",
     "hasCamp",
   ]);
@@ -471,6 +476,7 @@ function applyGameStateSaveData(savedGameState) {
       "water",
       "waterCapacity",
       "regionId",
+      "routeType",
       "tonicSlots",
       "dungeon",
     ]);
@@ -646,14 +652,6 @@ function refreshGameUIAfterLoad() {
     updateCampUpgradeUI(upgradeName);
   }
 
-  const storageUpgradeDefinitions = getStorageUpgradeDefinitions();
-
-  for (let upgradeName in storageUpgradeDefinitions) {
-    updateStorageUpgradeUI(upgradeName);
-  }
-
-  updateStorageSectionVisibility();
-
   const gearUpgradeDefinitions = getGearUpgradeDefinitions();
 
   for (let upgradeName in gearUpgradeDefinitions) {
@@ -706,7 +704,6 @@ function loadGame() {
   applyResourceSaveData(saveData.resources);
   applyActionSaveData(saveData.actions);
   applyUpgradeSaveData(getCampUpgradeDefinitions(), saveData.campUpgrades, ["unlocked", "purchased"], updateCampUpgradeUI);
-  applyUpgradeSaveData(getStorageUpgradeDefinitions(), saveData.storageUpgrades, ["unlocked", "tier"], updateStorageUpgradeUI);
   applyUpgradeSaveData(getGearUpgradeDefinitions(), saveData.gearUpgrades, ["unlocked", "purchased"], updateGearUpgradeUI);
   applyUpgradeSaveData(getSpellDefinitions(), saveData.spells, ["unlocked"]);
   repairSpellUnlocksFromFlags();
