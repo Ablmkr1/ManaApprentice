@@ -222,9 +222,12 @@ function updateAllActionButtons() {
 
 //UI Unlock Resource and Panels
 function unlockResource(resourceName) {
+  const resource = getResource(resourceName);
   const resourceElement = resourceElements[resourceName];
 
   if (!resourceElement) {
+    if (resource) return;
+
     console.warn("Unknown resource unlock:", resourceName);
     return;
   }
@@ -414,6 +417,10 @@ function canUseAction(actionName) {
   return true;
 }
 
+function isCampMeditationContext() {
+  return !gameState.expedition.active && !gameState.expedition.currentLocation && hasPurchasedCampUpgrade("meditationSpot");
+}
+
 function isActionContextAvailable(actionName) {
   const locationName = gameState.expedition.currentLocation;
 
@@ -495,12 +502,12 @@ function isActionContextAvailable(actionName) {
   }
 
   if (actionName === "recover") {
-    return gameState.phase === "expedition" && !gameState.expedition.active && getFireFocusRecoveryAmount() > 0;
+    return gameState.phase === "expedition" && !gameState.expedition.active && getRecoverFocusAmount() > 0;
   }
 
   if (actionName === "meditate") {
     const cave = getExpeditionLocation("creepyCave");
-    const canMeditateAtCamp = !gameState.expedition.active && !gameState.expedition.currentLocation && hasPurchasedCampUpgrade("meditationSpot");
+    const canMeditateAtCamp = isCampMeditationContext();
     const canMeditateAtCave =
       gameState.expedition.currentLocation === "creepyCave" && !!cave && cave.explored && gameState.magicUnlocked;
 
@@ -674,6 +681,8 @@ function updateCurrentGoalUI() {
     list.classList.add("goal-checklist");
 
     goal.items.forEach(function (item) {
+      if (item.isVisible && !item.isVisible()) return;
+
       const isComplete = item.isComplete ? item.isComplete() : false;
       const listItem = document.createElement("li");
       listItem.classList.toggle("complete", isComplete);
@@ -683,7 +692,7 @@ function updateCurrentGoalUI() {
       status.textContent = isComplete ? "[x]" : "[ ]";
 
       const label = document.createElement("span");
-      label.textContent = item.label;
+      label.textContent = item.getLabel ? item.getLabel() : item.label;
 
       listItem.appendChild(status);
       listItem.appendChild(label);

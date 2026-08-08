@@ -684,6 +684,7 @@ function exploreCurrentLocation() {
     checkResearchDiscoveries();
     updateCraftingUIForCurrentContext();
     updateLocationActions();
+    updateCurrentGoalUI();
   }
 }
 
@@ -818,7 +819,7 @@ function getExpeditionRouteType(expedition) {
 }
 
 function getRouteTravelDistanceMultiplier() {
-  if (isKnownPathTravelActive() || isOutskirtsTravelActive() || isRegionalMasteryTravelActive()) {
+  if (getCurrentTravelBonusSource()) {
     return REGION_MASTERY_TRAVEL_MULTIPLIER;
   }
 
@@ -851,6 +852,58 @@ function isRegionMastered(regionId) {
   return !!definition && !!state && (state.mastered || state.progress >= definition.maxProgress);
 }
 
+function getCurrentTravelBonusSource() {
+  if (isKnownPathTravelActive() || isOutskirtsTravelActive()) {
+    return "outskirts";
+  }
+
+  if (isRegionalMasteryTravelActive()) {
+    return "regionalMastery";
+  }
+
+  return null;
+}
+
+function getCurrentTravelSegmentRegionId() {
+  const expedition = gameState.expedition;
+  const regionId = expedition.regionId || "outskirts";
+  const routeType = getExpeditionRouteType(expedition);
+
+  if (routeType === EXPEDITION_ROUTE_INTRA_REGION || regionId === "outskirts") {
+    return regionId;
+  }
+
+  if (expedition.returning) {
+    return expedition.distance > REGION_APPROACH_DISTANCE ? regionId : "outskirts";
+  }
+
+  return expedition.distance < REGION_APPROACH_DISTANCE ? "outskirts" : regionId;
+}
+
+function getCurrentTravelSegmentInfo() {
+  const regionId = getCurrentTravelSegmentRegionId();
+  const region = getRegionDefinition(regionId);
+  const bonusSource = getCurrentTravelBonusSource();
+
+  return {
+    regionId,
+    label: region ? region.label : "Unknown Territory",
+    bonusActive: !!bonusSource,
+    bonusSource,
+  };
+}
+
+function getCurrentTravelDescription() {
+  const segment = getCurrentTravelSegmentInfo();
+  let description = "Traveling through " + segment.label + ".";
+
+  if (segment.bonusActive) {
+    description += " +20% mastered travel bonus active.";
+  }
+
+  return description;
+}
+
 function updateDestinationActions() {
   renderDestinationActions();
 }
@@ -877,15 +930,10 @@ function updatePlacePanel() {
   if (isTravelActivityActive()) {
     if (expedition.returning) {
       safeSetText(ui.campPanelTitle, "Returning to Camp");
-      safeSetText(ui.locationDescription, "You are making your way back to camp.");
+      safeSetText(ui.locationDescription, getCurrentTravelDescription());
     } else {
       safeSetText(ui.campPanelTitle, "Traveling");
-
-      if (isOutskirtsTravelActive()) {
-        safeSetText(ui.locationDescription, "You follow known paths through the camp outskirts.");
-      } else {
-        safeSetText(ui.locationDescription, "You press into unknown territory.");
-      }
+      safeSetText(ui.locationDescription, getCurrentTravelDescription());
     }
 
     hideElement(ui.campContent);
@@ -897,7 +945,7 @@ function updatePlacePanel() {
 
   if (expedition.returning) {
     safeSetText(ui.campPanelTitle, "Returning to Camp");
-    safeSetText(ui.locationDescription, "You are on the trail back to camp.");
+    safeSetText(ui.locationDescription, getCurrentTravelDescription());
     hideElement(ui.campContent);
     showElement(ui.locationContent, "block");
     updateTrapSitesUI(null);
@@ -1555,6 +1603,7 @@ function checkExpeditionDiscovery() {
       addStoryEntry(location.onDiscoverStory);
 
       updateDestinationActions();
+      updateCurrentGoalUI();
 
       return true;
     }
@@ -2128,8 +2177,12 @@ function updateDungeonUI() {
     const hasExitFromCurrentNode = !!getDungeonNodeExit(currentNode, nodeId);
     const isCurrentLayerNode = getDungeonNodeLayer(node) === currentLayer;
     const shouldShowNode = (isCurrentLayerNode && node.discovered) || hasExitFromCurrentNode;
-    const isLocked = !canEnterDungeonNode(dungeonState.dungeonId, nodeId);
     const requirementText = getDungeonRequirementText(node.requires);
+    const movementBlockedText = getDungeonMovementBlockedText(nodeId);
+    const isRequirementLocked = !canEnterDungeonNode(dungeonState.dungeonId, nodeId);
+    const isMovementLocked = !isRequirementLocked && !!movementBlockedText;
+    const isLocked = isRequirementLocked || isMovementLocked;
+    const lockedText = isRequirementLocked ? requirementText || "You are not ready to enter this room." : movementBlockedText;
 
     if (!shouldShowNode) continue;
 
@@ -2162,13 +2215,13 @@ function updateDungeonUI() {
 
     if (isLocked) {
       roomButton.classList.add("locked");
-      roomButton.title = requirementText || "You are not ready to enter this room.";
+      roomButton.title = lockedText;
 
       if (hasExitFromCurrentNode) {
         roomButton.disabled = false;
 
         roomButton.addEventListener("click", function () {
-          safeSetText(ui.dungeonRoomText, requirementText || "Something blocks the way.");
+          safeSetText(ui.dungeonRoomText, lockedText || "Something blocks the way.");
         });
       } else if (nodeId !== dungeonState.nodeId) {
         roomButton.disabled = true;
@@ -2276,7 +2329,8 @@ function getDungeonSearchChance(node) {
 
   const baseChance = node.search.baseChance ?? 100;
   const spell = getSpell("manaSense");
-  const bonusPerCharge = spell && spell.effects ? spell.effects.dungeonSearchBonus || 0 : 0;
+  const fallbackBonus = spell && spell.effects ? spell.effects.dungeonSearchBonus || 0 : 0;
+  const bonusPerCharge = typeof getManaSenseDungeonSearchBonus === "function" ? getManaSenseDungeonSearchBonus() : fallbackBonus;
   const charges = node.manaSenseCharges || 0;
 
   return Math.min(100, baseChance + charges * bonusPerCharge);
@@ -2327,6 +2381,28 @@ function getDungeonRequirementText(requires) {
   if (missingRequirements.length === 0) return "";
 
   return "Requires " + missingRequirements.join(", ") + ".";
+}
+
+function isDungeonRoomFullyExplored(node) {
+  if (!node) return false;
+
+  return !!node.explored || !node.search;
+}
+
+function getDungeonMovementBlockedText(targetNodeId) {
+  const dungeonState = getCurrentDungeonState();
+  const currentNode = getCurrentDungeonNode();
+
+  if (!dungeonState || !dungeonState.active || !currentNode) return "";
+
+  const targetNode = getDungeonNode(dungeonState.dungeonId, targetNodeId);
+
+  if (!targetNode) return "";
+  if (targetNode.discovered) return "";
+  if (!getDungeonNodeExit(currentNode, targetNodeId)) return "";
+  if (isDungeonRoomFullyExplored(currentNode)) return "";
+
+  return "Explore this room before moving deeper.";
 }
 
 function canEnterLocationDungeon(locationName) {
@@ -2388,6 +2464,7 @@ function canMoveToDungeonNode(targetNodeId) {
   if (!targetNode) return false;
   if (!getDungeonNodeExit(currentNode, targetNodeId)) return false;
   if (!canEnterDungeonNode(dungeonState.dungeonId, targetNodeId)) return false;
+  if (getDungeonMovementBlockedText(targetNodeId)) return false;
 
   return true;
 }

@@ -436,6 +436,7 @@ function applyGameStateSaveData(savedGameState) {
     "torchResearched",
     "magicUnlocked",
     "recallUnlocked",
+    "manaCrystalImbuingUnlocked",
     "archiveDoorOpened",
     "campAlchemyPlansFound",
     "campTanningPlansFound",
@@ -523,7 +524,13 @@ function applyGameStateSaveData(savedGameState) {
     applySavedFields(gameState.skills.conditioning, savedGameState.skills.conditioning, ["rank", "distance", "pending", "revealed"]);
     applySavedFields(gameState.skills.concentration, savedGameState.skills.concentration, ["rank", "deepThought", "revealed"]);
     applySavedFields(gameState.skills.manaCycling, savedGameState.skills.manaCycling, ["rank", "successfulCycles", "revealed"]);
+    applySavedFields(gameState.skills.meditation, savedGameState.skills.meditation, ["rank", "successfulMeditations", "revealed"]);
+    applySavedFields(gameState.skills.manaControl, savedGameState.skills.manaControl, ["rank", "manaSpent", "revealed"]);
     ensureSkillsState();
+
+    if (typeof syncSpellUpgradeEffects === "function") {
+      syncSpellUpgradeEffects();
+    }
   }
 
   resetActivity();

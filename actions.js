@@ -5,6 +5,7 @@ function hookActionCompletions() {
 
   getAction("meditate").onComplete = function () {
     addResource("mana", 1);
+    recordMeditation();
 
     if (getResource("mana").value >= getResource("mana").maxValue) {
       stopAutoAction();
@@ -12,7 +13,7 @@ function hookActionCompletions() {
   };
 
   getAction("recover").onComplete = function () {
-    addResource("focus", getFireFocusRecoveryAmount());
+    addResource("focus", getRecoverFocusAmount());
 
     if (getResource("focus").value >= getResource("focus").maxValue) {
       stopAutoAction();
@@ -534,6 +535,18 @@ function getAutoActionCarryAmount(actionName) {
   return 1;
 }
 
+function canPauseAutoActionForRest(actionName) {
+  const action = getAction(actionName);
+
+  if (!action || !action.auto || !action.auto.resumeAfterRest) return false;
+
+  if (action.auto.restFallback === "campOnly") {
+    return isCampMeditationContext();
+  }
+
+  return true;
+}
+
 function pauseAutoActionForRest(actionName) {
   gameState.autoAction.actionName = actionName;
   gameState.autoAction.pausedForRest = true;
@@ -640,7 +653,7 @@ function startActionExecution(actionName) {
 
   if (!spendCost(getActionCost(actionName))) {
     if (isAutoAction(actionName)) {
-      if (action.auto.resumeAfterRest) {
+      if (canPauseAutoActionForRest(actionName)) {
         pauseAutoActionForRest(actionName);
       } else {
         stopAutoAction();
@@ -860,6 +873,7 @@ function completeActivity() {
 
       applyExpeditionStep(result.step);
       refreshExpeditionUI();
+      updatePlacePanel();
 
       if (expedition.distance <= 0) {
         resetActivity();
@@ -885,6 +899,7 @@ function completeActivity() {
 
     applyExpeditionStep(result.step);
     refreshExpeditionUI();
+    updatePlacePanel();
 
     if (expedition.returning && expedition.distance <= 0) {
       resetActivity();
@@ -1091,10 +1106,8 @@ function continueAutoAction(actionName) {
     return;
   }
 
-  const action = getAction(actionName);
-
   if (!canAffordCost(getActionCost(actionName))) {
-    if (action.auto.resumeAfterRest) {
+    if (canPauseAutoActionForRest(actionName)) {
       pauseAutoActionForRest(actionName);
     } else {
       stopAutoAction();

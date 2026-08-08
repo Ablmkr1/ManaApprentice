@@ -144,7 +144,7 @@ function startResting() {
   startActivity({
     kind: "rest",
     id: "rest",
-    duration: 1,
+    duration: getRestDuration(),
     interval: true,
   });
 

@@ -72,6 +72,10 @@ function unlockFlag(flagName) {
   }
 
   gameState[flagName] = true;
+
+  if (flagName === "discoveredStream" || flagName === "discoveredBerryBush") {
+    checkClearingComplete();
+  }
 }
 
 function unlockLocation(locationName) {
@@ -643,8 +647,10 @@ function hasPurchasedCampUpgrade(upgradeName) {
 function checkClearingComplete() {
   const hasSmallFire = hasPurchasedCampUpgrade("smallFire");
   const hasCrudeLeanTo = hasPurchasedCampUpgrade("crudeLeanTo");
+  const hasStream = gameState.discoveredStream;
+  const hasBerryBush = gameState.discoveredBerryBush;
 
-  if (gameState.phase === "clearing" && hasSmallFire && hasCrudeLeanTo) {
+  if (gameState.phase === "clearing" && hasStream && hasBerryBush && hasSmallFire && hasCrudeLeanTo) {
     setPhase("expedition");
     gameState.hasCamp = true;
     recalculateCharacterStats();
@@ -1141,9 +1147,55 @@ function getSpellCastContext(spellName) {
   return null;
 }
 
+function getCompletedSpellManaControlCost(spellName, context) {
+  if (context && context.type === "locationObjectSpellCharge") {
+    return getSpellCastCost(spellName, context);
+  }
+
+  if (spellName === "attunement" && context && context.type === "attunement") {
+    const definition = getAttunementDefinition(context.attunementId);
+
+    return definition ? definition.cost || {} : {};
+  }
+
+  if (isProductionSpell(spellName) && context && context.type === "productionSpell" && context.spellName === spellName) {
+    const targetContext = getProductionSpellTargetContext(spellName, context.targetId, context);
+
+    return targetContext ? targetContext.cost || {} : {};
+  }
+
+  return getSpellCastCost(spellName, context);
+}
+
+function getCompletedSpellManaSpent(spellName, context) {
+  const cost = getCompletedSpellManaControlCost(spellName, context);
+
+  if (!cost || !Number.isFinite(cost.mana)) return 0;
+
+  return roundResourceAmount(cost.mana);
+}
+
+function getCompletedSpellManaControlLabel(spellName, context) {
+  const actualSpellName = context && context.type === "locationObjectSpellCharge" && context.spellName ? context.spellName : spellName;
+  const spell = getSpell(actualSpellName);
+
+  return spell ? spell.label : actualSpellName;
+}
+
+function recordCompletedSpellManaControl(spellName, context, manaSpent) {
+  if (!Number.isFinite(manaSpent) || manaSpent <= 0) return;
+  if (typeof recordManaControl !== "function") return;
+
+  recordManaControl(manaSpent, getCompletedSpellManaControlLabel(spellName, context));
+}
+
 function completeSpellCast(spellName, context) {
+  const manaSpent = getCompletedSpellManaSpent(spellName, context);
+  let completedSuccessfully = false;
+
   if (context && context.type === "locationObjectSpellCharge") {
     addLocationObjectSpellCharge(context.locationName, context.objectName, context.spellName);
+    recordCompletedSpellManaControl(spellName, context, manaSpent);
     updateEquipmentSlotUI();
     updateAllActionButtons();
     updateCraftingButtons();
@@ -1153,31 +1205,38 @@ function completeSpellCast(spellName, context) {
   if (spellName === "manaSense") {
     if (context && context.type === "reveal") {
       resolveManaSenseReveal(context);
+      completedSuccessfully = true;
     }
 
     if (context && context.type === "dungeonCharge") {
       addManaSenseDungeonChargeForNode(context.dungeonId, context.nodeId);
+      completedSuccessfully = true;
     }
 
     if (context && context.type === "locationObjectCharge") {
       addLocationObjectSpellCharge(context.locationName, context.objectName, "manaSense");
+      completedSuccessfully = true;
     }
   }
 
   if (spellName === "attunement") {
     if (context && context.type === "attunement") {
-      applyAttunement(context.attunementId);
+      completedSuccessfully = applyAttunement(context.attunementId) || completedSuccessfully;
     }
   }
 
   if (isProductionSpell(spellName)) {
     if (context && context.type === "productionSpell" && context.spellName === spellName) {
-      applyProductionSpellTarget(spellName, context.targetId, context);
+      completedSuccessfully = applyProductionSpellTarget(spellName, context.targetId, context) || completedSuccessfully;
     }
 
     if (spellName === "imbue" && context && context.type === "imbue") {
-      applyImbue(context.imbueId);
+      completedSuccessfully = applyImbue(context.imbueId) || completedSuccessfully;
     }
+  }
+
+  if (completedSuccessfully) {
+    recordCompletedSpellManaControl(spellName, context, manaSpent);
   }
 
   updateEquipmentSlotUI();
@@ -2285,8 +2344,13 @@ function getAttunementState() {
     gameState.magic.attunements.active = [];
   }
 
-  if (!gameState.magic.attunements.capacity) {
-    gameState.magic.attunements.capacity = 1;
+  const derivedCapacity =
+    typeof getAttunementCapacityFromManaControl === "function" ? getAttunementCapacityFromManaControl() : gameState.magic.attunements.capacity || 1;
+
+  gameState.magic.attunements.capacity = derivedCapacity;
+
+  if (gameState.magic.attunements.active.length > derivedCapacity) {
+    gameState.magic.attunements.active = gameState.magic.attunements.active.slice(0, derivedCapacity);
   }
 
   return gameState.magic.attunements;
@@ -2763,6 +2827,12 @@ function areProductionSpellTargetRequirementsMet(requires) {
       const research = getResearch(requires.researchCompleted[i]);
 
       if (!research || !research.completed) return false;
+    }
+  }
+
+  if (requires.flags) {
+    for (let i = 0; i < requires.flags.length; i++) {
+      if (!gameState[requires.flags[i]]) return false;
     }
   }
 

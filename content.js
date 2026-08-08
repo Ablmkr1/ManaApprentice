@@ -845,7 +845,37 @@ const dungeonDefinitions = {
           },
           successText: "You clear enough fallen stone to understand the passage beyond.",
         },
-        exits: [{ label: "Return to the cracked hall", to: "crackedHall" }],
+        exits: [
+          { label: "Return to the cracked hall", to: "crackedHall" },
+          { label: "Enter the crystal alcove", to: "crystalBindingAlcove" },
+        ],
+      },
+
+      crystalBindingAlcove: {
+        x: 3,
+        y: 0,
+        label: "Crystal Binding Alcove",
+        description: "The passage opens into an intact alcove. Crystal facets line the stone like a diagram of pressure and patience.",
+        discovered: false,
+        explored: false,
+        rewardClaimed: false,
+        manaSenseCharges: 0,
+        search: {
+          duration: 10,
+          baseChance: 30,
+          cost: {
+            energy: 10,
+          },
+          successText: "You study the facets until the pattern resolves: enough mana can be compressed into a stable crystal lattice.",
+          deepThought: 3,
+          reward: {
+            unlocks: [
+              { type: "flag", id: "manaCrystalImbuingUnlocked" },
+              { type: "journal", id: "manaCrystalImbuingUnlocked" },
+            ],
+          },
+        },
+        exits: [{ label: "Return to the collapsed passage", to: "collapsedPassage" }],
       },
     },
   },
@@ -1062,7 +1092,7 @@ const dungeonDefinitions = {
       archiveEntry: {
         layer: "upper",
         x: 0,
-        y: 1,
+        y: 2,
         label: "Archive Entry",
         description: "The opened door leads to a quiet vestibule. Pale shelves wait beyond a curtain of dust.",
         discovered: true,
@@ -1074,7 +1104,7 @@ const dungeonDefinitions = {
       thresholdHall: {
         layer: "upper",
         x: 1,
-        y: 1,
+        y: 2,
         label: "Threshold Hall",
         description: "Four inlaid lines run from the door to the archive interior, each carrying the memory of one spell.",
         discovered: false,
@@ -1098,7 +1128,7 @@ const dungeonDefinitions = {
       catalogHall: {
         layer: "upper",
         x: 2,
-        y: 1,
+        y: 2,
         label: "Catalog Hall",
         description: "Stone catalog blocks sit in long rows. Most labels are worn smooth, but a few still answer to touch.",
         discovered: false,
@@ -1114,15 +1144,13 @@ const dungeonDefinitions = {
         },
         exits: [
           { label: "Return to the threshold hall", to: "thresholdHall" },
-          { label: "Enter the reading room", to: "readingRoom" },
-          { label: "Follow the map corridor", to: "mapRotunda" },
         ],
       },
 
       westStacks: {
         layer: "upper",
         x: 1,
-        y: 0,
+        y: 1,
         label: "West Stacks",
         description: "Shelves have collapsed into careful drifts. Thin tablets gleam between splinters of old wood.",
         discovered: false,
@@ -1138,7 +1166,6 @@ const dungeonDefinitions = {
         },
         exits: [
           { label: "Return to the threshold hall", to: "thresholdHall" },
-          { label: "Search the preservation lab", to: "preservationLab" },
           { label: "Cross to the reading room", to: "readingRoom" },
         ],
       },
@@ -1146,7 +1173,7 @@ const dungeonDefinitions = {
       eastStacks: {
         layer: "upper",
         x: 1,
-        y: 2,
+        y: 3,
         label: "East Stacks",
         description: "Cracked cases hold sketches of hides, metal, herbs, and stranger materials arranged by process.",
         discovered: false,
@@ -1163,13 +1190,12 @@ const dungeonDefinitions = {
         exits: [
           { label: "Return to the threshold hall", to: "thresholdHall" },
           { label: "Study the pattern gallery", to: "patternGallery" },
-          { label: "Cross to the reading room", to: "readingRoom" },
         ],
       },
 
       readingRoom: {
         layer: "upper",
-        x: 2,
+        x: 1,
         y: 0,
         label: "Reading Room",
         description: "A semicircle of stone desks faces a blank wall. Notes are carved directly into the work surfaces.",
@@ -1184,16 +1210,14 @@ const dungeonDefinitions = {
           successText: "The room teaches a simple archive habit: every useful plan was copied into at least two neighboring chambers.",
         },
         exits: [
-          { label: "Return to the catalog hall", to: "catalogHall" },
-          { label: "Return to the west stacks", to: "westStacks" },
-          { label: "Return to the east stacks", to: "eastStacks" },
-          { label: "Search the keeper's office", to: "keeperOffice" },
+          { label: "Enter the preservation lab", to: "preservationLab" },
+          { label: "Return to the west stacks", to: "westStacks" },        
         ],
       },
 
       preservationLab: {
         layer: "upper",
-        x: 3,
+        x: 2,
         y: 0,
         label: "Preservation Lab",
         description: "Glass jars line a stone counter. The air still smells faintly of herbs preserved past their natural span.",
@@ -1215,8 +1239,8 @@ const dungeonDefinitions = {
           },
         },
         exits: [
-          { label: "Return to the west stacks", to: "westStacks" },
-          { label: "Inspect the heat diagram hall", to: "heatDiagramHall" },
+          { label: "Return to the reading room", to: "readingRoom" },
+          //{ label: "Inspect the heat diagram hall", to: "heatDiagramHall" },//
         ],
       },
 
@@ -1252,7 +1276,7 @@ const dungeonDefinitions = {
       heatDiagramHall: {
         layer: "upper",
         x: 3,
-        y: 1,
+        y: 3,
         label: "Heat Diagram Hall",
         description: "The walls show iron softening under blue-white pressure, each step marked with tiny channels for mana flow.",
         discovered: false,
@@ -1273,7 +1297,6 @@ const dungeonDefinitions = {
           },
         },
         exits: [
-          { label: "Return to the preservation lab", to: "preservationLab" },
           { label: "Return to the pattern gallery", to: "patternGallery" },
           { label: "Enter the map rotunda", to: "mapRotunda" },
         ],
@@ -1282,7 +1305,7 @@ const dungeonDefinitions = {
       mapRotunda: {
         layer: "upper",
         x: 4,
-        y: 1,
+        y: 3,
         label: "Map Rotunda",
         description: "A circular room maps the archive below as a second ring beneath the first.",
         discovered: false,
@@ -1296,7 +1319,6 @@ const dungeonDefinitions = {
           successText: "The lower archive layout resolves: ducts, machines, and a drafting room lie below.",
         },
         exits: [
-          { label: "Return to the catalog hall", to: "catalogHall" },
           { label: "Return to the heat diagram hall", to: "heatDiagramHall" },
           { label: "Enter the keeper's office", to: "keeperOffice" },
           { label: "Find the lower stair", to: "lowerStair" },
@@ -1306,7 +1328,7 @@ const dungeonDefinitions = {
       keeperOffice: {
         layer: "upper",
         x: 4,
-        y: 0,
+        y: 2,
         label: "Keeper's Office",
         description: "A narrow office watches the archive from behind a slit window. The desk is stone, the chair long gone.",
         discovered: false,
@@ -1321,14 +1343,14 @@ const dungeonDefinitions = {
           reward: { carried: { manaCrystal: 2 } },
         },
         exits: [
-          { label: "Return to the reading room", to: "readingRoom" },
+          { label: "Find the lower stair", to: "lowerStair" },
           { label: "Return to the map rotunda", to: "mapRotunda" },
         ],
       },
 
       lowerStair: {
         layer: "upper",
-        x: 5,
+        x: 4,
         y: 1,
         label: "Lower Stair",
         description: "A tight stair curls down through the archive's foundation. Cool mana rises from below.",
@@ -1343,14 +1365,14 @@ const dungeonDefinitions = {
           successText: "You clear the dust from the stair and mark the safest descent.",
         },
         exits: [
-          { label: "Return to the map rotunda", to: "mapRotunda" },
+          { label: "Return to the keepers office", to: "keeperOffice" },
           { label: "Descend to the lower archive", to: "lowerLanding" },
         ],
       },
 
       lowerLanding: {
         layer: "lower",
-        x: 0,
+        x: 3,
         y: 1,
         label: "Lower Landing",
         description: "The stair ends in a low hall. The air hums with the slow pressure of old machines.",
@@ -1366,7 +1388,7 @@ const dungeonDefinitions = {
 
       manaDucts: {
         layer: "lower",
-        x: 1,
+        x: 3,
         y: 0,
         label: "Mana Ducts",
         description: "Glass-lined channels run through the floor. Their old flow points toward a chamber deeper in.",
@@ -1389,7 +1411,7 @@ const dungeonDefinitions = {
 
       sealedStacks: {
         layer: "lower",
-        x: 1,
+        x: 3,
         y: 2,
         label: "Sealed Stacks",
         description: "Metal shutters cover these shelves, but several have warped open over the years.",
@@ -1414,7 +1436,7 @@ const dungeonDefinitions = {
       machineNave: {
         layer: "lower",
         x: 2,
-        y: 1,
+        y: 0,
         label: "Machine Nave",
         description: "Tall frames stand in two rows like silent columns. Each one once guided mana into useful motion.",
         discovered: false,
@@ -1430,7 +1452,6 @@ const dungeonDefinitions = {
         },
         exits: [
           { label: "Return to the mana ducts", to: "manaDucts" },
-          { label: "Return to the sealed stacks", to: "sealedStacks" },
           { label: "Enter the condenser gallery", to: "condenserGallery" },
           { label: "Enter the drafting room", to: "towerDraftingRoom" },
         ],
@@ -1438,8 +1459,8 @@ const dungeonDefinitions = {
 
       condenserGallery: {
         layer: "lower",
-        x: 3,
-        y: 0,
+        x: 2,
+        y: 1,
         label: "Condenser Gallery",
         description: "A ring-shaped device has been disassembled across three tables. Its purpose is unmistakable: gather, cool, condense.",
         discovered: false,
@@ -1467,8 +1488,8 @@ const dungeonDefinitions = {
 
       towerDraftingRoom: {
         layer: "lower",
-        x: 3,
-        y: 2,
+        x: 1,
+        y: 0,
         label: "Tower Drafting Room",
         description: "Huge foundation circles cover the walls. The drawings are incomplete, but the scale matches the buried foundation at camp.",
         discovered: false,
@@ -1497,7 +1518,7 @@ const dungeonDefinitions = {
 
       deepRepository: {
         layer: "lower",
-        x: 4,
+        x: 1,
         y: 1,
         label: "Deep Repository",
         description: "The final room is mostly empty. Its shelves were cleared deliberately, not looted.",
@@ -1516,7 +1537,6 @@ const dungeonDefinitions = {
         exits: [
           { label: "Return to the condenser gallery", to: "condenserGallery" },
           { label: "Return to the drafting room", to: "towerDraftingRoom" },
-          { label: "Return to the sealed stacks", to: "sealedStacks" },
         ],
       },
     },
@@ -2080,10 +2100,8 @@ const researchDefinitions = {
     cost: {
       energy: 60,
       focus: 5,
-      iron: 8,
-      nails: 30,
-      manaCrystal: 10,
-      chargedCrystal: 2,
+      wood: 30,
+      chargedCrystal: 1,
     },
     requires: {
       flags: ["manaCondenserPlansFound"],
@@ -2132,8 +2150,8 @@ const explorationStages = {
 // Camp Upgrade Definitions
 const campUpgrades = {
   smallFire: {
-    label: "Small Fire",
-    displayName: "Small fire",
+    label: "Small Fire (Rest/Recover 10% Faster)",
+    displayName: "Small Fire",
     campSlot: "fire",
     campSlotLabel: "Fire",
     campSlotOrder: 2,
@@ -2149,10 +2167,11 @@ const campUpgrades = {
     display: null,
     onComplete() {
       recalculateCampEffects();
+      updateAllActionButtons();
     },
   },
   crudeLeanTo: {
-    label: "Crude Lean-To",
+    label: "Crude Lean-To (Rest +2 Energy)",
     displayName: "Crude Lean-To",
     campSlot: "shelter",
     campSlotLabel: "Shelter",
@@ -2173,7 +2192,7 @@ const campUpgrades = {
     },
   },
   lessCrudeShelter: {
-    label: "Less Crude Shelter",
+    label: "Less Crude Shelter (Rest +4 Energy)",
     displayName: "Less Crude Shelter",
     campSlot: "shelter",
     campSlotLabel: "Shelter",
@@ -2195,7 +2214,7 @@ const campUpgrades = {
   },
 
   framedShelter: {
-    label: "Framed Shelter",
+    label: "Framed Shelter (Rest +8 Energy)",
     displayName: "Framed Shelter",
     campSlot: "shelter",
     campSlotLabel: "Shelter",
@@ -2218,7 +2237,7 @@ const campUpgrades = {
   },
 
   smallHut: {
-    label: "Small Hut",
+    label: "Small Hut (Rest +12 Energy)",
     displayName: "Small Hut",
     campSlot: "shelter",
     campSlotLabel: "Shelter",
@@ -2242,7 +2261,7 @@ const campUpgrades = {
   },
 
   uncomfortableCot: {
-    label: "Ugly Cot",
+    label: "Ugly Cot (Recover +2 Focus)",
     displayName: "Ugly Cot",
     campSlot: "rest",
     campSlotLabel: "Rest",
@@ -2265,7 +2284,7 @@ const campUpgrades = {
   },
 
   warmCot: {
-    label: "Warm Cot",
+    label: "Warm Cot (Recover +3 Focus)",
     displayName: "Warm Cot",
     campSlot: "rest",
     campSlotLabel: "Rest",
@@ -2288,7 +2307,7 @@ const campUpgrades = {
   },
 
   stoneFirePit: {
-    label: "Stone Fire Pit",
+    label: "Stone Fire Pit (Rest/Recover 20% Faster)",
     displayName: "Stone Fire Pit",
     campSlot: "fire",
     campSlotLabel: "Fire",
@@ -2310,7 +2329,7 @@ const campUpgrades = {
   },
 
   researchSpot: {
-    label: "Research Spot",
+    label: "Research Spot (Unlock Research)",
     displayName: "Research Spot",
     campSlot: "research",
     campSlotLabel: "Research",
@@ -2328,7 +2347,7 @@ const campUpgrades = {
   },
 
   researchBench: {
-    label: "Research Bench",
+    label: "Research Bench (-25% Research Time, -1 Focus Cost)",
     displayName: "Research Bench",
     campSlot: "research",
     campSlotLabel: "Research",
@@ -2339,7 +2358,6 @@ const campUpgrades = {
       wood: 40,
       nails: 10,
       iron: 2,
-      manaCrystal: 2,
       energy: 80,
     },
     unlocked: false,
@@ -2353,7 +2371,7 @@ const campUpgrades = {
   },
 
   meditationSpot: {
-    label: "Meditation Spot",
+    label: "Meditation Spot (Meditate At Camp)",
     displayName: "Meditation Spot",
     campSlot: "meditation",
     campSlotLabel: "Meditation",
@@ -2376,7 +2394,7 @@ const campUpgrades = {
   },
 
   lumberMill: {
-    label: "Lumber Mill",
+    label: "Lumber Mill (Automate Wood)",
     displayName: "Lumber Mill",
     campSlot: "mill",
     campSlotLabel: "Mill",
@@ -2386,7 +2404,7 @@ const campUpgrades = {
     cost: {
       nails: 20,
       wood: 40,
-      iron: 3,
+      manaCrystal: 2,
       energy: 100,
     },
     unlocked: false,
@@ -2402,7 +2420,7 @@ const campUpgrades = {
   },
 
   foragingLure: {
-    label: "Foraging Lure",
+    label: "Foraging Lure (Automate Food)",
     displayName: "Foraging Lure",
     campSlot: "foodAutomation",
     campSlotLabel: "Food",
@@ -2428,7 +2446,7 @@ const campUpgrades = {
   },
 
   campTannery: {
-    label: "Camp Tannery",
+    label: "Camp Tannery (Tan Leather At Camp)",
     displayName: "Camp Tannery",
     campSlot: "tannery",
     campSlotLabel: "Tannery",
@@ -2438,8 +2456,8 @@ const campUpgrades = {
     cost: {
       energy: 80,
       wood: 60,
-      leather: 20,
-      nails: 15,
+      leather: 5,
+      nails: 25,
     },
     unlocked: false,
     purchased: false,
@@ -2452,7 +2470,7 @@ const campUpgrades = {
   },
 
   campSmelterFoundation: {
-    label: "Camp Smelter Foundation",
+    label: "Camp Smelter Foundation (Smelter Step 1)",
     displayName: "Smelter Foundation",
     campSlot: "forge",
     campSlotLabel: "Forge",
@@ -2462,7 +2480,7 @@ const campUpgrades = {
     cost: {
       energy: 70,
       stone: 35,
-      iron: 4,
+      iron: 2,
       nails: 10,
     },
     unlocked: false,
@@ -2475,7 +2493,7 @@ const campUpgrades = {
   },
 
   campSmelter: {
-    label: "Camp Smelter",
+    label: "Camp Smelter (Smelt Iron At Camp)",
     displayName: "Camp Smelter",
     campSlot: "forge",
     campSlotLabel: "Forge",
@@ -2500,7 +2518,7 @@ const campUpgrades = {
   },
 
   campAlchemyStation: {
-    label: "Camp Alchemy Station",
+    label: "Camp Alchemy Station (Tonics At Camp)",
     displayName: "Camp Alchemy Station",
     campSlot: "alchemy",
     campSlotLabel: "Alchemy",
@@ -2526,7 +2544,7 @@ const campUpgrades = {
   },
 
   manaCondenserFrame: {
-    label: "Mana Condenser Frame",
+    label: "Mana Condenser Frame (Condenser Step 1)",
     displayName: "Condenser Frame",
     campSlot: "condenser",
     campSlotLabel: "Condenser",
@@ -2538,7 +2556,7 @@ const campUpgrades = {
       stone: 40,
       iron: 5,
       nails: 20,
-      manaCrystal: 6,
+      manaCrystal: 4,
     },
     unlocked: false,
     purchased: false,
@@ -2550,7 +2568,7 @@ const campUpgrades = {
   },
 
   manaCondenser: {
-    label: "Mana Condenser",
+    label: "Mana Condenser (Automate Mana Crystals)",
     displayName: "Mana Condenser",
     campSlot: "condenser",
     campSlotLabel: "Condenser",
@@ -2562,8 +2580,7 @@ const campUpgrades = {
       stone: 20,
       iron: 5,
       nails: 20,
-      manaCrystal: 6,
-      chargedCrystal: 2,
+      chargedCrystal: 4,
     },
     unlocked: false,
     purchased: false,
@@ -2706,7 +2723,7 @@ const gearUpgrades = {
   },
 
   foragingBasket: {
-    label: "Foraging Basket (+1 Food/Herb)",
+    label: "Foraging Basket (+1 Food, +1 Herb)",
     displayName: "Foraging Basket",
     equipmentType: "tool",
     slot: "forage",
@@ -2796,6 +2813,7 @@ const gearUpgrades = {
       pelt: 6,
       fiber: 10,
       wood: 5,
+      energy: 15,
     },
     unlocked: false,
     purchased: false,
@@ -2823,6 +2841,7 @@ const gearUpgrades = {
     duration: 7,
     cost: {
       pelt: 4,
+      energy: 10,
     },
     unlocked: false,
     purchased: false,
@@ -2844,6 +2863,7 @@ const gearUpgrades = {
     duration: 7,
     cost: {
       leather: 4,
+      energy: 20,
     },
     unlocked: false,
     purchased: false,
@@ -2855,7 +2875,7 @@ const gearUpgrades = {
   },
 
   stoneKnife: {
-    label: "Stone Knife (+1)",
+    label: "Stone Knife (+1 Fiber, +1 Hunt Pelt)",
     duration: 10,
     displayName: "Stone Knife",
     equipmentType: "tool",
@@ -2883,7 +2903,7 @@ const gearUpgrades = {
   },
 
   ironKnife: {
-    label: "Iron Knife (+2)",
+    label: "Iron Knife (+2 Fiber, +2 Hunt Pelts)",
     duration: 15,
     displayName: "Iron Knife",
     equipmentType: "tool",
@@ -2911,7 +2931,7 @@ const gearUpgrades = {
   },
 
   stoneAxe: {
-    label: "Stone Axe (+1)",
+    label: "Stone Axe (+1 Wood)",
     displayName: "Stone Axe",
     equipmentType: "tool",
     slot: "axe",
@@ -2938,7 +2958,7 @@ const gearUpgrades = {
   },
 
   ironAxe: {
-    label: "Iron Axe (+2)",
+    label: "Iron Axe (+2 Wood)",
     displayName: "Iron Axe",
     equipmentType: "tool",
     slot: "axe",
@@ -3033,7 +3053,7 @@ const gearUpgrades = {
   },
 
   torch: {
-    label: "Torch",
+    label: "Torch (Explore Dark Places)",
     displayName: "Torch",
     equipmentType: "tool",
     slot: "tool",
@@ -3056,7 +3076,7 @@ const gearUpgrades = {
   },
 
   crudeIronPick: {
-    label: "Crude Iron Pick",
+    label: "Crude Iron Pick (Mine 2 Ore)",
     displayName: "Crude Iron Pick",
     equipmentType: "tool",
     slot: "pick",
@@ -3466,6 +3486,24 @@ const imbueDefinitions = {
     story: "You fold mana into the food until it carries a tempting, deliberate trail-scent.",
   },
 
+  manaCrystal: {
+    label: "Imbue Mana Crystal",
+    description: "Compress a full reserve of mana into a stable crystal.",
+    requiredLocation: "camp",
+    cost: {
+      mana: 20,
+      focus: 5,
+    },
+    produces: {
+      resource: "manaCrystal",
+      amount: 1,
+    },
+    requires: {
+      flags: ["manaCrystalImbuingUnlocked"],
+    },
+    story: "You compress the mana inward until it hardens into a clear, steady crystal.",
+  },
+
   staminaTonic: {
     label: "Imbue Stamina Tonic",
     description: "Bind mana into one stamina tonic base, filling an empty tonic slot.",
@@ -3535,7 +3573,7 @@ const imbueDefinitions = {
   chargedCrystal: {
     label: "Imbue Charged Crystal",
     description: "Store mana inside a crystal for later use in camp automation.",
-    requiredLocation: "silentGearworks",
+    requiredLocation: "camp",
     cost: {
       mana: 5,
       manaCrystal: 1,
@@ -3698,7 +3736,63 @@ const goalDefinitions = {
   },
   exploreOutskirts: {
     title: "Explore The Outskirts",
-    text: "Range farther from camp and learn the nearby woods.",
+    text: "Learn the nearby woods well enough to travel them with purpose. Master each place you find, then complete a full outskirts route.",
+    items: [
+      {
+        label: "Master the camp outskirts",
+        isComplete: function () {
+          return gameState.tier2Complete;
+        },
+      },
+      {
+        getLabel: function () {
+          const location = getExpeditionLocation("mysteriousPlants");
+          const label = location && location.explored ? location.exploredLabel || location.label : location && location.label;
+
+          return "Master " + (label || "Mysterious Plants");
+        },
+        isVisible: function () {
+          const location = getExpeditionLocation("mysteriousPlants");
+          return !!location && location.discovered;
+        },
+        isComplete: function () {
+          const research = getResearch("cordage");
+          return !!research && research.completed;
+        },
+      },
+      {
+        getLabel: function () {
+          const location = getExpeditionLocation("strangeTrails");
+          const label = location && location.explored ? location.exploredLabel || location.label : location && location.label;
+
+          return "Master " + (label || "Strange Trails");
+        },
+        isVisible: function () {
+          const location = getExpeditionLocation("strangeTrails");
+          return !!location && location.discovered;
+        },
+        isComplete: function () {
+          const research = getResearch("simpleTraps");
+          return !!research && research.completed;
+        },
+      },
+      {
+        getLabel: function () {
+          const location = getExpeditionLocation("creepyCave");
+          const label = location && location.explored ? location.exploredLabel || location.label : location && location.label;
+
+          return "Master " + (label || "Creepy Cave");
+        },
+        isVisible: function () {
+          const location = getExpeditionLocation("creepyCave");
+          return !!location && location.discovered;
+        },
+        isComplete: function () {
+          const research = getResearch("stoneTools");
+          return (!!research && research.completed) || hasPurchasedCampUpgrade("stoneFirePit");
+        },
+      },
+    ],
   },
   followTrail: {
     title: "Follow The Unfamiliar Trail",
@@ -3754,6 +3848,10 @@ const journalDefinitions = {
   oldMapFound: {
     title: "Old Map",
     text: "The map shows routes far beyond the camp outskirts. The forest around camp is only one small part of a larger wilderness.",
+  },
+  manaCrystalImbuingUnlocked: {
+    title: "Crystal Binding Pattern",
+    text: "The ruined alcove showed how raw mana can be pressed into a crystal lattice. With enough mana, you can create mana crystals at camp.",
   },
   manaAwakened: {
     title: "Mana Awakened",

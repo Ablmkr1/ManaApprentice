@@ -818,7 +818,7 @@ const actions = {
     label: "Meditate",
     duration: 3,
     cost: { energy: 10 },
-    auto: { resource: "mana", resumeAfterRest: true },
+    auto: { resource: "mana", resumeAfterRest: true, restFallback: "campOnly" },
     unlocked: false,
     running: false,
     button: null,
@@ -906,11 +906,38 @@ const skillDefinitions = {
     capacityLabel: "Maximum Mana",
     ranks: [
       { rank: 0, threshold: 0, capacity: 10 },
-      { rank: 1, threshold: 5, capacity: 12 },
-      { rank: 2, threshold: 13, capacity: 14 },
-      { rank: 3, threshold: 25, capacity: 16 },
-      { rank: 4, threshold: 42, capacity: 18 },
-      { rank: 5, threshold: 65, capacity: 20 },
+      { rank: 1, threshold: 3, capacity: 12 },
+      { rank: 2, threshold: 7, capacity: 14 },
+      { rank: 3, threshold: 12, capacity: 16 },
+      { rank: 4, threshold: 18, capacity: 18 },
+      { rank: 5, threshold: 25, capacity: 20 },
+    ],
+  },
+
+  meditation: {
+    label: "Meditation",
+    progressLabel: "Successful meditations",
+    capacityLabel: "Meditate speed",
+    capacitySuffix: "% faster",
+    ranks: [
+      { rank: 0, threshold: 0, capacity: 0 },
+      { rank: 1, threshold: 5, capacity: 10 },
+      { rank: 2, threshold: 15, capacity: 20 },
+      { rank: 3, threshold: 35, capacity: 30 },
+      { rank: 4, threshold: 70, capacity: 40 },
+      { rank: 5, threshold: 130, capacity: 50 },
+    ],
+  },
+
+  manaControl: {
+    label: "Mana Control",
+    progressLabel: "Mana spent casting",
+    capacityLabel: "Control rank",
+    ranks: [
+      { rank: 0, threshold: 0, capacity: 0 },
+      { rank: 1, threshold: 20, capacity: 1 },
+      { rank: 2, threshold: 60, capacity: 2 },
+      { rank: 3, threshold: 120, capacity: 3 },
     ],
   },
 };
@@ -998,6 +1025,7 @@ const gameState = {
   torchResearched: false,
   magicUnlocked: false,
   recallUnlocked: false,
+  manaCrystalImbuingUnlocked: false,
   archiveDoorOpened: false,
   campAlchemyPlansFound: false,
   campTanningPlansFound: false,
@@ -1034,6 +1062,18 @@ const gameState = {
     manaCycling: {
       rank: 0,
       successfulCycles: 0,
+      revealed: false,
+    },
+
+    meditation: {
+      rank: 0,
+      successfulMeditations: 0,
+      revealed: false,
+    },
+
+    manaControl: {
+      rank: 0,
+      manaSpent: 0,
       revealed: false,
     },
   },

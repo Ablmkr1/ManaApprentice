@@ -23,9 +23,32 @@ function getDefaultSkillState(skillName) {
     };
   }
 
+  if (skillName === "manaCycling") {
+    return {
+      rank: 0,
+      successfulCycles: 0,
+      revealed: false,
+    };
+  }
+
+  if (skillName === "meditation") {
+    return {
+      rank: 0,
+      successfulMeditations: 0,
+      revealed: false,
+    };
+  }
+
+  if (skillName === "manaControl") {
+    return {
+      rank: 0,
+      manaSpent: 0,
+      revealed: false,
+    };
+  }
+
   return {
     rank: 0,
-    successfulCycles: 0,
     revealed: false,
   };
 }
@@ -72,8 +95,11 @@ function getSkillProgressValue(skillName) {
 
   if (skillName === "conditioning") return skill.distance || 0;
   if (skillName === "concentration") return skill.deepThought || 0;
+  if (skillName === "manaCycling") return skill.successfulCycles || 0;
+  if (skillName === "meditation") return skill.successfulMeditations || 0;
+  if (skillName === "manaControl") return skill.manaSpent || 0;
 
-  return skill.successfulCycles || 0;
+  return 0;
 }
 
 function getSkillRankFromProgress(skillName, progress) {
@@ -203,6 +229,44 @@ function recordManaCycle() {
   updateTrainingUI();
 }
 
+function recordMeditation() {
+  const skill = getSkillState("meditation");
+  const oldRank = skill.rank;
+
+  skill.successfulMeditations = (skill.successfulMeditations || 0) + 1;
+  skill.revealed = true;
+  skill.rank = getSkillRankFromProgress("meditation", skill.successfulMeditations);
+
+  if (skill.rank > oldRank) {
+    addStoryEntry("The quiet settles faster now. You find the meditative rhythm with less strain and less wasted motion.");
+  }
+
+  updateTrainingUI();
+}
+
+function recordManaControl(amount, sourceLabel) {
+  if (!Number.isFinite(amount) || amount <= 0) return;
+
+  const skill = getSkillState("manaControl");
+  const oldRank = skill.rank;
+
+  skill.manaSpent = roundResourceAmount((skill.manaSpent || 0) + amount);
+
+  if (!skill.revealed) {
+    revealSkill("manaControl", "The spell leaves a shape behind in your hands. Mana is becoming something you can steer, not just spend.");
+  }
+
+  skill.rank = getSkillRankFromProgress("manaControl", skill.manaSpent);
+
+  if (skill.rank > oldRank) {
+    const label = sourceLabel ? " after " + sourceLabel : "";
+    addStoryEntry("Your spellwork steadies" + label + ". " + getManaControlRewardText(skill.rank) + ".");
+    syncSpellUpgradeEffects();
+  }
+
+  updateTrainingUI();
+}
+
 function isCampEstablishedForStats() {
   if (gameState.hasCamp || gameState.phase === "expedition") return true;
 
@@ -228,6 +292,71 @@ function getSkillCapacity(skillName) {
   const rankDefinition = getSkillRankDefinition(skillName, skill.rank || 0);
 
   return rankDefinition ? rankDefinition.capacity : 0;
+}
+
+function getMeditationSpeedBonusPercent() {
+  return getSkillCapacity("meditation");
+}
+
+function getMeditationDurationMultiplier() {
+  return Math.max(0.1, 1 - getMeditationSpeedBonusPercent() / 100);
+}
+
+function getMeditationEnergyCostReduction() {
+  const skill = getSkillState("meditation");
+
+  return skill ? skill.rank || 0 : 0;
+}
+
+function getMeditationCost() {
+  const action = getAction("meditate");
+  const cost = { ...((action && action.cost) || {}) };
+
+  if (Number.isFinite(cost.energy)) {
+    cost.energy = Math.max(1, roundResourceAmount(cost.energy - getMeditationEnergyCostReduction()));
+  }
+
+  return cost;
+}
+
+function getManaControlRank() {
+  const skill = getSkillState("manaControl");
+
+  return skill ? skill.rank || 0 : 0;
+}
+
+function getAttunementCapacityFromManaControl() {
+  const rank = getManaControlRank();
+
+  if (rank >= 2) return 3;
+  if (rank >= 1) return 2;
+
+  return 1;
+}
+
+function getManaSenseDungeonSearchBonus() {
+  return getManaControlRank() >= 3 ? 35 : 25;
+}
+
+function syncSpellUpgradeEffects() {
+  if (typeof getAttunementState !== "function") return;
+
+  const state = getAttunementState();
+  const capacity = getAttunementCapacityFromManaControl();
+
+  state.capacity = capacity;
+
+  if (Array.isArray(state.active) && state.active.length > capacity) {
+    state.active = state.active.slice(0, capacity);
+  }
+}
+
+function getManaControlRewardText(rank) {
+  if (rank >= 3) return "Mana Sense adds 35% search chance per dungeon charge";
+  if (rank >= 2) return "Attunement capacity 3";
+  if (rank >= 1) return "Attunement capacity 2";
+
+  return "No spell upgrade yet";
 }
 
 function setResourceMaxValue(resourceName, maxValue) {
@@ -256,6 +385,7 @@ function recalculateCharacterStats() {
   setResourceMaxValue("energy", Math.min(energyMax, HUMAN_ENERGY_CAP));
   setResourceMaxValue("focus", getSkillCapacity("concentration"));
   setResourceMaxValue("mana", getSkillCapacity("manaCycling"));
+  syncSpellUpgradeEffects();
   updateTrainingUI();
 }
 
@@ -279,31 +409,34 @@ function recalculateCampEffects() {
   }
 }
 
-function getFireFocusRecoveryAmount() {
+function getFireRecoveryDurationMultiplier() {
   if (typeof hasPurchasedCampUpgrade === "function") {
-    if (hasPurchasedCampUpgrade("stoneFirePit")) return 2;
-    if (hasPurchasedCampUpgrade("smallFire")) return 1;
+    if (hasPurchasedCampUpgrade("stoneFirePit")) return 0.8;
+    if (hasPurchasedCampUpgrade("smallFire")) return 0.9;
   }
 
-  return 0;
+  return 1;
+}
+
+function getRestDuration() {
+  return roundResourceAmount(1 * getFireRecoveryDurationMultiplier());
+}
+
+function getRecoverFocusAmount() {
+  if (typeof hasPurchasedCampUpgrade === "function") {
+    if (hasPurchasedCampUpgrade("warmCot")) return 3;
+    if (hasPurchasedCampUpgrade("uncomfortableCot")) return 2;
+  }
+
+  return 1;
 }
 
 function getRecoverEnergyCost() {
-  if (typeof hasPurchasedCampUpgrade === "function") {
-    if (hasPurchasedCampUpgrade("warmCot")) return 2;
-    if (hasPurchasedCampUpgrade("uncomfortableCot")) return 4;
-  }
-
   return 5;
 }
 
 function getRecoverDuration() {
-  if (typeof hasPurchasedCampUpgrade === "function") {
-    if (hasPurchasedCampUpgrade("warmCot")) return 1.5;
-    if (hasPurchasedCampUpgrade("uncomfortableCot")) return 2.5;
-  }
-
-  return 3;
+  return roundResourceAmount(3 * getFireRecoveryDurationMultiplier());
 }
 
 function getManaCyclingCost() {
@@ -415,6 +548,10 @@ function getActionCost(actionName) {
     return getManaCyclingCost();
   }
 
+  if (actionName === "meditate") {
+    return getMeditationCost();
+  }
+
   if (actionName === "explore" || actionName === "exploreLocation") {
     return reduceEnergyCost(action.cost || {}, getExplorationEnergyReduction());
   }
@@ -428,6 +565,7 @@ function getActionDuration(actionName) {
   if (!action) return 0;
 
   if (actionName === "recover") return getRecoverDuration();
+  if (actionName === "meditate") return roundResourceAmount((action.duration || 0) * getMeditationDurationMultiplier());
   if (actionName === "practiceManaCycling") return 5;
 
   return action.duration || 0;
@@ -471,6 +609,14 @@ function formatTrainingNumber(value) {
   return String(Math.round(value * 10) / 10);
 }
 
+function formatSkillCapacity(definition, rankDefinition) {
+  if (!rankDefinition) return "";
+
+  const suffix = definition.capacitySuffix || "";
+
+  return String(rankDefinition.capacity) + suffix;
+}
+
 function createTrainingEntry(skillName) {
   const definition = getSkillDefinition(skillName);
   const skill = getSkillState(skillName);
@@ -488,7 +634,11 @@ function createTrainingEntry(skillName) {
   title.textContent = definition.label + " - Rank " + skill.rank;
 
   const capacity = document.createElement("span");
-  capacity.textContent = definition.capacityLabel + " " + rankDefinition.capacity;
+  if (skillName === "manaControl") {
+    capacity.textContent = getManaControlRewardText(skill.rank || 0);
+  } else {
+    capacity.textContent = definition.capacityLabel + " " + formatSkillCapacity(definition, rankDefinition);
+  }
 
   header.appendChild(title);
   header.appendChild(capacity);
@@ -529,8 +679,32 @@ function createTrainingEntry(skillName) {
 
   if (skillName === "conditioning" && skill.pending) {
     detail.textContent = "Pending rank-up when you return to camp.";
+  } else if (skillName === "meditation") {
+    const currentReduction = getMeditationEnergyCostReduction();
+
+    if (nextRankDefinition) {
+      detail.textContent =
+        "Energy cost -" +
+        currentReduction +
+        ". Next: " +
+        definition.capacityLabel +
+        " " +
+        formatSkillCapacity(definition, nextRankDefinition) +
+        ", Energy cost -" +
+        nextRankDefinition.rank +
+        ".";
+    } else {
+      detail.textContent = "Energy cost -" + currentReduction + ". Fully developed for now.";
+    }
+  } else if (skillName === "manaControl") {
+    if (nextRankDefinition) {
+      detail.textContent =
+        "Current: " + getManaControlRewardText(skill.rank || 0) + ". Next: " + getManaControlRewardText(nextRankDefinition.rank) + ".";
+    } else {
+      detail.textContent = "Current: " + getManaControlRewardText(skill.rank || 0) + ". Fully developed for now.";
+    }
   } else if (nextRankDefinition) {
-    detail.textContent = "Next: " + definition.capacityLabel + " " + nextRankDefinition.capacity;
+    detail.textContent = "Next: " + definition.capacityLabel + " " + formatSkillCapacity(definition, nextRankDefinition);
   } else {
     detail.textContent = "Fully developed for now.";
   }
@@ -545,7 +719,7 @@ function updateTrainingUI() {
 
   if (!ui.trainingSection || !ui.trainingList) return;
 
-  const skillNames = ["conditioning", "concentration", "manaCycling"];
+  const skillNames = ["conditioning", "concentration", "manaCycling", "meditation", "manaControl"];
   const visibleSkills = skillNames.filter(function (skillName) {
     return getSkillState(skillName).revealed;
   });
