@@ -54,7 +54,7 @@ function hookActionCompletions() {
       return;
     }
 
-    if (gameState.expedition.currentLocation === "foothillScree" && Math.random() < 0.2) {
+    if (gameState.expedition.currentLocation === "foothillScree" && Math.random() < getFoothillScreeOreFindChance()) {
       if (addCarriedItem("ore", 1)) {
         addStoryEntry("Among the loose stone, you find a chunk of ore.");
       } else {
@@ -207,7 +207,7 @@ function hookActionCompletions() {
 
     hunt.tracked = false;
 
-    if (Math.random() < hunt.successChance) {
+    if (Math.random() < getHuntSuccessChance(hunt.successChance)) {
       const rewardAmount = getHuntRewardAmount(hunt.rewardAmount || 1);
       const carriedAmount = addCarriedItemUpToCapacity(hunt.reward, rewardAmount);
 
@@ -369,6 +369,32 @@ function hookActionCompletions() {
     updatePlacePanel();
   };
 
+  getAction("concentrateTonicBase").onComplete = function () {
+    const context = getConcentrateTonicBaseActionContext();
+
+    if (!context) return;
+
+    if (context.mode === "camp") {
+      addResource("concentratedTonicBase", 1);
+      unlockResource("concentratedTonicBase");
+      addStoryEntry("You reduce two tonic bases into a stronger, concentrated base.");
+    } else if (context.mode === "location") {
+      const storage = context.storage;
+
+      if (!storage || storage.staminaTonicBase < 2) return;
+
+      storage.staminaTonicBase -= 2;
+      storage.concentratedTonicBase = (storage.concentratedTonicBase || 0) + 1;
+      unlockResource("concentratedTonicBase");
+      addStoryEntry("You reduce two stored tonic bases into one stronger base at the alchemist's bench.");
+      updateLocationStorageUI(getExpeditionLocation(gameState.expedition.currentLocation));
+    }
+
+    updateAllResources();
+    updateAllActionButtons();
+    updateCraftingButtons();
+  };
+
   getAction("storeHerb").onComplete = function () {
     const location = getExpeditionLocation(gameState.expedition.currentLocation);
 
@@ -445,6 +471,59 @@ function hookActionCompletions() {
     expedition.water = expedition.waterCapacity;
     refreshExpeditionUI();
   };
+}
+
+function getConcentrateTonicBaseActionContext() {
+  if (isCampCraftingContext() && hasPurchasedCampUpgrade("campAlchemyStation")) {
+    return {
+      mode: "camp",
+      storage: null,
+    };
+  }
+
+  if (gameState.expedition.currentLocation === "alchemistsHut") {
+    const location = getExpeditionLocation("alchemistsHut");
+
+    if (location && location.explored && location.storage) {
+      return {
+        mode: "location",
+        storage: location.storage,
+      };
+    }
+  }
+
+  return null;
+}
+
+function getConcentrateTonicBaseActionCost() {
+  const context = getConcentrateTonicBaseActionContext();
+
+  if (context && context.mode === "camp") {
+    return {
+      mana: 4,
+      staminaTonicBase: 2,
+    };
+  }
+
+  return {
+    mana: 4,
+  };
+}
+
+function canUseConcentrateTonicBaseAction() {
+  const context = getConcentrateTonicBaseActionContext();
+  const output = getResource("concentratedTonicBase");
+
+  if (!context || !output) return false;
+
+  if (context.mode === "camp") {
+    return output.value < output.maxValue;
+  }
+
+  const storage = context.storage;
+  const currentOutput = storage.concentratedTonicBase || 0;
+
+  return storage.staminaTonicBase >= 2 && currentOutput < output.maxValue;
 }
 
 // Get Explore Function
@@ -725,6 +804,11 @@ function getActivityButton(activity) {
     return getDungeonActionButton("exploreRoom");
   }
 
+  if (activity.kind === "projectWork") {
+    const project = getProjectDefinition(activity.id);
+    return project ? project.workButton : null;
+  }
+
   return null;
 }
 
@@ -758,7 +842,7 @@ function processActivityTick() {
     return;
   }
 
-  const elapsed = Date.now() - activity.startTime;
+  const elapsed = getGameTime() - activity.startTime;
   const progress = Math.min(elapsed / durationMs, 1);
   const button = getActivityButton(activity);
 
@@ -818,6 +902,14 @@ function processActivityTick() {
     }
   }
 
+  if (activity.kind === "projectWork" && button) {
+    const progressFill = button.querySelector(".progressFill");
+
+    if (progressFill) {
+      progressFill.style.width = progress * 100 + "%";
+    }
+  }
+
   if (progress < 1) return;
 
   completeActivity();
@@ -845,7 +937,7 @@ function completeActivity() {
       return;
     }
 
-    gameState.activity.startTime = Date.now();
+    gameState.activity.startTime = getGameTime();
     return;
   }
 
@@ -882,7 +974,7 @@ function completeActivity() {
         return;
       }
 
-      gameState.activity.startTime = Date.now();
+      gameState.activity.startTime = getGameTime();
       updateTravelButton(true);
       updateAllActionButtons();
       updateCraftingButtons();
@@ -933,7 +1025,7 @@ function completeActivity() {
       return;
     }
 
-    gameState.activity.startTime = Date.now();
+    gameState.activity.startTime = getGameTime();
     updateTravelButton(true);
     updateAllActionButtons();
     updateCraftingButtons();
@@ -995,6 +1087,25 @@ function completeActivity() {
     completeDungeonRoomSearch(context.dungeonId, context.nodeId);
     updatePlacePanel();
 
+    return;
+  }
+
+  if (activity.kind === "projectWork") {
+    const projectName = activity.id;
+    const button = getActivityButton(activity);
+
+    if (button) {
+      const progressFill = button.querySelector(".progressFill");
+
+      if (progressFill) {
+        progressFill.style.width = "0%";
+      }
+    }
+
+    resetActivity();
+    completeProjectWork(projectName);
+    updateAllActionButtons();
+    updateCraftingButtons();
     return;
   }
 
@@ -1090,7 +1201,7 @@ function startActivity(activityRequest) {
   gameState.activity.type = activityRequest.type || null;
   gameState.activity.id = activityRequest.id || null;
   gameState.activity.label = activityRequest.label || null;
-  gameState.activity.startTime = Date.now();
+  gameState.activity.startTime = getGameTime();
   gameState.activity.duration = duration;
   gameState.activity.interval = !!activityRequest.interval;
   gameState.activity.context = activityRequest.context || null;

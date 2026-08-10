@@ -41,7 +41,26 @@ const unlockHandlers = {
   automation: function (id) {
     unlockAutomation(id);
   },
+  project: function (id) {
+    unlockProject(id);
+  },
 };
+
+const SPELL_PROGRESS_DEFINITIONS = {
+  manaSense: {
+    maxLevel: 5,
+    thresholds: [10, 30, 60, 100, 150],
+  },
+  attunement: {
+    maxLevel: 5,
+    thresholds: [10, 30, 60, 100, 150],
+  },
+  arcaneForce: {
+    maxLevel: 5,
+    thresholds: [10, 30, 60, 100, 150],
+  },
+};
+let openSpellMenuName = null;
 
 function applyUnlock(unlock) {
   if (!unlock || !unlock.type || !unlock.id) {
@@ -63,6 +82,106 @@ function applyUnlocks(unlocks) {
   if (!Array.isArray(unlocks)) return;
 
   unlocks.forEach(applyUnlock);
+}
+
+function getDefaultProjectState() {
+  return {
+    unlocked: false,
+    completed: false,
+    level: 0,
+    work: 0,
+    deposits: {},
+  };
+}
+
+function ensureProjectsState() {
+  if (!gameState.projects || typeof gameState.projects !== "object" || Array.isArray(gameState.projects)) {
+    gameState.projects = {};
+  }
+
+  const definitions = getProjectDefinitions();
+
+  for (let projectName in definitions) {
+    const defaults = getDefaultProjectState();
+    const saved = gameState.projects[projectName];
+
+    if (!saved || typeof saved !== "object" || Array.isArray(saved)) {
+      gameState.projects[projectName] = defaults;
+      continue;
+    }
+
+    for (let fieldName in defaults) {
+      if (!Object.prototype.hasOwnProperty.call(saved, fieldName)) {
+        saved[fieldName] = defaults[fieldName];
+      }
+    }
+
+    if (!saved.deposits || typeof saved.deposits !== "object" || Array.isArray(saved.deposits)) {
+      saved.deposits = {};
+    }
+
+    normalizeProjectState(projectName);
+  }
+}
+
+function getProjectState(projectName) {
+  ensureProjectsState();
+  return gameState.projects[projectName];
+}
+
+function normalizeProjectState(projectName) {
+  const definition = getProjectDefinition(projectName);
+  const state = gameState.projects && gameState.projects[projectName];
+
+  if (!definition || !state) return;
+
+  const maxLevel = Array.isArray(definition.levels) ? definition.levels.length : 0;
+  state.level = Math.max(0, Math.min(Number.isFinite(state.level) ? Math.floor(state.level) : 0, maxLevel));
+  state.work = Math.max(0, Number.isFinite(state.work) ? state.work : 0);
+  state.completed = !!state.completed || state.level >= maxLevel;
+
+  if (state.completed) {
+    state.level = maxLevel;
+  }
+
+  const level = getProjectLevelDefinition(projectName, state.level);
+
+  if (level) {
+    state.work = Math.min(state.work, level.workRequired || 0);
+  } else {
+    state.work = 0;
+  }
+}
+
+function unlockProject(projectName) {
+  const definition = getProjectDefinition(projectName);
+  const state = getProjectState(projectName);
+
+  if (!definition || !state) {
+    console.warn("Unknown project:", projectName);
+    return;
+  }
+
+  if (state.unlocked || state.completed) return;
+
+  state.unlocked = true;
+  updateProjectUI();
+  updateCraftingSectionVisibility();
+  updateWorkTabsVisibility();
+}
+
+function hasVisibleProject() {
+  ensureProjectsState();
+
+  const definitions = getProjectDefinitions();
+
+  for (let projectName in definitions) {
+    const state = getProjectState(projectName);
+
+    if (state && (state.unlocked || state.completed)) return true;
+  }
+
+  return false;
 }
 
 function unlockFlag(flagName) {
@@ -553,6 +672,12 @@ function setCampActionsAvailable(available) {
       unlockAction("meditate");
     }
 
+    if (hasPurchasedCampUpgrade("campAlchemyStation")) {
+      unlockAction("concentrateTonicBase");
+    } else {
+      lockAction("concentrateTonicBase");
+    }
+
     ui.restBtn.style.display = "inline-block";
   } else {
     lockAction("gatherWood");
@@ -561,6 +686,7 @@ function setCampActionsAvailable(available) {
     lockAction("explore");
     lockAction("recover");
     lockAction("meditate");
+    lockAction("concentrateTonicBase");
     ui.restBtn.style.display = "none";
   }
 }
@@ -582,6 +708,8 @@ function completeCampUpgrade(upgradeName) {
   updateCampUpgradeUI(upgradeName);
   updateCraftingSectionVisibility();
   updateWorkTabsVisibility();
+  updatePlacePanel();
+
   if (upgradeName === "researchSpot") {
     showWorkPanel("research");
   }
@@ -749,15 +877,6 @@ function renderEquipmentSlots(groupEl, containerEl, equipmentType) {
     boxEl.className = "equipment-box";
     boxEl.textContent = slot.current.displayName || slot.current.label;
 
-    if (isEquipmentSlotAttuned(equipmentType, slot.current.slot)) {
-      boxEl.classList.add("attuned");
-
-      const starEl = document.createElement("span");
-      starEl.className = "attunement-star";
-      starEl.textContent = "*";
-      boxEl.appendChild(starEl);
-    }
-
     const labelEl = document.createElement("div");
     labelEl.className = "equipment-slot-label";
     labelEl.textContent = slot.label;
@@ -841,25 +960,39 @@ function renderSpellSlots() {
   }
 
   if (unlockedSpells.length === 0) {
+    hideSpellTargetMenu();
     hideElement(ui.spellSlotsGroup);
     return;
   }
 
   showElement(ui.spellSlotsGroup, "flex");
 
+  if (
+    openSpellMenuName &&
+    !unlockedSpells.some(function (entry) {
+      return entry.id === openSpellMenuName;
+    })
+  ) {
+    openSpellMenuName = null;
+  }
+
   unlockedSpells.forEach(function (entry) {
     const slotEl = document.createElement("div");
-    slotEl.className = "equipment-slot";
+    slotEl.className = "equipment-slot spell-slot";
 
     const boxEl = document.createElement("div");
-    boxEl.className = "equipment-box";
+    boxEl.className = "equipment-box spell-box";
+    boxEl.setAttribute("role", "button");
+    boxEl.setAttribute("tabindex", "0");
+    boxEl.setAttribute("aria-controls", "spellTargetMenu");
+    boxEl.setAttribute("aria-expanded", String(openSpellMenuName === entry.id));
 
     const nameEl = document.createElement("span");
     nameEl.className = "spell-slot-name";
     nameEl.textContent = entry.spell.label;
 
     const progressFill = document.createElement("div");
-    progressFill.classList.add("progressFill");
+    progressFill.classList.add("progressFill", "spell-cast-progress");
 
     boxEl.appendChild(nameEl);
     boxEl.appendChild(progressFill);
@@ -869,63 +1002,33 @@ function renderSpellSlots() {
       renderAttunementPips(boxEl);
     }
 
+    renderSpellExperienceBar(entry.id, boxEl);
+
     const isActiveSpell = isActivityActive() && gameState.activity.kind === "spell" && gameState.activity.id === entry.id;
+    const canCastCurrentSpell = canCastSpell(entry.id);
 
     if (isActiveSpell) {
       boxEl.classList.add("tonic-filled");
       boxEl.title = "Casting " + entry.spell.label;
-    } else if (canCastSpell(entry.id)) {
+    } else if (canCastCurrentSpell) {
       boxEl.classList.add("tonic-filled");
-      boxEl.title = "Cast " + entry.spell.label;
-      boxEl.setAttribute("role", "button");
-      boxEl.setAttribute("tabindex", "0");
-
-      boxEl.addEventListener("click", function () {
-        if (canAddLocationObjectSpellCharge(entry.id)) {
-          castSpell(entry.id);
-          return;
-        }
-
-        if (entry.id === "attunement") {
-          toggleAttunementTargetMenu();
-          return;
-        }
-
-        if (isProductionSpell(entry.id)) {
-          toggleProductionSpellTargetMenu(entry.id);
-          return;
-        }
-
-        castSpell(entry.id);
-      });
-
-      boxEl.addEventListener("keydown", function (event) {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-
-          if (canAddLocationObjectSpellCharge(entry.id)) {
-            castSpell(entry.id);
-            return;
-          }
-
-          if (entry.id === "attunement") {
-            toggleAttunementTargetMenu();
-            return;
-          }
-
-          if (isProductionSpell(entry.id)) {
-            toggleProductionSpellTargetMenu(entry.id);
-            return;
-          }
-
-          castSpell(entry.id);
-        }
-      });
+      boxEl.title = "Open " + entry.spell.label + " options";
     } else if (isActivityActive()) {
-      boxEl.title = "Something else is in progress.";
+      boxEl.title = "Open " + entry.spell.label + " details. Something else is in progress.";
     } else {
-      boxEl.title = "Nothing nearby answers this spell.";
+      boxEl.title = "Open " + entry.spell.label + " details.";
     }
+
+    boxEl.addEventListener("click", function () {
+      toggleSpellTargetMenu(entry.id);
+    });
+
+    boxEl.addEventListener("keydown", function (event) {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        toggleSpellTargetMenu(entry.id);
+      }
+    });
 
     const labelEl = document.createElement("div");
     labelEl.className = "equipment-slot-label";
@@ -935,6 +1038,8 @@ function renderSpellSlots() {
     slotEl.appendChild(labelEl);
     ui.spellSlots.appendChild(slotEl);
   });
+
+  renderOpenSpellTargetMenu();
 }
 
 function unlockSpell(spellName) {
@@ -983,10 +1088,14 @@ function canCastSpell(spellName) {
   if (context && !canAffordCost(getSpellCastCost(spellName, context))) return false;
 
   if (spellName === "manaSense") {
-    return !!context;
+    return !!context || hasAvailableManaSenseTarget();
   }
 
   if (context && context.type === "locationObjectSpellCharge") {
+    return true;
+  }
+
+  if (context && context.type === "dungeonSpellCharge") {
     return true;
   }
 
@@ -1005,7 +1114,7 @@ function hasAvailableAttunementTarget() {
   const definitions = getAttunementDefinitions();
 
   for (let attunementName in definitions) {
-    if (isAttunementTargetAvailable(attunementName)) {
+    if (canApplyAttunement(attunementName)) {
       return true;
     }
   }
@@ -1096,6 +1205,93 @@ function canAddManaSenseLocationObjectCharge() {
   return canAddLocationObjectSpellCharge("manaSense");
 }
 
+function getManaSenseTargetContext(targetName) {
+  const definition = getManaSenseDefinition(targetName);
+
+  if (!definition) return null;
+
+  return {
+    type: "manaSenseTarget",
+    targetId: targetName,
+  };
+}
+
+function hasAvailableManaSenseTarget() {
+  const definitions = getManaSenseDefinitions();
+
+  for (let targetName in definitions) {
+    if (canApplyManaSenseTarget(targetName)) return true;
+  }
+
+  return false;
+}
+
+function isManaSenseTargetVisible(targetName) {
+  const definition = getManaSenseDefinition(targetName);
+
+  if (!definition) return false;
+  if (getManaSenseLevel() < (definition.requiredManaSenseLevel || 0)) return false;
+  if (definition.requiredLocation && gameState.expedition.currentLocation !== definition.requiredLocation) return false;
+
+  return true;
+}
+
+function isManaSenseTargetActive(targetName) {
+  if (targetName === "stoneSense" && typeof hasStoneSenseActive === "function") {
+    return hasStoneSenseActive();
+  }
+
+  return false;
+}
+
+function canApplyManaSenseTarget(targetName) {
+  const definition = getManaSenseDefinition(targetName);
+
+  if (!definition) return false;
+  if (!getSpell("manaSense")?.unlocked) return false;
+  if (isActivityActive()) return false;
+  if (!isManaSenseTargetVisible(targetName)) return false;
+  if (isManaSenseTargetActive(targetName)) return false;
+
+  return canAffordCost(definition.cost || {});
+}
+
+function getDungeonNodeSpellInteraction(node, spellName) {
+  if (!node || !node.spellInteractions) return null;
+
+  return node.spellInteractions[spellName] || null;
+}
+
+function getCurrentDungeonSpellTarget(spellName) {
+  const dungeonState = getCurrentDungeonState();
+  const currentNode = getCurrentDungeonNode();
+
+  if (!dungeonState || !dungeonState.active || !currentNode || !currentNode.exits) return null;
+
+  for (let i = 0; i < currentNode.exits.length; i++) {
+    const targetNodeId = currentNode.exits[i].to;
+    const node = getDungeonNode(dungeonState.dungeonId, targetNodeId);
+    const interaction = getDungeonNodeSpellInteraction(node, spellName);
+
+    if (!node || !interaction) continue;
+    if (canEnterDungeonNode(dungeonState.dungeonId, targetNodeId)) continue;
+
+    if (spellName === "arcaneForce" && getArcaneForceLevel() < (interaction.requiredForceLevel || 0)) continue;
+
+    const required = interaction.required || 1;
+
+    if (getDungeonNodeSpellCharge(node, spellName) >= required) continue;
+
+    return {
+      dungeonId: dungeonState.dungeonId,
+      nodeId: targetNodeId,
+      spellName,
+    };
+  }
+
+  return null;
+}
+
 function getSpellCastContext(spellName) {
   if (spellName === "manaSense") {
     const reveal = getCurrentManaSenseReveal();
@@ -1133,6 +1329,17 @@ function getSpellCastContext(spellName) {
     }
   }
 
+  const dungeonTarget = getCurrentDungeonSpellTarget(spellName);
+
+  if (dungeonTarget) {
+    return {
+      type: "dungeonSpellCharge",
+      dungeonId: dungeonTarget.dungeonId,
+      nodeId: dungeonTarget.nodeId,
+      spellName: dungeonTarget.spellName,
+    };
+  }
+
   const objectTarget = getCurrentLocationObjectSpellTarget(spellName);
 
   if (objectTarget) {
@@ -1152,8 +1359,18 @@ function getCompletedSpellManaControlCost(spellName, context) {
     return getSpellCastCost(spellName, context);
   }
 
+  if (context && context.type === "dungeonSpellCharge") {
+    return getSpellCastCost(spellName, context);
+  }
+
   if (spellName === "attunement" && context && context.type === "attunement") {
     const definition = getAttunementDefinition(context.attunementId);
+
+    return definition ? definition.cost || {} : {};
+  }
+
+  if (spellName === "manaSense" && context && context.type === "manaSenseTarget") {
+    const definition = getManaSenseDefinition(context.targetId);
 
     return definition ? definition.cost || {} : {};
   }
@@ -1176,7 +1393,16 @@ function getCompletedSpellManaSpent(spellName, context) {
 }
 
 function getCompletedSpellManaControlLabel(spellName, context) {
-  const actualSpellName = context && context.type === "locationObjectSpellCharge" && context.spellName ? context.spellName : spellName;
+  if (spellName === "manaSense" && context && context.type === "manaSenseTarget") {
+    const definition = getManaSenseDefinition(context.targetId);
+
+    return definition ? definition.label : context.targetId;
+  }
+
+  const actualSpellName =
+    context && (context.type === "locationObjectSpellCharge" || context.type === "dungeonSpellCharge") && context.spellName
+      ? context.spellName
+      : spellName;
   const spell = getSpell(actualSpellName);
 
   return spell ? spell.label : actualSpellName;
@@ -1190,16 +1416,27 @@ function recordCompletedSpellManaControl(spellName, context, manaSpent) {
 }
 
 function completeSpellCast(spellName, context) {
+  const manaControlEnabled = typeof isManaControlSystemEnabled !== "function" || isManaControlSystemEnabled();
   const manaSpent = getCompletedSpellManaSpent(spellName, context);
+  const manaControlManaSpent = manaControlEnabled ? manaSpent : 0;
   let completedSuccessfully = false;
 
   if (context && context.type === "locationObjectSpellCharge") {
-    addLocationObjectSpellCharge(context.locationName, context.objectName, context.spellName);
-    recordCompletedSpellManaControl(spellName, context, manaSpent);
+    const addedCharge = addLocationObjectSpellCharge(context.locationName, context.objectName, context.spellName);
+
+    if (addedCharge) {
+      recordCompletedSpellManaControl(spellName, context, manaControlManaSpent);
+      recordSpellProgressExperience(context.spellName, manaSpent);
+    }
+
     updateEquipmentSlotUI();
     updateAllActionButtons();
     updateCraftingButtons();
     return;
+  }
+
+  if (context && context.type === "dungeonSpellCharge") {
+    completedSuccessfully = addDungeonNodeSpellCharge(context.dungeonId, context.nodeId, context.spellName) || completedSuccessfully;
   }
 
   if (spellName === "manaSense") {
@@ -1216,6 +1453,10 @@ function completeSpellCast(spellName, context) {
     if (context && context.type === "locationObjectCharge") {
       addLocationObjectSpellCharge(context.locationName, context.objectName, "manaSense");
       completedSuccessfully = true;
+    }
+
+    if (context && context.type === "manaSenseTarget") {
+      completedSuccessfully = applyManaSenseTarget(context.targetId) || completedSuccessfully;
     }
   }
 
@@ -1236,7 +1477,9 @@ function completeSpellCast(spellName, context) {
   }
 
   if (completedSuccessfully) {
-    recordCompletedSpellManaControl(spellName, context, manaSpent);
+    recordCompletedSpellManaControl(spellName, context, manaControlManaSpent);
+
+    recordSpellProgressExperience(spellName, manaSpent);
   }
 
   updateEquipmentSlotUI();
@@ -1259,6 +1502,29 @@ function addManaSenseDungeonChargeForNode(dungeonId, nodeId) {
 
   addStoryEntry("Mana Sense sharpens the shape of " + node.label + " in your mind.");
 
+  updateDungeonUI();
+
+  return true;
+}
+
+function addDungeonNodeSpellCharge(dungeonId, nodeId, spellName) {
+  const node = getDungeonNode(dungeonId, nodeId);
+  const interaction = getDungeonNodeSpellInteraction(node, spellName);
+
+  if (!node || !interaction) return false;
+
+  const required = interaction.required || 1;
+  const currentCharges = getDungeonNodeSpellCharge(node, spellName);
+
+  if (currentCharges >= required) return false;
+
+  setDungeonNodeSpellCharge(node, spellName, currentCharges + 1);
+
+  const stories = interaction.stories || [];
+  const story = stories[Math.min(currentCharges, stories.length - 1)];
+  const spell = getSpell(spellName);
+
+  addStoryEntry(story || (spell ? spell.label : spellName) + " shifts the lock on " + node.label + ".");
   updateDungeonUI();
 
   return true;
@@ -1422,8 +1688,9 @@ function updateCraftingSectionVisibility() {
   const hasResourceCrafting = hasAvailableResourceCraft();
   const hasResearchCrafting = hasAvailableResearch();
   const hasResearchWorkspace = isResearchSpotPurchased();
+  const hasProjects = hasVisibleProject();
 
-  if (hasCampCrafting || hasGearCrafting || hasResourceCrafting || hasResearchCrafting) {
+  if (hasCampCrafting || hasGearCrafting || hasResourceCrafting || hasResearchCrafting || hasProjects) {
     showElement(ui.craftingSection, "flex");
   } else {
     hideElement(ui.craftingSection);
@@ -1798,8 +2065,9 @@ function updateWorkTabsVisibility() {
 
   const hasResearch = isResearchSpotPurchased();
   const hasAutomation = hasUnlockedAutomation();
+  const hasProjects = hasVisibleProject();
 
-  if (hasResearch || hasAutomation) {
+  if (hasResearch || hasAutomation || hasProjects) {
     showElement(ui.workTabs, "flex");
   } else {
     hideElement(ui.workTabs);
@@ -1813,12 +2081,17 @@ function updateWorkTabsVisibility() {
   if (ui.automationTabBtn) {
     ui.automationTabBtn.style.display = hasAutomation ? "inline-block" : "none";
   }
+
+  if (ui.projectTabBtn) {
+    ui.projectTabBtn.style.display = hasProjects ? "inline-block" : "none";
+  }
 }
 
 function showWorkPanel(panelName) {
   const showingResearch = panelName === "research" && isResearchSpotPurchased();
   const showingAutomation = panelName === "automation" && hasUnlockedAutomation();
-  const showingCrafting = !showingResearch && !showingAutomation;
+  const showingProjects = panelName === "projects" && hasVisibleProject();
+  const showingCrafting = !showingResearch && !showingAutomation && !showingProjects;
 
   if (ui.craftingPanel) {
     ui.craftingPanel.style.display = showingCrafting ? "block" : "none";
@@ -1830,6 +2103,10 @@ function showWorkPanel(panelName) {
 
   if (ui.automationPanel) {
     ui.automationPanel.style.display = showingAutomation ? "block" : "none";
+  }
+
+  if (ui.projectPanel) {
+    ui.projectPanel.style.display = showingProjects ? "block" : "none";
   }
 
   if (ui.craftingTabBtn) {
@@ -1844,8 +2121,436 @@ function showWorkPanel(panelName) {
     ui.automationTabBtn.classList.toggle("active", showingAutomation);
   }
 
+  if (ui.projectTabBtn) {
+    ui.projectTabBtn.classList.toggle("active", showingProjects);
+  }
+
   if (showingResearch) updateResearchHistoryUI();
   if (showingAutomation) updateAutomationUI();
+  if (showingProjects) updateProjectUI();
+}
+
+function getProjectLevelDefinition(projectName, levelIndex) {
+  const definition = getProjectDefinition(projectName);
+
+  if (!definition || !Array.isArray(definition.levels)) return null;
+
+  return definition.levels[levelIndex] || null;
+}
+
+function getProjectCurrentLevel(projectName) {
+  const state = getProjectState(projectName);
+
+  return state ? getProjectLevelDefinition(projectName, state.level) : null;
+}
+
+function getProjectWorkCost(projectName) {
+  const definition = getProjectDefinition(projectName);
+
+  return definition ? definition.workCost || {} : {};
+}
+
+function getProjectWorkDuration(projectName) {
+  const definition = getProjectDefinition(projectName);
+
+  return definition ? definition.workDuration || 1 : 1;
+}
+
+function getProjectWorkRemaining(projectName) {
+  const state = getProjectState(projectName);
+  const level = getProjectCurrentLevel(projectName);
+
+  if (!state || !level) return 0;
+
+  return Math.max(0, (level.workRequired || 0) - (state.work || 0));
+}
+
+function canWorkOnProject(projectName) {
+  const state = getProjectState(projectName);
+  const level = getProjectCurrentLevel(projectName);
+
+  if (!state || !level) return false;
+  if (!state.unlocked || state.completed) return false;
+  if (getProjectWorkRemaining(projectName) <= 0) return false;
+
+  return canAffordCost(getProjectWorkCost(projectName));
+}
+
+function startProjectWork(projectName) {
+  if (isActivityActive()) return;
+  if (!canWorkOnProject(projectName)) return;
+
+  const cost = getProjectWorkCost(projectName);
+
+  if (!spendCost(cost)) return;
+
+  if (!startActivity({
+    kind: "projectWork",
+    id: projectName,
+    duration: getProjectWorkDuration(projectName),
+  })) {
+    refundCost(cost);
+    return;
+  }
+
+  updateProjectButtons();
+  updateAllActionButtons();
+}
+
+function completeProjectWork(projectName) {
+  const definition = getProjectDefinition(projectName);
+  const state = getProjectState(projectName);
+  const level = getProjectCurrentLevel(projectName);
+
+  if (!definition || !state || !level) return;
+
+  const workGain = Math.min(level.workYield || 0, getProjectWorkRemaining(projectName));
+  state.work = roundResourceAmount((state.work || 0) + workGain);
+
+  checkProjectLevelCompletion(projectName);
+  updateProjectUI();
+  updateCurrentGoalUI();
+}
+
+function getProjectMaterialRequirement(projectName, resourceName) {
+  const level = getProjectCurrentLevel(projectName);
+  const materials = level ? level.materials || {} : {};
+
+  return materials[resourceName] || 0;
+}
+
+function getProjectMaterialDeposited(projectName, resourceName) {
+  const state = getProjectState(projectName);
+
+  if (!state || !state.deposits) return 0;
+
+  return state.deposits[resourceName] || 0;
+}
+
+function getProjectMaterialRemaining(projectName, resourceName) {
+  return Math.max(0, getProjectMaterialRequirement(projectName, resourceName) - getProjectMaterialDeposited(projectName, resourceName));
+}
+
+function areProjectMaterialsComplete(projectName) {
+  const level = getProjectCurrentLevel(projectName);
+  const materials = level ? level.materials || {} : {};
+
+  for (let resourceName in materials) {
+    if (getProjectMaterialRemaining(projectName, resourceName) > 0) return false;
+  }
+
+  return true;
+}
+
+function isProjectLevelComplete(projectName) {
+  return getProjectWorkRemaining(projectName) <= 0 && areProjectMaterialsComplete(projectName);
+}
+
+function depositProjectResource(projectName, resourceName) {
+  if (isActivityActive()) return;
+
+  const state = getProjectState(projectName);
+  const resource = getResource(resourceName);
+  const remaining = getProjectMaterialRemaining(projectName, resourceName);
+
+  if (!state || !resource || state.completed || remaining <= 0 || resource.value <= 0) return;
+
+  const amount = Math.min(resource.value, remaining);
+  const cost = {};
+  cost[resourceName] = amount;
+
+  if (!spendCost(cost)) return;
+
+  state.deposits[resourceName] = roundResourceAmount(getProjectMaterialDeposited(projectName, resourceName) + amount);
+
+  checkProjectLevelCompletion(projectName);
+  updateProjectUI();
+  updateCurrentGoalUI();
+}
+
+function checkProjectLevelCompletion(projectName) {
+  const state = getProjectState(projectName);
+
+  if (!state || state.completed || !isProjectLevelComplete(projectName)) return false;
+
+  advanceProjectLevel(projectName);
+  return true;
+}
+
+function advanceProjectLevel(projectName) {
+  const definition = getProjectDefinition(projectName);
+  const state = getProjectState(projectName);
+  const completedLevel = getProjectCurrentLevel(projectName);
+
+  if (!definition || !state || !completedLevel) return;
+
+  if (completedLevel.completionStory) {
+    addStoryEntry(completedLevel.completionStory);
+  }
+
+  state.level += 1;
+  state.work = 0;
+  state.deposits = {};
+
+  if (state.level >= definition.levels.length) {
+    state.completed = true;
+    state.unlocked = true;
+    gameState.towerConstructionUnlocked = true;
+
+    if (definition.completedStory) {
+      addStoryEntry(definition.completedStory);
+    }
+
+    addJournalEntry("towerFoundationAwakened");
+  }
+
+  updateProjectUI();
+  updateCraftingSectionVisibility();
+  updateWorkTabsVisibility();
+}
+
+function getVisibleProjectEntries() {
+  const entries = [];
+  const definitions = getProjectDefinitions();
+
+  ensureProjectsState();
+
+  for (let projectName in definitions) {
+    const state = getProjectState(projectName);
+
+    if (!state || (!state.unlocked && !state.completed)) continue;
+
+    entries.push({
+      id: projectName,
+      definition: definitions[projectName],
+      state,
+    });
+  }
+
+  return entries;
+}
+
+function updateProjectUI() {
+  if (!ui.projectList) return;
+
+  ensureProjectsState();
+  ui.projectList.innerHTML = "";
+
+  const entries = getVisibleProjectEntries();
+
+  if (entries.length === 0) {
+    const empty = document.createElement("div");
+    empty.classList.add("research-empty");
+    empty.textContent = "No projects started yet.";
+    ui.projectList.appendChild(empty);
+    return;
+  }
+
+  entries.forEach(function (entry) {
+    ui.projectList.appendChild(createProjectEntry(entry.id, entry.definition, entry.state));
+  });
+
+  updateProjectButtons();
+}
+
+function createProjectEntry(projectName, definition, state) {
+  const level = getProjectCurrentLevel(projectName);
+  const entry = document.createElement("div");
+  entry.className = "project-entry";
+
+  const header = document.createElement("div");
+  header.className = "project-entry-header";
+
+  const title = document.createElement("strong");
+  title.textContent = definition.label + " - Level " + state.level;
+
+  const status = document.createElement("span");
+  status.textContent = state.completed ? definition.completedLabel || "Complete" : level.name;
+
+  header.appendChild(title);
+  header.appendChild(status);
+  entry.appendChild(header);
+
+  const description = document.createElement("p");
+  description.className = "project-description";
+  description.textContent = state.completed ? definition.completedDescription : level.description || definition.description || "";
+  entry.appendChild(description);
+
+  entry.appendChild(createProjectWorkProgress(projectName, level, state));
+  entry.appendChild(createProjectMaterialList(projectName, level, state));
+  entry.appendChild(createProjectActions(projectName, definition, state));
+
+  return entry;
+}
+
+function createProjectWorkProgress(projectName, level, state) {
+  const group = document.createElement("div");
+  group.className = "project-progress-group";
+
+  const text = document.createElement("div");
+  text.className = "training-progress-text";
+
+  if (level) {
+    text.textContent = "Work: " + formatTrainingNumber(state.work || 0) + " / " + formatTrainingNumber(level.workRequired || 0);
+  } else {
+    text.textContent = "Work: complete";
+  }
+
+  const track = document.createElement("div");
+  track.className = "training-progress-track";
+
+  const fill = document.createElement("div");
+  fill.className = "training-progress-fill";
+
+  if (level && level.workRequired > 0) {
+    fill.style.width = Math.min(Math.max((state.work || 0) / level.workRequired, 0), 1) * 100 + "%";
+  } else {
+    fill.style.width = "100%";
+  }
+
+  track.appendChild(fill);
+  group.appendChild(text);
+  group.appendChild(track);
+
+  return group;
+}
+
+function createProjectMaterialList(projectName, level) {
+  const list = document.createElement("div");
+  list.className = "project-material-list";
+
+  if (!level || !level.materials || Object.keys(level.materials).length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "training-detail";
+    empty.textContent = "Materials: complete";
+    list.appendChild(empty);
+    return list;
+  }
+
+  for (let resourceName in level.materials) {
+    list.appendChild(createProjectMaterialRow(projectName, resourceName));
+  }
+
+  return list;
+}
+
+function createProjectMaterialRow(projectName, resourceName) {
+  const resource = getResource(resourceName);
+  const row = document.createElement("div");
+  row.className = "project-material-row";
+
+  const label = document.createElement("span");
+  label.textContent =
+    (resource ? resource.label : resourceName) +
+    ": " +
+    formatTrainingNumber(getProjectMaterialDeposited(projectName, resourceName)) +
+    " / " +
+    formatTrainingNumber(getProjectMaterialRequirement(projectName, resourceName));
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "project-deposit-btn";
+  button.dataset.projectDeposit = projectName;
+  button.dataset.resource = resourceName;
+  button.textContent = "Deposit";
+
+  button.addEventListener("click", function () {
+    depositProjectResource(projectName, resourceName);
+  });
+
+  row.appendChild(label);
+  row.appendChild(button);
+
+  return row;
+}
+
+function createProjectActions(projectName, definition, state) {
+  const actions = document.createElement("div");
+  actions.className = "project-actions";
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "action-btn project-work-btn";
+  button.dataset.projectWork = projectName;
+
+  const fill = document.createElement("div");
+  fill.className = "progressFill";
+
+  const label = document.createElement("span");
+  label.textContent = state.completed ? "Project Complete" : definition.actionLabel || "Work";
+
+  button.appendChild(fill);
+  button.appendChild(label);
+  button.addEventListener("click", function () {
+    startProjectWork(projectName);
+  });
+
+  definition.workButton = button;
+  actions.appendChild(button);
+
+  return actions;
+}
+
+function updateProjectButtons() {
+  if (!ui.projectList) return;
+
+  const definitions = getProjectDefinitions();
+
+  for (let projectName in definitions) {
+    updateProjectWorkButtonState(projectName);
+    updateProjectDepositButtonStates(projectName);
+  }
+}
+
+function updateProjectWorkButtonState(projectName) {
+  const definition = getProjectDefinition(projectName);
+
+  if (!definition || !definition.workButton) return;
+
+  const state = getProjectState(projectName);
+  const isActiveProjectWork = isActivityActive() && gameState.activity.kind === "projectWork" && gameState.activity.id === projectName;
+  const canStart = canWorkOnProject(projectName);
+  const label = definition.workButton.querySelector("span");
+
+  definition.workButton.classList.toggle("running", isActiveProjectWork);
+  definition.workButton.disabled = state.completed || (!isActiveProjectWork && (isActivityActive() || !canStart));
+
+  if (label) {
+    if (state.completed) {
+      label.textContent = "Project Complete";
+    } else if (getProjectWorkRemaining(projectName) <= 0) {
+      label.textContent = "Work Complete";
+    } else {
+      label.textContent = (definition.actionLabel || "Work") + " - " + formatCost(getProjectWorkCost(projectName));
+    }
+  }
+}
+
+function updateProjectDepositButtonStates(projectName) {
+  if (!ui.projectList) return;
+
+  const state = getProjectState(projectName);
+  const buttons = ui.projectList.querySelectorAll('[data-project-deposit="' + projectName + '"]');
+
+  buttons.forEach(function (button) {
+    const resourceName = button.dataset.resource;
+    const resource = getResource(resourceName);
+    const remaining = getProjectMaterialRemaining(projectName, resourceName);
+    const amount = resource ? Math.min(resource.value, remaining) : 0;
+
+    button.disabled = state.completed || isActivityActive() || remaining <= 0 || amount <= 0;
+    button.textContent = remaining <= 0 ? "Done" : "Deposit " + formatTrainingNumber(amount);
+  });
+}
+
+function resetProjectWorkButtonProgress(projectName) {
+  const definition = getProjectDefinition(projectName);
+  const button = definition ? definition.workButton : null;
+  const progressFill = button ? button.querySelector(".progressFill") : null;
+
+  if (progressFill) {
+    progressFill.style.width = "0%";
+  }
 }
 
 function getVisibleResearchEntries() {
@@ -2118,6 +2823,11 @@ function getUnlockDisplayText(unlock) {
     return goal ? goal.title : unlock.id;
   }
 
+  if (unlock.type === "project") {
+    const project = getProjectDefinition(unlock.id);
+    return project ? project.label : unlock.id;
+  }
+
   return unlock.id;
 }
 
@@ -2332,7 +3042,270 @@ function updateAutomationProgressUI() {
   }
 }
 
+function getSpellProgressDefinition(spellName) {
+  return SPELL_PROGRESS_DEFINITIONS[spellName] || null;
+}
+
+function getDefaultSpellProgressState() {
+  return {
+    xp: 0,
+    level: 0,
+  };
+}
+
+function ensureSpellProgressState() {
+  if (!gameState.magic || typeof gameState.magic !== "object" || Array.isArray(gameState.magic)) {
+    gameState.magic = {};
+  }
+
+  if (!gameState.magic.spellProgress || typeof gameState.magic.spellProgress !== "object" || Array.isArray(gameState.magic.spellProgress)) {
+    gameState.magic.spellProgress = {};
+  }
+
+  for (let spellName in SPELL_PROGRESS_DEFINITIONS) {
+    normalizeSpellProgressState(spellName);
+  }
+}
+
+function normalizeSpellProgressState(spellName) {
+  const definition = getSpellProgressDefinition(spellName);
+  const saved = gameState.magic.spellProgress[spellName];
+
+  if (!definition) return;
+
+  if (!saved || typeof saved !== "object" || Array.isArray(saved)) {
+    gameState.magic.spellProgress[spellName] = getDefaultSpellProgressState();
+  }
+
+  const progress = gameState.magic.spellProgress[spellName];
+  progress.xp = Number.isFinite(progress.xp) ? Math.max(0, progress.xp) : 0;
+  progress.level = getSpellLevelFromXp(spellName, progress.xp);
+}
+
+function getSpellProgressState(spellName) {
+  ensureSpellProgressState();
+  return gameState.magic.spellProgress[spellName] || getDefaultSpellProgressState();
+}
+
+function getSpellLevelFromXp(spellName, xp) {
+  const definition = getSpellProgressDefinition(spellName);
+  let level = 0;
+
+  if (!definition || !Array.isArray(definition.thresholds)) return level;
+
+  for (let i = 0; i < definition.thresholds.length; i++) {
+    if (xp >= definition.thresholds[i]) {
+      level = i + 1;
+    }
+  }
+
+  return Math.min(level, definition.maxLevel || level);
+}
+
+function getAttunementProgressState() {
+  return getSpellProgressState("attunement");
+}
+
+function getManaSenseProgressState() {
+  return getSpellProgressState("manaSense");
+}
+
+function getManaSenseLevel() {
+  return getManaSenseProgressState().level || 0;
+}
+
+function getManaSenseHiddenDiscoveryBonusChance() {
+  const spell = getSpell("manaSense");
+
+  if (!spell || !spell.unlocked) return 0;
+
+  return 5 + getManaSenseLevel() * 5;
+}
+
+function getManaSenseCrystalBonusRolls(level = getManaSenseLevel()) {
+  if (level >= 5) {
+    return [0.8, 0.5];
+  }
+
+  if (level >= 4) {
+    return [0.8, 0.35];
+  }
+
+  if (level >= 3) {
+    return [0.7, 0.2];
+  }
+
+  if (level >= 2) {
+    return [0.6];
+  }
+
+  if (level >= 1) {
+    return [0.5];
+  }
+
+  return [];
+}
+
+function rollManaSenseBonusManaCrystals() {
+  const chances = getManaSenseCrystalBonusRolls();
+  let amount = 0;
+
+  for (let i = 0; i < chances.length; i++) {
+    if (Math.random() < chances[i]) {
+      amount += 1;
+    }
+  }
+
+  return amount;
+}
+
+function getManaSenseCrystalBonusText(level = getManaSenseLevel()) {
+  const chances = getManaSenseCrystalBonusRolls(level);
+
+  if (chances.length === 0) return "No bonus crystal sensing yet";
+
+  if (chances.length === 1) {
+    return Math.round(chances[0] * 100) + "% chance for +1 bonus mana crystal";
+  }
+
+  return (
+    Math.round(chances[0] * 100) +
+    "% chance for +1 bonus mana crystal, then " +
+    Math.round(chances[1] * 100) +
+    "% chance for +1 more"
+  );
+}
+
+function getManaSenseLevelRewardText(level) {
+  const rewards = [
+    "Original Mana Sense, +5% hidden discovery",
+    "Stone Sense, +10% hidden discovery, " + getManaSenseCrystalBonusText(1),
+    "+15% hidden discovery, " + getManaSenseCrystalBonusText(2),
+    "+20% hidden discovery, " + getManaSenseCrystalBonusText(3),
+    "+25% hidden discovery, " + getManaSenseCrystalBonusText(4) + ", Advanced Recall prerequisite",
+    "+30% hidden discovery, " + getManaSenseCrystalBonusText(5) + ", Rank 2 research ready",
+  ];
+
+  return rewards[Math.max(0, Math.min(level, rewards.length - 1))];
+}
+
+function getStoneSenseOreFindChance() {
+  return Math.min(1, 0.2 + getManaSenseLevel() * 0.16);
+}
+
+function recordManaSenseExperience(amount) {
+  if (!Number.isFinite(amount) || amount <= 0) return;
+
+  const progress = getManaSenseProgressState();
+  const oldLevel = progress.level || 0;
+
+  progress.xp = roundResourceAmount((progress.xp || 0) + amount);
+  progress.level = getSpellLevelFromXp("manaSense", progress.xp);
+
+  if (progress.level > oldLevel) {
+    addStoryEntry("Mana Sense reaches deeper. " + getManaSenseLevelRewardText(progress.level) + ".");
+  }
+
+  updateEquipmentSlotUI();
+}
+
+function getAttunementLevel() {
+  return getAttunementProgressState().level || 0;
+}
+
+function getAttunementBonusMultiplier() {
+  return 1 + getAttunementLevel() * 0.2;
+}
+
+function getAttunementCapacityFromLevel() {
+  const level = getAttunementLevel();
+
+  if (level >= 4) return 3;
+  if (level >= 2) return 2;
+
+  return 1;
+}
+
+function getAttunementLevelRewardText(level) {
+  const capacity = level >= 4 ? 3 : level >= 2 ? 2 : 1;
+  const bonusPercent = level * 20;
+
+  return "Attunement bonuses +" + bonusPercent + "%, " + capacity + " attunement slot" + (capacity === 1 ? "" : "s");
+}
+
+function recordAttunementExperience(amount) {
+  if (!Number.isFinite(amount) || amount <= 0) return;
+
+  const progress = getAttunementProgressState();
+  const oldLevel = progress.level || 0;
+
+  progress.xp = roundResourceAmount((progress.xp || 0) + amount);
+  progress.level = getSpellLevelFromXp("attunement", progress.xp);
+
+  if (progress.level > oldLevel) {
+    addStoryEntry("Your attunement settles deeper. " + getAttunementLevelRewardText(progress.level) + ".");
+  }
+
+  getAttunementState();
+  updateEquipmentSlotUI();
+}
+
+function getArcaneForceProgressState() {
+  return getSpellProgressState("arcaneForce");
+}
+
+function getArcaneForceLevel() {
+  return getArcaneForceProgressState().level || 0;
+}
+
+function getArcaneForceLevelRewardText(level) {
+  const rewards = [
+    "Shape Nails",
+    "Shape tool parts",
+    "Force-open dungeon doors",
+    "Bulk harvest herbs and glimmerleaf",
+    "Detonate ore nodes",
+    "Ward research ready, story gated",
+  ];
+
+  return rewards[Math.max(0, Math.min(level, rewards.length - 1))];
+}
+
+function recordArcaneForceExperience(amount) {
+  if (!Number.isFinite(amount) || amount <= 0) return;
+
+  const progress = getArcaneForceProgressState();
+  const oldLevel = progress.level || 0;
+
+  progress.xp = roundResourceAmount((progress.xp || 0) + amount);
+  progress.level = getSpellLevelFromXp("arcaneForce", progress.xp);
+
+  if (progress.level > oldLevel) {
+    addStoryEntry("Arcane Force answers with more precision. " + getArcaneForceLevelRewardText(progress.level) + ".");
+  }
+
+  updateEquipmentSlotUI();
+}
+
+function recordSpellProgressExperience(spellName, amount) {
+  if (spellName === "manaSense") {
+    recordManaSenseExperience(amount);
+    return;
+  }
+
+  if (spellName === "attunement") {
+    recordAttunementExperience(amount);
+    return;
+  }
+
+  if (spellName === "arcaneForce") {
+    recordArcaneForceExperience(amount);
+  }
+}
+
 function getAttunementState() {
+  ensureSpellProgressState();
+
   if (!gameState.magic.attunements) {
     gameState.magic.attunements = {
       capacity: 1,
@@ -2344,8 +3317,11 @@ function getAttunementState() {
     gameState.magic.attunements.active = [];
   }
 
-  const derivedCapacity =
-    typeof getAttunementCapacityFromManaControl === "function" ? getAttunementCapacityFromManaControl() : gameState.magic.attunements.capacity || 1;
+  gameState.magic.attunements.active = gameState.magic.attunements.active.filter(function (entry) {
+    return entry && entry.id && !!getAttunementDefinition(entry.id);
+  });
+
+  const derivedCapacity = getAttunementCapacityFromLevel();
 
   gameState.magic.attunements.capacity = derivedCapacity;
 
@@ -2367,12 +3343,61 @@ function hasActiveAttunement(attunementName) {
 }
 
 function getActiveAttunementEffectTotal(effectName) {
+  const multiplier = getAttunementBonusMultiplier();
+
   return getActiveAttunements().reduce(function (total, entry) {
     const definition = getAttunementDefinition(entry.id);
     const effects = definition ? definition.effects || {} : {};
 
-    return total + (effects[effectName] || 0);
+    return total + (effects[effectName] || 0) * multiplier;
   }, 0);
+}
+
+function getAttunementScaledEffectValue(definition, effectName) {
+  const effects = definition ? definition.effects || {} : {};
+
+  return (effects[effectName] || 0) * getAttunementBonusMultiplier();
+}
+
+function getAttunementTargetDescription(attunementName, definition, options = {}) {
+  const effects = definition ? definition.effects || {} : {};
+  const parts = [];
+
+  if (effects.travelDistanceFlat) {
+    parts.push("+" + formatAttunementEffectNumber(getAttunementScaledEffectValue(definition, "travelDistanceFlat")) + " travel distance per step");
+  }
+
+  if (effects.carryCapacityFlat) {
+    parts.push("+" + formatAttunementEffectNumber(getAttunementScaledEffectValue(definition, "carryCapacityFlat")) + " carry capacity");
+  }
+
+  if (effects.huntSuccessChancePerLevel) {
+    const chanceBonus = getAttunementLevel() * effects.huntSuccessChancePerLevel;
+    parts.push("+" + formatAttunementEffectPercent(chanceBonus) + " hunt success chance");
+
+    if (effects.maxLevelHuntRewardFlat) {
+      const rewardText = "+" + formatAttunementEffectNumber(effects.maxLevelHuntRewardFlat) + " pelt";
+      parts.push(getAttunementLevel() >= 5 ? rewardText + " from successful hunts" : rewardText + " at level 5");
+    }
+  }
+
+  if (parts.length === 0) return definition.description || "";
+
+  return (options.prefix === false ? "" : "Current bonus: ") + parts.join("; ");
+}
+
+function formatAttunementEffectNumber(value) {
+  const rounded = Math.round(value * 10) / 10;
+
+  if (Math.abs(rounded - Math.round(rounded)) < 0.01) {
+    return String(Math.round(rounded));
+  }
+
+  return String(rounded);
+}
+
+function formatAttunementEffectPercent(value) {
+  return formatAttunementEffectNumber(value * 100) + "%";
 }
 
 function clearActiveAttunements() {
@@ -2381,10 +3406,19 @@ function clearActiveAttunements() {
 }
 
 function hideSpellTargetMenu() {
-  if (!ui.attunementTargetMenu) return;
+  openSpellMenuName = null;
 
-  ui.attunementTargetMenu.innerHTML = "";
-  hideElement(ui.attunementTargetMenu);
+  if (ui.spellTargetMenu) {
+    ui.spellTargetMenu.innerHTML = "";
+    hideElement(ui.spellTargetMenu);
+  }
+
+  if (!ui.spellSlots) return;
+
+  const spellBoxes = ui.spellSlots.querySelectorAll("[aria-controls='spellTargetMenu']");
+  spellBoxes.forEach(function (box) {
+    box.setAttribute("aria-expanded", "false");
+  });
 }
 
 function hideAttunementTargetMenu() {
@@ -2392,14 +3426,7 @@ function hideAttunementTargetMenu() {
 }
 
 function toggleAttunementTargetMenu() {
-  if (!ui.attunementTargetMenu) return;
-
-  if (ui.attunementTargetMenu.style.display !== "none") {
-    hideSpellTargetMenu();
-    return;
-  }
-
-  renderAttunementTargetMenu();
+  toggleSpellTargetMenu("attunement");
 }
 
 function toggleImbueTargetMenu() {
@@ -2407,20 +3434,47 @@ function toggleImbueTargetMenu() {
 }
 
 function toggleProductionSpellTargetMenu(spellName) {
-  if (!ui.attunementTargetMenu) return;
+  toggleSpellTargetMenu(spellName);
+}
 
-  if (ui.attunementTargetMenu.style.display !== "none") {
-    hideSpellTargetMenu();
+function toggleSpellTargetMenu(spellName) {
+  openSpellMenuName = openSpellMenuName === spellName ? null : spellName;
+  updateEquipmentSlotUI();
+}
+
+function renderOpenSpellTargetMenu() {
+  if (!ui.spellTargetMenu) return;
+
+  ui.spellTargetMenu.innerHTML = "";
+
+  if (!openSpellMenuName) {
+    hideElement(ui.spellTargetMenu);
     return;
   }
 
-  renderProductionSpellTargetMenu(spellName);
+  renderSpellTargetMenu(openSpellMenuName, ui.spellTargetMenu);
 }
 
-function renderAttunementTargetMenu() {
-  if (!ui.attunementTargetMenu) return;
+function renderSpellTargetMenu(spellName, menuEl) {
+  if (!menuEl) return;
 
-  ui.attunementTargetMenu.innerHTML = "";
+  menuEl.innerHTML = "";
+
+  if (spellName === "attunement") {
+    renderAttunementTargetMenu(menuEl);
+  } else if (isProductionSpell(spellName)) {
+    renderProductionSpellTargetMenu(spellName, menuEl);
+  } else {
+    renderBasicSpellTargetMenu(spellName, menuEl);
+  }
+
+  showElement(menuEl, "flex");
+}
+
+function renderAttunementTargetMenu(menuEl) {
+  if (!menuEl) return;
+
+  menuEl.appendChild(createAttunementExperienceEntry());
 
   const definitions = getAttunementDefinitions();
   let hasTargets = false;
@@ -2445,7 +3499,7 @@ function renderAttunementTargetMenu() {
 
     const description = document.createElement("span");
     description.className = "attunement-target-description";
-    description.textContent = definition.description || "";
+    description.textContent = getAttunementTargetDescription(attunementName, definition);
 
     const details = document.createElement("span");
     details.className = "attunement-target-details";
@@ -2461,27 +3515,27 @@ function renderAttunementTargetMenu() {
       castTargetedSpell("attunement", context);
     });
 
-    ui.attunementTargetMenu.appendChild(button);
+    menuEl.appendChild(button);
   }
 
   if (!hasTargets) {
-    ui.attunementTargetMenu.textContent = "No available targets.";
+    menuEl.appendChild(createSpellMenuMessage("No available targets."));
+  }
+}
+
+function renderImbueTargetMenu(menuEl) {
+  renderProductionSpellTargetMenu("imbue", menuEl);
+}
+
+function renderProductionSpellTargetMenu(spellName, menuEl) {
+  if (!menuEl) return;
+
+  if (spellName === "arcaneForce") {
+    menuEl.appendChild(createArcaneForceExperienceEntry());
   }
 
-  showElement(ui.attunementTargetMenu, "block");
-}
-
-function renderImbueTargetMenu() {
-  renderProductionSpellTargetMenu("imbue");
-}
-
-function renderProductionSpellTargetMenu(spellName) {
-  if (!ui.attunementTargetMenu) return;
-
-  ui.attunementTargetMenu.innerHTML = "";
-
-  const definitions = getProductionSpellDefinitions(spellName);
-  let hasTargets = false;
+  const definitions = getProductionSpellDefinitions(spellName) || {};
+  let hasTargets = renderContextualSpellCastOption(spellName, menuEl);
 
   for (let targetName in definitions) {
     if (!isProductionSpellTargetAvailable(spellName, targetName)) continue;
@@ -2522,14 +3576,403 @@ function renderProductionSpellTargetMenu(spellName) {
       castTargetedSpell(spellName, context);
     });
 
-    ui.attunementTargetMenu.appendChild(button);
+    menuEl.appendChild(button);
   }
 
   if (!hasTargets) {
-    ui.attunementTargetMenu.textContent = "No available targets.";
+    menuEl.appendChild(createSpellMenuMessage("No available targets."));
+  }
+}
+
+function renderBasicSpellTargetMenu(spellName, menuEl) {
+  const spell = getSpell(spellName);
+  const context = getSpellCastContext(spellName);
+
+  if (!spell) return;
+
+  if (spellName === "manaSense") {
+    renderManaSenseTargetMenu(menuEl, context);
+    return;
   }
 
-  showElement(ui.attunementTargetMenu, "block");
+  if (!context) {
+    menuEl.appendChild(createSpellMenuMessage(isActivityActive() ? "Something else is in progress." : "Nothing nearby answers this spell."));
+    return;
+  }
+
+  appendSpellCastOption(spellName, context, menuEl);
+}
+
+function renderManaSenseTargetMenu(menuEl, context) {
+  let hasTargets = false;
+
+  menuEl.appendChild(createManaSenseExperienceEntry());
+
+  if (context) {
+    appendSpellCastOption("manaSense", context, menuEl);
+    hasTargets = true;
+  }
+
+  const definitions = getManaSenseDefinitions();
+
+  for (let targetName in definitions) {
+    if (!isManaSenseTargetVisible(targetName)) continue;
+
+    appendManaSenseTargetOption(targetName, menuEl);
+    hasTargets = true;
+  }
+
+  if (!hasTargets) {
+    menuEl.appendChild(createSpellMenuMessage(isActivityActive() ? "Something else is in progress." : "Nothing nearby answers Mana Sense."));
+  }
+}
+
+function appendManaSenseTargetOption(targetName, menuEl) {
+  const definition = getManaSenseDefinition(targetName);
+
+  if (!definition) return;
+
+  const context = getManaSenseTargetContext(targetName);
+  const isActive = isManaSenseTargetActive(targetName);
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "attunement-target-btn";
+
+  const label = document.createElement("span");
+  label.className = "attunement-target-label";
+  label.textContent = definition.label;
+
+  const description = document.createElement("span");
+  description.className = "attunement-target-description";
+  description.textContent = isActive ? "Active until you leave " + getLocationLabel(definition.requiredLocation) + "." : definition.description || "";
+
+  const details = document.createElement("span");
+  details.className = "attunement-target-details";
+  details.textContent = isActive ? "Active" : formatSpellOptionDetails("manaSense", definition, context);
+
+  button.appendChild(label);
+  button.appendChild(description);
+  button.appendChild(details);
+
+  button.disabled = isActive || !canApplyManaSenseTarget(targetName);
+
+  if (!isActive) {
+    button.addEventListener("click", function () {
+      castTargetedSpell("manaSense", context);
+    });
+  }
+
+  menuEl.appendChild(button);
+}
+
+function renderContextualSpellCastOption(spellName, menuEl) {
+  const context = getSpellCastContext(spellName);
+
+  if (!context || context.type === "productionSpell") return false;
+  if (spellName === "manaSense" && context.type === "reveal") return false;
+
+  appendSpellCastOption(spellName, context, menuEl);
+  return true;
+}
+
+function appendSpellCastOption(spellName, context, menuEl) {
+  const spell = getSpell(spellName);
+
+  if (!spell) return;
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "attunement-target-btn";
+
+  const label = document.createElement("span");
+  label.className = "attunement-target-label";
+  label.textContent = "Cast " + spell.label;
+
+  const description = document.createElement("span");
+  description.className = "attunement-target-description";
+  description.textContent = getSpellContextDescription(context);
+
+  const details = document.createElement("span");
+  details.className = "attunement-target-details";
+  details.textContent = formatSpellOptionDetails(spellName, spell, context);
+
+  button.appendChild(label);
+  button.appendChild(description);
+  button.appendChild(details);
+
+  button.disabled = !canCastSpell(spellName);
+
+  button.addEventListener("click", function () {
+    castSpell(spellName);
+  });
+
+  menuEl.appendChild(button);
+}
+
+function getSpellContextDescription(context) {
+  if (context && context.type === "locationObjectSpellCharge") {
+    const object = getLocationObject(context.locationName, context.objectName);
+
+    return object ? "Charge " + object.label + "." : "Charge the current magical pattern.";
+  }
+
+  if (context && context.type === "dungeonSpellCharge") {
+    const node = getDungeonNode(context.dungeonId, context.nodeId);
+
+    return node ? "Open the way to " + node.label + "." : "Open the nearby force lock.";
+  }
+
+  if (context && context.type === "dungeonCharge") {
+    return "Sharpen your read of this room.";
+  }
+
+  return "Use this spell on the current target.";
+}
+
+function createSpellMenuMessage(text) {
+  const message = document.createElement("div");
+  message.className = "spell-menu-message";
+  message.textContent = text;
+
+  return message;
+}
+
+function createManaSenseExperienceEntry() {
+  const progress = getManaSenseProgressState();
+  const definition = getSpellProgressDefinition("manaSense");
+  const thresholds = definition.thresholds;
+  const maxLevel = definition.maxLevel;
+  const nextThreshold = thresholds[progress.level] || null;
+
+  const entry = document.createElement("div");
+  entry.className = "training-entry spell-experience-entry";
+
+  const header = document.createElement("div");
+  header.className = "training-entry-header";
+
+  const title = document.createElement("strong");
+  title.textContent = "Mana Sense - Level " + progress.level;
+
+  const bonus = document.createElement("span");
+  bonus.textContent = "+" + getManaSenseHiddenDiscoveryBonusChance() + "% hidden discovery";
+
+  header.appendChild(title);
+  header.appendChild(bonus);
+  entry.appendChild(header);
+
+  const crystalText = document.createElement("div");
+  crystalText.className = "training-detail";
+  crystalText.textContent = getManaSenseCrystalBonusText(progress.level);
+  entry.appendChild(crystalText);
+
+  const progressText = document.createElement("div");
+  progressText.className = "training-progress-text";
+
+  if (progress.level >= maxLevel || nextThreshold === null) {
+    progressText.textContent = "Mana spent: complete";
+  } else {
+    progressText.textContent = "Mana spent: " + formatTrainingNumber(progress.xp) + " / " + formatTrainingNumber(nextThreshold);
+  }
+
+  entry.appendChild(progressText);
+
+  const progressTrack = document.createElement("div");
+  progressTrack.className = "training-progress-track";
+
+  const progressFill = document.createElement("div");
+  progressFill.className = "training-progress-fill";
+  progressFill.style.width = getSpellProgressPercent("manaSense") * 100 + "%";
+
+  progressTrack.appendChild(progressFill);
+  entry.appendChild(progressTrack);
+
+  const detail = document.createElement("div");
+  detail.className = "training-detail";
+
+  if (progress.level >= maxLevel || nextThreshold === null) {
+    detail.textContent = "Current: " + getManaSenseLevelRewardText(progress.level) + ". Rank 2 research ready, story gated.";
+  } else {
+    detail.textContent =
+      "Current: " + getManaSenseLevelRewardText(progress.level) + ". Next: " + getManaSenseLevelRewardText(progress.level + 1) + ".";
+  }
+
+  entry.appendChild(detail);
+
+  return entry;
+}
+
+function createAttunementExperienceEntry() {
+  const progress = getAttunementProgressState();
+  const definition = getSpellProgressDefinition("attunement");
+  const thresholds = definition.thresholds;
+  const maxLevel = definition.maxLevel;
+  const nextThreshold = thresholds[progress.level] || null;
+
+  const entry = document.createElement("div");
+  entry.className = "training-entry spell-experience-entry";
+
+  const header = document.createElement("div");
+  header.className = "training-entry-header";
+
+  const title = document.createElement("strong");
+  title.textContent = "Attunement - Level " + progress.level;
+
+  const capacity = document.createElement("span");
+  capacity.textContent = formatAttunementMultiplier() + " bonus";
+
+  header.appendChild(title);
+  header.appendChild(capacity);
+  entry.appendChild(header);
+
+  const activeText = document.createElement("div");
+  activeText.className = "training-detail";
+  activeText.textContent = getAttunementActiveSummaryText();
+  entry.appendChild(activeText);
+
+  const progressText = document.createElement("div");
+  progressText.className = "training-progress-text";
+
+  if (progress.level >= maxLevel || nextThreshold === null) {
+    progressText.textContent = "Mana spent: complete";
+  } else {
+    progressText.textContent = "Mana spent: " + formatTrainingNumber(progress.xp) + " / " + formatTrainingNumber(nextThreshold);
+  }
+
+  entry.appendChild(progressText);
+
+  const progressTrack = document.createElement("div");
+  progressTrack.className = "training-progress-track";
+
+  const progressFill = document.createElement("div");
+  progressFill.className = "training-progress-fill";
+  progressFill.style.width = getSpellProgressPercent("attunement") * 100 + "%";
+
+  progressTrack.appendChild(progressFill);
+  entry.appendChild(progressTrack);
+
+  const detail = document.createElement("div");
+  detail.className = "training-detail";
+
+  if (progress.level >= maxLevel || nextThreshold === null) {
+    detail.textContent = getAttunementLevelRewardText(progress.level) + ". Rank 2 research ready, story gated.";
+  } else {
+    detail.textContent =
+      "Current: " + getAttunementLevelRewardText(progress.level) + ". Next: " + getAttunementLevelRewardText(progress.level + 1) + ".";
+  }
+
+  entry.appendChild(detail);
+
+  return entry;
+}
+
+function createArcaneForceExperienceEntry() {
+  const progress = getArcaneForceProgressState();
+  const definition = getSpellProgressDefinition("arcaneForce");
+  const thresholds = definition.thresholds;
+  const maxLevel = definition.maxLevel;
+  const nextThreshold = thresholds[progress.level] || null;
+
+  const entry = document.createElement("div");
+  entry.className = "training-entry spell-experience-entry";
+
+  const header = document.createElement("div");
+  header.className = "training-entry-header";
+
+  const title = document.createElement("strong");
+  title.textContent = "Arcane Force - Level " + progress.level;
+
+  const capacity = document.createElement("span");
+  capacity.textContent = getArcaneForceLevelRewardText(progress.level);
+
+  header.appendChild(title);
+  header.appendChild(capacity);
+  entry.appendChild(header);
+
+  const progressText = document.createElement("div");
+  progressText.className = "training-progress-text";
+
+  if (progress.level >= maxLevel || nextThreshold === null) {
+    progressText.textContent = "Mana spent: complete";
+  } else {
+    progressText.textContent = "Mana spent: " + formatTrainingNumber(progress.xp) + " / " + formatTrainingNumber(nextThreshold);
+  }
+
+  entry.appendChild(progressText);
+
+  const progressTrack = document.createElement("div");
+  progressTrack.className = "training-progress-track";
+
+  const progressFill = document.createElement("div");
+  progressFill.className = "training-progress-fill";
+  progressFill.style.width = getSpellProgressPercent("arcaneForce") * 100 + "%";
+
+  progressTrack.appendChild(progressFill);
+  entry.appendChild(progressTrack);
+
+  const detail = document.createElement("div");
+  detail.className = "training-detail";
+
+  if (progress.level >= maxLevel || nextThreshold === null) {
+    detail.textContent = "Current: " + getArcaneForceLevelRewardText(progress.level) + ". Ward research ready, story gated.";
+  } else {
+    detail.textContent =
+      "Current: " + getArcaneForceLevelRewardText(progress.level) + ". Next: " + getArcaneForceLevelRewardText(progress.level + 1) + ".";
+  }
+
+  entry.appendChild(detail);
+
+  return entry;
+}
+
+function renderSpellExperienceBar(spellName, boxEl) {
+  if (!getSpellProgressDefinition(spellName)) return;
+
+  boxEl.classList.add("has-spell-xp");
+
+  const track = document.createElement("div");
+  track.className = "spell-xp-progress-track";
+
+  const fill = document.createElement("div");
+  fill.className = "spell-xp-progress-fill";
+  fill.style.width = getSpellProgressPercent(spellName) * 100 + "%";
+
+  track.appendChild(fill);
+  boxEl.appendChild(track);
+}
+
+function getSpellProgressPercent(spellName) {
+  const progress = getSpellProgressState(spellName);
+  const definition = getSpellProgressDefinition(spellName);
+
+  if (!definition || !Array.isArray(definition.thresholds)) return 0;
+  if (progress.level >= definition.maxLevel) return 1;
+
+  const nextThreshold = definition.thresholds[progress.level];
+  const currentThreshold = progress.level > 0 ? definition.thresholds[progress.level - 1] : 0;
+  const required = nextThreshold - currentThreshold;
+  const current = Math.max(0, progress.xp - currentThreshold);
+
+  if (required <= 0) return 1;
+
+  return Math.min(Math.max(current / required, 0), 1);
+}
+
+function formatAttunementMultiplier() {
+  return "x" + getAttunementBonusMultiplier().toFixed(1);
+}
+
+function getAttunementActiveSummaryText() {
+  const state = getAttunementState();
+  const names = state.active
+    .map(function (entry) {
+      const definition = getAttunementDefinition(entry.id);
+      if (!definition) return entry.id;
+
+      return definition.label + " (" + getAttunementTargetDescription(entry.id, definition, { prefix: false }) + ")";
+    })
+    .filter(Boolean);
+
+  return "Active: " + (names.length ? names.join(", ") : "None") + " (" + state.active.length + "/" + state.capacity + " slots)";
 }
 
 function renderAttunementPips(boxEl) {
@@ -2570,12 +4013,12 @@ function isAttunementTargetAvailable(attunementName) {
   if (!definition) return false;
   if (hasActiveAttunement(attunementName)) return false;
 
-  return !!getPurchasedEquipmentForSlot(definition.equipmentType, definition.slot);
+  return true;
 }
 
 function getProductionSpellDefinitions(spellName) {
   if (spellName === "imbue") return getImbueDefinitions();
-  if (spellName === "arcaneHeat") return getArcaneHeatDefinitions();
+  if (spellName === "arcaneForce") return getArcaneForceDefinitions();
 
   return null;
 }
@@ -2637,6 +4080,7 @@ function getLocationProductionSpellTargetContext(definition) {
     produces: definition.produces || null,
     storageProduces: definition.storageProduces || null,
     producesConsumable: definition.producesConsumable || null,
+    carriedProduces: definition.carriedProduces || null,
   };
 }
 
@@ -2647,6 +4091,23 @@ function getSpellCastCost(spellName, context) {
 
     if (interaction && interaction.cost) {
       return interaction.cost;
+    }
+  }
+
+  if (context && context.type === "dungeonSpellCharge") {
+    const node = getDungeonNode(context.dungeonId, context.nodeId);
+    const interaction = getDungeonNodeSpellInteraction(node, context.spellName);
+
+    if (interaction && interaction.cost) {
+      return interaction.cost;
+    }
+  }
+
+  if (context && context.type === "manaSenseTarget") {
+    const definition = getManaSenseDefinition(context.targetId);
+
+    if (definition && definition.cost) {
+      return definition.cost;
     }
   }
 
@@ -2667,8 +4128,25 @@ function getSpellCastDuration(spellName, context) {
     }
   }
 
+  if (context && context.type === "dungeonSpellCharge") {
+    const node = getDungeonNode(context.dungeonId, context.nodeId);
+    const interaction = getDungeonNodeSpellInteraction(node, context.spellName);
+
+    if (interaction && Number.isFinite(interaction.duration)) {
+      return interaction.duration;
+    }
+  }
+
   if (context && context.type === "productionSpell" && context.spellName === spellName) {
     const definition = getProductionSpellDefinition(spellName, context.targetId);
+
+    if (definition && Number.isFinite(definition.duration)) {
+      return definition.duration;
+    }
+  }
+
+  if (context && context.type === "manaSenseTarget") {
+    const definition = getManaSenseDefinition(context.targetId);
 
     if (definition && Number.isFinite(definition.duration)) {
       return definition.duration;
@@ -2689,7 +4167,14 @@ function formatSpellDuration(duration) {
 function formatSpellOptionDetails(spellName, definition, context) {
   const targetContext =
     context && context.type === "productionSpell" ? getProductionSpellTargetContext(spellName, context.targetId, context) : null;
-  const cost = targetContext ? targetContext.cost : definition ? definition.cost : {};
+  const cost =
+    targetContext || (context && context.type !== "attunement")
+      ? targetContext
+        ? targetContext.cost
+        : getSpellCastCost(spellName, context)
+      : definition
+        ? definition.cost
+        : {};
   const storageCost = targetContext ? targetContext.storageCost : definition ? definition.storageCost : null;
 
   return [
@@ -2770,11 +4255,14 @@ function isProductionSpellTargetAvailable(spellName, targetName) {
   if (!definition) return false;
   if (!targetContext) return false;
 
+  if (spellName === "arcaneForce" && getArcaneForceLevel() < (definition.requiredForceLevel || 0)) return false;
+
   if (!areProductionSpellTargetRequirementsMet(definition.requires)) return false;
 
   if (!canAffordStorageCost(targetContext.storageCost)) return false;
   if (!canReceiveProductionProduces(targetContext.produces)) return false;
   if (!canReceiveStorageProduces(targetContext.storageProduces)) return false;
+  if (!canReceiveCarriedProduces(targetContext.carriedProduces)) return false;
 
   if (
     targetContext.producesConsumable &&
@@ -2817,6 +4305,12 @@ function canReceiveStorageProduces(produces) {
   }
 
   return true;
+}
+
+function canReceiveCarriedProduces(produces) {
+  if (!produces) return true;
+
+  return hasCarrySpace(produces.resource, 1);
 }
 
 function areProductionSpellTargetRequirementsMet(requires) {
@@ -2901,6 +4395,14 @@ function castTargetedSpell(spellName, context) {
     cost = definition.cost || {};
   }
 
+  if (spellName === "manaSense") {
+    if (!context || context.type !== "manaSenseTarget") return;
+    if (!canApplyManaSenseTarget(context.targetId)) return;
+
+    const definition = getManaSenseDefinition(context.targetId);
+    cost = definition.cost || {};
+  }
+
   if (isProductionSpell(spellName)) {
     if (!context || context.type !== "productionSpell" || context.spellName !== spellName) return;
     if (!canApplyProductionSpellTarget(spellName, context.targetId)) return;
@@ -2934,17 +4436,30 @@ function applyAttunement(attunementName) {
   if (hasActiveAttunement(attunementName)) return false;
   if (state.active.length >= state.capacity) return false;
 
-  const equipment = getPurchasedEquipmentForSlot(definition.equipmentType, definition.slot);
-
-  if (!equipment) return false;
-
   state.active.push({
     id: attunementName,
-    equipmentType: definition.equipmentType,
-    slot: definition.slot,
   });
 
-  addStoryEntry("You attune to " + (equipment.displayName || equipment.label) + ".");
+  addStoryEntry("You attune yourself to " + definition.label + ".");
+  return true;
+}
+
+function applyManaSenseTarget(targetName) {
+  const definition = getManaSenseDefinition(targetName);
+
+  if (!definition) return false;
+  if (targetName !== "stoneSense") return false;
+  if (typeof activateStoneSense !== "function") return false;
+  if (!activateStoneSense()) return false;
+
+  if (definition.story) {
+    addStoryEntry(definition.story);
+  }
+
+  updateEquipmentSlotUI();
+  updateAllActionButtons();
+  updateCraftingButtons();
+  refreshExpeditionUI();
   return true;
 }
 
@@ -2979,6 +4494,22 @@ function applyProductionSpellTarget(spellName, targetName, requestedContext) {
     }
   }
 
+  if (targetContext.carriedProduces) {
+    const carriedAmount = addCarriedItemUpToCapacity(targetContext.carriedProduces.resource, targetContext.carriedProduces.amount);
+
+    if (carriedAmount > 0) {
+      const resource = getResource(targetContext.carriedProduces.resource);
+      const label = resource ? resource.label : targetContext.carriedProduces.resource;
+
+      unlockResource(targetContext.carriedProduces.resource);
+      addStoryEntry("You gather " + carriedAmount + " " + label + ".");
+    }
+
+    if (carriedAmount < targetContext.carriedProduces.amount) {
+      addStoryEntry(definition.partialStory || "You cannot carry everything the spell frees.");
+    }
+  }
+
   if (typeof definition.apply === "function") {
     definition.apply(spellName, targetName);
   }
@@ -3000,8 +4531,3 @@ function applyProductionSpellTarget(spellName, targetName, requestedContext) {
   return true;
 }
 
-function isEquipmentSlotAttuned(equipmentType, slotName) {
-  return getActiveAttunements().some(function (entry) {
-    return entry.equipmentType === equipmentType && entry.slot === slotName;
-  });
-}

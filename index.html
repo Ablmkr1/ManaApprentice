@@ -66,7 +66,7 @@
           <div id="spellSlotsGroup" class="equipment-group" style="display: none">
             <h3>Spells</h3>
             <div id="spellSlots" class="equipment-slots"></div>
-            <div id="attunementTargetMenu" class="attunement-target-menu" style="display: none"></div>
+            <div id="spellTargetMenu" class="attunement-target-menu spell-target-menu" style="display: none"></div>
           </div>
         </div>
       </section>
@@ -275,6 +275,11 @@
             <div class="progressFill"></div>
             <span>Meditate</span>
           </button>
+
+          <button class="action-btn" data-action="concentrateTonicBase" style="display: none">
+            <div class="progressFill"></div>
+            <span>Concentrate Tonic Base</span>
+          </button>
         </div>
 
         <div id="craftingSection" class="crafting-section" style="display: none">
@@ -282,6 +287,7 @@
             <button id="craftingTabBtn" class="work-tab active" type="button">Crafting</button>
             <button id="researchTabBtn" class="work-tab" type="button">Research</button>
             <button id="automationTabBtn" class="work-tab" type="button" style="display: none">Automation</button>
+            <button id="projectTabBtn" class="work-tab" type="button" style="display: none">Projects</button>
           </div>
 
           <div id="craftingPanel" class="work-panel">
@@ -351,6 +357,11 @@
           <div id="automationPanel" class="work-panel automation-panel" style="display: none">
             <h3>Automation</h3>
             <div id="automationList" class="automation-list"></div>
+          </div>
+
+          <div id="projectPanel" class="work-panel project-panel" style="display: none">
+            <h3>Projects</h3>
+            <div id="projectList" class="project-list"></div>
           </div>
         </div>
       </section>
@@ -487,6 +498,12 @@
           <button id="saveGameBtn" type="button">Save</button>
           <button id="loadGameBtn" type="button">Load</button>
           <button id="resetSaveBtn" type="button">Reset Save</button>
+          <div class="dev-speed-controls" aria-label="Developer game speed">
+            <span class="dev-speed-label">Dev Speed</span>
+            <button class="dev-speed-btn active" type="button" data-speed="1">x1</button>
+            <button class="dev-speed-btn" type="button" data-speed="5">x5</button>
+            <button class="dev-speed-btn" type="button" data-speed="10">x10</button>
+          </div>
         </div>
       </section>
     </main>

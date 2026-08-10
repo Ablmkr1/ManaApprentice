@@ -1,3 +1,7 @@
+// Mana Control is intentionally dormant. Set this back to true to reactivate
+// the saved mana control progression, training entry, and spell bonuses.
+const MANA_CONTROL_SYSTEM_ENABLED = false;
+
 const resources = {
   energy: {
     label: "Energy",
@@ -506,6 +510,21 @@ const actions = {
     unlocked: false,
     running: false,
     auto: { carriedItem: "glimmerleaf" },
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+
+  concentrateTonicBase: {
+    label: "Concentrate Tonic Base",
+    duration: 3,
+    cost: {
+      mana: 4,
+    },
+    unlocked: false,
+    running: false,
     button: null,
     progressBar: null,
     metaProgressBar: null,
@@ -1032,9 +1051,24 @@ const gameState = {
   campSmeltingPlansFound: false,
   manaCondenserPlansFound: false,
   partialTowerPlansFound: false,
+  towerConstructionUnlocked: false,
 
   magic: {
     sensedReveals: {},
+    spellProgress: {
+      manaSense: {
+        xp: 0,
+        level: 0,
+      },
+      attunement: {
+        xp: 0,
+        level: 0,
+      },
+      arcaneForce: {
+        xp: 0,
+        level: 0,
+      },
+    },
     attunements: {
       capacity: 1,
       active: [],
@@ -1078,6 +1112,16 @@ const gameState = {
     },
   },
 
+  projects: {
+    towerFoundation: {
+      unlocked: false,
+      completed: false,
+      level: 0,
+      work: 0,
+      deposits: {},
+    },
+  },
+
   expedition: {
     active: false,
     discoveredSomething: false,
@@ -1090,6 +1134,7 @@ const gameState = {
     distance: 0,
     targetDistance: 100,
     tonicSlots: [],
+    locationSpellEffects: {},
 
     dungeon: {
       active: false,

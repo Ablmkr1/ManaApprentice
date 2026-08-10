@@ -6,7 +6,9 @@ const EXPEDITION_ROUTE_INTRA_REGION = "intraRegion";
 const INSTANT_MANUAL_RETURN_TO_CAMP = true;
 
 function setCurrentLocation(locationName) {
+  clearTemporaryLocationSpellEffects(gameState.expedition.currentLocation);
   gameState.expedition.currentLocation = locationName;
+  repairExpeditionLocationSpellEffects();
 
   updateLocationActions();
   updateCraftingUIForCurrentContext();
@@ -15,6 +17,7 @@ function setCurrentLocation(locationName) {
 
 function clearCurrentLocation() {
   resetTemporaryLocationObjectSpellCharges(gameState.expedition.currentLocation);
+  clearTemporaryLocationSpellEffects(gameState.expedition.currentLocation);
   gameState.expedition.currentLocation = null;
 
   updateLocationActions();
@@ -36,6 +39,73 @@ function resetTemporaryLocationObjectSpellCharges(locationName) {
     object.spellCharges = {};
     object.manaSenseCharges = 0;
   }
+}
+
+function getExpeditionLocationSpellEffects() {
+  const expedition = gameState.expedition;
+
+  if (!expedition.locationSpellEffects || typeof expedition.locationSpellEffects !== "object" || Array.isArray(expedition.locationSpellEffects)) {
+    expedition.locationSpellEffects = {};
+  }
+
+  return expedition.locationSpellEffects;
+}
+
+function clearTemporaryLocationSpellEffects(locationName) {
+  const effects = getExpeditionLocationSpellEffects();
+
+  for (let effectName in effects) {
+    const effect = effects[effectName];
+
+    if (!effect || !locationName || effect.locationName === locationName) {
+      delete effects[effectName];
+    }
+  }
+}
+
+function repairExpeditionLocationSpellEffects() {
+  const effects = getExpeditionLocationSpellEffects();
+  const currentLocation = gameState.expedition.currentLocation;
+
+  for (let effectName in effects) {
+    const effect = effects[effectName];
+
+    if (!effect || effect.locationName !== currentLocation) {
+      delete effects[effectName];
+    }
+  }
+
+  if (effects.stoneSense && currentLocation !== "foothillScree") {
+    delete effects.stoneSense;
+  }
+}
+
+function activateStoneSense() {
+  if (gameState.expedition.currentLocation !== "foothillScree") return false;
+  if (hasStoneSenseActive()) return false;
+
+  getExpeditionLocationSpellEffects().stoneSense = {
+    locationName: "foothillScree",
+  };
+
+  refreshExpeditionUI();
+  updateLocationActions();
+  return true;
+}
+
+function hasStoneSenseActive() {
+  repairExpeditionLocationSpellEffects();
+
+  const effect = getExpeditionLocationSpellEffects().stoneSense;
+
+  return !!effect && effect.locationName === "foothillScree" && gameState.expedition.currentLocation === "foothillScree";
+}
+
+function getFoothillScreeOreFindChance() {
+  if (!hasStoneSenseActive()) return 0.2;
+  if (typeof getStoneSenseOreFindChance !== "function") return 0.2;
+
+  return getStoneSenseOreFindChance();
 }
 
 function updateLocationActions() {
@@ -81,7 +151,7 @@ function lockLocationActions() {
 }
 
 function getLocationActionNames() {
-  const actionNames = ["exploreLocation", "meditate", "leaveDungeon", "useHuntingLure"];
+  const actionNames = ["exploreLocation", "meditate", "leaveDungeon", "useHuntingLure", "concentrateTonicBase"];
 
   const locations = getExpeditionLocationDefinitions();
 
@@ -2177,7 +2247,7 @@ function updateDungeonUI() {
     const hasExitFromCurrentNode = !!getDungeonNodeExit(currentNode, nodeId);
     const isCurrentLayerNode = getDungeonNodeLayer(node) === currentLayer;
     const shouldShowNode = (isCurrentLayerNode && node.discovered) || hasExitFromCurrentNode;
-    const requirementText = getDungeonRequirementText(node.requires);
+    const requirementText = getDungeonRequirementText(node.requires, node);
     const movementBlockedText = getDungeonMovementBlockedText(nodeId);
     const isRequirementLocked = !canEnterDungeonNode(dungeonState.dungeonId, nodeId);
     const isMovementLocked = !isRequirementLocked && !!movementBlockedText;
@@ -2300,6 +2370,36 @@ function getDungeonActionButton(actionName) {
   return ui.dungeonActions.querySelector('[data-dungeon-action="' + actionName + '"]');
 }
 
+function getDungeonNodeSpellCharges(node) {
+  if (!node) return {};
+
+  if (!node.spellCharges || typeof node.spellCharges !== "object" || Array.isArray(node.spellCharges)) {
+    node.spellCharges = {};
+  }
+
+  if (node.manaSenseCharges && !node.spellCharges.manaSense) {
+    node.spellCharges.manaSense = node.manaSenseCharges;
+  }
+
+  return node.spellCharges;
+}
+
+function getDungeonNodeSpellCharge(node, spellName) {
+  const charges = getDungeonNodeSpellCharges(node);
+
+  return charges[spellName] || 0;
+}
+
+function setDungeonNodeSpellCharge(node, spellName, amount) {
+  const charges = getDungeonNodeSpellCharges(node);
+
+  charges[spellName] = amount;
+
+  if (spellName === "manaSense") {
+    node.manaSenseCharges = amount;
+  }
+}
+
 function startDungeonRoomSearch() {
   const dungeonState = getCurrentDungeonState();
   const node = getCurrentDungeonNode();
@@ -2331,9 +2431,11 @@ function getDungeonSearchChance(node) {
   const spell = getSpell("manaSense");
   const fallbackBonus = spell && spell.effects ? spell.effects.dungeonSearchBonus || 0 : 0;
   const bonusPerCharge = typeof getManaSenseDungeonSearchBonus === "function" ? getManaSenseDungeonSearchBonus() : fallbackBonus;
+  const hiddenDiscoveryBonus =
+    typeof getManaSenseHiddenDiscoveryBonusChance === "function" ? getManaSenseHiddenDiscoveryBonusChance() : 0;
   const charges = node.manaSenseCharges || 0;
 
-  return Math.min(100, baseChance + charges * bonusPerCharge);
+  return Math.min(100, baseChance + hiddenDiscoveryBonus + charges * bonusPerCharge);
 }
 
 function rollDungeonSearchSuccess(node) {
@@ -2347,10 +2449,10 @@ function canEnterDungeonNode(dungeonId, nodeId) {
 
   if (!node) return false;
 
-  return meetsDungeonRequirements(node.requires);
+  return meetsDungeonRequirements(node.requires, node);
 }
 
-function meetsDungeonRequirements(requires) {
+function meetsDungeonRequirements(requires, node) {
   if (!requires) return true;
 
   if (requires.gearPurchased) {
@@ -2361,10 +2463,18 @@ function meetsDungeonRequirements(requires) {
     }
   }
 
+  if (requires.spellCharges) {
+    for (let spellName in requires.spellCharges) {
+      if (getDungeonNodeSpellCharge(node, spellName) < requires.spellCharges[spellName]) {
+        return false;
+      }
+    }
+  }
+
   return true;
 }
 
-function getDungeonRequirementText(requires) {
+function getDungeonRequirementText(requires, node) {
   if (!requires) return "";
 
   const missingRequirements = [];
@@ -2376,6 +2486,17 @@ function getDungeonRequirementText(requires) {
         missingRequirements.push(gear ? gear.displayName || gear.label || gearName : gearName);
       }
     });
+  }
+
+  if (requires.spellCharges) {
+    for (let spellName in requires.spellCharges) {
+      const current = getDungeonNodeSpellCharge(node, spellName);
+      const required = requires.spellCharges[spellName];
+
+      if (current < required) {
+        missingRequirements.push(getLocationObjectSpellRequirementPart(spellName, current, required));
+      }
+    }
   }
 
   if (missingRequirements.length === 0) return "";
@@ -2505,7 +2626,7 @@ function completeDungeonRoomSearch(dungeonId, nodeId) {
   }
 
   node.explored = true;
-  node.manaSenseCharges = 0;
+  setDungeonNodeSpellCharge(node, "manaSense", 0);
 
   addStoryEntry(node.search.successText || "You finish exploring the room.");
   recordDeepThought(node.search.deepThought || 0, node.label);
@@ -2527,12 +2648,19 @@ function claimDungeonNodeReward(node) {
 
   if (reward.carried) {
     for (let itemName in reward.carried) {
-      const amount = reward.carried[itemName];
+      const rewardAmount = getFoundCarriedRewardAmount(itemName, reward.carried[itemName]);
+      const amount = rewardAmount.amount;
       const carriedAmount = addCarriedItemUpToCapacity(itemName, amount);
 
       if (carriedAmount > 0) {
         addStoryEntry("You collect " + carriedAmount + " " + itemName + ".");
         unlockResource(itemName);
+      }
+
+      if (rewardAmount.bonus > 0 && carriedAmount > reward.carried[itemName]) {
+        const bonusCarried = Math.min(rewardAmount.bonus, carriedAmount - reward.carried[itemName]);
+
+        addStoryEntry("Mana Sense reveals " + bonusCarried + " extra mana crystal" + (bonusCarried === 1 ? "" : "s") + ".");
       }
 
       if (carriedAmount < amount) {
@@ -2547,6 +2675,19 @@ function claimDungeonNodeReward(node) {
   }
 
   node.rewardClaimed = true;
+}
+
+function getFoundCarriedRewardAmount(itemName, amount) {
+  const baseAmount = Math.max(0, Math.floor(amount || 0));
+  const bonus =
+    itemName === "manaCrystal" && getSpell("manaSense")?.unlocked && typeof rollManaSenseBonusManaCrystals === "function"
+      ? rollManaSenseBonusManaCrystals()
+      : 0;
+
+  return {
+    amount: baseAmount + bonus,
+    bonus,
+  };
 }
 
 function getDungeonSearchCost(node) {

@@ -455,10 +455,10 @@ const expeditionLocations = {
         stages: [
           {
             story:
-              "You study the smelter's remembered heat until the lesson catches in your hands. Iron can be persuaded, not merely hammered.",
+              "You study the smelter's remembered pressure until the lesson catches in your hands. Iron can be persuaded, not merely hammered.",
             unlocks: [
-              { type: "spell", id: "arcaneHeat" },
-              { type: "journal", id: "arcaneHeatLearned" },
+              { type: "spell", id: "arcaneForce" },
+              { type: "journal", id: "arcaneForceLearned" },
             ],
           },
         ],
@@ -530,7 +530,7 @@ const expeditionLocations = {
       discovered: "A vine-covered hut waits in the southern overgrowth. Strange scents cling to the air around it.",
       explored: "The abandoned hut has storage, tools, and enough old notes to begin simple alchemy.",
     },
-    availableActions: ["storeHerb", "storeGlimmerleaf"],
+    availableActions: ["storeHerb", "storeGlimmerleaf", "concentrateTonicBase"],
     explorableObjects: {
       studyInfusionPattern: {
         label: "Study Infusion Pattern",
@@ -653,7 +653,7 @@ const expeditionLocations = {
     exploreStory: [
       "The archive walls are nearly seamless. Even the moss seems reluctant to cling to them.",
       "A ring of old script surrounds the door. Each section answers to a different shape of magic.",
-      "The seal is not a lock so much as a question. Mana Sense, Arcane Heat, Imbue, and Attunement will all be needed to answer it.",
+      "The seal is not a lock so much as a question. Mana Sense, Arcane Force, Imbue, and Attunement will all be needed to answer it.",
     ],
     panelText: {
       discovered: "A pale stone archive waits at the end of the western road. Its door is sealed by old magic.",
@@ -678,11 +678,11 @@ const expeditionLocations = {
             duration: 1,
             stories: ["Mana Sense finds the first shape of the seal: meaning, not mechanism."],
           },
-          arcaneHeat: {
+          arcaneForce: {
             required: 1,
             cost: { mana: 4 },
             duration: 3,
-            stories: ["Arcane Heat closes hairline fractures in the door's inner hinge until the old metal remembers how to move."],
+            stories: ["Arcane Force presses through the door's inner hinge until the old metal remembers how to move."],
           },
           imbue: {
             required: 1,
@@ -704,7 +704,7 @@ const expeditionLocations = {
           },
           spellCharges: {
             manaSense: 1,
-            arcaneHeat: 1,
+            arcaneForce: 1,
             imbue: 1,
             attunement: 1,
           },
@@ -950,6 +950,21 @@ const dungeonDefinitions = {
         explored: false,
         rewardClaimed: false,
         manaSenseCharges: 0,
+        spellCharges: {},
+        spellInteractions: {
+          arcaneForce: {
+            required: 1,
+            requiredForceLevel: 2,
+            cost: { mana: 4 },
+            duration: 2,
+            stories: ["Arcane Force turns the cracked valve ring one hard notch. The reservoir path opens with a dry groan."],
+          },
+        },
+        requires: {
+          spellCharges: {
+            arcaneForce: 1,
+          },
+        },
         search: {
           duration: 9,
           baseChance: 35,
@@ -1059,6 +1074,21 @@ const dungeonDefinitions = {
         explored: false,
         rewardClaimed: false,
         manaSenseCharges: 0,
+        spellCharges: {},
+        spellInteractions: {
+          arcaneForce: {
+            required: 1,
+            requiredForceLevel: 2,
+            cost: { mana: 5 },
+            duration: 2,
+            stories: ["Arcane Force levers the control ring into alignment. The dais accepts your weight without resisting."],
+          },
+        },
+        requires: {
+          spellCharges: {
+            arcaneForce: 1,
+          },
+        },
         search: {
           duration: 12,
           baseChance: 35,
@@ -1288,7 +1318,7 @@ const dungeonDefinitions = {
           baseChance: 40,
           deepThought: 4,
           cost: { energy: 12 },
-          successText: "You copy plans for building a camp smelter that can hold arcane heat safely.",
+          successText: "You copy plans for building a camp smelter braced for Arcane Force.",
           reward: {
             unlocks: [
               { type: "flag", id: "campSmeltingPlansFound" },
@@ -1358,6 +1388,21 @@ const dungeonDefinitions = {
         explored: false,
         rewardClaimed: false,
         manaSenseCharges: 0,
+        spellCharges: {},
+        spellInteractions: {
+          arcaneForce: {
+            required: 1,
+            requiredForceLevel: 2,
+            cost: { mana: 4 },
+            duration: 2,
+            stories: ["Arcane Force presses the stair's hidden brace aside. The way down loosens with a muted click."],
+          },
+        },
+        requires: {
+          spellCharges: {
+            arcaneForce: 1,
+          },
+        },
         search: {
           duration: 8,
           baseChance: 50,
@@ -1419,6 +1464,21 @@ const dungeonDefinitions = {
         explored: false,
         rewardClaimed: false,
         manaSenseCharges: 0,
+        spellCharges: {},
+        spellInteractions: {
+          arcaneForce: {
+            required: 1,
+            requiredForceLevel: 2,
+            cost: { mana: 5 },
+            duration: 2,
+            stories: ["A flat plane of Force catches the warped shutters and shoves them fully open."],
+          },
+        },
+        requires: {
+          spellCharges: {
+            arcaneForce: 1,
+          },
+        },
         search: {
           duration: 10,
           baseChance: 40,
@@ -1526,6 +1586,21 @@ const dungeonDefinitions = {
         explored: false,
         rewardClaimed: false,
         manaSenseCharges: 0,
+        spellCharges: {},
+        spellInteractions: {
+          arcaneForce: {
+            required: 1,
+            requiredForceLevel: 2,
+            cost: { mana: 6 },
+            duration: 3,
+            stories: ["Arcane Force spreads through the repository seal until the old pressure lock releases."],
+          },
+        },
+        requires: {
+          spellCharges: {
+            arcaneForce: 1,
+          },
+        },
         search: {
           duration: 13,
           baseChance: 30,
@@ -2066,7 +2141,7 @@ const researchDefinitions = {
       flags: ["campSmeltingPlansFound"],
       researchCompleted: ["smelting"],
     },
-    story: "The heat diagrams show how to brace a small smelter so arcane heat can work safely at camp.",
+    story: "The smelter diagrams show how to brace a small furnace so Arcane Force can work safely at camp.",
     unlocks: [{ type: "campUpgrade", id: "campSmelterFoundation" }],
   },
 
@@ -2113,19 +2188,130 @@ const researchDefinitions = {
 
   towerFoundations: {
     label: "Tower Foundations",
-    duration: 1,
-    deepThought: 0,
+    duration: 10,
+    deepThought: 5,
     completed: false,
     unlocked: false,
-    blocked: true,
-    lockedReason: "The archive plans confirm what the buried foundation was for, but too many pages are missing to begin construction.",
-    cost: {},
+    cost: {
+      energy: 40,
+      focus: 5,
+    },
     requires: {
       flags: ["partialTowerPlansFound"],
     },
     story:
-      "The partial tower plans match the foundation beneath camp. The design is incomplete, but the shape is unmistakable: someone meant to build upward from your clearing.",
-    unlocks: [],
+      "The partial tower plans match the foundation beneath camp. They are not enough to build upward, but they are enough to clear, stabilize, and awaken what was buried.",
+    unlocks: [
+      { type: "project", id: "towerFoundation" },
+      { type: "journal", id: "towerFoundationStarted" },
+      { type: "goal", id: "clearTowerFoundation" },
+    ],
+  },
+};
+
+const projectDefinitions = {
+  towerFoundation: {
+    label: "Tower Foundation",
+    actionLabel: "Work on Foundation",
+    completedLabel: "Foundation Awakened",
+    workCost: {
+      energy: 20,
+    },
+    workDuration: 3,
+    description:
+      "The tower plans point to the clearing beneath your camp. The stone below is old, deliberate, and still waiting for the shape above it.",
+    completedDescription:
+      "The buried foundation has been cleared, repaired, reinforced, and awakened. The clearing is no longer just a camp; it is the base of something larger.",
+    completedStory:
+      "Charged crystals settle into the restored channels. Blue-white light runs through the old stone, and the whole foundation answers at once.",
+    levels: [
+      {
+        name: "Site Cleared",
+        workYield: 20,
+        workRequired: 100,
+        materials: {
+          wood: 25,
+        },
+        description: "Brush, roots, and camp clutter cover the footprint shown in the plans.",
+        completionStory: "You clear enough of the site to see the first deliberate curve beneath the soil.",
+      },
+      {
+        name: "Excavation Rig",
+        workYield: 20,
+        workRequired: 200,
+        materials: {
+          wood: 50,
+        },
+        description: "The foundation is too large to clear by hand alone. Braces, ramps, and hauling frames will keep the work moving.",
+        completionStory: "A crude rig rises over the clearing, turning hard digging into repeatable labor.",
+      },
+      {
+        name: "Buried Stonework",
+        workYield: 22,
+        workRequired: 300,
+        materials: {
+          stone: 50,
+        },
+        description: "Packed earth and rubble hide fitted stonework beneath the camp.",
+        completionStory: "Your tools strike fitted stone. The foundation was not destroyed; it was buried.",
+      },
+      {
+        name: "Outer Ring Exposed",
+        workYield: 22,
+        workRequired: 450,
+        materials: {
+          stone: 100,
+        },
+        description: "The outer ring is visible now, wide enough to make the camp feel like it was built inside a sleeping tower.",
+        completionStory: "The tower footprint resolves into a full ring beneath the clearing.",
+      },
+      {
+        name: "Foundation Repaired",
+        workYield: 25,
+        workRequired: 600,
+        materials: {
+          stone: 150,
+          iron: 25,
+        },
+        description: "Cracked foundation sections need fitted stone and iron pins before they can bear weight again.",
+        completionStory: "The repaired ring settles with a deep, steady weight. The old foundation can carry structure again.",
+      },
+      {
+        name: "Reinforced Foundation",
+        workYield: 25,
+        workRequired: 800,
+        materials: {
+          stone: 250,
+          iron: 50,
+        },
+        description: "Iron reinforcement from the northern forge can bind the ancient structure into one frame.",
+        completionStory: "Iron ties the old stone together, making the foundation feel less like ruins and more like engineering.",
+      },
+      {
+        name: "Central Footing Restored",
+        workYield: 30,
+        workRequired: 1000,
+        materials: {
+          stone: 400,
+          iron: 75,
+        },
+        description: "The central footing holds narrow channels that look less like drainage and more like mana pathways.",
+        completionStory: "The central footing opens under your hands. Faint mana channels run through the entire foundation.",
+      },
+      {
+        name: "Foundation Awakened",
+        workYield: 30,
+        workRequired: 1250,
+        materials: {
+          stone: 600,
+          iron: 100,
+          chargedCrystal: 8,
+        },
+        description: "The foundation is physically whole. Charged crystals should be able to wake the channels carved through the stone.",
+        completionStory:
+          "One by one, charged crystals seat into the channels. The foundation lights from edge to center, remembering the tower it was meant to hold.",
+      },
+    ],
   },
 };
 
@@ -3416,20 +3602,32 @@ const spellDefinitions = {
     unlocked: false,
     targeted: true,
   },
-  arcaneHeat: {
-    label: "Arcane Heat",
+  arcaneForce: {
+    label: "Arcane Force",
     duration: 2,
     unlocked: false,
     targeted: true,
   },
 };
 
+const manaSenseDefinitions = {
+  stoneSense: {
+    label: "Stone Sense",
+    description: "Sense ore-rich stone in the foothill scree until you leave.",
+    requiredLocation: "foothillScree",
+    requiredManaSenseLevel: 1,
+    duration: 3,
+    cost: {
+      mana: 4,
+    },
+    story: "You let Mana Sense sink into the loose stone. Ore-rich seams stand out like pressure behind your eyes.",
+  },
+};
+
 const attunementDefinitions = {
   feetTravel: {
-    label: "Attune Footwear",
+    label: "Sure Footing",
     description: "+0.5 travel distance per step",
-    equipmentType: "gear",
-    slot: "feet",
     cost: { mana: 2 },
     effects: {
       travelDistanceFlat: 0.5,
@@ -3437,10 +3635,8 @@ const attunementDefinitions = {
   },
 
   packCapacity: {
-    label: "Attune Pack",
+    label: "Strong Back",
     description: "+10 carried capacity",
-    equipmentType: "gear",
-    slot: "pack",
     cost: { mana: 2 },
     effects: {
       carryCapacityFlat: 10,
@@ -3448,24 +3644,12 @@ const attunementDefinitions = {
   },
 
   knifeHunting: {
-    label: "Attune Knife",
-    description: "+1 pelt from successful hunts",
-    equipmentType: "tool",
-    slot: "knife",
+    label: "Hunter's Eye",
+    description: "Improves hunt success chance; +1 pelt at level 5",
     cost: { mana: 2 },
     effects: {
-      huntRewardFlat: 1,
-    },
-  },
-
-  pickMining: {
-    label: "Attune Pick",
-    description: "+1 ore from mining",
-    equipmentType: "tool",
-    slot: "pick",
-    cost: { mana: 2 },
-    effects: {
-      mineOreFlat: 1,
+      huntSuccessChancePerLevel: 0.07,
+      maxLevelHuntRewardFlat: 1,
     },
   },
 };
@@ -3586,37 +3770,12 @@ const imbueDefinitions = {
   },
 };
 
-const arcaneHeatDefinitions = {
-  concentrateTonicBase: {
-    label: "Concentrate Tonic Base",
-    description: "Use controlled magical heat to reduce two tonic bases into one stronger base.",
-    requiredLocation: "alchemistsHut",
-    campUpgradeRequired: "campAlchemyStation",
-    duration: 3,
-    cost: {
-      mana: 4,
-    },
-    campCost: {
-      mana: 4,
-      staminaTonicBase: 2,
-    },
-    storageCost: {
-      staminaTonicBase: 2,
-    },
-    storageProduces: {
-      concentratedTonicBase: 1,
-    },
-    campProduces: {
-      resource: "concentratedTonicBase",
-      amount: 1,
-    },
-    story: "You draw heat through the tonic bases until the excess boils away and the strength condenses.",
-  },
-
+const arcaneForceDefinitions = {
   nails: {
     label: "Shape Nails",
-    description: "Use controlled magical heat to shape one iron into ten nails.",
+    description: "Use directed pressure to shape one iron into ten nails.",
     requiredLocation: "camp",
+    requiredForceLevel: 0,
     duration: 2,
     cost: {
       mana: 4,
@@ -3626,13 +3785,14 @@ const arcaneHeatDefinitions = {
       resource: "nails",
       amount: 10,
     },
-    story: "You hold the iron in a precise heat until it draws into a neat row of nails.",
+    story: "You press the iron through a narrow force pattern until it draws into a neat row of nails.",
   },
 
   crudeIronPickHead: {
     label: "Shape Pick Head",
     description: "Shape the iron head needed to assemble a crude iron pick.",
     requiredLocation: "camp",
+    requiredForceLevel: 0,
     duration: 10,
     cost: {
       mana: 10,
@@ -3649,13 +3809,14 @@ const arcaneHeatDefinitions = {
         crudeIronPickHead: 1,
       },
     },
-    story: "You press heat through the iron until it draws into the rough wedge of a pick head.",
+    story: "You press force through the iron until it draws into the rough wedge of a pick head.",
   },
 
   ironKnifeBlade: {
     label: "Shape Knife Blade",
     description: "Shape the iron blade needed to assemble an iron knife.",
     requiredLocation: "camp",
+    requiredForceLevel: 1,
     duration: 5,
     cost: {
       mana: 5,
@@ -3672,13 +3833,14 @@ const arcaneHeatDefinitions = {
         ironKnifeBlade: 1,
       },
     },
-    story: "You pull the iron thin and keen, holding the edge in shape with focused heat.",
+    story: "You pull the iron thin and keen, holding the edge in shape with steady pressure.",
   },
 
   ironAxeHead: {
     label: "Shape Axe Head",
     description: "Shape the iron head needed to assemble an iron axe.",
     requiredLocation: "camp",
+    requiredForceLevel: 1,
     duration: 8,
     cost: {
       mana: 10,
@@ -3696,6 +3858,57 @@ const arcaneHeatDefinitions = {
       },
     },
     story: "You fold force through the iron until the axe head holds its weight and bite.",
+  },
+
+  herbPatch: {
+    label: "Force Harvest Herbs",
+    description: "Sweep a controlled pressure wave through the patch to gather a large bundle of herbs.",
+    requiredLocation: "wildHerbPatch",
+    requiredForceLevel: 3,
+    duration: 3,
+    cost: {
+      mana: 6,
+    },
+    carriedProduces: {
+      resource: "herb",
+      amount: 25,
+    },
+    story: "Arcane Force combs the patch in one careful sweep, snapping useful stems free without bruising them.",
+    partialStory: "Arcane Force shakes loose more herbs than you can carry.",
+  },
+
+  glimmerleafField: {
+    label: "Force Harvest Glimmerleaf",
+    description: "Lift the fragile glimmerleaf with even pressure before the field can tangle around it.",
+    requiredLocation: "overgrownFields",
+    requiredForceLevel: 3,
+    duration: 3,
+    cost: {
+      mana: 6,
+    },
+    carriedProduces: {
+      resource: "glimmerleaf",
+      amount: 10,
+    },
+    story: "A careful pulse of Force lifts silver-veined leaves from the rows before the surrounding growth can tear them.",
+    partialStory: "The field yields more glimmerleaf than your pack can hold.",
+  },
+
+  oreNode: {
+    label: "Detonate Ore Node",
+    description: "Crack an ore-rich node with a focused burst of pressure.",
+    requiredLocation: "ironMine",
+    requiredForceLevel: 4,
+    duration: 4,
+    cost: {
+      mana: 8,
+    },
+    carriedProduces: {
+      resource: "ore",
+      amount: 10,
+    },
+    story: "Force blooms inside the vein with a dull crack, dropping heavy chunks of ore at your feet.",
+    partialStory: "The burst frees more ore than you can carry.",
   },
 };
 
@@ -3818,6 +4031,19 @@ const goalDefinitions = {
     title: "Choose A Direction",
     text: "The old map shows routes beyond the outskirts. Choose where to search next.",
   },
+  clearTowerFoundation: {
+    title: "Clear The Tower Foundation",
+    text: "Use the partial tower plans to clear and stabilize the buried foundation beneath camp.",
+    items: [
+      {
+        label: "Complete the tower foundation project",
+        isComplete: function () {
+          const project = typeof getProjectState === "function" ? getProjectState("towerFoundation") : null;
+          return !!project && project.completed;
+        },
+      },
+    ],
+  },
 };
 
 const journalDefinitions = {
@@ -3873,9 +4099,9 @@ const journalDefinitions = {
     title: "Imbuement",
     text: "The alchemist's old notes revealed that prepared matter can hold mana after you release it. Herbs shape the effect; Imbue fixes that effect into the finished tonic.",
   },
-  arcaneHeatLearned: {
-    title: "Arcane Heat",
-    text: "The miners' smelter taught you that magical heat can shape iron through pressure, restraint, and will. It is not fire; it is control.",
+  arcaneForceLearned: {
+    title: "Arcane Force",
+    text: "The miners' smelter taught you that mana can become directed pressure: shaping iron, moving old locks, and breaking stubborn stone through restraint and will.",
   },
   arcaneArchiveOpened: {
     title: "Arcane Archive Opened",
@@ -3891,7 +4117,7 @@ const journalDefinitions = {
   },
   campSmeltingPlansFound: {
     title: "Camp Smelting Plans",
-    text: "The heat diagrams describe a camp smelter built to hold arcane heat safely enough for regular iron work.",
+    text: "The smelter diagrams describe a camp furnace braced strongly enough for regular iron work with Arcane Force.",
   },
   manaCondenserPlansFound: {
     title: "Ancient Mana Condenser",
@@ -3900,6 +4126,14 @@ const journalDefinitions = {
   partialTowerPlansFound: {
     title: "Partial Tower Plans",
     text: "The tower plans match the buried foundation beneath camp, but the archive only preserved fragments. More plans will be needed before construction can begin.",
+  },
+  towerFoundationStarted: {
+    title: "Tower Foundation",
+    text: "The partial plans are incomplete, but they show enough to clear and stabilize the buried foundation beneath camp.",
+  },
+  towerFoundationAwakened: {
+    title: "Foundation Awakened",
+    text: "Charged crystals woke the restored channels beneath camp. The foundation is ready for whatever tower plans you can recover next.",
   },
 };
 

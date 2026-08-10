@@ -15,10 +15,12 @@ const gameDefinitions = {
   consumables,
   clearingPlace,
   spellDefinitions,
+  manaSenseDefinitions,
   automationDefinitions,
+  projectDefinitions,
   attunementDefinitions,
   imbueDefinitions,
-  arcaneHeatDefinitions,
+  arcaneForceDefinitions,
 };
 
 function getClearingPlace() {
@@ -148,12 +150,28 @@ function getSpell(spellName) {
   return getSpellDefinitions()[spellName];
 }
 
+function getManaSenseDefinitions() {
+  return gameDefinitions.manaSenseDefinitions;
+}
+
+function getManaSenseDefinition(manaSenseName) {
+  return getManaSenseDefinitions()[manaSenseName];
+}
+
 function getAutomationDefinitions() {
   return gameDefinitions.automationDefinitions;
 }
 
 function getAutomation(machineName) {
   return getAutomationDefinitions()[machineName];
+}
+
+function getProjectDefinitions() {
+  return gameDefinitions.projectDefinitions;
+}
+
+function getProjectDefinition(projectName) {
+  return getProjectDefinitions()[projectName];
 }
 
 function getAttunementDefinitions() {
@@ -172,10 +190,10 @@ function getImbueDefinition(imbueName) {
   return getImbueDefinitions()[imbueName];
 }
 
-function getArcaneHeatDefinitions() {
-  return gameDefinitions.arcaneHeatDefinitions;
+function getArcaneForceDefinitions() {
+  return gameDefinitions.arcaneForceDefinitions;
 }
 
-function getArcaneHeatDefinition(arcaneHeatName) {
-  return getArcaneHeatDefinitions()[arcaneHeatName];
+function getArcaneForceDefinition(arcaneForceName) {
+  return getArcaneForceDefinitions()[arcaneForceName];
 }

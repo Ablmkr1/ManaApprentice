@@ -43,6 +43,7 @@ function hookDomToUI() {
   ui.saveGameBtn = document.getElementById("saveGameBtn");
   ui.loadGameBtn = document.getElementById("loadGameBtn");
   ui.resetSaveBtn = document.getElementById("resetSaveBtn");
+  ui.devSpeedButtons = Array.from(document.querySelectorAll(".dev-speed-btn"));
   ui.destinationActions = document.getElementById("destinationActions");
   ui.craftingSection = document.getElementById("craftingSection");
   ui.outskirtsCompletePopup = document.getElementById("outskirtsCompletePopup");
@@ -110,6 +111,7 @@ function hookDomToUI() {
   ui.campUpgradeSlots = document.getElementById("campUpgradeSlots");
   ui.spellSlotsGroup = document.getElementById("spellSlotsGroup");
   ui.spellSlots = document.getElementById("spellSlots");
+  ui.spellTargetMenu = document.getElementById("spellTargetMenu");
   ui.campFoundationPopup = document.getElementById("campFoundationPopup");
   ui.campFoundationContinueBtn = document.getElementById("campFoundationContinueBtn");
   ui.dungeonActions = document.getElementById("dungeonActions");
@@ -117,9 +119,11 @@ function hookDomToUI() {
   ui.automationTabBtn = document.getElementById("automationTabBtn");
   ui.automationPanel = document.getElementById("automationPanel");
   ui.automationList = document.getElementById("automationList");
+  ui.projectTabBtn = document.getElementById("projectTabBtn");
+  ui.projectPanel = document.getElementById("projectPanel");
+  ui.projectList = document.getElementById("projectList");
   ui.recallAwakenedPopup = document.getElementById("recallAwakenedPopup");
   ui.recallAwakenedContinueBtn = document.getElementById("recallAwakenedContinueBtn");
-  ui.attunementTargetMenu = document.getElementById("attunementTargetMenu");
 }
 
 //Hook Ui Maps Functions
@@ -217,6 +221,10 @@ function updateAllActionButtons() {
 
   for (let actionName in actionDefinitions) {
     updateActionButton(actionName);
+  }
+
+  if (typeof updateProjectButtons === "function") {
+    updateProjectButtons();
   }
 }
 
@@ -512,6 +520,10 @@ function isActionContextAvailable(actionName) {
       gameState.expedition.currentLocation === "creepyCave" && !!cave && cave.explored && gameState.magicUnlocked;
 
     return canMeditateAtCamp || canMeditateAtCave;
+  }
+
+  if (actionName === "concentrateTonicBase") {
+    return typeof canUseConcentrateTonicBaseAction === "function" && canUseConcentrateTonicBaseAction();
   }
 
   if (actionName === "practiceManaCycling") {

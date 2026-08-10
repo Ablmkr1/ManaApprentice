@@ -5,6 +5,10 @@ const BASE_TOOL_GATHER_YIELDS = {
   fiber: 1,
 };
 
+function isManaControlSystemEnabled() {
+  return typeof MANA_CONTROL_SYSTEM_ENABLED === "undefined" || MANA_CONTROL_SYSTEM_ENABLED;
+}
+
 function getDefaultSkillState(skillName) {
   if (skillName === "conditioning") {
     return {
@@ -245,6 +249,7 @@ function recordMeditation() {
 }
 
 function recordManaControl(amount, sourceLabel) {
+  if (!isManaControlSystemEnabled()) return;
   if (!Number.isFinite(amount) || amount <= 0) return;
 
   const skill = getSkillState("manaControl");
@@ -320,6 +325,8 @@ function getMeditationCost() {
 }
 
 function getManaControlRank() {
+  if (!isManaControlSystemEnabled()) return 0;
+
   const skill = getSkillState("manaControl");
 
   return skill ? skill.rank || 0 : 0;
@@ -335,7 +342,9 @@ function getAttunementCapacityFromManaControl() {
 }
 
 function getManaSenseDungeonSearchBonus() {
-  return getManaControlRank() >= 3 ? 35 : 25;
+  const spell = getSpell("manaSense");
+
+  return spell && spell.effects ? spell.effects.dungeonSearchBonus || 25 : 25;
 }
 
 function syncSpellUpgradeEffects() {
@@ -496,12 +505,44 @@ function getHerbGatherBonus() {
   return getForageYieldBonus();
 }
 
+function hasHunterEyeAttunement() {
+  return typeof hasActiveAttunement === "function" && hasActiveAttunement("knifeHunting");
+}
+
+function getHunterEyeDefinition() {
+  return typeof getAttunementDefinition === "function" ? getAttunementDefinition("knifeHunting") : null;
+}
+
+function getHunterEyeHuntSuccessChanceBonus() {
+  if (!hasHunterEyeAttunement()) return 0;
+
+  const definition = getHunterEyeDefinition();
+  const effects = definition ? definition.effects || {} : {};
+  const bonusPerLevel = effects.huntSuccessChancePerLevel || 0;
+
+  return getAttunementLevel() * bonusPerLevel;
+}
+
+function getHunterEyeHuntRewardBonus() {
+  if (!hasHunterEyeAttunement()) return 0;
+  if (getAttunementLevel() < 5) return 0;
+
+  const definition = getHunterEyeDefinition();
+  const effects = definition ? definition.effects || {} : {};
+
+  return effects.maxLevelHuntRewardFlat || 0;
+}
+
+function getHuntSuccessChance(baseChance) {
+  return Math.min(1, Math.max(0, (baseChance || 0) + getHunterEyeHuntSuccessChanceBonus()));
+}
+
 function getHuntRewardAmount(baseAmount) {
-  return baseAmount + getHuntingToolRewardBonus() + getActiveAttunementEffectTotal("huntRewardFlat");
+  return Math.max(0, Math.floor(baseAmount + getHuntingToolRewardBonus() + getHunterEyeHuntRewardBonus()));
 }
 
 function getMineOreAmount() {
-  return getMiningYieldBase() + getActiveAttunementEffectTotal("mineOreFlat");
+  return getMiningYieldBase();
 }
 
 function recalculateToolEffects() {
@@ -550,6 +591,10 @@ function getActionCost(actionName) {
 
   if (actionName === "meditate") {
     return getMeditationCost();
+  }
+
+  if (actionName === "concentrateTonicBase" && typeof getConcentrateTonicBaseActionCost === "function") {
+    return getConcentrateTonicBaseActionCost();
   }
 
   if (actionName === "explore" || actionName === "exploreLocation") {
@@ -719,7 +764,12 @@ function updateTrainingUI() {
 
   if (!ui.trainingSection || !ui.trainingList) return;
 
-  const skillNames = ["conditioning", "concentration", "manaCycling", "meditation", "manaControl"];
+  const skillNames = ["conditioning", "concentration", "manaCycling", "meditation"];
+
+  if (isManaControlSystemEnabled()) {
+    skillNames.push("manaControl");
+  }
+
   const visibleSkills = skillNames.filter(function (skillName) {
     return getSkillState(skillName).revealed;
   });

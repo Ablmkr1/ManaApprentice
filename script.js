@@ -1,10 +1,14 @@
-let lastTickTime = Date.now();
+let lastRealTickTime = Date.now();
+let gameClockTime = lastRealTickTime;
+let devGameSpeedMultiplier = 1;
+const DEV_GAME_SPEED_MULTIPLIERS = [1, 5, 10];
 
 window.onload = function () {
   hookDomToUI();
   hookUIMaps();
   hookActionCompletions();
   ensureSkillsState();
+  ensureProjectsState();
   recalculateCharacterStats();
   recalculateCampEffects();
   recalculateToolEffects();
@@ -43,6 +47,7 @@ window.onload = function () {
   hookGearUpgradesToUI();
   hookResourceCraftsToUI();
   hookSaveControls();
+  hookDevSpeedControls();
   hookWorkTabs();
 
   ui.continueBtn.addEventListener("click", function () {
@@ -104,6 +109,68 @@ function hookWorkTabs() {
       showWorkPanel("automation");
     });
   }
+
+  if (ui.projectTabBtn) {
+    ui.projectTabBtn.addEventListener("click", function () {
+      showWorkPanel("projects");
+    });
+  }
+}
+
+function hookDevSpeedControls() {
+  if (!Array.isArray(ui.devSpeedButtons)) return;
+
+  ui.devSpeedButtons.forEach(function (button) {
+    button.addEventListener("click", function () {
+      setDevGameSpeedMultiplier(Number(button.dataset.speed));
+    });
+  });
+
+  updateDevSpeedControls();
+}
+
+function setDevGameSpeedMultiplier(multiplier) {
+  if (!DEV_GAME_SPEED_MULTIPLIERS.includes(multiplier)) return;
+
+  advanceGameClock(Date.now());
+  devGameSpeedMultiplier = multiplier;
+  updateDevSpeedControls();
+}
+
+function resetDevGameSpeedMultiplier() {
+  const now = Date.now();
+
+  lastRealTickTime = now;
+  gameClockTime = now;
+  devGameSpeedMultiplier = 1;
+  updateDevSpeedControls();
+}
+
+function getDevGameSpeedMultiplier() {
+  return devGameSpeedMultiplier;
+}
+
+function getGameTime() {
+  return gameClockTime;
+}
+
+function advanceGameClock(now) {
+  const realDeltaSeconds = Math.max(0, (now - lastRealTickTime) / 1000);
+  const deltaSeconds = realDeltaSeconds * getDevGameSpeedMultiplier();
+
+  lastRealTickTime = now;
+  gameClockTime += deltaSeconds * 1000;
+
+  return deltaSeconds;
+}
+
+function updateDevSpeedControls() {
+  if (!Array.isArray(ui.devSpeedButtons)) return;
+
+  ui.devSpeedButtons.forEach(function (button) {
+    const speed = Number(button.dataset.speed);
+    button.classList.toggle("active", speed === devGameSpeedMultiplier);
+  });
 }
 
 // Rest Button Text Toggle
@@ -120,8 +187,7 @@ function updateRestButton() {
 // Passive Interval Function - Drives the passive resource updates
 function gameTick() {
   const now = Date.now();
-  const deltaSeconds = (now - lastTickTime) / 1000;
-  lastTickTime = now;
+  const deltaSeconds = advanceGameClock(now);
 
   const resourceDefinitions = getResourceDefinitions();
 

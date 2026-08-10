@@ -1,13 +1,15 @@
 const SAVE_KEY = "manaApprenticeSaveV1";
-const SAVE_VERSION = 8;
+const SAVE_VERSION = 12;
 let saveSuppressed = false;
 
 function createSaveData() {
+  const savedGameState = createGameStateSaveData();
+
   return {
     version: SAVE_VERSION,
     savedAt: Date.now(),
 
-    gameState: structuredClone(gameState),
+    gameState: savedGameState,
 
     resources: createResourceSaveData(),
     actions: createActionSaveData(),
@@ -181,6 +183,7 @@ function createDungeonSaveData() {
         explored: !!node.explored,
         rewardClaimed: !!node.rewardClaimed,
         manaSenseCharges: node.manaSenseCharges || 0,
+        spellCharges: structuredClone(getDungeonNodeSpellCharges(node)),
       };
     }
   }
@@ -230,7 +233,7 @@ function migrateSaveData(saveData) {
 
   const version = Number.isInteger(saveData.version) ? saveData.version : 0;
 
-  if (version !== 6 && version !== 7 && version !== SAVE_VERSION) {
+  if (version < 6 || version > SAVE_VERSION) {
     console.warn("Save version is not compatible with this update:", version);
     return null;
   }
@@ -243,6 +246,22 @@ function migrateSaveData(saveData) {
 
   if (version <= 7) {
     migrateV7SaveDataToV8(normalizedSaveData);
+  }
+
+  if (version <= 8) {
+    migrateV8SaveDataToV9(normalizedSaveData);
+  }
+
+  if (version <= 9) {
+    migrateV9SaveDataToV10(normalizedSaveData);
+  }
+
+  if (version <= 10) {
+    migrateV10SaveDataToV11(normalizedSaveData);
+  }
+
+  if (version <= 11) {
+    migrateV11SaveDataToV12(normalizedSaveData);
   }
 
   normalizedSaveData.version = SAVE_VERSION;
@@ -258,17 +277,26 @@ function normalizeSaveData(saveData) {
   saveData.gameState.expedition = ensureObject(saveData.gameState.expedition);
   saveData.gameState.expedition.carriedItems = ensureObject(saveData.gameState.expedition.carriedItems);
   saveData.gameState.skills = ensureObject(saveData.gameState.skills);
+  saveData.gameState.projects = ensureObject(saveData.gameState.projects);
   saveData.gameState.magic = ensureObject(saveData.gameState.magic);
   saveData.gameState.magic.sensedReveals = ensureObject(saveData.gameState.magic.sensedReveals);
+  saveData.gameState.magic.spellProgress = ensureObject(saveData.gameState.magic.spellProgress);
+  saveData.gameState.magic.spellProgress.manaSense = normalizeSavedSpellProgress(saveData.gameState.magic.spellProgress.manaSense);
+  saveData.gameState.magic.spellProgress.attunement = normalizeSavedSpellProgress(saveData.gameState.magic.spellProgress.attunement);
+  saveData.gameState.magic.spellProgress.arcaneForce = normalizeSavedSpellProgress(saveData.gameState.magic.spellProgress.arcaneForce);
   saveData.gameState.magic.attunements = ensureObject(saveData.gameState.magic.attunements);
 
   if (!Array.isArray(saveData.gameState.magic.attunements.active)) {
     saveData.gameState.magic.attunements.active = [];
   }
 
+  saveData.gameState.magic.attunements.active = normalizeSavedActiveAttunements(saveData.gameState.magic.attunements.active);
+
   if (!Number.isFinite(saveData.gameState.magic.attunements.capacity) || saveData.gameState.magic.attunements.capacity <= 0) {
     saveData.gameState.magic.attunements.capacity = 1;
   }
+  normalizeSavedExpeditionLocationSpellEffects(saveData.gameState.expedition);
+
   saveData.research = ensureObject(saveData.research);
   saveData.gameState.world = ensureObject(saveData.gameState.world);
   saveData.gameState.world.regions = ensureObject(saveData.gameState.world.regions);
@@ -298,6 +326,183 @@ function migrateV6SaveDataToV7(saveData) {
 
 function migrateV7SaveDataToV8(saveData) {
   resetSavedDerivedGatherPerClick(saveData);
+}
+
+function migrateV8SaveDataToV9(saveData) {
+  const savedResearch = ensureObject(saveData.research);
+  const savedProjects = ensureObject(saveData.gameState.projects);
+  const towerFoundation = ensureObject(savedProjects.towerFoundation);
+  const towerResearch = ensureObject(savedResearch.towerFoundations);
+
+  if (towerResearch.completed) {
+    towerFoundation.unlocked = true;
+  }
+
+  towerFoundation.completed = !!towerFoundation.completed;
+  towerFoundation.level = Number.isFinite(towerFoundation.level) ? towerFoundation.level : 0;
+  towerFoundation.work = Number.isFinite(towerFoundation.work) ? towerFoundation.work : 0;
+  towerFoundation.deposits = ensureObject(towerFoundation.deposits);
+
+  savedProjects.towerFoundation = towerFoundation;
+  saveData.gameState.projects = savedProjects;
+}
+
+function migrateV9SaveDataToV10(saveData) {
+  saveData.gameState.magic = ensureObject(saveData.gameState.magic);
+  saveData.gameState.magic.spellProgress = ensureObject(saveData.gameState.magic.spellProgress);
+  saveData.gameState.magic.spellProgress.attunement = normalizeSavedSpellProgress(saveData.gameState.magic.spellProgress.attunement);
+}
+
+function migrateV10SaveDataToV11(saveData) {
+  saveData.gameState.magic = ensureObject(saveData.gameState.magic);
+  saveData.gameState.magic.spellProgress = ensureObject(saveData.gameState.magic.spellProgress);
+
+  migrateSavedSpellUnlock(saveData.spells, "arcaneHeat", "arcaneForce");
+  migrateSavedSpellProgress(saveData.gameState.magic.spellProgress, "arcaneHeat", "arcaneForce");
+  migrateSavedJournalEntry(saveData.gameState.journal, "arcaneHeatLearned", "arcaneForceLearned");
+  migrateSavedLocationSpellCharges(saveData.expeditionLocations, "arcaneHeat", "arcaneForce");
+  migrateSavedDungeonSpellCharges(saveData.dungeons, "arcaneHeat", "arcaneForce");
+
+  saveData.gameState.magic.spellProgress.arcaneForce = normalizeSavedSpellProgress(saveData.gameState.magic.spellProgress.arcaneForce);
+}
+
+function migrateV11SaveDataToV12(saveData) {
+  saveData.gameState.magic = ensureObject(saveData.gameState.magic);
+  saveData.gameState.magic.spellProgress = ensureObject(saveData.gameState.magic.spellProgress);
+  saveData.gameState.magic.attunements = ensureObject(saveData.gameState.magic.attunements);
+
+  saveData.gameState.magic.spellProgress.manaSense = normalizeSavedSpellProgress(saveData.gameState.magic.spellProgress.manaSense);
+  saveData.gameState.magic.attunements.active = normalizeSavedActiveAttunements(saveData.gameState.magic.attunements.active);
+  normalizeSavedExpeditionLocationSpellEffects(saveData.gameState.expedition);
+}
+
+function migrateSavedSpellUnlock(savedSpells, oldSpellName, newSpellName) {
+  const spells = ensureObject(savedSpells);
+  const oldSpell = ensureObject(spells[oldSpellName]);
+  const newSpell = ensureObject(spells[newSpellName]);
+
+  if (oldSpell.unlocked) {
+    newSpell.unlocked = true;
+  }
+
+  delete spells[oldSpellName];
+  spells[newSpellName] = newSpell;
+}
+
+function migrateSavedSpellProgress(savedProgress, oldSpellName, newSpellName) {
+  const progress = ensureObject(savedProgress);
+  const oldProgress = progress[oldSpellName];
+  const currentProgress = progress[newSpellName];
+
+  if (oldProgress) {
+    const current = normalizeSavedSpellProgress(currentProgress);
+
+    if (!currentProgress || (current.xp <= 0 && current.level <= 0)) {
+      progress[newSpellName] = oldProgress;
+    }
+  }
+
+  delete progress[oldSpellName];
+}
+
+function migrateSavedJournalEntry(savedJournal, oldEntryId, newEntryId) {
+  const journal = ensureObject(savedJournal);
+
+  if (!Array.isArray(journal.entries)) return;
+
+  journal.entries = journal.entries.map(function (entryId) {
+    return entryId === oldEntryId ? newEntryId : entryId;
+  });
+
+  journal.entries = journal.entries.filter(function (entryId, index) {
+    return journal.entries.indexOf(entryId) === index;
+  });
+}
+
+function migrateSavedLocationSpellCharges(savedLocations, oldSpellName, newSpellName) {
+  const locations = ensureObject(savedLocations);
+
+  for (let locationName in locations) {
+    const location = locations[locationName];
+
+    if (!location || !location.explorableObjects) continue;
+
+    for (let objectName in location.explorableObjects) {
+      const object = location.explorableObjects[objectName];
+
+      migrateSavedSpellChargeMap(object, oldSpellName, newSpellName);
+    }
+  }
+}
+
+function migrateSavedDungeonSpellCharges(savedDungeons, oldSpellName, newSpellName) {
+  const dungeons = ensureObject(savedDungeons);
+
+  for (let dungeonId in dungeons) {
+    const dungeon = dungeons[dungeonId];
+
+    if (!dungeon || !dungeon.nodes) continue;
+
+    for (let nodeId in dungeon.nodes) {
+      const node = dungeon.nodes[nodeId];
+
+      migrateSavedSpellChargeMap(node, oldSpellName, newSpellName);
+    }
+  }
+}
+
+function migrateSavedSpellChargeMap(savedEntry, oldSpellName, newSpellName) {
+  if (!savedEntry || typeof savedEntry !== "object") return;
+
+  savedEntry.spellCharges = ensureObject(savedEntry.spellCharges);
+
+  if (savedEntry.spellCharges[oldSpellName] !== undefined) {
+    savedEntry.spellCharges[newSpellName] = Math.max(savedEntry.spellCharges[newSpellName] || 0, savedEntry.spellCharges[oldSpellName] || 0);
+    delete savedEntry.spellCharges[oldSpellName];
+  }
+}
+
+function normalizeSavedSpellProgress(savedProgress) {
+  const progress = ensureObject(savedProgress);
+
+  return {
+    xp: Number.isFinite(progress.xp) ? Math.max(0, progress.xp) : 0,
+    level: Number.isFinite(progress.level) ? Math.max(0, Math.min(5, Math.floor(progress.level))) : 0,
+  };
+}
+
+function normalizeSavedActiveAttunements(savedActiveAttunements) {
+  if (!Array.isArray(savedActiveAttunements)) return [];
+
+  return savedActiveAttunements.filter(function (entry) {
+    return entry && entry.id && typeof getAttunementDefinition === "function" && !!getAttunementDefinition(entry.id);
+  });
+}
+
+function normalizeSavedExpeditionLocationSpellEffects(savedExpedition) {
+  const expedition = ensureObject(savedExpedition);
+  const effects = ensureObject(expedition.locationSpellEffects);
+  const normalizedEffects = {};
+
+  if (effects.stoneSense && expedition.currentLocation === "foothillScree") {
+    normalizedEffects.stoneSense = {
+      locationName: "foothillScree",
+    };
+  }
+
+  expedition.locationSpellEffects = normalizedEffects;
+}
+
+function createGameStateSaveData() {
+  const savedGameState = structuredClone(gameState);
+  const activity = savedGameState.activity;
+
+  if (activity && activity.active && Number.isFinite(activity.startTime) && typeof getGameTime === "function") {
+    const elapsedGameMs = Math.max(0, getGameTime() - activity.startTime);
+    activity.startTime = Date.now() - elapsedGameMs;
+  }
+
+  return savedGameState;
 }
 
 function resetSavedDerivedGatherPerClick(saveData) {
@@ -388,6 +593,27 @@ function applyAutomationSaveData(savedAutomation) {
   }
 }
 
+function applyProjectSaveData(savedProjects) {
+  ensureProjectsState();
+
+  if (!savedProjects) return;
+
+  const projectDefinitions = getProjectDefinitions();
+
+  for (let projectName in projectDefinitions) {
+    const state = getProjectState(projectName);
+    const savedProject = ensureObject(savedProjects[projectName]);
+
+    applySavedFields(state, savedProject, ["unlocked", "completed", "level", "work"]);
+    state.deposits = structuredClone(ensureObject(savedProject.deposits));
+    normalizeProjectState(projectName);
+
+    if (projectName === "towerFoundation" && state.completed) {
+      gameState.towerConstructionUnlocked = true;
+    }
+  }
+}
+
 function applyResourceSaveData(savedResources) {
   if (!savedResources) return;
 
@@ -443,6 +669,7 @@ function applyGameStateSaveData(savedGameState) {
     "campSmeltingPlansFound",
     "manaCondenserPlansFound",
     "partialTowerPlansFound",
+    "towerConstructionUnlocked",
     "destination",
     "hasCamp",
   ]);
@@ -451,6 +678,7 @@ function applyGameStateSaveData(savedGameState) {
 
   if (savedGameState.magic) {
     gameState.magic.sensedReveals = structuredClone(ensureObject(savedGameState.magic.sensedReveals));
+    gameState.magic.spellProgress = structuredClone(ensureObject(savedGameState.magic.spellProgress));
 
     const savedAttunements = ensureObject(savedGameState.magic.attunements);
 
@@ -460,6 +688,7 @@ function applyGameStateSaveData(savedGameState) {
     };
   }
 
+  ensureSpellProgressState();
   getAttunementState();
 
   if (savedGameState.expedition) {
@@ -479,6 +708,7 @@ function applyGameStateSaveData(savedGameState) {
       "regionId",
       "routeType",
       "tonicSlots",
+      "locationSpellEffects",
       "dungeon",
     ]);
 
@@ -496,6 +726,10 @@ function applyGameStateSaveData(savedGameState) {
         dungeonId: null,
         nodeId: null,
       };
+    }
+
+    if (typeof repairExpeditionLocationSpellEffects === "function") {
+      repairExpeditionLocationSpellEffects();
     }
   }
 
@@ -532,6 +766,8 @@ function applyGameStateSaveData(savedGameState) {
       syncSpellUpgradeEffects();
     }
   }
+
+  applyProjectSaveData(savedGameState.projects);
 
   resetActivity();
   gameState.autoAction.actionName = null;
@@ -633,7 +869,7 @@ function applyDungeonSaveData(savedDungeons) {
       const node = dungeon.nodes[nodeId];
       const savedNode = savedDungeon.nodes[nodeId];
 
-      applySavedFields(node, savedNode, ["discovered", "explored", "rewardClaimed", "manaSenseCharges"]);
+      applySavedFields(node, savedNode, ["discovered", "explored", "rewardClaimed", "manaSenseCharges", "spellCharges"]);
     }
   }
 }
@@ -680,6 +916,7 @@ function refreshGameUIAfterLoad() {
   updateWorkTabsVisibility();
   updateReturnToCampButtonLabel();
   updateAutomationUI();
+  updateProjectUI();
   updateCurrentGoalUI();
   updateJournalUI();
   updateRegionalMapVisibility();
@@ -721,6 +958,7 @@ function loadGame() {
   applyResearchSaveData(saveData.research);
   applyAutomationSaveData(saveData.automation);
   ensureSkillsState();
+  ensureProjectsState();
   recalculateCharacterStats();
   recalculateCampEffects();
   recalculateToolEffects();
@@ -753,7 +991,15 @@ function getPurchasedTonicSlotCapacity() {
 
 function tryLoadGame() {
   try {
-    return loadGame();
+    const loaded = loadGame();
+
+    if (loaded && typeof resetDevGameSpeedMultiplier === "function") {
+      resetDevGameSpeedMultiplier();
+    } else if (loaded && typeof setDevGameSpeedMultiplier === "function") {
+      setDevGameSpeedMultiplier(1);
+    }
+
+    return loaded;
   } catch (error) {
     console.warn("Load failed:", error);
     return false;
