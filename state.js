@@ -207,6 +207,17 @@ const resources = {
     perClickDisplay: null,
     perSecondDisplay: null,
   },
+  majorManaTonic: {
+    label: "Major Mana Tonic",
+    value: 0,
+    maxValue: 20,
+    perClick: 0,
+    perSecond: 0,
+    hidden: true,
+    display: null,
+    perClickDisplay: null,
+    perSecondDisplay: null,
+  },
   huntingLure: {
     label: "Hunting Lure",
     value: 0,
@@ -1061,6 +1072,10 @@ const gameState = {
         level: 0,
       },
       attunement: {
+        xp: 0,
+        level: 0,
+      },
+      imbue: {
         xp: 0,
         level: 0,
       },

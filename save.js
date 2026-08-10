@@ -1,5 +1,5 @@
 const SAVE_KEY = "manaApprenticeSaveV1";
-const SAVE_VERSION = 12;
+const SAVE_VERSION = 13;
 let saveSuppressed = false;
 
 function createSaveData() {
@@ -264,6 +264,10 @@ function migrateSaveData(saveData) {
     migrateV11SaveDataToV12(normalizedSaveData);
   }
 
+  if (version <= 12) {
+    migrateV12SaveDataToV13(normalizedSaveData);
+  }
+
   normalizedSaveData.version = SAVE_VERSION;
 
   return normalizedSaveData;
@@ -283,6 +287,7 @@ function normalizeSaveData(saveData) {
   saveData.gameState.magic.spellProgress = ensureObject(saveData.gameState.magic.spellProgress);
   saveData.gameState.magic.spellProgress.manaSense = normalizeSavedSpellProgress(saveData.gameState.magic.spellProgress.manaSense);
   saveData.gameState.magic.spellProgress.attunement = normalizeSavedSpellProgress(saveData.gameState.magic.spellProgress.attunement);
+  saveData.gameState.magic.spellProgress.imbue = normalizeSavedSpellProgress(saveData.gameState.magic.spellProgress.imbue);
   saveData.gameState.magic.spellProgress.arcaneForce = normalizeSavedSpellProgress(saveData.gameState.magic.spellProgress.arcaneForce);
   saveData.gameState.magic.attunements = ensureObject(saveData.gameState.magic.attunements);
 
@@ -374,6 +379,12 @@ function migrateV11SaveDataToV12(saveData) {
   saveData.gameState.magic.spellProgress.manaSense = normalizeSavedSpellProgress(saveData.gameState.magic.spellProgress.manaSense);
   saveData.gameState.magic.attunements.active = normalizeSavedActiveAttunements(saveData.gameState.magic.attunements.active);
   normalizeSavedExpeditionLocationSpellEffects(saveData.gameState.expedition);
+}
+
+function migrateV12SaveDataToV13(saveData) {
+  saveData.gameState.magic = ensureObject(saveData.gameState.magic);
+  saveData.gameState.magic.spellProgress = ensureObject(saveData.gameState.magic.spellProgress);
+  saveData.gameState.magic.spellProgress.imbue = normalizeSavedSpellProgress(saveData.gameState.magic.spellProgress.imbue);
 }
 
 function migrateSavedSpellUnlock(savedSpells, oldSpellName, newSpellName) {

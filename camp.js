@@ -55,6 +55,10 @@ const SPELL_PROGRESS_DEFINITIONS = {
     maxLevel: 5,
     thresholds: [10, 30, 60, 100, 150],
   },
+  imbue: {
+    maxLevel: 5,
+    thresholds: [10, 30, 60, 100, 150],
+  },
   arcaneForce: {
     maxLevel: 5,
     thresholds: [10, 30, 60, 100, 150],
@@ -3254,6 +3258,49 @@ function getArcaneForceProgressState() {
   return getSpellProgressState("arcaneForce");
 }
 
+function getImbueProgressState() {
+  return getSpellProgressState("imbue");
+}
+
+function getImbueLevel() {
+  return getImbueProgressState().level || 0;
+}
+
+function getImbueCapacity() {
+  const capacities = [2, 5, 8, 12, 16, 20];
+
+  return capacities[Math.max(0, Math.min(getImbueLevel(), capacities.length - 1))];
+}
+
+function getImbueLevelRewardText(level) {
+  const rewards = [
+    "2 mana capacity: Hunting Lure and Weak Stamina Tonic",
+    "5 mana capacity: Charge Mana Crystal and Concentrated Stamina Tonic",
+    "8 mana capacity: Minor Mana Tonic",
+    "12 mana capacity: Major Mana Tonic",
+    "16 mana capacity: Charge Crystal Cluster",
+    "20 mana capacity: Create Mana Crystal; Rank 2 research ready",
+  ];
+
+  return rewards[Math.max(0, Math.min(level, rewards.length - 1))];
+}
+
+function recordImbueExperience(amount) {
+  if (!Number.isFinite(amount) || amount <= 0) return;
+
+  const progress = getImbueProgressState();
+  const oldLevel = progress.level || 0;
+
+  progress.xp = roundResourceAmount((progress.xp || 0) + amount);
+  progress.level = getSpellLevelFromXp("imbue", progress.xp);
+
+  if (progress.level > oldLevel) {
+    addStoryEntry("Imbue holds more of the pattern. " + getImbueLevelRewardText(progress.level) + ".");
+  }
+
+  updateEquipmentSlotUI();
+}
+
 function getArcaneForceLevel() {
   return getArcaneForceProgressState().level || 0;
 }
@@ -3295,6 +3342,11 @@ function recordSpellProgressExperience(spellName, amount) {
 
   if (spellName === "attunement") {
     recordAttunementExperience(amount);
+    return;
+  }
+
+  if (spellName === "imbue") {
+    recordImbueExperience(amount);
     return;
   }
 
@@ -3529,6 +3581,10 @@ function renderImbueTargetMenu(menuEl) {
 
 function renderProductionSpellTargetMenu(spellName, menuEl) {
   if (!menuEl) return;
+
+  if (spellName === "imbue") {
+    menuEl.appendChild(createImbueExperienceEntry());
+  }
 
   if (spellName === "arcaneForce") {
     menuEl.appendChild(createArcaneForceExperienceEntry());
@@ -3858,6 +3914,64 @@ function createAttunementExperienceEntry() {
   } else {
     detail.textContent =
       "Current: " + getAttunementLevelRewardText(progress.level) + ". Next: " + getAttunementLevelRewardText(progress.level + 1) + ".";
+  }
+
+  entry.appendChild(detail);
+
+  return entry;
+}
+
+function createImbueExperienceEntry() {
+  const progress = getImbueProgressState();
+  const definition = getSpellProgressDefinition("imbue");
+  const thresholds = definition.thresholds;
+  const maxLevel = definition.maxLevel;
+  const nextThreshold = thresholds[progress.level] || null;
+
+  const entry = document.createElement("div");
+  entry.className = "training-entry spell-experience-entry";
+
+  const header = document.createElement("div");
+  header.className = "training-entry-header";
+
+  const title = document.createElement("strong");
+  title.textContent = "Imbue - Level " + progress.level;
+
+  const capacity = document.createElement("span");
+  capacity.textContent = getImbueCapacity() + " mana capacity";
+
+  header.appendChild(title);
+  header.appendChild(capacity);
+  entry.appendChild(header);
+
+  const progressText = document.createElement("div");
+  progressText.className = "training-progress-text";
+
+  if (progress.level >= maxLevel || nextThreshold === null) {
+    progressText.textContent = "Mana spent: complete";
+  } else {
+    progressText.textContent = "Mana spent: " + formatTrainingNumber(progress.xp) + " / " + formatTrainingNumber(nextThreshold);
+  }
+
+  entry.appendChild(progressText);
+
+  const progressTrack = document.createElement("div");
+  progressTrack.className = "training-progress-track";
+
+  const progressFill = document.createElement("div");
+  progressFill.className = "training-progress-fill";
+  progressFill.style.width = getSpellProgressPercent("imbue") * 100 + "%";
+
+  progressTrack.appendChild(progressFill);
+  entry.appendChild(progressTrack);
+
+  const detail = document.createElement("div");
+  detail.className = "training-detail";
+
+  if (progress.level >= maxLevel || nextThreshold === null) {
+    detail.textContent = "Current: " + getImbueLevelRewardText(progress.level) + ". Rank 2 research ready, story gated.";
+  } else {
+    detail.textContent = "Current: " + getImbueLevelRewardText(progress.level) + ". Next: " + getImbueLevelRewardText(progress.level + 1) + ".";
   }
 
   entry.appendChild(detail);
@@ -4256,6 +4370,7 @@ function isProductionSpellTargetAvailable(spellName, targetName) {
   if (!targetContext) return false;
 
   if (spellName === "arcaneForce" && getArcaneForceLevel() < (definition.requiredForceLevel || 0)) return false;
+  if (spellName === "imbue" && getSpellOptionManaCost(targetContext.cost) > getImbueCapacity()) return false;
 
   if (!areProductionSpellTargetRequirementsMet(definition.requires)) return false;
 

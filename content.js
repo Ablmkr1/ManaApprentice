@@ -3568,6 +3568,16 @@ const consumables = {
     },
   },
 
+  majorManaTonic: {
+    label: "Major Mana Tonic",
+    carriedItem: "majorManaTonic",
+    effectText: "You drink a dense, bright tonic and mana surges back into shape.",
+    use() {
+      addResource("mana", 10);
+      updateResource("mana");
+    },
+  },
+
   huntingLure: {
     label: "Hunting Lure",
     carriedItem: "huntingLure",
@@ -3671,8 +3681,8 @@ const imbueDefinitions = {
   },
 
   manaCrystal: {
-    label: "Imbue Mana Crystal",
-    description: "Compress a full reserve of mana into a stable crystal.",
+    label: "Create Mana Crystal",
+    description: "Compress a full reserve of mana into a new stable crystal.",
     requiredLocation: "camp",
     cost: {
       mana: 20,
@@ -3689,15 +3699,15 @@ const imbueDefinitions = {
   },
 
   staminaTonic: {
-    label: "Imbue Stamina Tonic",
-    description: "Bind mana into one stamina tonic base, filling an empty tonic slot.",
+    label: "Imbue Weak Stamina Tonic",
+    description: "Bind a small charge into one stamina tonic base, filling an empty tonic slot.",
     requiredLocation: "alchemistsHut",
     campUpgradeRequired: "campAlchemyStation",
     cost: {
-      mana: 8,
+      mana: 2,
     },
     campCost: {
-      mana: 8,
+      mana: 2,
       staminaTonicBase: 1,
     },
     storageCost: {
@@ -3711,15 +3721,15 @@ const imbueDefinitions = {
   },
 
   improvedStaminaTonic: {
-    label: "Imbue Improved Stamina Tonic",
+    label: "Imbue Concentrated Stamina Tonic",
     description: "Bind mana into one concentrated tonic base, filling an empty tonic slot with a stronger tonic.",
     requiredLocation: "alchemistsHut",
     campUpgradeRequired: "campAlchemyStation",
     cost: {
-      mana: 8,
+      mana: 5,
     },
     campCost: {
-      mana: 8,
+      mana: 5,
       concentratedTonicBase: 1,
     },
     storageCost: {
@@ -3733,15 +3743,15 @@ const imbueDefinitions = {
   },
 
   manaTonic: {
-    label: "Imbue Mana Tonic",
+    label: "Imbue Minor Mana Tonic",
     description: "Bind mana into one mana tonic base, filling an empty tonic slot with field-ready mana recovery.",
     requiredLocation: "alchemistsHut",
     campUpgradeRequired: "campAlchemyStation",
     cost: {
-      mana: 5,
+      mana: 8,
     },
     campCost: {
-      mana: 5,
+      mana: 8,
       manaTonicBase: 1,
     },
     storageCost: {
@@ -3754,9 +3764,34 @@ const imbueDefinitions = {
     story: "You bind a steady charge into the glimmerleaf base. The tonic cools around the mana instead of letting it fade.",
   },
 
+  majorManaTonic: {
+    label: "Imbue Major Mana Tonic",
+    description: "Bind a deeper charge into glimmerleaf and concentrated tonic base, filling an empty tonic slot with stronger mana recovery.",
+    requiredLocation: "alchemistsHut",
+    campUpgradeRequired: "campAlchemyStation",
+    duration: 3,
+    cost: {
+      mana: 12,
+    },
+    campCost: {
+      mana: 12,
+      manaTonicBase: 1,
+      concentratedTonicBase: 1,
+    },
+    storageCost: {
+      manaTonicBase: 1,
+      concentratedTonicBase: 1,
+    },
+    producesConsumable: {
+      resource: "majorManaTonic",
+      amount: 1,
+    },
+    story: "You bind a dense, layered charge into the prepared base. The tonic brightens around a deeper reservoir of mana.",
+  },
+
   chargedCrystal: {
-    label: "Imbue Charged Crystal",
-    description: "Store mana inside a crystal for later use in camp automation.",
+    label: "Charge Mana Crystal",
+    description: "Store mana inside an existing crystal for later tower and automation work.",
     requiredLocation: "camp",
     cost: {
       mana: 5,
@@ -3767,6 +3802,22 @@ const imbueDefinitions = {
       amount: 1,
     },
     story: "The crystal catches the Gearworks rhythm and holds a steady inner charge.",
+  },
+
+  chargedCrystalCluster: {
+    label: "Charge Crystal Cluster",
+    description: "Charge several mana crystals in one stable tower-scale pattern.",
+    requiredLocation: "camp",
+    duration: 4,
+    cost: {
+      mana: 16,
+      manaCrystal: 4,
+    },
+    produces: {
+      resource: "chargedCrystal",
+      amount: 4,
+    },
+    story: "Four crystals answer the same pattern at once, each holding a clean, steady charge.",
   },
 };
 
