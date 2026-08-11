@@ -1245,6 +1245,10 @@ function isManaSenseTargetActive(targetName) {
     return hasStoneSenseActive();
   }
 
+  if (targetName === "sensePrey" && typeof hasSensePreyActive === "function") {
+    return hasSensePreyActive();
+  }
+
   return false;
 }
 
@@ -3710,7 +3714,9 @@ function appendManaSenseTargetOption(targetName, menuEl) {
 
   const description = document.createElement("span");
   description.className = "attunement-target-description";
-  description.textContent = isActive ? "Active until you leave " + getLocationLabel(definition.requiredLocation) + "." : definition.description || "";
+  description.textContent = isActive
+    ? definition.activeDescription || "Active until you leave " + getLocationLabel(definition.requiredLocation) + "."
+    : definition.description || "";
 
   const details = document.createElement("span");
   details.className = "attunement-target-details";
@@ -4575,9 +4581,16 @@ function applyManaSenseTarget(targetName) {
   const definition = getManaSenseDefinition(targetName);
 
   if (!definition) return false;
-  if (targetName !== "stoneSense") return false;
-  if (typeof activateStoneSense !== "function") return false;
-  if (!activateStoneSense()) return false;
+
+  if (targetName === "stoneSense") {
+    if (typeof activateStoneSense !== "function") return false;
+    if (!activateStoneSense()) return false;
+  } else if (targetName === "sensePrey") {
+    if (typeof activateSensePrey !== "function") return false;
+    if (!activateSensePrey()) return false;
+  } else {
+    return false;
+  }
 
   if (definition.story) {
     addStoryEntry(definition.story);

@@ -3621,6 +3621,18 @@ const spellDefinitions = {
 };
 
 const manaSenseDefinitions = {
+  sensePrey: {
+    label: "Sense Prey",
+    description: "Sense the nearest stag trail and prepare a hunt.",
+    activeDescription: "Prey sensed. Hunt while the trail is clear.",
+    requiredLocation: "stagRuns",
+    duration: 3,
+    cost: {
+      mana: 4,
+    },
+    story: "Mana Sense spreads through the marked runs. The nearest stag trail brightens in your awareness.",
+  },
+
   stoneSense: {
     label: "Stone Sense",
     description: "Sense ore-rich stone in the foothill scree until you leave.",

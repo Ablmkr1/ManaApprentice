@@ -101,6 +101,26 @@ function hasStoneSenseActive() {
   return !!effect && effect.locationName === "foothillScree" && gameState.expedition.currentLocation === "foothillScree";
 }
 
+function activateSensePrey() {
+  if (gameState.expedition.currentLocation !== "stagRuns") return false;
+
+  const hunt = getHuntData("stagRuns");
+
+  if (!hunt || hunt.tracked) return false;
+
+  hunt.tracked = true;
+  updateLocationActions();
+  return true;
+}
+
+function hasSensePreyActive() {
+  if (gameState.expedition.currentLocation !== "stagRuns") return false;
+
+  const hunt = getHuntData("stagRuns");
+
+  return !!hunt && !!hunt.tracked;
+}
+
 function getFoothillScreeOreFindChance() {
   if (!hasStoneSenseActive()) return 0.2;
   if (typeof getStoneSenseOreFindChance !== "function") return 0.2;
