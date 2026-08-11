@@ -3636,7 +3636,7 @@ const manaSenseDefinitions = {
 
 const attunementDefinitions = {
   feetTravel: {
-    label: "Sure Footing",
+    label: "Long Stride",
     description: "+0.5 travel distance per step",
     cost: { mana: 2 },
     effects: {
@@ -3647,7 +3647,7 @@ const attunementDefinitions = {
   packCapacity: {
     label: "Strong Back",
     description: "+10 carried capacity",
-    cost: { mana: 2 },
+    cost: { mana: 4 },
     effects: {
       carryCapacityFlat: 10,
     },
@@ -3656,10 +3656,20 @@ const attunementDefinitions = {
   knifeHunting: {
     label: "Hunter's Eye",
     description: "Improves hunt success chance; +1 pelt at level 5",
-    cost: { mana: 2 },
+    cost: { mana: 4 },
     effects: {
       huntSuccessChancePerLevel: 0.07,
       maxLevelHuntRewardFlat: 1,
+    },
+  },
+
+  reinforcedBody: {
+    label: "Reinforced Body",
+    description: "+25 max energy",
+    requiredAttunementLevel: 5,
+    cost: { mana: 10 },
+    effects: {
+      maxEnergyFlat: 12.5,
     },
   },
 };

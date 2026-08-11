@@ -351,7 +351,7 @@ function syncSpellUpgradeEffects() {
   if (typeof getAttunementState !== "function") return;
 
   const state = getAttunementState();
-  const capacity = getAttunementCapacityFromManaControl();
+  const capacity = typeof getAttunementCapacityFromLevel === "function" ? getAttunementCapacityFromLevel() : getAttunementCapacityFromManaControl();
 
   state.capacity = capacity;
 
@@ -382,6 +382,12 @@ function setResourceMaxValue(resourceName, maxValue) {
   updateResource(resourceName);
 }
 
+function getActiveMaxEnergyAttunementBonus() {
+  if (typeof getActiveAttunementEffectTotal !== "function") return 0;
+
+  return getActiveAttunementEffectTotal("maxEnergyFlat");
+}
+
 function recalculateCharacterStats() {
   ensureSkillsState();
 
@@ -391,7 +397,10 @@ function recalculateCharacterStats() {
     energyMax = Math.max(energyMax, getSkillCapacity("conditioning"));
   }
 
-  setResourceMaxValue("energy", Math.min(energyMax, HUMAN_ENERGY_CAP));
+  const cappedEnergyMax = Math.min(energyMax, HUMAN_ENERGY_CAP);
+  const temporaryEnergyMaxBonus = getActiveMaxEnergyAttunementBonus();
+
+  setResourceMaxValue("energy", roundResourceAmount(cappedEnergyMax + temporaryEnergyMaxBonus));
   setResourceMaxValue("focus", getSkillCapacity("concentration"));
   setResourceMaxValue("mana", getSkillCapacity("manaCycling"));
   syncSpellUpgradeEffects();

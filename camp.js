@@ -3233,8 +3233,13 @@ function getAttunementCapacityFromLevel() {
 function getAttunementLevelRewardText(level) {
   const capacity = level >= 4 ? 3 : level >= 2 ? 2 : 1;
   const bonusPercent = level * 20;
+  let rewardText = "Attunement bonuses +" + bonusPercent + "%, " + capacity + " attunement slot" + (capacity === 1 ? "" : "s");
 
-  return "Attunement bonuses +" + bonusPercent + "%, " + capacity + " attunement slot" + (capacity === 1 ? "" : "s");
+  if (level >= 5) {
+    rewardText += ", Reinforced Body";
+  }
+
+  return rewardText;
 }
 
 function recordAttunementExperience(amount) {
@@ -3423,6 +3428,10 @@ function getAttunementTargetDescription(attunementName, definition, options = {}
     parts.push("+" + formatAttunementEffectNumber(getAttunementScaledEffectValue(definition, "carryCapacityFlat")) + " carry capacity");
   }
 
+  if (effects.maxEnergyFlat) {
+    parts.push("+" + formatAttunementEffectNumber(getAttunementScaledEffectValue(definition, "maxEnergyFlat")) + " max energy");
+  }
+
   if (effects.huntSuccessChancePerLevel) {
     const chanceBonus = getAttunementLevel() * effects.huntSuccessChancePerLevel;
     parts.push("+" + formatAttunementEffectPercent(chanceBonus) + " hunt success chance");
@@ -3454,6 +3463,7 @@ function formatAttunementEffectPercent(value) {
 
 function clearActiveAttunements() {
   getAttunementState().active = [];
+  recalculateCharacterStats();
   updateEquipmentSlotUI();
 }
 
@@ -3529,7 +3539,7 @@ function renderAttunementTargetMenu(menuEl) {
   menuEl.appendChild(createAttunementExperienceEntry());
 
   const definitions = getAttunementDefinitions();
-  let hasTargets = false;
+  let hasTargets = renderContextualSpellCastOption("attunement", menuEl);
 
   for (let attunementName in definitions) {
     if (!isAttunementTargetAvailable(attunementName)) continue;
@@ -4125,6 +4135,7 @@ function isAttunementTargetAvailable(attunementName) {
   const definition = getAttunementDefinition(attunementName);
 
   if (!definition) return false;
+  if (definition.requiredAttunementLevel && getAttunementLevel() < definition.requiredAttunementLevel) return false;
   if (hasActiveAttunement(attunementName)) return false;
 
   return true;
@@ -4555,6 +4566,7 @@ function applyAttunement(attunementName) {
     id: attunementName,
   });
 
+  recalculateCharacterStats();
   addStoryEntry("You attune yourself to " + definition.label + ".");
   return true;
 }
