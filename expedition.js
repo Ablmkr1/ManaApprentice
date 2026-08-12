@@ -171,7 +171,7 @@ function lockLocationActions() {
 }
 
 function getLocationActionNames() {
-  const actionNames = ["exploreLocation", "meditate", "leaveDungeon", "useHuntingLure", "concentrateTonicBase"];
+  const actionNames = ["exploreLocation", "meditate", "leaveDungeon", "useHuntingLure", "concentrateTonicBase", "concentrateManaTonicBase"];
 
   const locations = getExpeditionLocationDefinitions();
 
@@ -406,7 +406,10 @@ function getCarriedSummary() {
 
   for (let itemName in carriedItems) {
     if (carriedItems[itemName] > 0) {
-      parts.push(itemName + ": " + formatCarryAmount(carriedItems[itemName]));
+      const resource = getResource(itemName);
+      const label = resource ? resource.label : itemName;
+
+      parts.push(label + ": " + formatCarryAmount(carriedItems[itemName]));
     }
   }
 
@@ -1847,6 +1850,7 @@ function setPackingActionsAvailable(available) {
     lockAction("packTrap");
     lockAction("packPelt");
     lockAction("packWood");
+    lockAction("packImbuedWood");
     lockAction("packOre");
     lockAction("packHerb");
     lockAction("packGlimmerleaf");
@@ -1891,6 +1895,14 @@ function setPackingActionsAvailable(available) {
     unlockAction("packWood");
   } else {
     lockAction("packWood");
+  }
+
+  const imbuedWood = getResource("imbuedWood");
+
+  if (imbuedWood.value > 0) {
+    unlockAction("packImbuedWood");
+  } else {
+    lockAction("packImbuedWood");
   }
 
   const ore = getResource("ore");

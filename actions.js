@@ -32,6 +32,18 @@ function hookActionCompletions() {
     addResource("food", getGatherResourceYield("food"));
   };
 
+  getAction("addWoodToFuel").onComplete = function () {
+    addResource("fuel", 1);
+    unlockResource("fuel");
+    addStoryEntry("You feed wood into the fuel stockpile.");
+  };
+
+  getAction("addImbuedWoodToFuel").onComplete = function () {
+    addResource("fuel", 4);
+    unlockResource("fuel");
+    addStoryEntry("The imbued wood settles into the fuel stockpile with a steady magical heat.");
+  };
+
   getAction("gatherWater").onComplete = function () {
     addResource("water", getResource("water").perClick);
   };
@@ -280,16 +292,26 @@ function hookActionCompletions() {
     }
   };
 
+  getAction("packImbuedWood").onComplete = function () {
+    if (!addCarriedItem("imbuedWood", 1)) {
+      addResource("imbuedWood", 1);
+    }
+  };
+
   getAction("storeWood").onComplete = function () {
     const location = getExpeditionLocation(gameState.expedition.currentLocation);
     const woodAmount = gameState.expedition.carriedItems.wood || 0;
+    const imbuedWoodAmount = gameState.expedition.carriedItems.imbuedWood || 0;
+    const fuelAmount = woodAmount + imbuedWoodAmount * 4;
 
     if (!location || !location.storage) return;
-    if (woodAmount <= 0) return;
-    if (!removeCarriedItem("wood", woodAmount)) return;
+    if (fuelAmount <= 0) return;
+    if (woodAmount > 0 && !removeCarriedItem("wood", woodAmount)) return;
+    if (imbuedWoodAmount > 0 && !removeCarriedItem("imbuedWood", imbuedWoodAmount)) return;
 
-    location.storage.wood += woodAmount;
-    addStoryEntry("You stack " + formatCarryAmount(woodAmount) + " wood at the miners' camp.");
+    location.storage.fuel = (location.storage.fuel || 0) + fuelAmount;
+    unlockResource("fuel");
+    addStoryEntry("You add " + formatCarryAmount(fuelAmount) + " fuel to the stored stockpile.");
     updateLocationActions();
     updatePlacePanel();
   };
@@ -381,12 +403,40 @@ function hookActionCompletions() {
     } else if (context.mode === "location") {
       const storage = context.storage;
 
-      if (!storage || storage.staminaTonicBase < 2) return;
+      if (!storage || storage.staminaTonicBase < 2 || (storage.fuel || 0) < 5) return;
 
       storage.staminaTonicBase -= 2;
+      storage.fuel -= 5;
       storage.concentratedTonicBase = (storage.concentratedTonicBase || 0) + 1;
       unlockResource("concentratedTonicBase");
       addStoryEntry("You reduce two stored tonic bases into one stronger base at the alchemist's bench.");
+      updateLocationStorageUI(getExpeditionLocation(gameState.expedition.currentLocation));
+    }
+
+    updateAllResources();
+    updateAllActionButtons();
+    updateCraftingButtons();
+  };
+
+  getAction("concentrateManaTonicBase").onComplete = function () {
+    const context = getConcentrateManaTonicBaseActionContext();
+
+    if (!context) return;
+
+    if (context.mode === "camp") {
+      addResource("concentratedManaTonicBase", 1);
+      unlockResource("concentratedManaTonicBase");
+      addStoryEntry("You reduce two mana tonic bases into a stronger, concentrated mana base.");
+    } else if (context.mode === "location") {
+      const storage = context.storage;
+
+      if (!storage || storage.manaTonicBase < 2 || (storage.fuel || 0) < 5) return;
+
+      storage.manaTonicBase -= 2;
+      storage.fuel -= 5;
+      storage.concentratedManaTonicBase = (storage.concentratedManaTonicBase || 0) + 1;
+      unlockResource("concentratedManaTonicBase");
+      addStoryEntry("You reduce two stored mana tonic bases into one stronger mana base at the alchemist's bench.");
       updateLocationStorageUI(getExpeditionLocation(gameState.expedition.currentLocation));
     }
 
@@ -495,19 +545,52 @@ function getConcentrateTonicBaseActionContext() {
   return null;
 }
 
+function getConcentrateManaTonicBaseActionContext() {
+  if (isCampCraftingContext() && hasPurchasedCampUpgrade("campAlchemyStation")) {
+    return {
+      mode: "camp",
+      storage: null,
+    };
+  }
+
+  if (gameState.expedition.currentLocation === "alchemistsHut") {
+    const location = getExpeditionLocation("alchemistsHut");
+
+    if (location && location.explored && location.storage) {
+      return {
+        mode: "location",
+        storage: location.storage,
+      };
+    }
+  }
+
+  return null;
+}
+
 function getConcentrateTonicBaseActionCost() {
   const context = getConcentrateTonicBaseActionContext();
 
   if (context && context.mode === "camp") {
     return {
-      mana: 4,
       staminaTonicBase: 2,
+      fuel: 5,
     };
   }
 
-  return {
-    mana: 4,
-  };
+  return {};
+}
+
+function getConcentrateManaTonicBaseActionCost() {
+  const context = getConcentrateManaTonicBaseActionContext();
+
+  if (context && context.mode === "camp") {
+    return {
+      manaTonicBase: 2,
+      fuel: 5,
+    };
+  }
+
+  return {};
 }
 
 function canUseConcentrateTonicBaseAction() {
@@ -523,7 +606,25 @@ function canUseConcentrateTonicBaseAction() {
   const storage = context.storage;
   const currentOutput = storage.concentratedTonicBase || 0;
 
-  return storage.staminaTonicBase >= 2 && currentOutput < output.maxValue;
+  return storage.staminaTonicBase >= 2 && (storage.fuel || 0) >= 5 && currentOutput < output.maxValue;
+}
+
+function canUseConcentrateManaTonicBaseAction() {
+  const context = getConcentrateManaTonicBaseActionContext();
+  const output = getResource("concentratedManaTonicBase");
+
+  if (!context || !output) return false;
+
+  if (context.mode === "camp") {
+    const input = getResource("manaTonicBase");
+
+    return !!input && input.value >= 2 && getResource("fuel").value >= 5 && output.value < output.maxValue;
+  }
+
+  const storage = context.storage;
+  const currentOutput = storage.concentratedManaTonicBase || 0;
+
+  return storage.manaTonicBase >= 2 && (storage.fuel || 0) >= 5 && currentOutput < output.maxValue;
 }
 
 // Get Explore Function

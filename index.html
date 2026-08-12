@@ -12,6 +12,7 @@
       <div class="resource-strip">
         <div id="energyAmount" class="resource-pill"></div>
         <div id="focusAmount" class="resource-pill"></div>
+        <div id="wardAmount" class="resource-pill" style="display: none"></div>
         <div id="manaAmount" class="resource-pill" style="display: none"></div>
         <!--<div id="waterAmount" class="resource-pill" style="display: none"></div>-->
       </div>
@@ -27,6 +28,7 @@
 
         <div class="character-stats">
           <div id="characterEnergyAmount" class="character-stat">Energy: 0 / 10</div>
+          <div id="characterWardAmount" class="character-stat" style="display: none">Ward: 0 / 10</div>
         </div>
 
         <div id="trainingSection" class="training-section" style="display: none">
@@ -80,6 +82,8 @@
             <div class="camp-resource-strip">
               <div id="foodAmount" class="resource-pill" style="display: none"></div>
               <div id="woodAmount" class="resource-pill" style="display: none"></div>
+              <div id="fuelAmount" class="resource-pill" style="display: none"></div>
+              <div id="imbuedWoodAmount" class="resource-pill" style="display: none"></div>
               <div id="fiberAmount" class="resource-pill" style="display: none"></div>
               <div id="trapAmount" class="resource-pill" style="display: none"></div>
               <div id="peltAmount" class="resource-pill" style="display: none"></div>
@@ -93,6 +97,7 @@
               <div id="staminaTonicBaseAmount" class="resource-pill" style="display: none"></div>
               <div id="manaTonicBaseAmount" class="resource-pill" style="display: none"></div>
               <div id="concentratedTonicBaseAmount" class="resource-pill" style="display: none"></div>
+              <div id="concentratedManaTonicBaseAmount" class="resource-pill" style="display: none"></div>
               <div id="huntingLureAmount" class="resource-pill" style="display: none"></div>
               <div id="manaCrystalAmount" class="resource-pill" style="display: none"></div>
               <div id="chargedCrystalAmount" class="resource-pill" style="display: none"></div>
@@ -132,6 +137,16 @@
               <button id="gatherWoodBtn" class="action-btn" data-action="gatherWood" style="display: none">
                 <div class="progressFill"></div>
                 <span>Gather Wood</span>
+              </button>
+
+              <button class="action-btn" data-action="addWoodToFuel" style="display: none">
+                <div class="progressFill"></div>
+                <span>Add Wood to Fuel</span>
+              </button>
+
+              <button class="action-btn" data-action="addImbuedWoodToFuel" style="display: none">
+                <div class="progressFill"></div>
+                <span>Add Imbued Wood to Fuel</span>
               </button>
 
               <button id="gatherFoodBtn" class="action-btn" data-action="gatherFood" style="display: none">
@@ -234,7 +249,7 @@
 
           <button class="action-btn" data-action="storeWood" style="display: none">
             <div class="progressFill"></div>
-            <span>Store Wood</span>
+            <span>Store Fuel</span>
           </button>
 
           <button class="action-btn" data-action="storeOre" style="display: none">
@@ -279,6 +294,11 @@
           <button class="action-btn" data-action="concentrateTonicBase" style="display: none">
             <div class="progressFill"></div>
             <span>Concentrate Tonic Base</span>
+          </button>
+
+          <button class="action-btn" data-action="concentrateManaTonicBase" style="display: none">
+            <div class="progressFill"></div>
+            <span>Concentrate Mana Tonic Base</span>
           </button>
         </div>
 
@@ -470,6 +490,11 @@
               <span>Pack Wood</span>
             </button>
 
+            <button class="action-btn" data-action="packImbuedWood" style="display: none">
+              <div class="progressFill"></div>
+              <span>Pack Imbued Wood</span>
+            </button>
+
             <button class="action-btn" data-action="packHerb" style="display: none">
               <div class="progressFill"></div>
               <span>Pack Herbs</span>
@@ -610,6 +635,23 @@
         <p>Something once stood here, your camp was not the first thing built on this ground.</p>
 
         <button id="campFoundationContinueBtn">Continue</button>
+      </div>
+    </div>
+
+    <div id="personalWardPopup" class="popup" style="display: none">
+      <div class="popup-content">
+        <h2>Personal Ward</h2>
+
+        <p>
+          As the reinforced foundation settles, one section of stone answers differently. Its channels bend inward, forming the shape of a ward rather
+          than a wall.
+        </p>
+
+        <p>
+          The pattern resonates through your mana and memory follows it. You remember how to hold a personal ward around yourself.
+        </p>
+
+        <button id="personalWardContinueBtn">Continue</button>
       </div>
     </div>
 

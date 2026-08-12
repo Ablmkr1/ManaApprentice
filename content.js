@@ -408,9 +408,9 @@ const expeditionLocations = {
     distance: 135,
     storage: {
       food: 0,
-      wood: 0,
       ore: 0,
       iron: 0,
+      fuel: 0,
     },
     discovered: false,
     explored: false,
@@ -516,6 +516,8 @@ const expeditionLocations = {
       staminaTonicBase: 0,
       manaTonicBase: 0,
       concentratedTonicBase: 0,
+      concentratedManaTonicBase: 0,
+      fuel: 0,
     },
     discovered: false,
     explored: false,
@@ -530,7 +532,7 @@ const expeditionLocations = {
       discovered: "A vine-covered hut waits in the southern overgrowth. Strange scents cling to the air around it.",
       explored: "The abandoned hut has storage, tools, and enough old notes to begin simple alchemy.",
     },
-    availableActions: ["storeHerb", "storeGlimmerleaf", "concentrateTonicBase"],
+    availableActions: ["storeWood", "storeHerb", "storeGlimmerleaf", "concentrateTonicBase", "concentrateManaTonicBase"],
     explorableObjects: {
       studyInfusionPattern: {
         label: "Study Infusion Pattern",
@@ -1488,8 +1490,6 @@ const dungeonDefinitions = {
         },
         exits: [
           { label: "Return to the lower landing", to: "lowerLanding" },
-          { label: "Enter the machine nave", to: "machineNave" },
-          { label: "Search the deep repository", to: "deepRepository" },
         ],
       },
 
@@ -2250,7 +2250,8 @@ const projectDefinitions = {
         workYield: 22,
         workRequired: 300,
         materials: {
-          stone: 50,
+          wood: 100,
+          nails: 25,
         },
         description: "Packed earth and rubble hide fitted stonework beneath the camp.",
         completionStory: "Your tools strike fitted stone. The foundation was not destroyed; it was buried.",
@@ -2260,7 +2261,8 @@ const projectDefinitions = {
         workYield: 22,
         workRequired: 450,
         materials: {
-          stone: 100,
+          wood: 150,
+          nails: 50,
         },
         description: "The outer ring is visible now, wide enough to make the camp feel like it was built inside a sleeping tower.",
         completionStory: "The tower footprint resolves into a full ring beneath the clearing.",
@@ -2270,8 +2272,9 @@ const projectDefinitions = {
         workYield: 25,
         workRequired: 600,
         materials: {
-          stone: 150,
-          iron: 25,
+          wood: 100,
+          nails: 25,
+          stone: 20,
         },
         description: "Cracked foundation sections need fitted stone and iron pins before they can bear weight again.",
         completionStory: "The repaired ring settles with a deep, steady weight. The old foundation can carry structure again.",
@@ -2281,19 +2284,22 @@ const projectDefinitions = {
         workYield: 25,
         workRequired: 800,
         materials: {
-          stone: 250,
-          iron: 50,
+          stone: 100,
+          iron: 15,
         },
         description: "Iron reinforcement from the northern forge can bind the ancient structure into one frame.",
         completionStory: "Iron ties the old stone together, making the foundation feel less like ruins and more like engineering.",
+        onComplete: function () {
+          unlockPersonalWard(true);
+        },
       },
       {
         name: "Central Footing Restored",
         workYield: 30,
         workRequired: 1000,
         materials: {
-          stone: 400,
-          iron: 75,
+          stone: 150,
+          iron: 25,
         },
         description: "The central footing holds narrow channels that look less like drainage and more like mana pathways.",
         completionStory: "The central footing opens under your hands. Faint mana channels run through the entire foundation.",
@@ -2303,8 +2309,8 @@ const projectDefinitions = {
         workYield: 30,
         workRequired: 1250,
         materials: {
-          stone: 600,
-          iron: 100,
+          stone: 200,
+          iron: 50,
           chargedCrystal: 8,
         },
         description: "The foundation is physically whole. Charged crystals should be able to wake the channels carved through the stone.",
@@ -2667,7 +2673,6 @@ const campUpgrades = {
       energy: 70,
       stone: 35,
       iron: 2,
-      nails: 10,
     },
     unlocked: false,
     purchased: false,
@@ -2690,7 +2695,6 @@ const campUpgrades = {
       energy: 70,
       stone: 25,
       iron: 4,
-      nails: 15,
       manaCrystal: 4,
     },
     unlocked: false,
@@ -3467,11 +3471,11 @@ const resourceCrafts = {
     campCost: {
       energy: 8,
       ore: 3,
-      wood: 5,
+      fuel: 5,
     },
     storageCost: {
       ore: 3,
-      wood: 5,
+      fuel: 5,
     },
     storageProduces: {
       iron: 1,
@@ -3495,9 +3499,11 @@ const resourceCrafts = {
     campCost: {
       energy: 15,
       herb: 25,
+      fuel: 3,
     },
     storageCost: {
       herb: 25,
+      fuel: 3,
     },
     storageProduces: {
       staminaTonicBase: 1,
@@ -3521,9 +3527,11 @@ const resourceCrafts = {
     campCost: {
       energy: 10,
       glimmerleaf: 4,
+      fuel: 3,
     },
     storageCost: {
       glimmerleaf: 4,
+      fuel: 3,
     },
     storageProduces: {
       manaTonicBase: 1,
@@ -3702,6 +3710,58 @@ const imbueDefinitions = {
     story: "You fold mana into the food until it carries a tempting, deliberate trail-scent.",
   },
 
+  imbueWood: {
+    label: "Imbue Wood",
+    description: "Bind mana into one piece of wood so it burns as a stronger portable fuel source.",
+    requiredLocations: ["camp", "minersCamp", "alchemistsHut"],
+    duration: 2,
+    cost: {
+      mana: 2,
+      wood: 1,
+    },
+    locationCost: {
+      mana: 2,
+    },
+    carriedCost: {
+      wood: 1,
+    },
+    produces: {
+      resource: "imbuedWood",
+      amount: 1,
+    },
+    carriedProduces: {
+      resource: "imbuedWood",
+      amount: 1,
+    },
+    story: "Mana sinks into the grain until the wood holds a banked inner heat.",
+  },
+
+  imbueWoodBundle: {
+    label: "Imbue 10 Wood",
+    description: "Bind a full bundle of wood into portable high-value fuel.",
+    requiredLocations: ["camp", "minersCamp", "alchemistsHut"],
+    duration: 4,
+    cost: {
+      mana: 20,
+      wood: 10,
+    },
+    locationCost: {
+      mana: 20,
+    },
+    carriedCost: {
+      wood: 10,
+    },
+    produces: {
+      resource: "imbuedWood",
+      amount: 10,
+    },
+    carriedProduces: {
+      resource: "imbuedWood",
+      amount: 10,
+    },
+    story: "The whole bundle catches the same imbuing pattern, each piece warming with contained force.",
+  },
+
   manaCrystal: {
     label: "Create Mana Crystal",
     description: "Compress a full reserve of mana into a new stable crystal.",
@@ -3788,7 +3848,7 @@ const imbueDefinitions = {
 
   majorManaTonic: {
     label: "Imbue Major Mana Tonic",
-    description: "Bind a deeper charge into glimmerleaf and concentrated tonic base, filling an empty tonic slot with stronger mana recovery.",
+    description: "Bind a deeper charge into concentrated mana tonic base, filling an empty tonic slot with stronger mana recovery.",
     requiredLocation: "alchemistsHut",
     campUpgradeRequired: "campAlchemyStation",
     duration: 3,
@@ -3797,12 +3857,10 @@ const imbueDefinitions = {
     },
     campCost: {
       mana: 12,
-      manaTonicBase: 1,
-      concentratedTonicBase: 1,
+      concentratedManaTonicBase: 1,
     },
     storageCost: {
-      manaTonicBase: 1,
-      concentratedTonicBase: 1,
+      concentratedManaTonicBase: 1,
     },
     producesConsumable: {
       resource: "majorManaTonic",
@@ -3859,6 +3917,29 @@ const arcaneForceDefinitions = {
       amount: 10,
     },
     story: "You press the iron through a narrow force pattern until it draws into a neat row of nails.",
+  },
+
+  rechargeWard: {
+    label: "Recharge Ward",
+    description: "Press mana into your personal ward, restoring part of its protective shell.",
+    requiredLocation: "any",
+    duration: 2,
+    cost: {
+      mana: 5,
+    },
+    requires: {
+      flags: ["personalWardUnlocked"],
+    },
+    canApply: function () {
+      const ward = getResource("ward");
+
+      return !!ward && ward.value < ward.maxValue;
+    },
+    apply: function () {
+      addResource("ward", 5);
+      updateResource("ward");
+    },
+    story: "Arcane Force tightens the ward around you until its surface steadies again.",
   },
 
   crudeIronPickHead: {
@@ -4042,8 +4123,8 @@ const goalDefinitions = {
           return !!location && location.discovered;
         },
         isComplete: function () {
-          const research = getResearch("cordage");
-          return !!research && research.completed;
+          const satchel = getGearUpgrade("crudeSatchel");
+          return !!satchel && satchel.purchased;
         },
       },
       {
@@ -4058,8 +4139,12 @@ const goalDefinitions = {
           return !!location && location.discovered;
         },
         isComplete: function () {
-          const research = getResearch("simpleTraps");
-          return !!research && research.completed;
+          const location = getExpeditionLocation("strangeTrails");
+          const sites = location && location.trapSites && Array.isArray(location.trapSites.sites) ? location.trapSites.sites : [];
+
+          return sites.length === 5 && sites.every(function (site) {
+            return !!site.installed;
+          });
         },
       },
       {
@@ -4207,6 +4292,10 @@ const journalDefinitions = {
   towerFoundationAwakened: {
     title: "Foundation Awakened",
     text: "Charged crystals woke the restored channels beneath camp. The foundation is ready for whatever tower plans you can recover next.",
+  },
+  personalWardRemembered: {
+    title: "Personal Ward",
+    text: "A ward-forming section of the reinforced foundation resonated with your mana. The pattern felt familiar, and with it came the memory of holding a ward around yourself.",
   },
 };
 

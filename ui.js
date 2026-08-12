@@ -12,6 +12,8 @@ function hookDomToUI() {
   ui.waterAmount = document.getElementById("waterAmount");
   ui.foodAmount = document.getElementById("foodAmount");
   ui.woodAmount = document.getElementById("woodAmount");
+  ui.fuelAmount = document.getElementById("fuelAmount");
+  ui.imbuedWoodAmount = document.getElementById("imbuedWoodAmount");
   ui.smallFire = document.getElementById("smallFire");
   ui.crudeLeanTo = document.getElementById("crudeLeanTo");
   ui.smallFireBtn = document.getElementById("smallFireBtn");
@@ -25,6 +27,7 @@ function hookDomToUI() {
   ui.carriedAmount = document.getElementById("carriedAmount");
   ui.carriedWaterAmount = document.getElementById("carriedWaterAmount");
   ui.characterEnergyAmount = document.getElementById("characterEnergyAmount");
+  ui.characterWardAmount = document.getElementById("characterWardAmount");
   ui.trainingSection = document.getElementById("trainingSection");
   ui.trainingList = document.getElementById("trainingList");
   ui.campPanelTitle = document.getElementById("campPanelTitle");
@@ -84,6 +87,7 @@ function hookDomToUI() {
   ui.staminaTonicBaseAmount = document.getElementById("staminaTonicBaseAmount");
   ui.manaTonicBaseAmount = document.getElementById("manaTonicBaseAmount");
   ui.concentratedTonicBaseAmount = document.getElementById("concentratedTonicBaseAmount");
+  ui.concentratedManaTonicBaseAmount = document.getElementById("concentratedManaTonicBaseAmount");
   ui.huntingLureAmount = document.getElementById("huntingLureAmount");
   ui.locationTravelSection = document.getElementById("locationTravelSection");
   ui.tonicSlotsGroup = document.getElementById("tonicSlotsGroup");
@@ -114,6 +118,8 @@ function hookDomToUI() {
   ui.spellTargetMenu = document.getElementById("spellTargetMenu");
   ui.campFoundationPopup = document.getElementById("campFoundationPopup");
   ui.campFoundationContinueBtn = document.getElementById("campFoundationContinueBtn");
+  ui.personalWardPopup = document.getElementById("personalWardPopup");
+  ui.personalWardContinueBtn = document.getElementById("personalWardContinueBtn");
   ui.dungeonActions = document.getElementById("dungeonActions");
   ui.nailsAmount = document.getElementById("nailsAmount");
   ui.automationTabBtn = document.getElementById("automationTabBtn");
@@ -132,11 +138,14 @@ function hookUIMaps() {
     water: ui.waterAmount,
     food: ui.foodAmount,
     wood: ui.woodAmount,
+    fuel: ui.fuelAmount,
+    imbuedWood: ui.imbuedWoodAmount,
     fiber: ui.fiberAmount,
     trap: ui.trapAmount,
     pelt: ui.peltAmount,
     stone: ui.stoneAmount,
     mana: document.getElementById("manaAmount"),
+    ward: document.getElementById("wardAmount"),
     leather: ui.leatherAmount,
     ore: ui.oreAmount,
     iron: ui.ironAmount,
@@ -145,6 +154,7 @@ function hookUIMaps() {
     staminaTonicBase: ui.staminaTonicBaseAmount,
     manaTonicBase: ui.manaTonicBaseAmount,
     concentratedTonicBase: ui.concentratedTonicBaseAmount,
+    concentratedManaTonicBase: ui.concentratedManaTonicBaseAmount,
     huntingLure: ui.huntingLureAmount,
     manaCrystal: ui.manaCrystalAmount,
     chargedCrystal: ui.chargedCrystalAmount,
@@ -203,6 +213,14 @@ function updateResource(resourceName) {
     safeSetText(ui.characterEnergyAmount, text);
   }
 
+  if (resourceName === "ward") {
+    safeSetText(ui.characterWardAmount, text);
+
+    if (ui.characterWardAmount) {
+      ui.characterWardAmount.style.display = resource.display && resource.display.style.display !== "none" ? "block" : "none";
+    }
+  }
+
   safeSetText(resource.perClickDisplay, "+" + resource.perClick + "/Click");
   safeSetText(resource.perSecondDisplay, "+" + resource.perSecond + "/Sec");
   updateAllActionButtons();
@@ -251,6 +269,8 @@ function updateCampResourcesSectionVisibility() {
   const campResourceNames = [
     "food",
     "wood",
+    "fuel",
+    "imbuedWood",
     "fiber",
     "trap",
     "pelt",
@@ -263,6 +283,7 @@ function updateCampResourcesSectionVisibility() {
     "staminaTonicBase",
     "manaTonicBase",
     "concentratedTonicBase",
+    "concentratedManaTonicBase",
     "huntingLure",
     "manaCrystal",
     "chargedCrystal",
@@ -319,6 +340,10 @@ function showManaAwakenedPopup() {
 
 function showCampFoundationPopup() {
   ui.campFoundationPopup.style.display = "flex";
+}
+
+function showPersonalWardPopup() {
+  ui.personalWardPopup.style.display = "flex";
 }
 
 //Update Expedition UI
@@ -474,7 +499,10 @@ function isActionContextAvailable(actionName) {
 
   if (actionName === "storeWood") {
     const location = getExpeditionLocation(locationName);
-    return !!location && !!location.storage && location.storage.wood !== undefined && gameState.expedition.carriedItems.wood > 0;
+    const carriedItems = gameState.expedition.carriedItems;
+    const carriedFuelValue = (carriedItems.wood || 0) + (carriedItems.imbuedWood || 0) * 4;
+
+    return !!location && !!location.storage && location.storage.fuel !== undefined && carriedFuelValue > 0;
   }
 
   if (actionName === "storeOre") {
@@ -524,6 +552,18 @@ function isActionContextAvailable(actionName) {
 
   if (actionName === "concentrateTonicBase") {
     return typeof canUseConcentrateTonicBaseAction === "function" && canUseConcentrateTonicBaseAction();
+  }
+
+  if (actionName === "concentrateManaTonicBase") {
+    return typeof canUseConcentrateManaTonicBaseAction === "function" && canUseConcentrateManaTonicBaseAction();
+  }
+
+  if (actionName === "addWoodToFuel") {
+    return !gameState.expedition.active && !gameState.expedition.currentLocation && getResource("wood").value > 0;
+  }
+
+  if (actionName === "addImbuedWoodToFuel") {
+    return !gameState.expedition.active && !gameState.expedition.currentLocation && getResource("imbuedWood").value > 0;
   }
 
   if (actionName === "practiceManaCycling") {

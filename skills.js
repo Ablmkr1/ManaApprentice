@@ -606,6 +606,10 @@ function getActionCost(actionName) {
     return getConcentrateTonicBaseActionCost();
   }
 
+  if (actionName === "concentrateManaTonicBase" && typeof getConcentrateManaTonicBaseActionCost === "function") {
+    return getConcentrateManaTonicBaseActionCost();
+  }
+
   if (actionName === "explore" || actionName === "exploreLocation") {
     return reduceEnergyCost(action.cost || {}, getExplorationEnergyReduction());
   }

@@ -88,6 +88,53 @@ function applyUnlocks(unlocks) {
   unlocks.forEach(applyUnlock);
 }
 
+function unlockPersonalWard(showPopup = true) {
+  const ward = getResource("ward");
+  const wasUnlocked = !!gameState.personalWardUnlocked;
+
+  gameState.personalWardUnlocked = true;
+
+  if (ward) {
+    ward.maxValue = 10;
+    ward.value = 10;
+    unlockResource("ward");
+    updateResource("ward");
+  }
+
+  if (!wasUnlocked) {
+    addStoryEntry("The foundation's ward pattern answers your mana. You remember how to hold a personal ward around yourself.");
+    addJournalEntry("personalWardRemembered");
+  }
+
+  if (showPopup && !gameState.personalWardPopupShown && typeof showPersonalWardPopup === "function") {
+    showPersonalWardPopup();
+  }
+
+  updateEquipmentSlotUI();
+  updateAllActionButtons();
+}
+
+function repairPersonalWardUnlockFromProject(showPopup = false) {
+  if (gameState.personalWardUnlocked) {
+    const ward = getResource("ward");
+
+    if (ward) {
+      ward.maxValue = 10;
+      ward.value = Number.isFinite(ward.value) ? Math.max(0, Math.min(ward.maxValue, ward.value)) : ward.maxValue;
+      unlockResource("ward");
+      updateResource("ward");
+    }
+
+    return;
+  }
+
+  const foundation = getProjectState("towerFoundation");
+
+  if (foundation && (foundation.completed || foundation.level > 5)) {
+    unlockPersonalWard(showPopup);
+  }
+}
+
 function getDefaultProjectState() {
   return {
     unlocked: false,
@@ -652,6 +699,19 @@ function setCampActionsAvailable(available) {
   if (available) {
     if (gameState.discoveredDeadfall) {
       unlockAction("gatherWood");
+      unlockAction("addWoodToFuel");
+    } else {
+      lockAction("addWoodToFuel");
+    }
+
+    const imbuedWood = getResource("imbuedWood");
+    const imbuedWoodVisible = imbuedWood && imbuedWood.display && imbuedWood.display.style.display !== "none";
+    const imbueSpell = getSpell("imbue");
+
+    if ((imbuedWood && imbuedWood.value > 0) || imbuedWoodVisible || (imbueSpell && imbueSpell.unlocked)) {
+      unlockAction("addImbuedWoodToFuel");
+    } else {
+      lockAction("addImbuedWoodToFuel");
     }
 
     if (gameState.discoveredBerryBush) {
@@ -678,19 +738,24 @@ function setCampActionsAvailable(available) {
 
     if (hasPurchasedCampUpgrade("campAlchemyStation")) {
       unlockAction("concentrateTonicBase");
+      unlockAction("concentrateManaTonicBase");
     } else {
       lockAction("concentrateTonicBase");
+      lockAction("concentrateManaTonicBase");
     }
 
     ui.restBtn.style.display = "inline-block";
   } else {
     lockAction("gatherWood");
+    lockAction("addWoodToFuel");
+    lockAction("addImbuedWoodToFuel");
     lockAction("gatherFood");
     lockAction("gatherWater");
     lockAction("explore");
     lockAction("recover");
     lockAction("meditate");
     lockAction("concentrateTonicBase");
+    lockAction("concentrateManaTonicBase");
     ui.restBtn.style.display = "none";
   }
 }
@@ -1691,12 +1756,13 @@ function completeGearUpgrade(upgradeName) {
 function updateCraftingSectionVisibility() {
   if (!ui.craftingSection) return;
 
+  const canUseCampWork = isCampWorkContextAvailable();
   const hasCampCrafting = hasAvailableCampUpgrade();
   const hasGearCrafting = hasAvailableGearUpgrade();
   const hasResourceCrafting = hasAvailableResourceCraft();
   const hasResearchCrafting = hasAvailableResearch();
   const hasResearchWorkspace = isResearchSpotPurchased();
-  const hasProjects = hasVisibleProject();
+  const hasProjects = canUseCampWork && hasVisibleProject();
 
   if (hasCampCrafting || hasGearCrafting || hasResourceCrafting || hasResearchCrafting || hasProjects) {
     showElement(ui.craftingSection, "flex");
@@ -1842,6 +1908,8 @@ function isCraftAvailable(craftType, craftId) {
   }
 
   if (craftType === "research") {
+    if (!isCampWorkContextAvailable()) return false;
+
     return craft.unlocked && !craft.completed && !craft.blocked;
   }
 
@@ -2068,12 +2136,17 @@ function isResearchSpotPurchased() {
   return hasPurchasedCampUpgrade("researchSpot");
 }
 
+function isCampWorkContextAvailable() {
+  return !gameState.expedition.active && !gameState.expedition.currentLocation;
+}
+
 function updateWorkTabsVisibility() {
   if (!ui.workTabs) return;
 
-  const hasResearch = isResearchSpotPurchased();
-  const hasAutomation = hasUnlockedAutomation();
-  const hasProjects = hasVisibleProject();
+  const canUseCampWork = isCampWorkContextAvailable();
+  const hasResearch = canUseCampWork && isResearchSpotPurchased();
+  const hasAutomation = canUseCampWork && hasUnlockedAutomation();
+  const hasProjects = canUseCampWork && hasVisibleProject();
 
   if (hasResearch || hasAutomation || hasProjects) {
     showElement(ui.workTabs, "flex");
@@ -2096,9 +2169,10 @@ function updateWorkTabsVisibility() {
 }
 
 function showWorkPanel(panelName) {
-  const showingResearch = panelName === "research" && isResearchSpotPurchased();
-  const showingAutomation = panelName === "automation" && hasUnlockedAutomation();
-  const showingProjects = panelName === "projects" && hasVisibleProject();
+  const canUseCampWork = isCampWorkContextAvailable();
+  const showingResearch = canUseCampWork && panelName === "research" && isResearchSpotPurchased();
+  const showingAutomation = canUseCampWork && panelName === "automation" && hasUnlockedAutomation();
+  const showingProjects = canUseCampWork && panelName === "projects" && hasVisibleProject();
   const showingCrafting = !showingResearch && !showingAutomation && !showingProjects;
 
   if (ui.craftingPanel) {
@@ -2177,6 +2251,7 @@ function canWorkOnProject(projectName) {
   const state = getProjectState(projectName);
   const level = getProjectCurrentLevel(projectName);
 
+  if (!isCampWorkContextAvailable()) return false;
   if (!state || !level) return false;
   if (!state.unlocked || state.completed) return false;
   if (getProjectWorkRemaining(projectName) <= 0) return false;
@@ -2256,6 +2331,7 @@ function isProjectLevelComplete(projectName) {
 
 function depositProjectResource(projectName, resourceName) {
   if (isActivityActive()) return;
+  if (!isCampWorkContextAvailable()) return;
 
   const state = getProjectState(projectName);
   const resource = getResource(resourceName);
@@ -2294,6 +2370,14 @@ function advanceProjectLevel(projectName) {
 
   if (completedLevel.completionStory) {
     addStoryEntry(completedLevel.completionStory);
+  }
+
+  if (completedLevel.unlocks) {
+    applyUnlocks(completedLevel.unlocks);
+  }
+
+  if (typeof completedLevel.onComplete === "function") {
+    completedLevel.onComplete(projectName, completedLevel);
   }
 
   state.level += 1;
@@ -2930,6 +3014,7 @@ function updateAutomationUI() {
 function canImbueAutomation(machineName) {
   const machine = getAutomation(machineName);
 
+  if (!isCampWorkContextAvailable()) return false;
   if (!machine || !machine.unlocked) return false;
 
   return canAffordCost(machine.fuelCost);
@@ -2938,6 +3023,7 @@ function canImbueAutomation(machineName) {
 function imbueAutomation(machineName) {
   const machine = getAutomation(machineName);
 
+  if (!isCampWorkContextAvailable()) return;
   if (!machine || !machine.unlocked) return;
   if (!spendCost(machine.fuelCost)) return;
 
@@ -2948,6 +3034,7 @@ function imbueAutomation(machineName) {
 function canChargeAutomationWithCrystal(machineName) {
   const machine = getAutomation(machineName);
 
+  if (!isCampWorkContextAvailable()) return false;
   if (!machine || !machine.unlocked) return false;
 
   return canAffordCost({ chargedCrystal: 1 });
@@ -2956,6 +3043,7 @@ function canChargeAutomationWithCrystal(machineName) {
 function chargeAutomationWithCrystal(machineName) {
   const machine = getAutomation(machineName);
 
+  if (!isCampWorkContextAvailable()) return;
   if (!machine || !machine.unlocked) return;
   if (!spendCost({ chargedCrystal: 1 })) return;
 
@@ -3283,12 +3371,12 @@ function getImbueCapacity() {
 
 function getImbueLevelRewardText(level) {
   const rewards = [
-    "2 mana capacity: Hunting Lure and Weak Stamina Tonic",
+    "2 mana capacity: Imbue Wood, Hunting Lure, and Weak Stamina Tonic",
     "5 mana capacity: Charge Mana Crystal and Concentrated Stamina Tonic",
     "8 mana capacity: Minor Mana Tonic",
     "12 mana capacity: Major Mana Tonic",
     "16 mana capacity: Charge Crystal Cluster",
-    "20 mana capacity: Create Mana Crystal; Rank 2 research ready",
+    "20 mana capacity: Imbue 10 Wood, Create Mana Crystal; Rank 2 research ready",
   ];
 
   return rewards[Math.max(0, Math.min(level, rewards.length - 1))];
@@ -4051,6 +4139,13 @@ function createArcaneForceExperienceEntry() {
 
   entry.appendChild(detail);
 
+  if (gameState.personalWardUnlocked) {
+    const wardDetail = document.createElement("div");
+    wardDetail.className = "training-detail";
+    wardDetail.textContent = "Personal Ward remembered: Recharge Ward available.";
+    entry.appendChild(wardDetail);
+  }
+
   return entry;
 }
 
@@ -4175,6 +4270,10 @@ function getProductionSpellTargetContext(spellName, targetName, requestedContext
     return getLocationProductionSpellTargetContext(definition);
   }
 
+  if (requestedContext && (requestedContext.mode === "camp" || requestedContext.mode === "field")) {
+    return getLocationProductionSpellTargetContext(definition, requestedContext);
+  }
+
   return getCampEquipmentProductionSpellTargetContext(definition) || getLocationProductionSpellTargetContext(definition);
 }
 
@@ -4187,31 +4286,63 @@ function getCampEquipmentProductionSpellTargetContext(definition) {
     mode: "campEquipment",
     cost: definition.campCost || definition.cost || {},
     storageCost: null,
+    carriedCost: null,
     produces: definition.campProduces || definition.produces || null,
     storageProduces: null,
     producesConsumable: definition.campProducesConsumable || definition.producesConsumable || null,
+    carriedProduces: null,
   };
 }
 
-function getLocationProductionSpellTargetContext(definition) {
+function getLocationProductionSpellTargetContext(definition, requestedContext) {
   if (!definition) return null;
 
-  const requiredLocation = definition.requiredLocation || "camp";
+  const requiredLocations = Array.isArray(definition.requiredLocations)
+    ? definition.requiredLocations
+    : [definition.requiredLocation || "camp"];
+  const canUseAnywhere = requiredLocations.includes("any");
+  let mode = null;
 
-  if (requiredLocation === "camp") {
+  if (requestedContext && requestedContext.mode === "camp") {
+    if (!canUseAnywhere && !requiredLocations.includes("camp")) return null;
     if (!isCampCraftingContext()) return null;
-  } else if (gameState.expedition.currentLocation !== requiredLocation) {
+
+    mode = "camp";
+  } else if (requestedContext && requestedContext.mode === "location") {
+    if (!gameState.expedition.currentLocation) return null;
+    if (!canUseAnywhere && !requiredLocations.includes(gameState.expedition.currentLocation)) return null;
+
+    mode = "location";
+  } else if (requestedContext && requestedContext.mode === "field") {
+    if (!canUseAnywhere) return null;
+    if (!gameState.expedition.active || gameState.expedition.currentLocation) return null;
+
+    mode = "field";
+  } else if (canUseAnywhere && isCampCraftingContext()) {
+    mode = "camp";
+  } else if (canUseAnywhere && gameState.expedition.currentLocation) {
+    mode = "location";
+  } else if (canUseAnywhere && gameState.expedition.active) {
+    mode = "field";
+  } else if (requiredLocations.includes("camp") && isCampCraftingContext()) {
+    mode = "camp";
+  } else if (gameState.expedition.currentLocation && requiredLocations.includes(gameState.expedition.currentLocation)) {
+    mode = "location";
+  } else {
     return null;
   }
 
+  const isLocationMode = mode === "location";
+
   return {
-    mode: requiredLocation === "camp" ? "camp" : "location",
-    cost: definition.cost || {},
-    storageCost: definition.storageCost || null,
-    produces: definition.produces || null,
-    storageProduces: definition.storageProduces || null,
+    mode: mode,
+    cost: isLocationMode ? definition.locationCost || definition.cost || {} : definition.cost || {},
+    storageCost: isLocationMode ? definition.storageCost || null : null,
+    carriedCost: isLocationMode ? definition.carriedCost || null : null,
+    produces: isLocationMode ? definition.locationProduces || null : definition.produces || null,
+    storageProduces: isLocationMode ? definition.storageProduces || null : null,
     producesConsumable: definition.producesConsumable || null,
-    carriedProduces: definition.carriedProduces || null,
+    carriedProduces: isLocationMode ? definition.carriedProduces || null : null,
   };
 }
 
@@ -4307,11 +4438,12 @@ function formatSpellOptionDetails(spellName, definition, context) {
         ? definition.cost
         : {};
   const storageCost = targetContext ? targetContext.storageCost : definition ? definition.storageCost : null;
+  const carriedCost = targetContext ? targetContext.carriedCost : null;
 
   return [
     "Mana: " + getSpellOptionManaCost(cost),
     "Time: " + formatSpellDuration(getSpellCastDuration(spellName, context)),
-    "Materials: " + getSpellOptionMaterialCost(cost, storageCost),
+    "Materials: " + getSpellOptionMaterialCost(cost, storageCost, carriedCost),
   ].join(" | ");
 }
 
@@ -4323,13 +4455,15 @@ function getSpellOptionManaCost(cost) {
   return cost.mana;
 }
 
-function getSpellOptionMaterialCost(cost, storageCostDefinition) {
+function getSpellOptionMaterialCost(cost, storageCostDefinition, carriedCostDefinition) {
   const materials = [];
   const resourceCost = formatCostExcluding(cost, ["mana"]);
   const storageCost = formatStoredSpellMaterialCost(storageCostDefinition);
+  const carriedCost = formatCarriedSpellMaterialCost(carriedCostDefinition);
 
   if (resourceCost) materials.push(resourceCost);
   if (storageCost) materials.push(storageCost);
+  if (carriedCost) materials.push(carriedCost);
 
   return materials.length > 0 ? materials.join(", ") : "None";
 }
@@ -4350,6 +4484,21 @@ function formatStoredSpellMaterialCost(cost) {
     }
 
     parts.push(amount + " stored " + label);
+  }
+
+  return parts.join(", ");
+}
+
+function formatCarriedSpellMaterialCost(cost) {
+  if (!cost) return "";
+
+  const parts = [];
+
+  for (let resourceName in cost) {
+    const resource = getResource(resourceName);
+    const label = resource ? resource.label : resourceName;
+
+    parts.push(cost[resourceName] + " carried " + label);
   }
 
   return parts.join(", ");
@@ -4379,9 +4528,9 @@ function isImbueTargetAvailable(imbueName) {
   return isProductionSpellTargetAvailable("imbue", imbueName);
 }
 
-function isProductionSpellTargetAvailable(spellName, targetName) {
+function isProductionSpellTargetAvailable(spellName, targetName, requestedContext) {
   const definition = getProductionSpellDefinition(spellName, targetName);
-  const targetContext = getProductionSpellTargetContext(spellName, targetName);
+  const targetContext = getProductionSpellTargetContext(spellName, targetName, requestedContext);
 
   if (!definition) return false;
   if (!targetContext) return false;
@@ -4391,10 +4540,12 @@ function isProductionSpellTargetAvailable(spellName, targetName) {
 
   if (!areProductionSpellTargetRequirementsMet(definition.requires)) return false;
 
+  if (!canAffordProductionSpellMaterialCost(targetContext.cost)) return false;
   if (!canAffordStorageCost(targetContext.storageCost)) return false;
+  if (targetContext.carriedCost && !canAffordCarriedCost(targetContext.carriedCost)) return false;
   if (!canReceiveProductionProduces(targetContext.produces)) return false;
   if (!canReceiveStorageProduces(targetContext.storageProduces)) return false;
-  if (!canReceiveCarriedProduces(targetContext.carriedProduces)) return false;
+  if (!canReceiveCarriedProduces(targetContext.carriedProduces, targetContext.carriedCost)) return false;
 
   if (
     targetContext.producesConsumable &&
@@ -4405,6 +4556,20 @@ function isProductionSpellTargetAvailable(spellName, targetName) {
 
   if (typeof definition.canApply === "function" && !definition.canApply(spellName, targetName)) {
     return false;
+  }
+
+  return true;
+}
+
+function canAffordProductionSpellMaterialCost(cost) {
+  if (!cost) return true;
+
+  for (let resourceName in cost) {
+    if (resourceName === "mana") continue;
+
+    const resource = getResource(resourceName);
+
+    if (!resource || resource.value < cost[resourceName]) return false;
   }
 
   return true;
@@ -4439,10 +4604,19 @@ function canReceiveStorageProduces(produces) {
   return true;
 }
 
-function canReceiveCarriedProduces(produces) {
+function canReceiveCarriedProduces(produces, carriedCost) {
   if (!produces) return true;
 
-  return hasCarrySpace(produces.resource, 1);
+  const producedWeight = produces.amount * getCarriedItemWeight(produces.resource);
+  let freedWeight = 0;
+
+  if (carriedCost) {
+    for (let itemName in carriedCost) {
+      freedWeight += carriedCost[itemName] * getCarriedItemWeight(itemName);
+    }
+  }
+
+  return getCarriedTotal() - freedWeight + producedWeight <= getEffectiveCarryCapacity();
 }
 
 function areProductionSpellTargetRequirementsMet(requires) {
@@ -4495,7 +4669,10 @@ function canApplyProductionSpellTarget(spellName, targetName) {
   if (isActivityActive()) return false;
   if (!isProductionSpellTargetAvailable(spellName, targetName)) return false;
 
-  return canAffordCost(targetContext.cost || {});
+  if (!canAffordCost(targetContext.cost || {})) return false;
+  if (targetContext.carriedCost && !canAffordCarriedCost(targetContext.carriedCost)) return false;
+
+  return true;
 }
 
 function canApplyAttunement(attunementName) {
@@ -4553,7 +4730,6 @@ function castTargetedSpell(spellName, context) {
     return;
   }
 
-  hideSpellTargetMenu();
   updateAllResources();
   updateEquipmentSlotUI();
   updateAllActionButtons();
@@ -4613,8 +4789,9 @@ function applyProductionSpellTarget(spellName, targetName, requestedContext) {
 
   if (!definition) return false;
   if (!targetContext) return false;
-  if (!isProductionSpellTargetAvailable(spellName, targetName)) return false;
+  if (!isProductionSpellTargetAvailable(spellName, targetName, requestedContext)) return false;
   if (!spendStorageCost(targetContext.storageCost)) return false;
+  if (targetContext.carriedCost && !spendCarriedCost(targetContext.carriedCost)) return false;
 
   if (targetContext.produces) {
     addResource(targetContext.produces.resource, targetContext.produces.amount);

@@ -1,5 +1,5 @@
 const SAVE_KEY = "manaApprenticeSaveV1";
-const SAVE_VERSION = 13;
+const SAVE_VERSION = 15;
 let saveSuppressed = false;
 
 function createSaveData() {
@@ -268,6 +268,14 @@ function migrateSaveData(saveData) {
     migrateV12SaveDataToV13(normalizedSaveData);
   }
 
+  if (version <= 13) {
+    migrateV13SaveDataToV14(normalizedSaveData);
+  }
+
+  if (version <= 14) {
+    migrateV14SaveDataToV15(normalizedSaveData);
+  }
+
   normalizedSaveData.version = SAVE_VERSION;
 
   return normalizedSaveData;
@@ -313,6 +321,7 @@ function normalizeSaveData(saveData) {
   saveData.spells = ensureObject(saveData.spells);
   saveData.resourceCrafts = ensureObject(saveData.resourceCrafts);
   saveData.expeditionLocations = ensureObject(saveData.expeditionLocations);
+  normalizeSavedFuelLocationStorage(saveData.expeditionLocations);
   saveData.dungeons = ensureObject(saveData.dungeons);
   saveData.automation = ensureObject(saveData.automation);
   saveData.gameState.journal = ensureObject(saveData.gameState.journal);
@@ -385,6 +394,67 @@ function migrateV12SaveDataToV13(saveData) {
   saveData.gameState.magic = ensureObject(saveData.gameState.magic);
   saveData.gameState.magic.spellProgress = ensureObject(saveData.gameState.magic.spellProgress);
   saveData.gameState.magic.spellProgress.imbue = normalizeSavedSpellProgress(saveData.gameState.magic.spellProgress.imbue);
+}
+
+function migrateV13SaveDataToV14(saveData) {
+  normalizeSavedFuelLocationStorage(saveData.expeditionLocations);
+}
+
+function migrateV14SaveDataToV15(saveData) {
+  const savedGameState = ensureObject(saveData.gameState);
+  const savedProjects = ensureObject(savedGameState.projects);
+  const towerFoundation = ensureObject(savedProjects.towerFoundation);
+  const hasReinforcedFoundation = !!towerFoundation.completed || (Number.isFinite(towerFoundation.level) && towerFoundation.level > 5);
+
+  savedGameState.personalWardUnlocked = !!savedGameState.personalWardUnlocked || hasReinforcedFoundation;
+  savedGameState.personalWardPopupShown = !!savedGameState.personalWardPopupShown;
+
+  if (savedGameState.personalWardUnlocked) {
+    const savedResources = ensureObject(saveData.resources);
+    const ward = ensureObject(savedResources.ward);
+    const journal = ensureObject(savedGameState.journal);
+
+    ward.value = Number.isFinite(ward.value) ? Math.max(0, Math.min(10, ward.value)) : 10;
+    ward.maxValue = 10;
+    ward.perClick = Number.isFinite(ward.perClick) ? ward.perClick : 0;
+    ward.perSecond = Number.isFinite(ward.perSecond) ? ward.perSecond : 0;
+    ward.visible = true;
+    savedResources.ward = ward;
+    saveData.resources = savedResources;
+
+    if (!Array.isArray(journal.entries)) {
+      journal.entries = [];
+    }
+
+    if (!journal.entries.includes("personalWardRemembered")) {
+      journal.entries.push("personalWardRemembered");
+    }
+
+    savedGameState.journal = journal;
+  }
+
+  saveData.gameState = savedGameState;
+}
+
+function normalizeSavedFuelLocationStorage(savedLocations) {
+  const locations = ensureObject(savedLocations);
+  const fuelLocations = ["minersCamp", "alchemistsHut"];
+
+  fuelLocations.forEach(function (locationName) {
+    const location = locations[locationName];
+
+    if (!location || typeof location !== "object") return;
+
+    const storage = ensureObject(location.storage);
+    const fuel = Number.isFinite(storage.fuel) ? storage.fuel : 0;
+    const woodFuel = Number.isFinite(storage.wood) ? storage.wood : 0;
+    const imbuedWoodFuel = Number.isFinite(storage.imbuedWood) ? storage.imbuedWood * 4 : 0;
+
+    storage.fuel = roundResourceAmount(Math.max(0, fuel + woodFuel + imbuedWoodFuel));
+    delete storage.wood;
+    delete storage.imbuedWood;
+    location.storage = storage;
+  });
 }
 
 function migrateSavedSpellUnlock(savedSpells, oldSpellName, newSpellName) {
@@ -681,6 +751,8 @@ function applyGameStateSaveData(savedGameState) {
     "manaCondenserPlansFound",
     "partialTowerPlansFound",
     "towerConstructionUnlocked",
+    "personalWardUnlocked",
+    "personalWardPopupShown",
     "destination",
     "hasCamp",
   ]);
@@ -846,7 +918,9 @@ function applyExpeditionLocationSaveData(savedLocations) {
 
     if (location.storage && savedLocation.storage) {
       for (let resourceName in savedLocation.storage) {
-        location.storage[resourceName] = savedLocation.storage[resourceName];
+        if (Object.prototype.hasOwnProperty.call(location.storage, resourceName)) {
+          location.storage[resourceName] = savedLocation.storage[resourceName];
+        }
       }
     }
 
@@ -893,6 +967,7 @@ function refreshGameUIAfterLoad() {
   hideElement(ui.torchSparkPopup);
   hideElement(ui.manaAwakenedPopup);
   hideElement(ui.campFoundationPopup);
+  hideElement(ui.personalWardPopup);
 
   const resourceDefinitions = getResourceDefinitions();
 
@@ -948,6 +1023,10 @@ function refreshGameUIAfterLoad() {
   refreshExpeditionUI();
   updateTravelButton(isTravelActivityActive());
   updatePlacePanel();
+
+  if (gameState.personalWardUnlocked && !gameState.personalWardPopupShown && typeof showPersonalWardPopup === "function") {
+    showPersonalWardPopup();
+  }
 }
 
 function loadGame() {
@@ -970,6 +1049,7 @@ function loadGame() {
   applyAutomationSaveData(saveData.automation);
   ensureSkillsState();
   ensureProjectsState();
+  repairPersonalWardUnlockFromProject(false);
   recalculateCharacterStats();
   recalculateCampEffects();
   recalculateToolEffects();

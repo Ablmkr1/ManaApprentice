@@ -37,6 +37,12 @@ window.onload = function () {
     ui.campFoundationPopup.style.display = "none";
   });
 
+  ui.personalWardContinueBtn.addEventListener("click", function () {
+    ui.personalWardPopup.style.display = "none";
+    gameState.personalWardPopupShown = true;
+    trySaveGame();
+  });
+
   hookStatsToUI();
   updateCurrentGoalUI();
   updateJournalUI();
