@@ -289,6 +289,7 @@ window.onload = function () {
   hookDevSpeedControls();
   hookDevTierControls();
   hookWorkTabs();
+  hookMainViewTabs();
 
   ui.continueBtn.addEventListener("click", function () {
     ui.introPopup.style.display = "none";
@@ -350,11 +351,6 @@ function hookWorkTabs() {
     });
   }
 
-  if (ui.projectTabBtn) {
-    ui.projectTabBtn.addEventListener("click", function () {
-      showWorkPanel("projects");
-    });
-  }
 }
 
 function hookDevSpeedControls() {

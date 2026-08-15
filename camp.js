@@ -308,6 +308,7 @@ function unlockProject(projectName) {
   updateProjectUI();
   updateCraftingSectionVisibility();
   updateWorkTabsVisibility();
+  syncMainViewAvailability();
 }
 
 function hasVisibleProject() {
@@ -335,6 +336,8 @@ function unlockFlag(flagName) {
   if (flagName === "discoveredStream" || flagName === "discoveredBerryBush") {
     checkClearingComplete();
   }
+
+  syncMainViewAvailability();
 }
 
 function unlockLocation(locationName) {
@@ -1019,6 +1022,7 @@ function updateEquipmentSlotUI() {
   renderEquipmentSlots(ui.toolSlotsGroup, ui.toolSlots, "tool");
   renderSpellSlots();
   renderTonicSlots();
+  syncMainViewAvailability();
 }
 
 function renderCampUpgradeSlots() {
@@ -1915,10 +1919,8 @@ function updateCraftingSectionVisibility() {
   const hasGearCrafting = hasAvailableGearUpgrade();
   const hasResourceCrafting = hasAvailableResourceCraft();
   const hasResearchCrafting = hasAvailableResearch();
-  const hasResearchWorkspace = isResearchSpotPurchased();
-  const hasProjects = canUseCampWork && hasVisibleProject();
 
-  if (hasCampCrafting || hasGearCrafting || hasResourceCrafting || hasResearchCrafting || hasProjects) {
+  if (hasCampCrafting || hasGearCrafting || hasResourceCrafting || hasResearchCrafting) {
     showElement(ui.craftingSection, "flex");
   } else {
     hideElement(ui.craftingSection);
@@ -2300,9 +2302,8 @@ function updateWorkTabsVisibility() {
   const canUseCampWork = isCampWorkContextAvailable();
   const hasResearch = canUseCampWork && isResearchSpotPurchased();
   const hasAutomation = canUseCampWork && hasUnlockedAutomation();
-  const hasProjects = canUseCampWork && hasVisibleProject();
 
-  if (hasResearch || hasAutomation || hasProjects) {
+  if (hasResearch || hasAutomation) {
     showElement(ui.workTabs, "flex");
   } else {
     hideElement(ui.workTabs);
@@ -2316,18 +2317,13 @@ function updateWorkTabsVisibility() {
   if (ui.automationTabBtn) {
     ui.automationTabBtn.style.display = hasAutomation ? "inline-block" : "none";
   }
-
-  if (ui.projectTabBtn) {
-    ui.projectTabBtn.style.display = hasProjects ? "inline-block" : "none";
-  }
 }
 
 function showWorkPanel(panelName) {
   const canUseCampWork = isCampWorkContextAvailable();
   const showingResearch = canUseCampWork && panelName === "research" && isResearchSpotPurchased();
   const showingAutomation = canUseCampWork && panelName === "automation" && hasUnlockedAutomation();
-  const showingProjects = canUseCampWork && panelName === "projects" && hasVisibleProject();
-  const showingCrafting = !showingResearch && !showingAutomation && !showingProjects;
+  const showingCrafting = !showingResearch && !showingAutomation;
 
   if (ui.craftingPanel) {
     ui.craftingPanel.style.display = showingCrafting ? "block" : "none";
@@ -2339,10 +2335,6 @@ function showWorkPanel(panelName) {
 
   if (ui.automationPanel) {
     ui.automationPanel.style.display = showingAutomation ? "block" : "none";
-  }
-
-  if (ui.projectPanel) {
-    ui.projectPanel.style.display = showingProjects ? "block" : "none";
   }
 
   if (ui.craftingTabBtn) {
@@ -2357,13 +2349,8 @@ function showWorkPanel(panelName) {
     ui.automationTabBtn.classList.toggle("active", showingAutomation);
   }
 
-  if (ui.projectTabBtn) {
-    ui.projectTabBtn.classList.toggle("active", showingProjects);
-  }
-
   if (showingResearch) updateResearchHistoryUI();
   if (showingAutomation) updateAutomationUI();
-  if (showingProjects) updateProjectUI();
 }
 
 const PROJECT_WORK_MODE_ENERGY = "energy";
@@ -3684,6 +3671,7 @@ function updateProjectUI() {
     empty.classList.add("research-empty");
     empty.textContent = "No projects started yet.";
     ui.projectList.appendChild(empty);
+    syncMainViewAvailability();
     return;
   }
 
@@ -3692,6 +3680,7 @@ function updateProjectUI() {
   });
 
   updateProjectButtons();
+  syncMainViewAvailability();
 }
 
 function getProjectWorkActionLabel(projectName) {

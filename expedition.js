@@ -960,7 +960,7 @@ function updatePlacePanel() {
   updateEquipmentSlotUI();
 
   if (isTravelActivityActive()) {
-    safeSetText(ui.campPanelTitle, "Traveling");
+    safeSetText(ui.expeditionPanelTitle, "Traveling");
     safeSetText(ui.locationDescription, getCurrentTravelDescription());
 
     hideElement(ui.campContent);
@@ -973,7 +973,7 @@ function updatePlacePanel() {
   if (expedition.dungeon && expedition.dungeon.active) {
     const dungeon = getCurrentDungeon();
 
-    safeSetText(ui.campPanelTitle, dungeon ? dungeon.label : "Dungeon");
+    safeSetText(ui.expeditionPanelTitle, dungeon ? dungeon.label : "Dungeon");
     safeSetText(ui.locationDescription, "You are beneath the roadside ruin.");
 
     hideElement(ui.campContent);
@@ -998,7 +998,7 @@ function updatePlacePanel() {
     updateLocationStorageUI(location);
     updateDungeonUI();
 
-    safeSetText(ui.campPanelTitle, getLocationLabel(expedition.currentLocation));
+    safeSetText(ui.expeditionPanelTitle, getLocationLabel(expedition.currentLocation));
     safeSetText(ui.locationDescription, getLocationPanelText(location));
     renderTowerNodePanel(expedition.currentLocation);
     hideElement(ui.campContent);
@@ -1011,12 +1011,15 @@ function updatePlacePanel() {
 
   if (gameState.phase === "expedition") {
     safeSetText(ui.campPanelTitle, "Camp");
+    safeSetText(ui.expeditionPanelTitle, "Expedition");
     safeSetText(restLabel, "Rest at Camp");
   } else if (gameState.phase === "clearing") {
     safeSetText(ui.campPanelTitle, "Clearing");
+    safeSetText(ui.expeditionPanelTitle, "Expedition");
     safeSetText(restLabel, "Rest in Clearing");
   } else {
     safeSetText(ui.campPanelTitle, "Lost in the Woods");
+    safeSetText(ui.expeditionPanelTitle, "Expedition");
     safeSetText(restLabel, "Rest");
   }
 

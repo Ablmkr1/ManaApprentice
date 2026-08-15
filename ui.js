@@ -1,6 +1,9 @@
 const ui = {};
 let resourceElements = {};
 let panelElements = {};
+const MAIN_VIEW_NAMES = ["camp", "expedition", "magic", "tower", "character", "journal"];
+let currentMainView = null;
+let mainViewUserSelected = false;
 
 function hookDomToUI() {
   ui.introPopup = document.getElementById("introPopup");
@@ -19,6 +22,7 @@ function hookDomToUI() {
   ui.smallFireBtn = document.getElementById("smallFireBtn");
   ui.crudeLeanToBtn = document.getElementById("crudeLeanToBtn");
   ui.expeditionPanel = document.getElementById("expeditionPanel");
+  ui.expeditionPanelTitle = document.getElementById("expeditionPanelTitle");
   ui.expeditionDistanceAmount = document.getElementById("expeditionDistanceAmount");
   ui.fiberAmount = document.getElementById("fiberAmount");
   ui.storyLog = document.getElementById("storyLog");
@@ -131,11 +135,15 @@ function hookDomToUI() {
   ui.automationTabBtn = document.getElementById("automationTabBtn");
   ui.automationPanel = document.getElementById("automationPanel");
   ui.automationList = document.getElementById("automationList");
-  ui.projectTabBtn = document.getElementById("projectTabBtn");
   ui.projectPanel = document.getElementById("projectPanel");
   ui.projectList = document.getElementById("projectList");
   ui.recallAwakenedPopup = document.getElementById("recallAwakenedPopup");
   ui.recallAwakenedContinueBtn = document.getElementById("recallAwakenedContinueBtn");
+  ui.mainViewTabs = document.getElementById("mainViewTabs");
+  ui.mainViewButtons = Array.from(document.querySelectorAll("[data-main-view-tab]"));
+  ui.mainViewPanels = Array.from(document.querySelectorAll("[data-main-view-panel]"));
+  ui.magicPanel = document.getElementById("magicPanel");
+  ui.towerPanel = document.getElementById("towerPanel");
 }
 
 //Hook Ui Maps Functions
@@ -192,6 +200,132 @@ function hideElement(el) {
   if (el) {
     el.style.display = "none";
   }
+}
+
+function hookMainViewTabs() {
+  if (!Array.isArray(ui.mainViewButtons)) return;
+
+  ui.mainViewButtons.forEach(function (button) {
+    if (button.dataset.mainViewHooked) return;
+
+    button.addEventListener("click", function () {
+      setMainView(button.dataset.mainViewTab, { userSelected: true });
+    });
+
+    button.dataset.mainViewHooked = "true";
+  });
+
+  syncMainViewAvailability();
+}
+
+function setMainView(viewName, options = {}) {
+  if (!MAIN_VIEW_NAMES.includes(viewName)) return;
+
+  const targetView = isMainViewAvailable(viewName) ? viewName : getDefaultMainView();
+
+  currentMainView = targetView;
+
+  if (options.userSelected) {
+    mainViewUserSelected = true;
+  }
+
+  updateMainViewTabStates();
+}
+
+function syncMainViewAvailability() {
+  if (!Array.isArray(ui.mainViewButtons) || !Array.isArray(ui.mainViewPanels)) return;
+
+  syncContextPanelVisibility();
+
+  const defaultView = getDefaultMainView();
+  const shouldUseDefault = !currentMainView || !isMainViewAvailable(currentMainView) || (!mainViewUserSelected && currentMainView !== defaultView);
+
+  setMainView(shouldUseDefault ? defaultView : currentMainView);
+}
+
+function syncContextPanelVisibility() {
+  showElement(ui.campPanel, "flex");
+
+  if (isMainViewAvailable("expedition")) {
+    showElement(ui.expeditionPanel, "flex");
+  } else {
+    hideElement(ui.expeditionPanel);
+  }
+
+  if (isMainViewAvailable("magic")) {
+    showElement(ui.magicPanel, "flex");
+  } else {
+    hideElement(ui.magicPanel);
+  }
+
+  if (isMainViewAvailable("tower")) {
+    showElement(ui.towerPanel, "flex");
+  } else {
+    hideElement(ui.towerPanel);
+  }
+}
+
+function updateMainViewTabStates() {
+  if (!Array.isArray(ui.mainViewButtons) || !Array.isArray(ui.mainViewPanels)) return;
+
+  ui.mainViewButtons.forEach(function (button) {
+    const viewName = button.dataset.mainViewTab;
+    const available = isMainViewAvailable(viewName);
+    const isActive = viewName === currentMainView;
+
+    button.style.display = available ? "inline-block" : "none";
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
+  });
+
+  ui.mainViewPanels.forEach(function (panel) {
+    const isActive = panel.dataset.mainViewPanel === currentMainView;
+
+    panel.classList.toggle("active", isActive);
+  });
+}
+
+function getDefaultMainView() {
+  if (isMainViewAvailable("expedition") && (gameState.expedition.active || gameState.expedition.currentLocation)) {
+    return "expedition";
+  }
+
+  return "camp";
+}
+
+function isMainViewAvailable(viewName) {
+  if (viewName === "camp" || viewName === "character" || viewName === "journal") return true;
+
+  if (viewName === "expedition") {
+    return gameState.phase === "expedition" || !!gameState.expedition.active || !!gameState.expedition.currentLocation;
+  }
+
+  if (viewName === "magic") {
+    return hasMagicViewContent();
+  }
+
+  if (viewName === "tower") {
+    return typeof hasVisibleProject === "function" && hasVisibleProject();
+  }
+
+  return false;
+}
+
+function hasMagicViewContent() {
+  if (gameState.magicUnlocked) return true;
+  if (typeof hasUnlockedSpell === "function" && hasUnlockedSpell()) return true;
+
+  if (typeof getAction === "function") {
+    const magicActionNames = ["meditate", "concentrateTonicBase", "concentrateManaTonicBase"];
+
+    for (let i = 0; i < magicActionNames.length; i++) {
+      const action = getAction(magicActionNames[i]);
+
+      if (action && action.unlocked) return true;
+    }
+  }
+
+  return false;
 }
 
 //Hook to UI Function
@@ -254,6 +388,10 @@ function updateAllActionButtons() {
   if (typeof updateTowerNodeButtons === "function") {
     updateTowerNodeButtons();
   }
+
+  if (typeof syncMainViewAvailability === "function") {
+    syncMainViewAvailability();
+  }
 }
 
 //UI Unlock Resource and Panels
@@ -304,7 +442,7 @@ function updateCampResourcesSectionVisibility() {
     const resourceElement = resourceElements[campResourceNames[i]];
 
     if (resourceElement && resourceElement.style.display !== "none") {
-      showElement(ui.campResourcesSection, "flex");
+      showElement(ui.campResourcesSection, "block");
       return;
     }
   }
@@ -321,6 +459,10 @@ function unlockPanel(panelName) {
   }
 
   showElement(panel);
+
+  if (typeof syncMainViewAvailability === "function") {
+    syncMainViewAvailability();
+  }
 }
 
 //Discover Popup & Function & CampDisplay
@@ -708,8 +850,10 @@ function updateCharacterPanelLocks() {
   if (campUnlocked) {
     showElement(ui.carriedInventoryStrip, "flex");
 
-    if (hasUnlockedOrPurchasedGear() || hasUnlockedSpell()) {
+    if (hasUnlockedOrPurchasedGear()) {
       showElement(ui.gearSection, "block");
+    } else {
+      hideElement(ui.gearSection);
     }
   } else {
     hideElement(ui.carriedInventoryStrip);

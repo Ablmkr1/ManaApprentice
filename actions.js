@@ -696,6 +696,7 @@ function unlockAction(actionName) {
   action.unlocked = true;
   updateActionButton(actionName);
   updateCraftingSectionVisibility();
+  syncMainViewAvailability();
 }
 
 function lockAction(actionName) {
@@ -709,6 +710,7 @@ function lockAction(actionName) {
   action.unlocked = false;
   updateActionButton(actionName);
   updateCraftingSectionVisibility();
+  syncMainViewAvailability();
 }
 
 //Action Helpers

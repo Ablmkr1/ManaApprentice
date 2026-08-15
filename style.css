@@ -140,8 +140,8 @@ h1 {
 .game-shell {
   width: min(1120px, calc(100% - 24px));
   margin: 10px auto;
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+  display: flex;
+  flex-direction: column;
   gap: 12px;
 }
 
@@ -269,6 +269,92 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.primary-play {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.support-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.main-view-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.main-view-tab {
+  min-height: 36px;
+  padding: 8px 14px;
+  border: 1px solid rgba(216, 204, 184, 0.78);
+  border-radius: 6px;
+  background: rgba(248, 241, 229, 0.88);
+  color: #2b241c;
+  font-weight: 700;
+}
+
+.main-view-tab.active {
+  background: #e8dab4;
+  border-color: #b89b6b;
+}
+
+.main-view-panels,
+.main-view-panel {
+  min-width: 0;
+}
+
+.main-view-panel {
+  display: none;
+}
+
+.main-view-panel.active {
+  display: block;
+}
+
+.character-view-panel.active,
+.journal-view-panel.active {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.expedition-inventory-strip {
+  color: #2b241c;
+}
+
+.expedition-inventory-strip .resource-pill {
+  border-color: #d8ccb8;
+  border-radius: 6px;
+  background: rgba(255, 250, 240, 0.65);
+  color: #2b241c;
+}
+
+.storage-section {
+  display: block;
+}
+
+.storage-section summary {
+  width: fit-content;
+  padding: 6px 8px;
+  border: 1px solid #d8ccb8;
+  border-radius: 6px;
+  background: rgba(255, 250, 240, 0.65);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.storage-section .camp-resource-strip {
+  margin-top: 8px;
 }
 
 .character-stat {

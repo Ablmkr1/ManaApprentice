@@ -1212,6 +1212,7 @@ function refreshGameUIAfterLoad() {
   refreshExpeditionUI();
   updateTravelButton(isTravelActivityActive());
   updatePlacePanel();
+  syncMainViewAvailability();
 
   if (gameState.personalWardUnlocked && !gameState.personalWardPopupShown && typeof showPersonalWardPopup === "function") {
     showPersonalWardPopup();
