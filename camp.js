@@ -4097,7 +4097,7 @@ function appendTowerBasementStageArt(group, stageIndex) {
     return;
   }
 
-  const wallTops = [198, 180, 154, 130, 104, 90];
+  const wallTops = [198, 180, 154, 130, 104, 82];
   const wallTop = wallTops[Math.max(1, Math.min(stageIndex, wallTops.length - 1))];
 
   appendTowerBasementExcavation(group, stageIndex, wallTop);
@@ -4115,7 +4115,7 @@ function appendTowerBasementExcavation(group, stageIndex, wallTop) {
   if (stageIndex >= 5) {
     appendSvgElement(group, "path", {
       class: "tower-soil-fill",
-      d: "M0 90 H198 V300 H0 Z M402 90 H600 V300 H402 Z",
+      d: "M0 90 H198 V198 H402 V90 H600 V300 H0 Z",
     });
     appendSvgElement(group, "path", { class: "tower-ground-edge", d: "M0 90 H198 M402 90 H600" });
   } else {
