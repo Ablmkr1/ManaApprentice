@@ -290,6 +290,7 @@ window.onload = function () {
   hookDevTierControls();
   hookWorkTabs();
   hookMainViewTabs();
+  hookJournalViewTabs();
 
   ui.continueBtn.addEventListener("click", function () {
     ui.introPopup.style.display = "none";

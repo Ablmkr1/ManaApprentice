@@ -146,7 +146,6 @@ h1 {
 }
 
 .primary-play,
-.character-panel,
 .journal-panel,
 .world-feed,
 .context-section {
@@ -162,7 +161,6 @@ h1 {
 }
 
 .primary-play h2,
-.character-panel h2,
 .journal-panel h2,
 .world-feed h2,
 .context-section h2 {
@@ -263,12 +261,191 @@ h1 {
   text-align: center;
 }
 
-.character-stats,
+.ui-summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 8px;
+  border: 1px solid #d8ccb8;
+  border-radius: 6px;
+  background: rgba(255, 250, 240, 0.65);
+  font-size: 13px;
+}
+
+.ui-summary-card-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ui-summary-card-title {
+  min-width: 0;
+}
+
+.ui-summary-card-meta,
+.ui-summary-card-detail,
+.ui-progress-labels,
+.ui-summary-card-body {
+  color: #5f5140;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.ui-summary-card-body {
+  margin: 0;
+  line-height: 1.35;
+}
+
+.ui-summary-card-detail {
+  line-height: 1.35;
+}
+
+.workflow-summary-panel:empty {
+  display: none;
+}
+
+.ui-context-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 1px solid #d8ccb8;
+  border-radius: 6px;
+  background: rgba(255, 250, 240, 0.7);
+}
+
+.ui-context-panel-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ui-context-panel-title {
+  margin: 0;
+  font-size: 14px;
+}
+
+.ui-context-panel-status {
+  padding: 3px 7px;
+  border: 1px solid #c8bda8;
+  border-radius: 999px;
+  background: rgba(248, 241, 229, 0.85);
+  color: #5f5140;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ui-context-panel-body {
+  margin: 0;
+  color: #4a3e31;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.ui-context-meta-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 6px;
+}
+
+.ui-context-meta-item {
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid rgba(216, 204, 184, 0.78);
+  border-radius: 6px;
+  background: rgba(255, 250, 240, 0.55);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.ui-context-meta-item span {
+  color: #6f604a;
+}
+
+.ui-context-meta-item strong {
+  overflow-wrap: anywhere;
+}
+
+.ui-context-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.ui-progress-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ui-progress-labels {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ui-progress-track {
+  height: 8px;
+  overflow: hidden;
+  border: 1px solid #c8bda8;
+  border-radius: 999px;
+  background: #e5dac8;
+}
+
+.ui-progress-fill {
+  height: 100%;
+  width: 0;
+  background: #6e5637;
+}
+
+.ui-empty-state {
+  color: #6f604a;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.ui-summary-list-item {
+  align-items: flex-start;
+}
+
+.ui-slot {
+  width: 78px;
+}
+
+.ui-slot-box {
+  position: relative;
+}
+
+.ui-slot-interactive {
+  cursor: pointer;
+}
+
+.ui-slot-interactive:hover {
+  background: rgba(232, 218, 180, 0.95);
+  border-color: #b89b6b;
+}
+
+.ui-slot-interactive:focus-visible {
+  outline: 2px solid #8b6f3f;
+  outline-offset: 2px;
+}
+
 .gear-section,
 .training-section {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.camp-skills-section,
+.expedition-gear-section {
+  margin-top: 2px;
 }
 
 .primary-play {
@@ -320,7 +497,6 @@ h1 {
   display: block;
 }
 
-.character-view-panel.active,
 .journal-view-panel.active {
   display: flex;
   flex-direction: column;
@@ -355,15 +531,6 @@ h1 {
 
 .storage-section .camp-resource-strip {
   margin-top: 8px;
-}
-
-.character-stat {
-  padding: 8px 10px;
-  border: 1px solid #d8ccb8;
-  border-radius: 6px;
-  background: rgba(255, 250, 240, 0.65);
-  text-align: left;
-  font-size: 14px;
 }
 
 .gear-button {
@@ -570,6 +737,11 @@ button {
   opacity: 0.5;
 }
 
+.advanced-recall-option .ui-action-cost,
+.advanced-recall-option .ui-action-detail {
+  color: #d8ccb8;
+}
+
 .advanced-recall-empty {
   color: #d8ccb8;
   font-size: 13px;
@@ -581,6 +753,42 @@ button {
   overflow: hidden;
   z-index: 2;
   min-height: 34px;
+}
+
+.ui-action-button {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+  line-height: 1.15;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.ui-action-label,
+.ui-action-cost,
+.ui-action-detail {
+  position: relative;
+  z-index: 2;
+}
+
+.ui-action-label {
+  font-weight: 700;
+}
+
+.ui-action-cost {
+  color: #5f5140;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.ui-action-detail {
+  color: #6f604a;
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .progressFill {
@@ -610,7 +818,9 @@ button {
   overflow: hidden;
 }
 
-.rest-button span {
+.rest-button span,
+.action-btn span,
+.project-deposit-btn span {
   position: relative;
   z-index: 2;
 }
@@ -692,8 +902,8 @@ button:disabled {
 .crafting-actions button {
   position: relative;
   overflow: hidden;
-  min-height: 20px;
-  white-space: nowrap;
+  min-height: 36px;
+  white-space: normal;
   flex: 0 1 auto;
   display: flex;
   flex-direction: column;
@@ -701,9 +911,10 @@ button:disabled {
   justify-content: center;
   gap: 2px;
   line-height: 1.1;
-  padding: 4px;
+  padding: 5px 8px;
   border-radius: 4px;
   border: 1px solid #000000;
+  overflow-wrap: anywhere;
 }
 
 .crafting-actions button span {
@@ -716,7 +927,7 @@ button:disabled {
 }
 
 .craft-cost {
-  font-size: 10px;
+  font-size: 11px;
   opacity: 0.95;
 }
 .crafting-actions button.running {
@@ -744,16 +955,6 @@ button:disabled {
   opacity: 1;
 }
 
-.current-goal-section {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 8px 10px;
-  border: 1px solid #d8ccb8;
-  border-radius: 6px;
-  background: rgba(255, 250, 240, 0.65);
-}
-
 .current-goal-section h3 {
   margin: 0;
   font-size: 14px;
@@ -766,6 +967,19 @@ button:disabled {
 .current-goal-text {
   font-size: 13px;
   line-height: 1.35;
+}
+
+.current-goal-activity {
+  margin-top: 6px;
+  min-height: 15px;
+  color: #5f5140;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 15px;
+}
+
+.current-goal-activity.empty {
+  visibility: hidden;
 }
 
 .goal-checklist {
@@ -1099,6 +1313,25 @@ button:disabled {
   font-weight: 600;
 }
 
+.magic-progress-section {
+  display: block;
+}
+
+.magic-progress-section summary {
+  width: fit-content;
+  padding: 6px 8px;
+  border: 1px solid #d8ccb8;
+  border-radius: 6px;
+  background: rgba(255, 250, 240, 0.65);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.magic-progress-section .training-list {
+  margin-top: 8px;
+}
+
 .work-panel h3 {
   margin-top: 0;
 }
@@ -1179,6 +1412,12 @@ button:disabled {
 
 .research-complete-btn {
   margin-top: 4px;
+}
+
+.research-detail-summary {
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .project-list {
@@ -1696,6 +1935,35 @@ button:disabled {
   padding: 6px 8px;
   color: #5f5140;
   font-size: 12px;
+}
+
+.journal-view-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.journal-switch-tab {
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1px solid rgba(216, 204, 184, 0.78);
+  border-radius: 6px;
+  background: rgba(248, 241, 229, 0.88);
+  color: #2b241c;
+  font-weight: 700;
+}
+
+.journal-switch-tab.active {
+  background: #e8dab4;
+  border-color: #b89b6b;
+}
+
+.journal-subpanel {
+  display: none;
+}
+
+.journal-subpanel.active {
+  display: flex;
 }
 
 .attunement-target-btn {

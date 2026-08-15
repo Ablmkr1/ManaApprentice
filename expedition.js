@@ -958,6 +958,7 @@ function updatePlacePanel() {
   renderLocationTravelActions(null);
   updateDungeonUI();
   updateEquipmentSlotUI();
+  renderExpeditionWorkflowPanel();
 
   if (isTravelActivityActive()) {
     safeSetText(ui.expeditionPanelTitle, "Traveling");
@@ -1006,21 +1007,29 @@ function updatePlacePanel() {
     return;
   }
 
-  const restLabel = ui.restBtn ? ui.restBtn.querySelector("span") : null;
   setCampActionsAvailable(true);
 
   if (gameState.phase === "expedition") {
     safeSetText(ui.campPanelTitle, "Camp");
     safeSetText(ui.expeditionPanelTitle, "Expedition");
-    safeSetText(restLabel, "Rest at Camp");
+    setUiActionButtonLabel(ui.restBtn, {
+      label: "Rest at Camp",
+      cost: getUiActionCostText("rest"),
+    });
   } else if (gameState.phase === "clearing") {
     safeSetText(ui.campPanelTitle, "Clearing");
     safeSetText(ui.expeditionPanelTitle, "Expedition");
-    safeSetText(restLabel, "Rest in Clearing");
+    setUiActionButtonLabel(ui.restBtn, {
+      label: "Rest in Clearing",
+      cost: getUiActionCostText("rest"),
+    });
   } else {
     safeSetText(ui.campPanelTitle, "Lost in the Woods");
     safeSetText(ui.expeditionPanelTitle, "Expedition");
-    safeSetText(restLabel, "Rest");
+    setUiActionButtonLabel(ui.restBtn, {
+      label: "Rest",
+      cost: getUiActionCostText("rest"),
+    });
   }
 
   showElement(ui.campContent, "block");
@@ -1053,6 +1062,17 @@ function getCurrentObjectPlaceName() {
   }
 
   return null;
+}
+
+function syncLocationObjectActionsPlacement(locationName) {
+  if (!ui.locationObjectActions) return;
+
+  const shouldUseCampSlot = locationName === "clearing" && gameState.phase === "clearing" && gameState.discoveredClearing;
+  const targetSlot = shouldUseCampSlot ? ui.campLocationObjectActionsSlot : ui.expeditionLocationObjectActionsSlot;
+
+  if (targetSlot && ui.locationObjectActions.parentElement !== targetSlot) {
+    targetSlot.appendChild(ui.locationObjectActions);
+  }
 }
 
 function getLocationObject(locationName, objectName) {
@@ -1218,6 +1238,8 @@ function completeLocationObjectExploration(locationName, objectName) {
 function updateLocationObjectActionsUI(location) {
   if (!ui.locationObjectActions) return;
 
+  const currentPlaceName = getCurrentObjectPlaceName();
+  syncLocationObjectActionsPlacement(currentPlaceName);
   ui.locationObjectActions.innerHTML = "";
 
   if (!location || !location.explorableObjects) {
@@ -1248,28 +1270,25 @@ function updateLocationObjectActionsUI(location) {
 
     hasVisibleObject = true;
 
-    const button = document.createElement("button");
-    button.type = "button";
-    button.classList.add("action-btn");
-    button.dataset.locationObject = objectName;
-
-    const progressFill = document.createElement("div");
-    progressFill.classList.add("progressFill");
-
-    const label = document.createElement("span");
     const stages = getLocationObjectStages(object);
     const progress = getLocationObjectProgress(object);
+    let label = object.label;
+    let detail = "";
 
     if (isRequirementLocked) {
-      label.textContent = object.label + " (" + requirementText + ")";
+      detail = requirementText;
     } else if (stages.length > 1) {
-      label.textContent = object.label + " (" + (progress + 1) + "/" + stages.length + ")";
-    } else {
-      label.textContent = object.label;
+      detail = "Step " + (progress + 1) + " / " + stages.length;
     }
 
-    button.appendChild(progressFill);
-    button.appendChild(label);
+    const button = createUiActionButton({
+      label,
+      cost: isRequirementLocked ? "" : formatCost(getLocationObjectCost(object)),
+      detail,
+      dataset: {
+        locationObject: objectName,
+      },
+    });
 
     const isCurrentObjectActivity =
       isActivityActive() && gameState.activity.kind === "locationObject" && gameState.activity.context.objectName === objectName;
@@ -1778,6 +1797,109 @@ function spendCarriedCost(cost) {
 
 function refreshExpeditionUI() {
   updateExpeditionUI(getCarriedTotal(), getCarriedSummary());
+  renderExpeditionWorkflowPanel();
+}
+
+function renderExpeditionWorkflowPanel() {
+  if (!ui.expeditionWorkflowPanel) return;
+
+  const expedition = gameState.expedition;
+  const meta = [
+    {
+      label: "Pack",
+      value: formatCarryAmount(getCarriedTotal()) + " / " + formatCarryAmount(getEffectiveCarryCapacity()),
+    },
+    {
+      label: "Water",
+      value: formatCarryAmount(expedition.water || 0) + " / " + formatCarryAmount(expedition.waterCapacity || 0),
+    },
+  ];
+  let title = "Choose an expedition";
+  let status = "Ready";
+  let body = "Select a route, pack supplies, then prepare to leave camp.";
+
+  if (expedition.dungeon && expedition.dungeon.active) {
+    const dungeon = getCurrentDungeon();
+    const node = getCurrentDungeonNode();
+
+    title = dungeon ? dungeon.label : "Dungeon";
+    status = "Dungeon";
+    body = node ? "Current room: " + node.label : "Move through the ruin and search rooms when it is safe.";
+  } else if (expedition.currentLocation) {
+    const location = getExpeditionLocation(expedition.currentLocation);
+
+    title = getLocationLabel(expedition.currentLocation);
+    status = "Location";
+    body = getLocationPanelText(location);
+  } else if (expedition.active) {
+    title = getPreparedExpeditionTitle();
+
+    if (isTravelActivityActive()) {
+      status = "Traveling";
+      body = getCurrentTravelDescription();
+    } else if (expedition.distance > 0) {
+      status = "Paused";
+      body = "Travel is paused. Continue onward or return to camp.";
+    } else {
+      status = "Preparing";
+      body = "Pack supplies, then start travel when you are ready.";
+    }
+
+    meta.push({
+      label: "Distance",
+      value: formatTrainingNumber(expedition.distance || 0) + " / " + formatTrainingNumber(expedition.targetDistance || getSelectedTravelDistance()),
+    });
+  } else if (gameState.phase === "expedition") {
+    const regionId = getSelectedTravelRegionId();
+    const region = getRegionDefinition(regionId);
+    const knownCount = getRegionKnownLocations(regionId).length;
+
+    title = region ? region.label : "Expedition";
+    status = getRegionStatus(regionId);
+    body = "Choose open travel or a known place in this region.";
+    meta.push(
+      {
+        label: "Known places",
+        value: String(knownCount),
+      },
+      {
+        label: "Open route",
+        value: formatDistance(getSelectedTravelDistance()),
+      }
+    );
+  } else {
+    meta.push({
+      label: "Camp",
+      value: gameState.phase === "lost" ? "Lost" : "Clearing",
+    });
+  }
+
+  renderUiContextPanel(ui.expeditionWorkflowPanel, {
+    title,
+    status,
+    body,
+    meta,
+    className: "expedition-workflow-summary",
+  });
+}
+
+function getPreparedExpeditionTitle() {
+  const expedition = gameState.expedition;
+
+  if (isTowerNodeJumpExpedition()) {
+    const nodeName = getPreparedTowerNodeName();
+    const definition = nodeName ? getTowerNodeDefinition(nodeName) : null;
+
+    return (definition && definition.destinationLabel) || "Tower Node Jump";
+  }
+
+  if (expedition.destination) {
+    return getLocationLabel(expedition.destination);
+  }
+
+  const region = getRegionDefinition(getSelectedTravelRegionId());
+
+  return region ? region.label : "Open Expedition";
 }
 
 //Helper to Toggle Packing Buttons
@@ -2018,17 +2140,17 @@ function renderDestinationActions() {
 
     if (!location) return;
 
-    const button = document.createElement("button");
-    button.type = "button";
-    button.classList.add("action-btn");
-    button.textContent = "Travel to " + getLocationLabel(locationName) + " (" + formatDistance(getLocationTravelDistance(location)) + ")";
-
-    button.addEventListener("click", function () {
-      startActivity({
-        kind: "instant",
-        id: "destinationTravel",
-        context: { locationName: locationName },
-      });
+    const button = createUiActionButton({
+      label: "Travel to " + getLocationLabel(locationName),
+      detail: formatDistance(getLocationTravelDistance(location)),
+      progress: false,
+      onClick: function () {
+        startActivity({
+          kind: "instant",
+          id: "destinationTravel",
+          context: { locationName: locationName },
+        });
+      },
     });
 
     ui.destinationActions.appendChild(button);
@@ -2037,17 +2159,16 @@ function renderDestinationActions() {
 
     if (nodeName && canPrepareTowerNodeJump(nodeName, locationName)) {
       const nodeDefinition = getTowerNodeDefinition(nodeName);
-      const nodeButton = document.createElement("button");
-      nodeButton.type = "button";
-      nodeButton.classList.add("action-btn");
-      nodeButton.textContent = "Prepare " + ((nodeDefinition && nodeDefinition.destinationLabel) || "Tower Node") + " Jump";
-
-      nodeButton.addEventListener("click", function () {
-        startActivity({
-          kind: "instant",
-          id: "towerNodeJumpPreparation",
-          context: { nodeName: nodeName },
-        });
+      const nodeButton = createUiActionButton({
+        label: "Prepare " + ((nodeDefinition && nodeDefinition.destinationLabel) || "Tower Node") + " Jump",
+        progress: false,
+        onClick: function () {
+          startActivity({
+            kind: "instant",
+            id: "towerNodeJumpPreparation",
+            context: { nodeName: nodeName },
+          });
+        },
       });
 
       ui.destinationActions.appendChild(nodeButton);
@@ -2161,13 +2282,13 @@ function renderLocationTravelActions(locationName) {
 
     const distance = getLocationToLocationTravelDistance(currentLocation, targetLocation);
 
-    const button = document.createElement("button");
-    button.type = "button";
-    button.classList.add("action-btn");
-    button.textContent = "Travel to " + getLocationLabel(targetLocationName) + " (" + formatDistance(distance) + ")";
-
-    button.addEventListener("click", function () {
-      beginLocationToLocationTravel(locationName, targetLocationName);
+    const button = createUiActionButton({
+      label: "Travel to " + getLocationLabel(targetLocationName),
+      detail: formatDistance(distance),
+      progress: false,
+      onClick: function () {
+        beginLocationToLocationTravel(locationName, targetLocationName);
+      },
     });
 
     ui.locationTravelSection.appendChild(button);
@@ -2394,22 +2515,16 @@ function renderDungeonActions(node) {
 
   showElement(ui.dungeonActions, "flex");
 
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "action-btn";
-  button.dataset.dungeonAction = "exploreRoom";
-
-  const progressFill = document.createElement("div");
-  progressFill.className = "progressFill";
-
-  const label = document.createElement("span");
   const chance = getDungeonSearchChance(node);
   const charges = node.manaSenseCharges || 0;
-
-  label.textContent = charges > 0 ? "Explore Room (" + chance + "%, Sense " + charges + ")" : "Explore Room (" + chance + "%)";
-
-  button.appendChild(progressFill);
-  button.appendChild(label);
+  const button = createUiActionButton({
+    label: "Explore Room",
+    cost: formatCost(getDungeonSearchCost(node)),
+    detail: charges > 0 ? chance + "%, Sense " + charges : chance + "%",
+    dataset: {
+      dungeonAction: "exploreRoom",
+    },
+  });
 
   const isCurrentSearch =
     isActivityActive() &&

@@ -1,7 +1,7 @@
 const ui = {};
 let resourceElements = {};
 let panelElements = {};
-const MAIN_VIEW_NAMES = ["camp", "expedition", "magic", "tower", "character", "journal"];
+const MAIN_VIEW_NAMES = ["camp", "expedition", "magic", "tower", "journal"];
 let currentMainView = null;
 let mainViewUserSelected = false;
 
@@ -30,8 +30,6 @@ function hookDomToUI() {
   ui.peltAmount = document.getElementById("peltAmount");
   ui.carriedAmount = document.getElementById("carriedAmount");
   ui.carriedWaterAmount = document.getElementById("carriedWaterAmount");
-  ui.characterEnergyAmount = document.getElementById("characterEnergyAmount");
-  ui.characterWardAmount = document.getElementById("characterWardAmount");
   ui.trainingSection = document.getElementById("trainingSection");
   ui.trainingList = document.getElementById("trainingList");
   ui.campPanelTitle = document.getElementById("campPanelTitle");
@@ -44,6 +42,8 @@ function hookDomToUI() {
   ui.stoneAmount = document.getElementById("stoneAmount");
   ui.inventorySection = document.getElementById("inventorySection");
   ui.trapSitesList = document.getElementById("trapSitesList");
+  ui.campLocationObjectActionsSlot = document.getElementById("campLocationObjectActionsSlot");
+  ui.expeditionLocationObjectActionsSlot = document.getElementById("expeditionLocationObjectActionsSlot");
   ui.locationObjectActions = document.getElementById("locationObjectActions");
   ui.expeditionDistanceBar = document.getElementById("expeditionDistanceBar");
   ui.expeditionDistanceFill = document.getElementById("expeditionDistanceFill");
@@ -144,6 +144,13 @@ function hookDomToUI() {
   ui.mainViewPanels = Array.from(document.querySelectorAll("[data-main-view-panel]"));
   ui.magicPanel = document.getElementById("magicPanel");
   ui.towerPanel = document.getElementById("towerPanel");
+  ui.expeditionWorkflowPanel = document.getElementById("expeditionWorkflowPanel");
+  ui.magicWorkflowPanel = document.getElementById("magicWorkflowPanel");
+  ui.magicProgressSection = document.getElementById("magicProgressSection");
+  ui.spellProgressList = document.getElementById("spellProgressList");
+  ui.towerStatusPanel = document.getElementById("towerStatusPanel");
+  ui.journalSwitchTabs = Array.from(document.querySelectorAll("[data-journal-view]"));
+  ui.journalSubpanels = Array.from(document.querySelectorAll("[data-journal-panel]"));
 }
 
 //Hook Ui Maps Functions
@@ -202,6 +209,385 @@ function hideElement(el) {
   }
 }
 
+function appendUiText(parent, tagName, className, text) {
+  if (!parent || text === undefined || text === null || text === "") return null;
+
+  const element = document.createElement(tagName);
+
+  if (className) {
+    element.className = className;
+  }
+
+  element.textContent = text;
+  parent.appendChild(element);
+  return element;
+}
+
+function createUiEmptyState(text) {
+  const empty = document.createElement("div");
+  empty.className = "ui-empty-state research-empty";
+  empty.textContent = text;
+
+  return empty;
+}
+
+function createUiProgressMeter(options = {}) {
+  const current = Number.isFinite(options.current) ? options.current : 0;
+  const max = Number.isFinite(options.max) ? options.max : 0;
+  const explicitPercent = Number.isFinite(options.percent) ? options.percent : null;
+  const percent = explicitPercent !== null ? explicitPercent : max > 0 ? current / max : 0;
+  const clampedPercent = Math.min(Math.max(percent, 0), 1);
+
+  const group = document.createElement("div");
+  group.className = "ui-progress-meter";
+
+  if (options.className) {
+    group.className += " " + options.className;
+  }
+
+  const labelRow = document.createElement("div");
+  labelRow.className = "ui-progress-labels training-progress-text";
+
+  appendUiText(labelRow, "span", "", options.label || "Progress");
+
+  if (options.valueText) {
+    appendUiText(labelRow, "strong", "", options.valueText);
+  } else if (max > 0) {
+    appendUiText(labelRow, "strong", "", current + " / " + max);
+  } else if (options.completeText) {
+    appendUiText(labelRow, "strong", "", options.completeText);
+  }
+
+  const track = document.createElement("div");
+  track.className = "ui-progress-track training-progress-track";
+
+  const fill = document.createElement("div");
+  fill.className = "ui-progress-fill training-progress-fill";
+  fill.style.width = clampedPercent * 100 + "%";
+
+  track.appendChild(fill);
+  group.appendChild(labelRow);
+  group.appendChild(track);
+
+  return group;
+}
+
+function createUiSummaryCard(options = {}) {
+  const card = document.createElement("div");
+  card.className = "ui-summary-card";
+
+  if (options.className) {
+    card.className += " " + options.className;
+  }
+
+  const header = document.createElement("div");
+  header.className = "ui-summary-card-header";
+
+  appendUiText(header, "strong", "ui-summary-card-title", options.title || "");
+  appendUiText(header, "span", "ui-summary-card-meta", options.meta || "");
+  card.appendChild(header);
+
+  appendUiText(card, "p", "ui-summary-card-body", options.body || "");
+
+  if (options.progress) {
+    card.appendChild(createUiProgressMeter(options.progress));
+  }
+
+  appendUiText(card, "div", "ui-summary-card-detail", options.detail || "");
+
+  return card;
+}
+
+function createUiContextPanel(options = {}) {
+  const panel = document.createElement("section");
+  panel.className = "ui-context-panel";
+
+  if (options.className) {
+    panel.className += " " + options.className;
+  }
+
+  const header = document.createElement("div");
+  header.className = "ui-context-panel-header";
+
+  appendUiText(header, "h3", "ui-context-panel-title", options.title || "");
+  appendUiText(header, "span", "ui-context-panel-status", options.status || "");
+  panel.appendChild(header);
+
+  appendUiText(panel, "p", "ui-context-panel-body", options.body || "");
+
+  if (Array.isArray(options.meta) && options.meta.length > 0) {
+    const metaList = document.createElement("div");
+    metaList.className = "ui-context-meta-list";
+
+    options.meta.forEach(function (item) {
+      const metaItem = document.createElement("div");
+      metaItem.className = "ui-context-meta-item";
+
+      if (item && typeof item === "object") {
+        appendUiText(metaItem, "span", "", item.label || "");
+        appendUiText(metaItem, "strong", "", item.value || "");
+      } else {
+        metaItem.textContent = item;
+      }
+
+      metaList.appendChild(metaItem);
+    });
+
+    panel.appendChild(metaList);
+  }
+
+  if (Array.isArray(options.actions) && options.actions.length > 0) {
+    const actions = document.createElement("div");
+    actions.className = "ui-context-actions";
+
+    options.actions.forEach(function (action) {
+      if (action instanceof Node) {
+        actions.appendChild(action);
+      }
+    });
+
+    panel.appendChild(actions);
+  }
+
+  return panel;
+}
+
+function renderUiContextPanel(container, options = {}) {
+  if (!container) return null;
+
+  container.innerHTML = "";
+  container.appendChild(createUiContextPanel(options));
+  return container.firstElementChild;
+}
+
+function createUiSlot(options = {}) {
+  const slot = document.createElement("div");
+  slot.className = "ui-slot equipment-slot";
+
+  if (options.className) {
+    slot.className += " " + options.className;
+  }
+
+  const box = document.createElement("div");
+  box.className = "ui-slot-box equipment-box";
+  box.textContent = options.itemLabel || "Empty";
+
+  if (options.title) {
+    box.title = options.title;
+  }
+
+  if (options.interactive) {
+    box.classList.add("ui-slot-interactive");
+    box.setAttribute("role", "button");
+    box.setAttribute("tabindex", "0");
+  }
+
+  if (typeof options.onActivate === "function") {
+    box.addEventListener("click", function () {
+      options.onActivate();
+    });
+
+    box.addEventListener("keydown", function (event) {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        options.onActivate();
+      }
+    });
+  }
+
+  appendUiText(slot, "div", "ui-slot-label equipment-slot-label", options.slotLabel || "");
+  slot.insertBefore(box, slot.firstChild);
+
+  return {
+    slot,
+    box,
+  };
+}
+
+function getUiActionLabelElement(button) {
+  if (!button) return null;
+
+  const existingLabel = button.querySelector(".ui-action-label");
+
+  if (existingLabel) return existingLabel;
+
+  const craftLabel = button.querySelector(".craft-name");
+
+  if (craftLabel) return craftLabel;
+
+  const spans = Array.from(button.querySelectorAll("span"));
+
+  return (
+    spans.find(function (span) {
+      return !span.classList.contains("ui-action-cost") && !span.classList.contains("ui-action-detail") && !span.classList.contains("craft-cost");
+    }) || null
+  );
+}
+
+function getDirectButtonText(button) {
+  if (!button) return "";
+
+  return Array.from(button.childNodes)
+    .filter(function (node) {
+      return node.nodeType === Node.TEXT_NODE && node.textContent.trim();
+    })
+    .map(function (node) {
+      return node.textContent.trim();
+    })
+    .join(" ");
+}
+
+function clearDirectButtonText(button) {
+  if (!button) return;
+
+  Array.from(button.childNodes).forEach(function (node) {
+    if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+      button.removeChild(node);
+    }
+  });
+}
+
+function prepareUiActionButton(button, options = {}) {
+  if (!button) return null;
+
+  const shouldAddActionClass = options.actionClass !== false;
+  const shouldEnsureProgress = options.progress !== false;
+  const labelClass = options.labelClass || "ui-action-label";
+  const costClass = options.costClass || "ui-action-cost";
+  const detailClass = options.detailClass || "ui-action-detail";
+  const directText = getDirectButtonText(button);
+
+  if (shouldAddActionClass) {
+    button.classList.add("action-btn");
+  }
+
+  button.classList.add("ui-action-button");
+  clearDirectButtonText(button);
+
+  let progressFill = button.querySelector(".progressFill");
+
+  if (!progressFill && shouldEnsureProgress) {
+    progressFill = document.createElement("div");
+    progressFill.className = "progressFill";
+    button.prepend(progressFill);
+  }
+
+  let label = getUiActionLabelElement(button);
+
+  if (!label) {
+    label = document.createElement("span");
+    button.appendChild(label);
+  }
+
+  label.classList.add("ui-action-label");
+
+  if (labelClass !== "ui-action-label") {
+    label.classList.add(labelClass);
+  }
+
+  if (directText && !label.textContent.trim()) {
+    label.textContent = directText;
+  }
+
+  let cost = button.querySelector("." + costClass) || button.querySelector(".ui-action-cost");
+
+  if (!cost) {
+    cost = document.createElement("span");
+    button.appendChild(cost);
+  }
+
+  cost.classList.add("ui-action-cost");
+
+  if (costClass !== "ui-action-cost") {
+    cost.classList.add(costClass);
+  }
+
+  let detail = button.querySelector("." + detailClass) || button.querySelector(".ui-action-detail");
+
+  if (!detail) {
+    detail = document.createElement("span");
+    button.appendChild(detail);
+  }
+
+  detail.classList.add("ui-action-detail");
+
+  if (detailClass !== "ui-action-detail") {
+    detail.classList.add(detailClass);
+  }
+
+  if (!cost.textContent.trim()) {
+    cost.style.display = "none";
+  }
+
+  if (!detail.textContent.trim()) {
+    detail.style.display = "none";
+  }
+
+  return {
+    progressFill,
+    label,
+    cost,
+    detail,
+  };
+}
+
+function setUiActionButtonLabel(button, options = {}) {
+  const parts = prepareUiActionButton(button, options);
+
+  if (!parts) return null;
+
+  if (options.label !== undefined) {
+    parts.label.textContent = options.label || "";
+  }
+
+  if (options.cost !== undefined) {
+    parts.cost.textContent = options.cost || "";
+    parts.cost.style.display = options.cost ? "block" : "none";
+  }
+
+  if (options.detail !== undefined) {
+    parts.detail.textContent = options.detail || "";
+    parts.detail.style.display = options.detail ? "block" : "none";
+  }
+
+  return parts;
+}
+
+function createUiActionButton(options = {}) {
+  const button = document.createElement("button");
+  button.type = options.type || "button";
+  button.className = "action-btn";
+
+  if (options.className) {
+    button.className += " " + options.className;
+  }
+
+  if (options.dataset) {
+    Object.keys(options.dataset).forEach(function (key) {
+      button.dataset[key] = options.dataset[key];
+    });
+  }
+
+  setUiActionButtonLabel(button, {
+    label: options.label || "",
+    cost: options.cost || "",
+    detail: options.detail || "",
+    progress: options.progress !== false,
+  });
+
+  if (typeof options.onClick === "function") {
+    button.addEventListener("click", options.onClick);
+  }
+
+  return button;
+}
+
+function getUiActionCostText(actionName) {
+  if (typeof getActionCost !== "function" || typeof formatCost !== "function") return "";
+
+  return formatCost(getActionCost(actionName));
+}
+
 function hookMainViewTabs() {
   if (!Array.isArray(ui.mainViewButtons)) return;
 
@@ -216,6 +602,39 @@ function hookMainViewTabs() {
   });
 
   syncMainViewAvailability();
+}
+
+function hookJournalViewTabs() {
+  if (!Array.isArray(ui.journalSwitchTabs) || !Array.isArray(ui.journalSubpanels)) return;
+
+  ui.journalSwitchTabs.forEach(function (button) {
+    if (button.dataset.journalViewHooked) return;
+
+    button.addEventListener("click", function () {
+      setJournalSubView(button.dataset.journalView);
+    });
+
+    button.dataset.journalViewHooked = "true";
+  });
+
+  setJournalSubView("entries");
+}
+
+function setJournalSubView(viewName) {
+  if (!Array.isArray(ui.journalSwitchTabs) || !Array.isArray(ui.journalSubpanels)) return;
+
+  const targetView = viewName === "world" ? "world" : "entries";
+
+  ui.journalSwitchTabs.forEach(function (button) {
+    const active = button.dataset.journalView === targetView;
+
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", String(active));
+  });
+
+  ui.journalSubpanels.forEach(function (panel) {
+    panel.classList.toggle("active", panel.dataset.journalPanel === targetView);
+  });
 }
 
 function setMainView(viewName, options = {}) {
@@ -294,7 +713,7 @@ function getDefaultMainView() {
 }
 
 function isMainViewAvailable(viewName) {
-  if (viewName === "camp" || viewName === "character" || viewName === "journal") return true;
+  if (viewName === "camp" || viewName === "journal") return true;
 
   if (viewName === "expedition") {
     return gameState.phase === "expedition" || !!gameState.expedition.active || !!gameState.expedition.currentLocation;
@@ -349,18 +768,6 @@ function updateResource(resourceName) {
 
   safeSetText(resource.display, text);
 
-  if (resourceName === "energy") {
-    safeSetText(ui.characterEnergyAmount, text);
-  }
-
-  if (resourceName === "ward") {
-    safeSetText(ui.characterWardAmount, text);
-
-    if (ui.characterWardAmount) {
-      ui.characterWardAmount.style.display = resource.display && resource.display.style.display !== "none" ? "block" : "none";
-    }
-  }
-
   safeSetText(resource.perClickDisplay, "+" + resource.perClick + "/Click");
   safeSetText(resource.perSecondDisplay, "+" + resource.perSecond + "/Sec");
   updateAllActionButtons();
@@ -392,6 +799,8 @@ function updateAllActionButtons() {
   if (typeof syncMainViewAvailability === "function") {
     syncMainViewAvailability();
   }
+
+  updateWorkflowPanels();
 }
 
 //UI Unlock Resource and Panels
@@ -573,8 +982,12 @@ function updateActionButton(actionName) {
 
   if (!action || !action.button) return;
 
+  prepareUiActionButton(action.button);
   action.button.style.display = action.unlocked ? "inline-block" : "none";
   updateDynamicActionButtonLabel(actionName, action);
+  setUiActionButtonLabel(action.button, {
+    cost: getUiActionCostText(actionName),
+  });
 
   if (!action.unlocked) {
     action.button.disabled = true;
@@ -592,12 +1005,14 @@ function updateActionButton(actionName) {
 function updateDynamicActionButtonLabel(actionName, action) {
   if (!action || !action.button) return;
 
-  const label = action.button.querySelector("span");
+  const label = getUiActionLabelElement(action.button);
 
   if (!label) return;
 
   if (actionName === "practiceManaCycling" && typeof getManaCyclingActionLabel === "function") {
-    label.textContent = getManaCyclingActionLabel();
+    setUiActionButtonLabel(action.button, {
+      label: getManaCyclingActionLabel(),
+    });
   }
 }
 
@@ -784,22 +1199,21 @@ function updateTravelButton(isTraveling) {
 
   if (!travelButton) return;
 
-  const label = travelButton.querySelector("span");
+  if (!isTraveling && typeof isTowerNodeJumpExpedition === "function" && isTowerNodeJumpExpedition()) {
+    const nodeName = typeof getPreparedTowerNodeName === "function" ? getPreparedTowerNodeName() : null;
+    const definition = nodeName && typeof getTowerNodeDefinition === "function" ? getTowerNodeDefinition(nodeName) : null;
 
-  if (label) {
-    if (!isTraveling && typeof isTowerNodeJumpExpedition === "function" && isTowerNodeJumpExpedition()) {
-      const nodeName =
-        typeof getPreparedTowerNodeName === "function" ? getPreparedTowerNodeName() : null;
-      const definition =
-        nodeName && typeof getTowerNodeDefinition === "function" ? getTowerNodeDefinition(nodeName) : null;
-
-      label.textContent =
-        "Jump to " + ((definition && definition.destinationLabel) || "Tower Node") + " - " + formatCost(getActionCost("travel"));
-      return;
-    }
-
-    label.textContent = isTraveling ? "Pause Travel" : "Travel";
+    setUiActionButtonLabel(travelButton, {
+      label: "Jump to " + ((definition && definition.destinationLabel) || "Tower Node"),
+      cost: getUiActionCostText("travel"),
+    });
+    return;
   }
+
+  setUiActionButtonLabel(travelButton, {
+    label: isTraveling ? "Pause Travel" : "Travel",
+    cost: isTraveling ? "" : getUiActionCostText("travel"),
+  });
 }
 
 function updateBeginExpeditionButtonLabel() {
@@ -807,19 +1221,21 @@ function updateBeginExpeditionButtonLabel() {
 
   if (!action || !action.button) return;
 
-  const label = action.button.querySelector("span");
-
-  if (!label) return;
-
   const regionId = getSelectedTravelRegionId();
   const region = getRegionDefinition(regionId);
 
   if (!region || regionId === "outskirts") {
-    label.textContent = "Prepare for Expedition";
+    setUiActionButtonLabel(action.button, {
+      label: "Prepare for Expedition",
+      cost: getUiActionCostText("beginExpedition"),
+    });
     return;
   }
 
-  label.textContent = "Prepare for " + region.label + " Expedition";
+  setUiActionButtonLabel(action.button, {
+    label: "Prepare for " + region.label + " Expedition",
+    cost: getUiActionCostText("beginExpedition"),
+  });
 }
 
 //Hook Action Button Function
@@ -832,6 +1248,7 @@ function hookActionButtonsToUI(onActionClick) {
 
     if (!action) return;
 
+    prepareUiActionButton(btn);
     action.button = btn;
     action.progressBar = btn.querySelector(".progressFill");
     action.metaProgressBar = btn.querySelector(".metaProgressFill");
@@ -844,14 +1261,14 @@ function hookActionButtonsToUI(onActionClick) {
   updateReturnToCampButtonLabel();
 }
 
-function updateCharacterPanelLocks() {
+function updateExpeditionLoadoutVisibility() {
   const campUnlocked = gameState.phase === "expedition";
 
   if (campUnlocked) {
     showElement(ui.carriedInventoryStrip, "flex");
 
     if (hasUnlockedOrPurchasedGear()) {
-      showElement(ui.gearSection, "block");
+      showElement(ui.gearSection, "flex");
     } else {
       hideElement(ui.gearSection);
     }
@@ -892,29 +1309,10 @@ function hasUnlockedSpell() {
 function prepareCraftButton(button) {
   if (!button) return;
 
-  let progressFill = button.querySelector(".progressFill");
-
-  if (!progressFill) {
-    progressFill = document.createElement("div");
-    progressFill.classList.add("progressFill");
-    button.prepend(progressFill);
-  }
-
-  let name = button.querySelector(".craft-name");
-
-  if (!name) {
-    name = document.createElement("span");
-    name.classList.add("craft-name");
-    button.appendChild(name);
-  }
-
-  let cost = button.querySelector(".craft-cost");
-
-  if (!cost) {
-    cost = document.createElement("span");
-    cost.classList.add("craft-cost");
-    button.appendChild(cost);
-  }
+  prepareUiActionButton(button, {
+    labelClass: "craft-name",
+    costClass: "craft-cost",
+  });
 }
 
 function updateCurrentGoalUI() {
@@ -925,7 +1323,7 @@ function updateCurrentGoalUI() {
     return;
   }
 
-  showElement(ui.currentGoalSection, "block");
+  showElement(ui.currentGoalSection, "flex");
   safeSetText(ui.currentGoalTitle, goal.title);
   ui.currentGoalText.innerHTML = "";
 
@@ -960,6 +1358,9 @@ function updateCurrentGoalUI() {
 
     ui.currentGoalText.appendChild(list);
   }
+
+  renderCampActivityLine();
+  updateWorkflowPanels();
 }
 
 function setCurrentGoal(goalId) {
@@ -970,6 +1371,83 @@ function setCurrentGoal(goalId) {
 
   gameState.currentGoalId = goalId;
   updateCurrentGoalUI();
+}
+
+function getCurrentActivitySummaryText() {
+  if (!isActivityActive()) return "";
+
+  const activity = gameState.activity;
+
+  if (activity.label) return activity.label;
+
+  if (activity.kind === "action") {
+    const action = typeof getAction === "function" ? getAction(activity.id) : null;
+    return action ? action.label : activity.id || "Action";
+  }
+
+  if (activity.kind === "travel") return "Travel";
+
+  if (activity.kind === "projectWork") {
+    const project = typeof getProjectDefinition === "function" ? getProjectDefinition(activity.id) : null;
+    return project ? project.label : "Project work";
+  }
+
+  if (activity.kind === "craft") {
+    const craft = typeof getCraftDefinition === "function" ? getCraftDefinition(activity.type, activity.id) : null;
+    return craft ? craft.label : "Crafting";
+  }
+
+  if (activity.kind === "spell") {
+    const spell = typeof getSpell === "function" ? getSpell(activity.id) : null;
+    return spell ? "Casting " + spell.label : "Casting spell";
+  }
+
+  if (activity.kind === "locationObject") return "Exploring";
+  if (activity.kind === "dungeonSearch") return "Exploring room";
+  if (activity.kind === "towerNodeImbue") return "Activating tower node";
+  if (activity.kind === "towerNodeThreadSense") return "Sensing node thread";
+  if (activity.kind === "rest") return "Resting";
+
+  return "In progress";
+}
+
+function renderCampActivityLine() {
+  if (!ui.currentGoalText) return;
+
+  const existing = ui.currentGoalText.querySelector(".current-goal-activity");
+
+  if (existing) {
+    existing.remove();
+  }
+
+  const activityText = getCurrentActivitySummaryText();
+  const activity = document.createElement("div");
+  activity.className = "current-goal-activity";
+  activity.classList.toggle("empty", !activityText);
+  activity.textContent = activityText ? "In progress: " + activityText : "";
+  ui.currentGoalText.appendChild(activity);
+}
+
+function updateWorkflowPanels() {
+  if (typeof renderCampActivityLine === "function") {
+    renderCampActivityLine();
+  }
+
+  if (typeof renderExpeditionWorkflowPanel === "function") {
+    renderExpeditionWorkflowPanel();
+  }
+
+  if (typeof renderMagicWorkflowPanel === "function") {
+    renderMagicWorkflowPanel();
+  }
+
+  if (typeof renderSpellProgressSummary === "function") {
+    renderSpellProgressSummary();
+  }
+
+  if (typeof renderTowerStatusPanel === "function") {
+    renderTowerStatusPanel();
+  }
 }
 
 function addJournalEntry(entryId) {
@@ -1180,9 +1658,8 @@ function updateReturnToCampButtonLabel() {
 
   if (!action || !action.button) return;
 
-  const label = action.button.querySelector("span");
-
-  if (!label) return;
-
-  label.textContent = gameState.recallUnlocked ? "Recall" : "Return to Camp";
+  setUiActionButtonLabel(action.button, {
+    label: gameState.recallUnlocked ? "Recall" : "Return to Camp",
+    cost: getUiActionCostText("returnToCamp"),
+  });
 }

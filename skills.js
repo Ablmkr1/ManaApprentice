@@ -1066,68 +1066,37 @@ function createTrainingEntry(skillName) {
   const progressValue = getSkillProgressValue(skillName);
   const progressLabel = getSkillProgressLabel(skillName, definition, skill);
 
-  const entry = document.createElement("div");
-  entry.className = "training-entry";
+  const title = definition.label + " - " + getSkillRankLabel(skill.rank) + " Level " + skill.level;
+  let capacity = "";
 
-  const header = document.createElement("div");
-  header.className = "training-entry-header";
-
-  const title = document.createElement("strong");
-  title.textContent = definition.label + " - " + getSkillRankLabel(skill.rank) + " Level " + skill.level;
-
-  const capacity = document.createElement("span");
   if (skillName === "manaControl") {
-    capacity.textContent = getManaControlRewardText(skill.level || 0);
+    capacity = getManaControlRewardText(skill.level || 0);
   } else {
-    capacity.textContent = getSkillCapacityDisplayText(skillName, definition, levelDefinition, skill);
+    capacity = getSkillCapacityDisplayText(skillName, definition, levelDefinition, skill);
   }
 
-  header.appendChild(title);
-  header.appendChild(capacity);
-  entry.appendChild(header);
-
-  const progressText = document.createElement("div");
-  progressText.className = "training-progress-text";
-
-  if (nextLevelDefinition && nextLevelDefinition.level > skill.level) {
-    progressText.textContent =
-      progressLabel + ": " + formatTrainingNumber(progressValue) + " / " + formatTrainingNumber(nextLevelDefinition.threshold);
-  } else {
-    progressText.textContent = progressLabel + ": complete";
-  }
-
-  entry.appendChild(progressText);
-
-  const progressTrack = document.createElement("div");
-  progressTrack.className = "training-progress-track";
-
-  const progressFill = document.createElement("div");
-  progressFill.className = "training-progress-fill";
+  let progressCurrent = 1;
+  let progressMax = 1;
+  let progressValueText = "complete";
 
   if (nextLevelDefinition && nextLevelDefinition.level > skill.level) {
     const currentThreshold = levelDefinition.threshold || 0;
-    const required = nextLevelDefinition.threshold - currentThreshold;
-    const current = Math.max(0, progressValue - currentThreshold);
-    progressFill.style.width = Math.min(Math.max(current / required, 0), 1) * 100 + "%";
-  } else {
-    progressFill.style.width = "100%";
+    progressMax = nextLevelDefinition.threshold - currentThreshold;
+    progressCurrent = Math.max(0, progressValue - currentThreshold);
+    progressValueText = formatTrainingNumber(progressValue) + " / " + formatTrainingNumber(nextLevelDefinition.threshold);
   }
 
-  progressTrack.appendChild(progressFill);
-  entry.appendChild(progressTrack);
-
-  const detail = document.createElement("div");
-  detail.className = "training-detail";
+  let detail = "";
 
   if (skillName === "conditioning" && skill.pending) {
-    detail.textContent = "Pending level-up when you return to camp.";
+    detail = "Pending level-up when you return to camp.";
   } else if (
     skillName === "conditioning" &&
     skill.rank === DEFAULT_SKILL_RANK &&
     isHeartRestoredForRankTwoSkills() &&
     isSkillRankMax("conditioning", DEFAULT_SKILL_RANK)
   ) {
-    detail.textContent =
+    detail =
       "Reinforced Body energy: " +
       formatTrainingNumber(skill.reinforcedEnergyUnlockSpent || 0) +
       " / " +
@@ -1143,7 +1112,7 @@ function createTrainingEntry(skillName) {
       const nextCost = getMeditationEnergyCostForLevel(nextLevelDefinition, skill.rank || DEFAULT_SKILL_RANK);
       const nextRestore = getMeditationManaRestoreForLevel(nextLevelDefinition);
 
-      detail.textContent =
+      detail =
         "Energy cost " +
         currentCost +
         ". Mana restored +" +
@@ -1156,24 +1125,33 @@ function createTrainingEntry(skillName) {
         formatTrainingNumber(nextRestore) +
         ".";
     } else {
-      detail.textContent = "Energy cost " + currentCost + ". Mana restored +" + formatTrainingNumber(currentRestore) + ". Fully developed for now.";
+      detail = "Energy cost " + currentCost + ". Mana restored +" + formatTrainingNumber(currentRestore) + ". Fully developed for now.";
     }
   } else if (skillName === "manaControl") {
     if (nextLevelDefinition && nextLevelDefinition.level > skill.level) {
-      detail.textContent =
+      detail =
         "Current: " + getManaControlRewardText(skill.level || 0) + ". Next: " + getManaControlRewardText(nextLevelDefinition.level) + ".";
     } else {
-      detail.textContent = "Current: " + getManaControlRewardText(skill.level || 0) + ". Fully developed for now.";
+      detail = "Current: " + getManaControlRewardText(skill.level || 0) + ". Fully developed for now.";
     }
   } else if (nextLevelDefinition && nextLevelDefinition.level > skill.level) {
-    detail.textContent = "Next: " + getSkillCapacityDisplayText(skillName, definition, nextLevelDefinition, skill);
+    detail = "Next: " + getSkillCapacityDisplayText(skillName, definition, nextLevelDefinition, skill);
   } else {
-    detail.textContent = "Fully developed for now.";
+    detail = "Fully developed for now.";
   }
 
-  entry.appendChild(detail);
-
-  return entry;
+  return createUiSummaryCard({
+    title,
+    meta: capacity,
+    detail,
+    progress: {
+      label: progressLabel,
+      current: progressCurrent,
+      max: progressMax,
+      valueText: progressValueText,
+    },
+    className: "training-entry",
+  });
 }
 
 function updateTrainingUI() {

@@ -790,19 +790,12 @@ function updateCraftButtonLabel(craftType, craftId) {
 function setCraftButtonLabel(button, name, costText) {
   if (!button) return;
 
-  prepareCraftButton(button);
-
-  const nameEl = button.querySelector(".craft-name");
-  const costEl = button.querySelector(".craft-cost");
-
-  if (nameEl) {
-    nameEl.textContent = name;
-  }
-
-  if (costEl) {
-    costEl.textContent = costText || "";
-    costEl.style.display = costText ? "block" : "none";
-  }
+  setUiActionButtonLabel(button, {
+    label: name,
+    cost: costText || "",
+    labelClass: "craft-name",
+    costClass: "craft-cost",
+  });
 }
 
 function formatCost(cost) {
@@ -975,7 +968,7 @@ function lockCampUpgrade(upgradeName) {
 // Phase Helper
 function setPhase(phaseName) {
   gameState.phase = phaseName;
-  updateCharacterPanelLocks();
+  updateExpeditionLoadoutVisibility();
 
   if (phaseName === "expedition") {
     lockAction("explore");
@@ -1022,6 +1015,8 @@ function updateEquipmentSlotUI() {
   renderEquipmentSlots(ui.toolSlotsGroup, ui.toolSlots, "tool");
   renderSpellSlots();
   renderTonicSlots();
+  renderMagicWorkflowPanel();
+  renderSpellProgressSummary();
   syncMainViewAvailability();
 }
 
@@ -1039,20 +1034,12 @@ function renderCampUpgradeSlots() {
   showElement(ui.campUpgradeSection, "flex");
 
   slots.forEach(function (slot) {
-    const slotEl = document.createElement("div");
-    slotEl.className = "equipment-slot";
+    const renderedSlot = createUiSlot({
+      itemLabel: slot.current.displayName || slot.current.label,
+      slotLabel: slot.label,
+    });
 
-    const boxEl = document.createElement("div");
-    boxEl.className = "equipment-box";
-    boxEl.textContent = slot.current.displayName || slot.current.label;
-
-    const labelEl = document.createElement("div");
-    labelEl.className = "equipment-slot-label";
-    labelEl.textContent = slot.label;
-
-    slotEl.appendChild(boxEl);
-    slotEl.appendChild(labelEl);
-    ui.campUpgradeSlots.appendChild(slotEl);
+    ui.campUpgradeSlots.appendChild(renderedSlot.slot);
   });
 }
 
@@ -1097,20 +1084,12 @@ function renderEquipmentSlots(groupEl, containerEl, equipmentType) {
   showElement(groupEl, "flex");
 
   slots.forEach(function (slot) {
-    const slotEl = document.createElement("div");
-    slotEl.className = "equipment-slot";
+    const renderedSlot = createUiSlot({
+      itemLabel: slot.current.displayName || slot.current.label,
+      slotLabel: slot.label,
+    });
 
-    const boxEl = document.createElement("div");
-    boxEl.className = "equipment-box";
-    boxEl.textContent = slot.current.displayName || slot.current.label;
-
-    const labelEl = document.createElement("div");
-    labelEl.className = "equipment-slot-label";
-    labelEl.textContent = slot.label;
-
-    slotEl.appendChild(boxEl);
-    slotEl.appendChild(labelEl);
-    containerEl.appendChild(slotEl);
+    containerEl.appendChild(renderedSlot.slot);
   });
 }
 
@@ -1129,41 +1108,25 @@ function renderTonicSlots() {
   showElement(ui.tonicSlotsGroup, "flex");
 
   slots.forEach(function (tonicName, slotIndex) {
-    const slotEl = document.createElement("div");
-    slotEl.className = "equipment-slot";
-
-    const boxEl = document.createElement("div");
-    boxEl.className = "equipment-box";
+    const tonic = tonicName ? getConsumable(tonicName) : null;
+    const itemLabel = tonic ? tonic.label : tonicName || "Empty";
+    const renderedSlot = createUiSlot({
+      itemLabel,
+      slotLabel: "Tonic",
+      title: tonicName ? "Use " + itemLabel : "",
+      interactive: !!tonicName,
+      onActivate: tonicName
+        ? function () {
+            useConsumableFromSlot(slotIndex);
+          }
+        : null,
+    });
 
     if (tonicName) {
-      const tonic = getConsumable(tonicName);
-      boxEl.textContent = tonic ? tonic.label : tonicName;
-      boxEl.title = "Use " + boxEl.textContent;
-      boxEl.classList.add("tonic-filled");
-      boxEl.setAttribute("role", "button");
-      boxEl.setAttribute("tabindex", "0");
-
-      boxEl.addEventListener("click", function () {
-        useConsumableFromSlot(slotIndex);
-      });
-
-      boxEl.addEventListener("keydown", function (event) {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          useConsumableFromSlot(slotIndex);
-        }
-      });
-    } else {
-      boxEl.textContent = "Empty";
+      renderedSlot.box.classList.add("tonic-filled");
     }
 
-    const labelEl = document.createElement("div");
-    labelEl.className = "equipment-slot-label";
-    labelEl.textContent = "Tonic";
-
-    slotEl.appendChild(boxEl);
-    slotEl.appendChild(labelEl);
-    ui.tonicSlots.appendChild(slotEl);
+    ui.tonicSlots.appendChild(renderedSlot.slot);
   });
 }
 
@@ -1189,6 +1152,8 @@ function renderSpellSlots() {
   if (unlockedSpells.length === 0) {
     hideSpellTargetMenu();
     hideElement(ui.spellSlotsGroup);
+    renderMagicWorkflowPanel();
+    renderSpellProgressSummary();
     return;
   }
 
@@ -1204,15 +1169,22 @@ function renderSpellSlots() {
   }
 
   unlockedSpells.forEach(function (entry) {
-    const slotEl = document.createElement("div");
-    slotEl.className = "equipment-slot spell-slot";
-
-    const boxEl = document.createElement("div");
-    boxEl.className = "equipment-box spell-box";
+    const renderedSlot = createUiSlot({
+      itemLabel: entry.spell.label,
+      slotLabel: "Spell",
+      interactive: true,
+      className: "spell-slot",
+      onActivate: function () {
+        toggleSpellTargetMenu(entry.id);
+      },
+    });
+    const boxEl = renderedSlot.box;
+    boxEl.classList.add("spell-box");
     boxEl.setAttribute("role", "button");
     boxEl.setAttribute("tabindex", "0");
     boxEl.setAttribute("aria-controls", "spellTargetMenu");
     boxEl.setAttribute("aria-expanded", String(openSpellMenuName === entry.id));
+    boxEl.textContent = "";
 
     const nameEl = document.createElement("span");
     nameEl.className = "spell-slot-name";
@@ -1246,27 +1218,105 @@ function renderSpellSlots() {
       boxEl.title = "Open " + entry.spell.label + " details.";
     }
 
-    boxEl.addEventListener("click", function () {
-      toggleSpellTargetMenu(entry.id);
-    });
-
-    boxEl.addEventListener("keydown", function (event) {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        toggleSpellTargetMenu(entry.id);
-      }
-    });
-
-    const labelEl = document.createElement("div");
-    labelEl.className = "equipment-slot-label";
-    labelEl.textContent = "Spell";
-
-    slotEl.appendChild(boxEl);
-    slotEl.appendChild(labelEl);
-    ui.spellSlots.appendChild(slotEl);
+    ui.spellSlots.appendChild(renderedSlot.slot);
   });
 
   renderOpenSpellTargetMenu();
+  renderMagicWorkflowPanel();
+  renderSpellProgressSummary();
+}
+
+function getUnlockedSpellEntries() {
+  const spells = getSpellDefinitions();
+  const entries = [];
+
+  for (let spellName in spells) {
+    const spell = getSpell(spellName);
+
+    if (spell && spell.unlocked) {
+      entries.push({
+        id: spellName,
+        spell,
+      });
+    }
+  }
+
+  return entries;
+}
+
+function renderMagicWorkflowPanel() {
+  if (!ui.magicWorkflowPanel) return;
+
+  const unlockedSpells = getUnlockedSpellEntries();
+  const magicActions = ["meditate", "concentrateTonicBase", "concentrateManaTonicBase"].filter(function (actionName) {
+    const action = getAction(actionName);
+
+    return action && action.unlocked && isActionContextAvailable(actionName);
+  });
+  const activeSpell = isActivityActive() && gameState.activity.kind === "spell" ? getSpell(gameState.activity.id) : null;
+  const mana = getResource("mana");
+  const meta = [
+    {
+      label: "Mana",
+      value: mana ? formatResourceAmountForDisplay(mana.value) + " / " + mana.maxValue : "0",
+    },
+    {
+      label: "Spells",
+      value: String(unlockedSpells.length),
+    },
+  ];
+
+  if (typeof getAttunementActiveSummaryText === "function" && getSpell("attunement") && getSpell("attunement").unlocked) {
+    meta.push({
+      label: "Attunement",
+      value: getAttunementActiveSummaryText(),
+    });
+  }
+
+  renderUiContextPanel(ui.magicWorkflowPanel, {
+    title: activeSpell ? activeSpell.label : unlockedSpells.length > 0 ? "Spellwork" : "Mana Practice",
+    status: activeSpell ? "Casting" : magicActions.length > 0 || unlockedSpells.length > 0 ? "Ready" : "Quiet",
+    body:
+      unlockedSpells.length > 0
+        ? "Open a spell slot to choose a target, or use practice actions below."
+        : "Practice magic as new methods become available.",
+    meta,
+    className: "magic-workflow-summary",
+  });
+}
+
+function renderSpellProgressSummary() {
+  if (!ui.magicProgressSection || !ui.spellProgressList) return;
+
+  ui.spellProgressList.innerHTML = "";
+
+  const entries = getUnlockedSpellEntries().filter(function (entry) {
+    return !!getSpellProgressDefinition(entry.id);
+  });
+
+  if (entries.length === 0) {
+    hideElement(ui.magicProgressSection);
+    return;
+  }
+
+  showElement(ui.magicProgressSection, "block");
+
+  entries.forEach(function (entry) {
+    const progressEntry = createSpellProgressEntry(entry.id);
+
+    if (progressEntry) {
+      ui.spellProgressList.appendChild(progressEntry);
+    }
+  });
+}
+
+function createSpellProgressEntry(spellName) {
+  if (spellName === "manaSense") return createManaSenseExperienceEntry();
+  if (spellName === "attunement") return createAttunementExperienceEntry();
+  if (spellName === "imbue") return createImbueExperienceEntry();
+  if (spellName === "arcaneForce") return createArcaneForceExperienceEntry();
+
+  return null;
 }
 
 function unlockSpell(spellName) {
@@ -1279,7 +1329,7 @@ function unlockSpell(spellName) {
 
   spell.unlocked = true;
   updateEquipmentSlotUI();
-  updateCharacterPanelLocks();
+  updateExpeditionLoadoutVisibility();
 }
 
 function getCurrentManaSenseReveal() {
@@ -1890,7 +1940,7 @@ function unlockGearUpgrade(upgradeName) {
 
   upgrade.unlocked = true;
   updateGearUpgradeUI(upgradeName);
-  updateCharacterPanelLocks();
+  updateExpeditionLoadoutVisibility();
   updateCraftingSectionVisibility();
 }
 
@@ -1908,7 +1958,7 @@ function completeGearUpgrade(upgradeName) {
   upgrade.onComplete();
 
   updateGearUpgradeUI(upgradeName);
-  updateCharacterPanelLocks();
+  updateExpeditionLoadoutVisibility();
 }
 
 function updateCraftingSectionVisibility() {
@@ -3062,18 +3112,17 @@ function renderAdvancedRecallPopupOptions(nodeName) {
   }
 
   items.forEach(function (item) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "advanced-recall-option";
-    button.textContent =
-      item.storableAmount > 0
-        ? "Send " + item.label + " (" + formatTrainingNumber(item.storableAmount) + ") - " + formatCost(cost)
-        : item.label + " Storage Full";
-    button.disabled = !canAdvancedRecallItem(nodeName, item.itemName);
-
-    button.addEventListener("click", function () {
-      advancedRecallItem(nodeName, item.itemName);
+    const button = createUiActionButton({
+      label: item.storableAmount > 0 ? "Send " + item.label : item.label + " Storage Full",
+      cost: item.storableAmount > 0 ? formatCost(cost) : "",
+      detail: item.storableAmount > 0 ? formatTrainingNumber(item.storableAmount) : "",
+      className: "advanced-recall-option",
+      progress: false,
+      onClick: function () {
+        advancedRecallItem(nodeName, item.itemName);
+      },
     });
+    button.disabled = !canAdvancedRecallItem(nodeName, item.itemName);
 
     ui.advancedRecallOptions.appendChild(button);
   });
@@ -3305,15 +3354,17 @@ function createTowerNodeMaterialRow(nodeName, resourceName) {
     " / " +
     formatTrainingNumber(getTowerNodeMaterialRequirement(nodeName, resourceName));
 
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "project-deposit-btn";
-  button.dataset.towerNodeDeposit = nodeName;
-  button.dataset.resource = resourceName;
-  button.textContent = "Deposit";
-
-  button.addEventListener("click", function () {
-    depositTowerNodeResource(nodeName, resourceName);
+  const button = createUiActionButton({
+    label: "Deposit",
+    className: "project-deposit-btn",
+    progress: false,
+    dataset: {
+      towerNodeDeposit: nodeName,
+      resource: resourceName,
+    },
+    onClick: function () {
+      depositTowerNodeResource(nodeName, resourceName);
+    },
   });
 
   row.appendChild(label);
@@ -3357,21 +3408,16 @@ function createTowerNodeActions(nodeName, definition) {
   actionName.className = "tower-project-action-name";
   actionName.textContent = "Activate Northern Node";
 
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "action-btn project-work-btn tower-project-work-btn";
-  button.dataset.towerNodeImbue = nodeName;
-
-  const fill = document.createElement("div");
-  fill.className = "progressFill";
-
-  const label = document.createElement("span");
-  label.textContent = "Imbue Northern Node - " + formatCost(definition.imbueCost || {});
-
-  button.appendChild(fill);
-  button.appendChild(label);
-  button.addEventListener("click", function () {
-    startTowerNodeImbue(nodeName);
+  const button = createUiActionButton({
+    label: "Imbue Northern Node",
+    cost: formatCost(definition.imbueCost || {}),
+    className: "project-work-btn tower-project-work-btn",
+    dataset: {
+      towerNodeImbue: nodeName,
+    },
+    onClick: function () {
+      startTowerNodeImbue(nodeName);
+    },
   });
 
   definition.imbueButton = button;
@@ -3417,38 +3463,41 @@ function createTowerNodeUtilityActions(nodeName, definition, state) {
   actionName.className = "tower-project-action-name";
   actionName.textContent = state.advancedRecallUnlocked ? "Advanced Recall" : "Sense Node Thread";
 
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "action-btn project-work-btn tower-project-work-btn";
-
-  const fill = document.createElement("div");
-  fill.className = "progressFill";
-
-  const label = document.createElement("span");
-
-  button.appendChild(fill);
-  button.appendChild(label);
-
   if (state.advancedRecallUnlocked) {
-    button.dataset.towerNodeAdvancedRecall = nodeName;
-    label.textContent = "Advanced Recall Pack";
-    button.addEventListener("click", function () {
-      showAdvancedRecallPopup(nodeName);
+    const button = createUiActionButton({
+      label: "Advanced Recall Pack",
+      className: "project-work-btn tower-project-work-btn",
+      progress: false,
+      dataset: {
+        towerNodeAdvancedRecall: nodeName,
+      },
+      onClick: function () {
+        showAdvancedRecallPopup(nodeName);
+      },
     });
+
     definition.advancedRecallButton = button;
     definition.threadSenseButton = null;
+    actions.appendChild(actionName);
+    actions.appendChild(button);
   } else {
-    button.dataset.towerNodeThreadSense = nodeName;
-    label.textContent = "Sense Node Thread - " + formatCost(getTowerNodeThreadSenseCost(nodeName));
-    button.addEventListener("click", function () {
-      startTowerNodeThreadSense(nodeName);
+    const button = createUiActionButton({
+      label: "Sense Node Thread",
+      cost: formatCost(getTowerNodeThreadSenseCost(nodeName)),
+      className: "project-work-btn tower-project-work-btn",
+      dataset: {
+        towerNodeThreadSense: nodeName,
+      },
+      onClick: function () {
+        startTowerNodeThreadSense(nodeName);
+      },
     });
+
     definition.threadSenseButton = button;
     definition.advancedRecallButton = null;
+    actions.appendChild(actionName);
+    actions.appendChild(button);
   }
-
-  actions.appendChild(actionName);
-  actions.appendChild(button);
 
   return actions;
 }
@@ -3472,17 +3521,20 @@ function updateTowerNodeButtonState(nodeName) {
   if (!definition || !state || !button) return;
 
   const isActive = isActivityActive() && gameState.activity.kind === "towerNodeImbue" && gameState.activity.id === nodeName;
-  const label = button.querySelector("span");
 
   button.classList.toggle("running", isActive);
   button.disabled = state.built || (!isActive && (isActivityActive() || !canImbueTowerNode(nodeName)));
 
-  if (label) {
-    if (state.built || getTowerNodeImbueRemaining(nodeName) <= 0) {
-      label.textContent = "Activation Complete";
-    } else {
-      label.textContent = "Imbue Northern Node - " + formatCost(definition.imbueCost || {});
-    }
+  if (state.built || getTowerNodeImbueRemaining(nodeName) <= 0) {
+    setUiActionButtonLabel(button, {
+      label: "Activation Complete",
+      cost: "",
+    });
+  } else {
+    setUiActionButtonLabel(button, {
+      label: "Imbue Northern Node",
+      cost: formatCost(definition.imbueCost || {}),
+    });
   }
 }
 
@@ -3494,17 +3546,14 @@ function updateTowerNodeThreadSenseButtonState(nodeName) {
   if (!definition || !state || !button) return;
 
   const isActive = isActivityActive() && gameState.activity.kind === "towerNodeThreadSense" && gameState.activity.id === nodeName;
-  const label = button.querySelector("span");
 
   button.classList.toggle("running", isActive);
   button.disabled = state.advancedRecallUnlocked || (!isActive && (isActivityActive() || !canSenseTowerNodeThread(nodeName)));
 
-  if (label) {
-    label.textContent =
-      state.advancedRecallUnlocked || getTowerNodeThreadSenseRemaining(nodeName) <= 0
-        ? "Thread Sensed"
-        : "Sense Node Thread - " + formatCost(getTowerNodeThreadSenseCost(nodeName));
-  }
+  setUiActionButtonLabel(button, {
+    label: state.advancedRecallUnlocked || getTowerNodeThreadSenseRemaining(nodeName) <= 0 ? "Thread Sensed" : "Sense Node Thread",
+    cost: state.advancedRecallUnlocked || getTowerNodeThreadSenseRemaining(nodeName) <= 0 ? "" : formatCost(getTowerNodeThreadSenseCost(nodeName)),
+  });
 }
 
 function updateAdvancedRecallButtonState(nodeName) {
@@ -3514,15 +3563,15 @@ function updateAdvancedRecallButtonState(nodeName) {
 
   if (!definition || !state || !button) return;
 
-  const label = button.querySelector("span");
   const hasItems = hasAdvancedRecallCarriedItems();
   const canUse = canUseAdvancedRecallAtNode(nodeName);
 
   button.disabled = !canUse;
 
-  if (label) {
-    label.textContent = hasItems ? "Advanced Recall Pack" : "Pack Empty";
-  }
+  setUiActionButtonLabel(button, {
+    label: hasItems ? "Advanced Recall Pack" : "Pack Empty",
+    cost: "",
+  });
 }
 
 function updateTowerNodeDepositButtonStates(nodeName) {
@@ -3538,7 +3587,11 @@ function updateTowerNodeDepositButtonStates(nodeName) {
     const amount = Math.min(carriedAmount, remaining);
 
     button.disabled = !state || state.built || isActivityActive() || remaining <= 0 || amount <= 0;
-    button.textContent = remaining <= 0 ? "Done" : "Deposit " + formatTrainingNumber(amount);
+    setUiActionButtonLabel(button, {
+      label: remaining <= 0 ? "Done" : "Deposit",
+      detail: remaining <= 0 ? "" : formatTrainingNumber(amount),
+      progress: false,
+    });
   });
 }
 
@@ -3667,10 +3720,8 @@ function updateProjectUI() {
   const entries = getVisibleProjectEntries();
 
   if (entries.length === 0) {
-    const empty = document.createElement("div");
-    empty.classList.add("research-empty");
-    empty.textContent = "No projects started yet.";
-    ui.projectList.appendChild(empty);
+    ui.projectList.appendChild(createUiEmptyState("No projects started yet."));
+    renderTowerStatusPanel();
     syncMainViewAvailability();
     return;
   }
@@ -3680,7 +3731,72 @@ function updateProjectUI() {
   });
 
   updateProjectButtons();
+  renderTowerStatusPanel();
   syncMainViewAvailability();
+}
+
+function renderTowerStatusPanel() {
+  if (!ui.towerStatusPanel) return;
+
+  const entries = getVisibleProjectEntries();
+
+  if (entries.length === 0) {
+    renderUiContextPanel(ui.towerStatusPanel, {
+      title: "Tower",
+      status: "No project",
+      body: "No tower project is visible yet.",
+      className: "tower-status-summary",
+    });
+    return;
+  }
+
+  const activeEntry =
+    entries.find(function (entry) {
+      return !entry.state.completed;
+    }) || entries[0];
+  const level = getProjectCurrentLevel(activeEntry.id);
+  const workRemaining = getProjectWorkRemaining(activeEntry.id);
+  const materialText = getProjectMaterialStatusText(activeEntry.id, level);
+  const status = activeEntry.state.completed ? activeEntry.definition.completedLabel || "Complete" : level ? level.name : "Complete";
+  const meta = [
+    {
+      label: "Work",
+      value: activeEntry.state.completed || !level ? "complete" : formatTrainingNumber(workRemaining) + " remaining",
+    },
+    {
+      label: "Materials",
+      value: materialText,
+    },
+  ];
+
+  renderUiContextPanel(ui.towerStatusPanel, {
+    title: activeEntry.definition.label || "Tower",
+    status,
+    body: activeEntry.state.completed
+      ? activeEntry.definition.completedDescription || "This project is complete."
+      : level && level.description
+        ? level.description
+        : activeEntry.definition.description || "",
+    meta,
+    className: "tower-status-summary",
+  });
+}
+
+function getProjectMaterialStatusText(projectName, level) {
+  if (!level || !level.materials || Object.keys(level.materials).length === 0) return "complete";
+
+  const missing = [];
+
+  for (let resourceName in level.materials) {
+    const remaining = getProjectMaterialRemaining(projectName, resourceName);
+
+    if (remaining <= 0) continue;
+
+    const resource = getResource(resourceName);
+    missing.push(formatTrainingNumber(remaining) + " " + (resource ? resource.label : resourceName));
+  }
+
+  return missing.length > 0 ? missing.join(", ") : "complete";
 }
 
 function getProjectWorkActionLabel(projectName) {
@@ -3696,26 +3812,12 @@ function createProjectEntry(projectName, definition, state) {
   }
 
   const level = getProjectCurrentLevel(projectName);
-  const entry = document.createElement("div");
-  entry.className = "project-entry";
-
-  const header = document.createElement("div");
-  header.className = "project-entry-header";
-
-  const title = document.createElement("strong");
-  title.textContent = definition.label + " - Level " + state.level;
-
-  const status = document.createElement("span");
-  status.textContent = state.completed ? definition.completedLabel || "Complete" : level.name;
-
-  header.appendChild(title);
-  header.appendChild(status);
-  entry.appendChild(header);
-
-  const description = document.createElement("p");
-  description.className = "project-description";
-  description.textContent = state.completed ? definition.completedDescription : level.description || definition.description || "";
-  entry.appendChild(description);
+  const entry = createUiSummaryCard({
+    title: definition.label + " - Level " + state.level,
+    meta: state.completed ? definition.completedLabel || "Complete" : level.name,
+    body: state.completed ? definition.completedDescription : level.description || definition.description || "",
+    className: "project-entry",
+  });
 
   entry.appendChild(createProjectWorkProgress(projectName, level, state));
   entry.appendChild(createProjectMaterialList(projectName, level, state));
@@ -4185,35 +4287,23 @@ function appendTowerBasementBracing(group, wallTop) {
 }
 
 function createProjectWorkProgress(projectName, level, state) {
-  const group = document.createElement("div");
-  group.className = "project-progress-group";
-
-  const text = document.createElement("div");
-  text.className = "training-progress-text";
-
   if (level) {
-    text.textContent = "Work: " + formatTrainingNumber(state.work || 0) + " / " + formatTrainingNumber(level.workRequired || 0);
-  } else {
-    text.textContent = "Work: complete";
+    return createUiProgressMeter({
+      label: "Work",
+      current: state.work || 0,
+      max: level.workRequired || 0,
+      valueText: formatTrainingNumber(state.work || 0) + " / " + formatTrainingNumber(level.workRequired || 0),
+      className: "project-progress-group",
+    });
   }
 
-  const track = document.createElement("div");
-  track.className = "training-progress-track";
-
-  const fill = document.createElement("div");
-  fill.className = "training-progress-fill";
-
-  if (level && level.workRequired > 0) {
-    fill.style.width = Math.min(Math.max((state.work || 0) / level.workRequired, 0), 1) * 100 + "%";
-  } else {
-    fill.style.width = "100%";
-  }
-
-  track.appendChild(fill);
-  group.appendChild(text);
-  group.appendChild(track);
-
-  return group;
+  return createUiProgressMeter({
+    label: "Work",
+    current: 1,
+    max: 1,
+    valueText: "complete",
+    className: "project-progress-group",
+  });
 }
 
 function createTowerFoundationActivationProgress(projectName, level, state) {
@@ -4258,10 +4348,7 @@ function createProjectMaterialList(projectName, level) {
   list.className = "project-material-list";
 
   if (!level || !level.materials || Object.keys(level.materials).length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "training-detail";
-    empty.textContent = "Materials: complete";
-    list.appendChild(empty);
+    list.appendChild(createUiEmptyState("Materials: complete"));
     return list;
   }
 
@@ -4285,15 +4372,17 @@ function createProjectMaterialRow(projectName, resourceName) {
     " / " +
     formatTrainingNumber(getProjectMaterialRequirement(projectName, resourceName));
 
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "project-deposit-btn";
-  button.dataset.projectDeposit = projectName;
-  button.dataset.resource = resourceName;
-  button.textContent = "Deposit";
-
-  button.addEventListener("click", function () {
-    depositProjectResource(projectName, resourceName);
+  const button = createUiActionButton({
+    label: "Deposit",
+    className: "project-deposit-btn",
+    progress: false,
+    dataset: {
+      projectDeposit: projectName,
+      resource: resourceName,
+    },
+    onClick: function () {
+      depositProjectResource(projectName, resourceName);
+    },
   });
 
   row.appendChild(label);
@@ -4306,21 +4395,16 @@ function createProjectActions(projectName, definition, state) {
   const actions = document.createElement("div");
   actions.className = "project-actions";
 
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "action-btn project-work-btn";
-  button.dataset.projectWork = projectName;
-
-  const fill = document.createElement("div");
-  fill.className = "progressFill";
-
-  const label = document.createElement("span");
-  label.textContent = state.completed ? "Project Complete" : getProjectWorkActionLabel(projectName);
-
-  button.appendChild(fill);
-  button.appendChild(label);
-  button.addEventListener("click", function () {
-    startProjectWork(projectName);
+  const button = createUiActionButton({
+    label: state.completed ? "Project Complete" : getProjectWorkActionLabel(projectName),
+    cost: state.completed ? "" : formatCost(getProjectWorkCost(projectName)),
+    className: "project-work-btn",
+    dataset: {
+      projectWork: projectName,
+    },
+    onClick: function () {
+      startProjectWork(projectName);
+    },
   });
 
   definition.workButton = button;
@@ -4366,25 +4450,32 @@ function createTowerProjectActions(projectName, definition, state) {
 }
 
 function createTowerProjectWorkButton(projectName, mode) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "action-btn project-work-btn tower-project-work-btn";
-  button.dataset.projectWork = projectName;
-  button.dataset.projectWorkMode = mode;
-
-  const fill = document.createElement("div");
-  fill.className = "progressFill";
-
-  const label = document.createElement("span");
-  label.textContent = getProjectWorkModeButtonLabel(projectName, mode);
-
-  button.appendChild(fill);
-  button.appendChild(label);
-  button.addEventListener("click", function () {
-    startProjectWork(projectName, mode);
+  return createUiActionButton({
+    label: getProjectWorkModeActionLabel(projectName, mode),
+    cost: formatCost(getProjectWorkCost(projectName, mode)),
+    className: "project-work-btn tower-project-work-btn",
+    dataset: {
+      projectWork: projectName,
+      projectWorkMode: mode,
+    },
+    onClick: function () {
+      startProjectWork(projectName, mode);
+    },
   });
+}
 
-  return button;
+function getProjectWorkModeActionLabel(projectName, mode) {
+  if (isProjectImbueHeartWorkMode(projectName, mode)) {
+    const level = getProjectCurrentLevel(projectName);
+
+    return (level && (level.activationLabel || level.actionLabel)) || "Imbue Heart";
+  }
+
+  if (isProjectArcaneForceWorkMode(projectName, mode)) {
+    return "Arcane Force";
+  }
+
+  return getProjectWorkActionLabel(projectName);
 }
 
 function getProjectWorkModeButtonLabel(projectName, mode) {
@@ -4426,20 +4517,28 @@ function updateProjectWorkButtonState(projectName) {
   const state = getProjectState(projectName);
   const isActiveProjectWork = isActivityActive() && gameState.activity.kind === "projectWork" && gameState.activity.id === projectName;
   const canStart = canWorkOnProject(projectName);
-  const label = definition.workButton.querySelector("span");
 
   definition.workButton.classList.toggle("running", isActiveProjectWork);
   definition.workButton.disabled = state.completed || (!isActiveProjectWork && (isActivityActive() || !canStart));
 
-  if (label) {
-    if (state.completed) {
-      label.textContent = "Project Complete";
-    } else if (getProjectWorkRemaining(projectName) <= 0) {
-      label.textContent = "Work Complete";
-    } else {
-      label.textContent = getProjectWorkActionLabel(projectName) + " - " + formatCost(getProjectWorkCost(projectName));
-    }
+  if (state.completed) {
+    setUiActionButtonLabel(definition.workButton, {
+      label: "Project Complete",
+      cost: "",
+    });
+  } else if (getProjectWorkRemaining(projectName) <= 0) {
+    setUiActionButtonLabel(definition.workButton, {
+      label: "Work Complete",
+      cost: "",
+    });
+  } else {
+    setUiActionButtonLabel(definition.workButton, {
+      label: getProjectWorkActionLabel(projectName),
+      cost: formatCost(getProjectWorkCost(projectName)),
+    });
   }
+
+  renderTowerStatusPanel();
 }
 
 function updateTowerProjectWorkButtonStates(projectName, definition) {
@@ -4451,7 +4550,6 @@ function updateTowerProjectWorkButtonStates(projectName, definition) {
 
   Object.keys(definition.workButtons).forEach(function (mode) {
     const button = definition.workButtons[mode];
-    const label = button ? button.querySelector("span") : null;
     const isActiveMode = isActiveProjectWork && activeMode === mode;
     const canStart = canWorkOnProject(projectName, mode);
 
@@ -4460,16 +4558,25 @@ function updateTowerProjectWorkButtonStates(projectName, definition) {
     button.classList.toggle("running", isActiveMode);
     button.disabled = state.completed || (!isActiveMode && (isActivityActive() || !canStart));
 
-    if (label) {
-      if (state.completed) {
-        label.textContent = "Project Complete";
-      } else if (getProjectWorkRemaining(projectName) <= 0) {
-        label.textContent = isProjectImbueHeartWorkMode(projectName, mode) ? "Activation Complete" : "Work Complete";
-      } else {
-        label.textContent = getProjectWorkModeButtonLabel(projectName, mode);
-      }
+    if (state.completed) {
+      setUiActionButtonLabel(button, {
+        label: "Project Complete",
+        cost: "",
+      });
+    } else if (getProjectWorkRemaining(projectName) <= 0) {
+      setUiActionButtonLabel(button, {
+        label: isProjectImbueHeartWorkMode(projectName, mode) ? "Activation Complete" : "Work Complete",
+        cost: "",
+      });
+    } else {
+      setUiActionButtonLabel(button, {
+        label: getProjectWorkModeActionLabel(projectName, mode),
+        cost: formatCost(getProjectWorkCost(projectName, mode)),
+      });
     }
   });
+
+  renderTowerStatusPanel();
 }
 
 function updateProjectDepositButtonStates(projectName) {
@@ -4485,8 +4592,14 @@ function updateProjectDepositButtonStates(projectName) {
     const amount = resource ? Math.min(resource.value, remaining) : 0;
 
     button.disabled = state.completed || isActivityActive() || remaining <= 0 || amount <= 0;
-    button.textContent = remaining <= 0 ? "Done" : "Deposit " + formatTrainingNumber(amount);
+    setUiActionButtonLabel(button, {
+      label: remaining <= 0 ? "Done" : "Deposit",
+      detail: remaining <= 0 ? "" : formatTrainingNumber(amount),
+      progress: false,
+    });
   });
+
+  renderTowerStatusPanel();
 }
 
 function resetProjectWorkButtonProgress(projectName) {
@@ -4549,10 +4662,7 @@ function updateResearchHistoryUI() {
   ui.researchList.innerHTML = "";
 
   if (entries.length === 0) {
-    const empty = document.createElement("div");
-    empty.classList.add("research-empty");
-    empty.textContent = "No research recorded yet.";
-    ui.researchList.appendChild(empty);
+    ui.researchList.appendChild(createUiEmptyState("No research recorded yet."));
     renderResearchDetails(null);
     return;
   }
@@ -4572,7 +4682,7 @@ function updateResearchHistoryUI() {
 
     const button = document.createElement("button");
     button.type = "button";
-    button.classList.add("research-list-item");
+    button.classList.add("research-list-item", "ui-summary-list-item");
     button.classList.toggle("active", key === gameState.selectedResearchEntry);
 
     const title = document.createElement("span");
@@ -4607,36 +4717,25 @@ function renderResearchDetails(entry) {
   ui.researchDetails.innerHTML = "";
 
   if (!entry) {
-    const empty = document.createElement("div");
-    empty.classList.add("research-empty");
-    empty.textContent = "Select research to view details.";
-    ui.researchDetails.appendChild(empty);
+    ui.researchDetails.appendChild(createUiEmptyState("Select research to view details."));
     return;
   }
 
-  const title = document.createElement("h4");
-  title.textContent = entry.label;
-
-  const status = document.createElement("div");
-  status.classList.add("research-detail-status");
-  status.textContent = getResearchStatusLabel(entry.status);
-
-  const story = document.createElement("p");
-  story.textContent = entry.story || "No notes recorded.";
-
-  ui.researchDetails.appendChild(title);
-  ui.researchDetails.appendChild(status);
-  ui.researchDetails.appendChild(story);
+  ui.researchDetails.appendChild(
+    createUiSummaryCard({
+      title: entry.label,
+      meta: getResearchStatusLabel(entry.status),
+      body: entry.story || "No notes recorded.",
+      className: "research-detail-summary",
+    })
+  );
 
   const unlockTitle = document.createElement("h5");
   unlockTitle.textContent = "Unlocks";
   ui.researchDetails.appendChild(unlockTitle);
 
   if (!entry.unlocks || entry.unlocks.length === 0) {
-    const none = document.createElement("div");
-    none.classList.add("research-empty");
-    none.textContent = "No unlocks recorded.";
-    ui.researchDetails.appendChild(none);
+    ui.researchDetails.appendChild(createUiEmptyState("No unlocks recorded."));
   } else {
     const list = document.createElement("ul");
     list.classList.add("research-unlock-list");
@@ -4651,10 +4750,7 @@ function renderResearchDetails(entry) {
   }
 
   if (entry.type === "research" && entry.status === "blocked") {
-    const blocked = document.createElement("div");
-    blocked.classList.add("research-empty");
-    blocked.textContent = entry.lockedReason || "More information is needed before this research can begin.";
-    ui.researchDetails.appendChild(blocked);
+    ui.researchDetails.appendChild(createUiEmptyState(entry.lockedReason || "More information is needed before this research can begin."));
   }
 
   if (entry.type === "research" && entry.status === "available") {
@@ -4841,23 +4937,27 @@ function updateAutomationUI() {
 
     progress.appendChild(fill);
 
-    const button = document.createElement("button");
-    button.className = "action-btn automation-imbue-btn";
-    button.type = "button";
-    button.textContent = "Imbue Mana";
+    const button = createUiActionButton({
+      label: "Imbue Mana",
+      cost: formatCost(machine.fuelCost || {}),
+      className: "automation-imbue-btn",
+      progress: false,
+      onClick: function () {
+        imbueAutomation(machineName);
+      },
+    });
     button.disabled = !canImbueAutomation(machineName);
-    button.addEventListener("click", function () {
-      imbueAutomation(machineName);
-    });
 
-    const crystalButton = document.createElement("button");
-    crystalButton.className = "action-btn automation-crystal-btn";
-    crystalButton.type = "button";
-    crystalButton.textContent = "Use Charged Crystal";
-    crystalButton.disabled = !canChargeAutomationWithCrystal(machineName);
-    crystalButton.addEventListener("click", function () {
-      chargeAutomationWithCrystal(machineName);
+    const crystalButton = createUiActionButton({
+      label: "Use Charged Crystal",
+      cost: "1 Charged Mana Crystal",
+      className: "automation-crystal-btn",
+      progress: false,
+      onClick: function () {
+        chargeAutomationWithCrystal(machineName);
+      },
     });
+    crystalButton.disabled = !canChargeAutomationWithCrystal(machineName);
 
     row.appendChild(title);
     row.appendChild(details);

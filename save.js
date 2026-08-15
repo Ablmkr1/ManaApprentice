@@ -1196,7 +1196,7 @@ function refreshGameUIAfterLoad() {
   updateJournalUI();
   updateRegionalMapVisibility();
   updateEquipmentSlotUI();
-  updateCharacterPanelLocks();
+  updateExpeditionLoadoutVisibility();
   updateDestinationActions();
   updateLocationActions();
   checkResearchDiscoveries();
