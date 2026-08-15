@@ -44,6 +44,9 @@ const unlockHandlers = {
   project: function (id) {
     unlockProject(id);
   },
+  towerNode: function (id) {
+    unlockTowerNodeBuild(id);
+  },
 };
 
 const SPELL_PROGRESS_DEFINITIONS = {
@@ -130,7 +133,7 @@ function repairPersonalWardUnlockFromProject(showPopup = false) {
 
   const foundation = getProjectState("towerFoundation");
 
-  if (foundation && (foundation.completed || foundation.level > 5)) {
+  if (foundation && foundation.completed) {
     unlockPersonalWard(showPopup);
   }
 }
@@ -178,6 +181,92 @@ function ensureProjectsState() {
 function getProjectState(projectName) {
   ensureProjectsState();
   return gameState.projects[projectName];
+}
+
+function getDefaultTowerNodeDeposits(nodeName) {
+  const definition = getTowerNodeDefinition(nodeName);
+  const deposits = {};
+  const materials = definition ? definition.materials || {} : {};
+
+  for (let resourceName in materials) {
+    deposits[resourceName] = 0;
+  }
+
+  return deposits;
+}
+
+function getDefaultTowerNodeState(nodeName) {
+  return {
+    activated: false,
+    researchUnlocked: false,
+    built: false,
+    deposits: getDefaultTowerNodeDeposits(nodeName),
+    imbueProgress: 0,
+    threadSenseProgress: 0,
+    threadSensed: false,
+    advancedRecallUnlocked: false,
+  };
+}
+
+function ensureTowerNodesState() {
+  if (!gameState.towerNodes || typeof gameState.towerNodes !== "object" || Array.isArray(gameState.towerNodes)) {
+    gameState.towerNodes = {};
+  }
+
+  const definitions = getTowerNodeDefinitions();
+
+  for (let nodeName in definitions) {
+    const defaults = getDefaultTowerNodeState(nodeName);
+    const saved = gameState.towerNodes[nodeName];
+
+    if (!saved || typeof saved !== "object" || Array.isArray(saved)) {
+      gameState.towerNodes[nodeName] = defaults;
+      continue;
+    }
+
+    for (let fieldName in defaults) {
+      if (!Object.prototype.hasOwnProperty.call(saved, fieldName)) {
+        saved[fieldName] = structuredClone(defaults[fieldName]);
+      }
+    }
+
+    normalizeTowerNodeState(nodeName);
+  }
+}
+
+function getTowerNodeState(nodeName) {
+  ensureTowerNodesState();
+  return gameState.towerNodes[nodeName];
+}
+
+function normalizeTowerNodeState(nodeName) {
+  const definition = getTowerNodeDefinition(nodeName);
+  const state = gameState.towerNodes && gameState.towerNodes[nodeName];
+
+  if (!definition || !state) return;
+
+  state.activated = !!state.activated;
+  state.researchUnlocked = !!state.researchUnlocked;
+  state.built = !!state.built;
+  state.imbueProgress = Math.max(0, Number.isFinite(state.imbueProgress) ? state.imbueProgress : 0);
+  state.imbueProgress = Math.min(state.imbueProgress, definition.imbueRequired || 0);
+  state.threadSenseProgress = Math.max(0, Number.isFinite(state.threadSenseProgress) ? state.threadSenseProgress : 0);
+  state.threadSenseProgress = Math.min(state.threadSenseProgress, definition.threadSenseRequired || 0);
+  const threadSenseRequired = definition.threadSenseRequired || 0;
+  state.threadSensed = !!state.threadSensed || (threadSenseRequired > 0 && state.threadSenseProgress >= threadSenseRequired);
+  state.advancedRecallUnlocked = !!state.advancedRecallUnlocked || state.threadSensed;
+
+  if (!state.deposits || typeof state.deposits !== "object" || Array.isArray(state.deposits)) {
+    state.deposits = {};
+  }
+
+  const materials = definition.materials || {};
+
+  for (let resourceName in materials) {
+    const requirement = materials[resourceName] || 0;
+    const deposited = Number.isFinite(state.deposits[resourceName]) ? state.deposits[resourceName] : 0;
+    state.deposits[resourceName] = Math.max(0, Math.min(deposited, requirement));
+  }
 }
 
 function normalizeProjectState(projectName) {
@@ -341,6 +430,10 @@ function completeResearch(researchName, costAlreadyPaid = false) {
     revealSkill("manaCycling");
   }
 
+  if (typeof checkRank2SkillUnlocks === "function") {
+    checkRank2SkillUnlocks();
+  }
+
   gameState.selectedResearchEntry = "research:" + researchName;
 
   updateResearchHistoryUI();
@@ -388,6 +481,54 @@ function isResearchDiscoverable(research) {
 
   if (!hasRequiredResearchFlags(research.requires.flags)) {
     return false;
+  }
+
+  if (!hasRequiredResearchSkills(research.requires.skills)) {
+    return false;
+  }
+
+  if (!hasRequiredResearchTowerNodes(research.requires.towerNodes)) {
+    return false;
+  }
+
+  return true;
+}
+
+function hasRequiredResearchTowerNodes(requiredNodes) {
+  if (!requiredNodes) return true;
+
+  for (let nodeName in requiredNodes) {
+    const state = getTowerNodeState(nodeName);
+    const requirement = requiredNodes[nodeName] || {};
+
+    if (!state) return false;
+
+    for (let fieldName in requirement) {
+      if (typeof requirement[fieldName] === "boolean") {
+        if (!!state[fieldName] !== requirement[fieldName]) return false;
+      } else if (Number.isFinite(requirement[fieldName])) {
+        if (!Number.isFinite(state[fieldName]) || state[fieldName] < requirement[fieldName]) return false;
+      } else if (state[fieldName] !== requirement[fieldName]) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+function hasRequiredResearchSkills(requiredSkills) {
+  if (!requiredSkills) return true;
+
+  for (let skillName in requiredSkills) {
+    const requirement = requiredSkills[skillName] || {};
+    const skill = getSkillState(skillName);
+    const requiredRank = Number.isFinite(requirement.rank) ? requirement.rank : DEFAULT_SKILL_RANK;
+    const requiredLevel = Number.isFinite(requirement.level) ? requirement.level : 0;
+
+    if (!skill || skill.rank < requiredRank || (skill.rank === requiredRank && skill.level < requiredLevel)) {
+      return false;
+    }
   }
 
   return true;
@@ -744,7 +885,7 @@ function setCampActionsAvailable(available) {
       lockAction("concentrateManaTonicBase");
     }
 
-    ui.restBtn.style.display = "inline-block";
+    ui.restBtn.style.display = canRestAtCurrentPlace() ? "inline-block" : "none";
   } else {
     lockAction("gatherWood");
     lockAction("addWoodToFuel");
@@ -758,6 +899,13 @@ function setCampActionsAvailable(available) {
     lockAction("concentrateManaTonicBase");
     ui.restBtn.style.display = "none";
   }
+}
+
+function canRestAtCurrentPlace() {
+  if (gameState.phase !== "clearing" && gameState.phase !== "expedition") return false;
+  if (gameState.expedition.active || gameState.expedition.currentLocation) return false;
+
+  return true;
 }
 
 // Buy Camp Upgrade Function
@@ -782,6 +930,12 @@ function completeCampUpgrade(upgradeName) {
   if (upgradeName === "researchSpot") {
     showWorkPanel("research");
   }
+
+  if (typeof checkRank2SkillUnlocks === "function") {
+    checkRank2SkillUnlocks();
+  }
+
+  checkResearchDiscoveries();
   updateCurrentGoalUI();
   checkClearingComplete();
 }
@@ -2212,6 +2366,115 @@ function showWorkPanel(panelName) {
   if (showingProjects) updateProjectUI();
 }
 
+const PROJECT_WORK_MODE_ENERGY = "energy";
+const PROJECT_WORK_MODE_ARCANE_FORCE = "arcaneForce";
+const PROJECT_WORK_MODE_IMBUE_HEART = "imbueHeart";
+const TOWER_PROJECT_SEQUENCE = ["towerFoundation", "towerBasement"];
+
+function isTowerFoundationProject(projectName) {
+  return projectName === "towerFoundation";
+}
+
+function isTowerProject(projectName) {
+  return TOWER_PROJECT_SEQUENCE.indexOf(projectName) !== -1;
+}
+
+function isProjectArcaneForceWorkMode(projectName, mode) {
+  return isTowerProject(projectName) && mode === PROJECT_WORK_MODE_ARCANE_FORCE;
+}
+
+function isProjectImbueHeartWorkMode(projectName, mode) {
+  return isTowerProject(projectName) && isTowerFoundationHeartActivationLevel(projectName) && mode === PROJECT_WORK_MODE_IMBUE_HEART;
+}
+
+function isTowerFoundationHeartActivationLevel(projectName) {
+  const level = getProjectCurrentLevel(projectName);
+
+  return isTowerProject(projectName) && !!(level && level.activationSpell === "imbue");
+}
+
+function getNormalizedProjectWorkMode(projectName, mode) {
+  if (isProjectImbueHeartWorkMode(projectName, mode)) return PROJECT_WORK_MODE_IMBUE_HEART;
+  if (isProjectArcaneForceWorkMode(projectName, mode)) return PROJECT_WORK_MODE_ARCANE_FORCE;
+
+  return PROJECT_WORK_MODE_ENERGY;
+}
+
+function getProjectLevelWorkYield(projectName, mode) {
+  const definition = getProjectDefinition(projectName);
+  const level = getProjectCurrentLevel(projectName);
+
+  if (!definition || !level) return 0;
+
+  if (isProjectImbueHeartWorkMode(projectName, mode)) {
+    return Number.isFinite(level.activationYield) ? level.activationYield : 0;
+  }
+
+  const baseYield = Number.isFinite(level.workYield) ? level.workYield : 0;
+
+  if (isProjectArcaneForceWorkMode(projectName, mode)) {
+    const multiplier = Number.isFinite(definition.arcaneForceWorkMultiplier) ? definition.arcaneForceWorkMultiplier : 3;
+    return baseYield * multiplier;
+  }
+
+  return baseYield;
+}
+
+function getProjectLevelWorkCost(projectName, mode = PROJECT_WORK_MODE_ENERGY) {
+  const definition = getProjectDefinition(projectName);
+  const level = getProjectCurrentLevel(projectName);
+
+  if (!definition) return {};
+
+  if (isProjectImbueHeartWorkMode(projectName, mode)) {
+    return (level && level.activationCost) || { mana: 10 };
+  }
+
+  if (isProjectArcaneForceWorkMode(projectName, mode)) {
+    return definition.arcaneForceWorkCost || { mana: 10 };
+  }
+
+  return definition.workCost || {};
+}
+
+function getProjectLevelWorkButton(projectName, mode = PROJECT_WORK_MODE_ENERGY) {
+  const definition = getProjectDefinition(projectName);
+  const normalizedMode = getNormalizedProjectWorkMode(projectName, mode);
+
+  if (!definition) return null;
+
+  if (definition.workButtons && definition.workButtons[normalizedMode]) {
+    return definition.workButtons[normalizedMode];
+  }
+
+  return definition.workButton || null;
+}
+
+function recordCompletedProjectWorkMode(projectName, mode) {
+  const cost = getProjectLevelWorkCost(projectName, mode);
+  const manaSpent = cost && Number.isFinite(cost.mana) ? cost.mana : 0;
+
+  if (manaSpent <= 0) return;
+
+  if (isProjectArcaneForceWorkMode(projectName, mode)) {
+    recordSpellProgressExperience("arcaneForce", manaSpent);
+
+    if (typeof recordManaControl === "function") {
+      recordManaControl(manaSpent, "Arcane Force");
+    }
+
+    return;
+  }
+
+  if (isProjectImbueHeartWorkMode(projectName, mode)) {
+    recordSpellProgressExperience("imbue", manaSpent);
+
+    if (typeof recordManaControl === "function") {
+      recordManaControl(manaSpent, "Imbue Heart");
+    }
+  }
+}
+
 function getProjectLevelDefinition(projectName, levelIndex) {
   const definition = getProjectDefinition(projectName);
 
@@ -2226,10 +2489,8 @@ function getProjectCurrentLevel(projectName) {
   return state ? getProjectLevelDefinition(projectName, state.level) : null;
 }
 
-function getProjectWorkCost(projectName) {
-  const definition = getProjectDefinition(projectName);
-
-  return definition ? definition.workCost || {} : {};
+function getProjectWorkCost(projectName, mode = PROJECT_WORK_MODE_ENERGY) {
+  return getProjectLevelWorkCost(projectName, mode);
 }
 
 function getProjectWorkDuration(projectName) {
@@ -2247,29 +2508,49 @@ function getProjectWorkRemaining(projectName) {
   return Math.max(0, (level.workRequired || 0) - (state.work || 0));
 }
 
-function canWorkOnProject(projectName) {
+function canWorkOnProject(projectName, mode = PROJECT_WORK_MODE_ENERGY) {
   const state = getProjectState(projectName);
   const level = getProjectCurrentLevel(projectName);
+  const normalizedMode = getNormalizedProjectWorkMode(projectName, mode);
+  const isHeartActivation = isTowerFoundationHeartActivationLevel(projectName);
 
   if (!isCampWorkContextAvailable()) return false;
   if (!state || !level) return false;
   if (!state.unlocked || state.completed) return false;
   if (getProjectWorkRemaining(projectName) <= 0) return false;
+  if (isHeartActivation && normalizedMode !== PROJECT_WORK_MODE_IMBUE_HEART) return false;
+  if (!isHeartActivation && normalizedMode === PROJECT_WORK_MODE_IMBUE_HEART) return false;
 
-  return canAffordCost(getProjectWorkCost(projectName));
+  if (isProjectArcaneForceWorkMode(projectName, normalizedMode)) {
+    const spell = typeof getSpell === "function" ? getSpell("arcaneForce") : null;
+
+    if (!spell || !spell.unlocked) return false;
+  }
+
+  if (isProjectImbueHeartWorkMode(projectName, normalizedMode)) {
+    const spell = typeof getSpell === "function" ? getSpell("imbue") : null;
+
+    if (!spell || !spell.unlocked) return false;
+    if (!areProjectMaterialsComplete(projectName)) return false;
+  }
+
+  return canAffordCost(getProjectWorkCost(projectName, normalizedMode));
 }
 
-function startProjectWork(projectName) {
+function startProjectWork(projectName, mode = PROJECT_WORK_MODE_ENERGY) {
   if (isActivityActive()) return;
-  if (!canWorkOnProject(projectName)) return;
+  const normalizedMode = getNormalizedProjectWorkMode(projectName, mode);
 
-  const cost = getProjectWorkCost(projectName);
+  if (!canWorkOnProject(projectName, normalizedMode)) return;
+
+  const cost = getProjectWorkCost(projectName, normalizedMode);
 
   if (!spendCost(cost)) return;
 
   if (!startActivity({
     kind: "projectWork",
     id: projectName,
+    mode: normalizedMode,
     duration: getProjectWorkDuration(projectName),
   })) {
     refundCost(cost);
@@ -2280,15 +2561,17 @@ function startProjectWork(projectName) {
   updateAllActionButtons();
 }
 
-function completeProjectWork(projectName) {
+function completeProjectWork(projectName, mode = PROJECT_WORK_MODE_ENERGY) {
   const definition = getProjectDefinition(projectName);
   const state = getProjectState(projectName);
   const level = getProjectCurrentLevel(projectName);
+  const normalizedMode = getNormalizedProjectWorkMode(projectName, mode);
 
   if (!definition || !state || !level) return;
 
-  const workGain = Math.min(level.workYield || 0, getProjectWorkRemaining(projectName));
+  const workGain = Math.min(getProjectLevelWorkYield(projectName, normalizedMode), getProjectWorkRemaining(projectName));
   state.work = roundResourceAmount((state.work || 0) + workGain);
+  recordCompletedProjectWorkMode(projectName, normalizedMode);
 
   checkProjectLevelCompletion(projectName);
   updateProjectUI();
@@ -2352,6 +2635,926 @@ function depositProjectResource(projectName, resourceName) {
   updateCurrentGoalUI();
 }
 
+function unlockTowerNodeBuild(nodeName) {
+  const definition = getTowerNodeDefinition(nodeName);
+  const state = getTowerNodeState(nodeName);
+
+  if (!definition || !state || state.researchUnlocked) return;
+
+  state.researchUnlocked = true;
+  updateTowerNodePanel();
+  updateDestinationActions();
+}
+
+function activateTowerNode(nodeName, showStory = true) {
+  const definition = getTowerNodeDefinition(nodeName);
+  const state = getTowerNodeState(nodeName);
+
+  if (!definition || !state || state.activated) return;
+
+  state.activated = true;
+
+  if (showStory) {
+    addStoryEntry("The restored Heart answers northward. Somewhere beyond the ridge, an old tower node has begun to stir.");
+    addJournalEntry("northernTowerNodeActivated");
+  }
+
+  checkResearchDiscoveries();
+}
+
+function repairTowerNodeActivationFromHeart(showStory = false) {
+  const foundation = getProjectState("towerFoundation");
+
+  if (gameState.towerConstructionUnlocked || (foundation && foundation.completed)) {
+    activateTowerNode("north", showStory);
+  }
+}
+
+function repairTowerNodeResearchFromCompletedResearch() {
+  const definitions = getTowerNodeDefinitions();
+
+  for (let nodeName in definitions) {
+    const definition = definitions[nodeName];
+    const research = definition.researchName ? getResearch(definition.researchName) : null;
+
+    if (research && research.completed) {
+      unlockTowerNodeBuild(nodeName);
+    }
+  }
+}
+
+function getTowerNodeMaterialRequirement(nodeName, resourceName) {
+  const definition = getTowerNodeDefinition(nodeName);
+  const materials = definition ? definition.materials || {} : {};
+
+  return materials[resourceName] || 0;
+}
+
+function getTowerNodeMaterialDeposited(nodeName, resourceName) {
+  const state = getTowerNodeState(nodeName);
+
+  if (!state || !state.deposits) return 0;
+
+  return state.deposits[resourceName] || 0;
+}
+
+function getTowerNodeMaterialRemaining(nodeName, resourceName) {
+  return Math.max(0, getTowerNodeMaterialRequirement(nodeName, resourceName) - getTowerNodeMaterialDeposited(nodeName, resourceName));
+}
+
+function areTowerNodeMaterialsComplete(nodeName) {
+  const definition = getTowerNodeDefinition(nodeName);
+  const materials = definition ? definition.materials || {} : {};
+
+  for (let resourceName in materials) {
+    if (getTowerNodeMaterialRemaining(nodeName, resourceName) > 0) return false;
+  }
+
+  return true;
+}
+
+function getTowerNodeImbueRemaining(nodeName) {
+  const definition = getTowerNodeDefinition(nodeName);
+  const state = getTowerNodeState(nodeName);
+
+  if (!definition || !state) return 0;
+
+  return Math.max(0, (definition.imbueRequired || 0) - (state.imbueProgress || 0));
+}
+
+function hasTowerNodeMaterialNeed(resourceName) {
+  const definitions = getTowerNodeDefinitions();
+
+  for (let nodeName in definitions) {
+    const state = getTowerNodeState(nodeName);
+
+    if (!state || !state.researchUnlocked || state.built) continue;
+    if (getTowerNodeMaterialRemaining(nodeName, resourceName) > 0) return true;
+  }
+
+  return false;
+}
+
+function canPackTowerNodeMaterial(resourceName) {
+  const resource = getResource(resourceName);
+
+  return !!resource && resource.value > 0 && hasCarrySpace(resourceName, 1) && hasTowerNodeMaterialNeed(resourceName);
+}
+
+function depositTowerNodeResource(nodeName, resourceName) {
+  const definition = getTowerNodeDefinition(nodeName);
+  const state = getTowerNodeState(nodeName);
+  const carriedItems = gameState.expedition.carriedItems;
+
+  if (isActivityActive()) return;
+  if (!definition || !state || !state.researchUnlocked || state.built) return;
+  if (gameState.expedition.currentLocation !== definition.locationName) return;
+
+  const remaining = getTowerNodeMaterialRemaining(nodeName, resourceName);
+  const carriedAmount = carriedItems[resourceName] || 0;
+  const amount = Math.min(carriedAmount, remaining);
+
+  if (amount <= 0) return;
+  if (!removeCarriedItem(resourceName, amount)) return;
+
+  state.deposits[resourceName] = roundResourceAmount(getTowerNodeMaterialDeposited(nodeName, resourceName) + amount);
+  normalizeTowerNodeState(nodeName);
+  updateTowerNodePanel();
+  refreshExpeditionUI();
+}
+
+function canImbueTowerNode(nodeName) {
+  const definition = getTowerNodeDefinition(nodeName);
+  const state = getTowerNodeState(nodeName);
+  const spell = typeof getSpell === "function" ? getSpell("imbue") : null;
+
+  if (!definition || !state) return false;
+  if (gameState.expedition.currentLocation !== definition.locationName) return false;
+  if (!state.researchUnlocked || state.built) return false;
+  if (!areTowerNodeMaterialsComplete(nodeName)) return false;
+  if (!spell || !spell.unlocked) return false;
+  if (getTowerNodeImbueRemaining(nodeName) <= 0) return false;
+
+  return canAffordCost(definition.imbueCost || {});
+}
+
+function startTowerNodeImbue(nodeName) {
+  const definition = getTowerNodeDefinition(nodeName);
+
+  if (isActivityActive()) return;
+  if (!definition || !canImbueTowerNode(nodeName)) return;
+
+  const cost = definition.imbueCost || {};
+
+  if (!spendCost(cost)) return;
+
+  if (!startActivity({
+    kind: "towerNodeImbue",
+    id: nodeName,
+    duration: definition.imbueDuration || 1,
+  })) {
+    refundCost(cost);
+    return;
+  }
+
+  updateTowerNodeButtons();
+  updateAllActionButtons();
+}
+
+function completeTowerNodeImbue(nodeName) {
+  const definition = getTowerNodeDefinition(nodeName);
+  const state = getTowerNodeState(nodeName);
+
+  if (!definition || !state || state.built) return;
+
+  const manaSpent = definition.imbueCost && Number.isFinite(definition.imbueCost.mana) ? definition.imbueCost.mana : 0;
+  const gain = Math.min(definition.imbueYield || 0, getTowerNodeImbueRemaining(nodeName));
+
+  state.imbueProgress = roundResourceAmount((state.imbueProgress || 0) + gain);
+
+  if (manaSpent > 0) {
+    recordSpellProgressExperience("imbue", manaSpent);
+
+    if (typeof recordManaControl === "function") {
+      recordManaControl(manaSpent, "Imbue Northern Node");
+    }
+  }
+
+  if (getTowerNodeImbueRemaining(nodeName) <= 0) {
+    state.built = true;
+    state.imbueProgress = definition.imbueRequired || state.imbueProgress;
+    addStoryEntry("The northern node locks into the Heart's rhythm. The path to Miners' Camp can now be crossed in a single mana jump.");
+    addJournalEntry("northernTowerNodeBuilt");
+    updateDestinationActions();
+  }
+
+  updateTowerNodePanel();
+  updateAllActionButtons();
+}
+
+function getTowerNodeImbueButton(nodeName) {
+  const definition = getTowerNodeDefinition(nodeName);
+
+  return definition ? definition.imbueButton || null : null;
+}
+
+function getTowerNodeJumpCost(nodeName) {
+  const definition = getTowerNodeDefinition(nodeName);
+
+  return { ...((definition && definition.jumpCost) || {}) };
+}
+
+function getBuiltTowerNodeForLocation(locationName) {
+  const definitions = getTowerNodeDefinitions();
+
+  for (let nodeName in definitions) {
+    const definition = definitions[nodeName];
+    const state = getTowerNodeState(nodeName);
+
+    if (definition.locationName === locationName && state && state.built) return nodeName;
+  }
+
+  return null;
+}
+
+function canPrepareTowerNodeJump(nodeName, locationName) {
+  const definition = getTowerNodeDefinition(nodeName);
+  const state = getTowerNodeState(nodeName);
+  const location = getExpeditionLocation(locationName);
+
+  return !!definition && !!state && state.built && definition.locationName === locationName && !!location && location.discovered;
+}
+
+function getTowerNodeThreadSenseRequired(nodeName) {
+  const definition = getTowerNodeDefinition(nodeName);
+
+  return definition ? definition.threadSenseRequired || 0 : 0;
+}
+
+function getTowerNodeThreadSenseRemaining(nodeName) {
+  const state = getTowerNodeState(nodeName);
+
+  return Math.max(0, getTowerNodeThreadSenseRequired(nodeName) - (state ? state.threadSenseProgress || 0 : 0));
+}
+
+function getTowerNodeThreadSenseCost(nodeName) {
+  const definition = getTowerNodeDefinition(nodeName);
+
+  return { ...((definition && definition.threadSenseCost) || (getSpell("manaSense") ? getSpell("manaSense").cost || {} : {})) };
+}
+
+function canSenseTowerNodeThread(nodeName) {
+  const definition = getTowerNodeDefinition(nodeName);
+  const state = getTowerNodeState(nodeName);
+  const spell = getSpell("manaSense");
+
+  if (!definition || !state || !spell || !spell.unlocked) return false;
+  if (!state.built || state.advancedRecallUnlocked) return false;
+  if (gameState.expedition.currentLocation !== definition.locationName) return false;
+  if (getTowerNodeThreadSenseRemaining(nodeName) <= 0) return false;
+  if (isActivityActive()) return false;
+
+  return canAffordCost(getTowerNodeThreadSenseCost(nodeName));
+}
+
+function startTowerNodeThreadSense(nodeName) {
+  const definition = getTowerNodeDefinition(nodeName);
+
+  if (!definition || !canSenseTowerNodeThread(nodeName)) return;
+
+  const cost = getTowerNodeThreadSenseCost(nodeName);
+
+  if (!spendCost(cost)) return;
+
+  if (!startActivity({
+    kind: "towerNodeThreadSense",
+    id: nodeName,
+    duration: definition.threadSenseDuration || (getSpell("manaSense") ? getSpell("manaSense").duration || 1 : 1),
+  })) {
+    refundCost(cost);
+    return;
+  }
+
+  updateTowerNodeButtons();
+  updateAllActionButtons();
+}
+
+function completeTowerNodeThreadSense(nodeName) {
+  const definition = getTowerNodeDefinition(nodeName);
+  const state = getTowerNodeState(nodeName);
+
+  if (!definition || !state || !state.built || state.advancedRecallUnlocked) return;
+
+  const cost = getTowerNodeThreadSenseCost(nodeName);
+  const manaSpent = cost && Number.isFinite(cost.mana) ? cost.mana : 0;
+  const currentProgress = state.threadSenseProgress || 0;
+  const stories = definition.threadSenseStories || [];
+  const story = stories[Math.min(currentProgress, stories.length - 1)];
+
+  state.threadSenseProgress = Math.min(currentProgress + 1, getTowerNodeThreadSenseRequired(nodeName));
+
+  if (story) {
+    addStoryEntry(story);
+  } else {
+    addStoryEntry("Mana Sense follows the node thread a little farther toward the Tower.");
+  }
+
+  if (manaSpent > 0) {
+    recordSpellProgressExperience("manaSense", manaSpent);
+
+    if (typeof recordManaControl === "function") {
+      recordManaControl(manaSpent, "Sense Node Thread");
+    }
+  }
+
+  if (getTowerNodeThreadSenseRemaining(nodeName) <= 0) {
+    state.threadSensed = true;
+    state.advancedRecallUnlocked = true;
+    addStoryEntry("The node thread settles into a pattern you can use. You can now recall carried supplies through the northern node.");
+    addJournalEntry("advancedRecallUnlocked");
+  }
+
+  updateTowerNodePanel();
+  updateAllActionButtons();
+}
+
+function getTowerNodeThreadSenseButton(nodeName) {
+  const definition = getTowerNodeDefinition(nodeName);
+
+  return definition ? definition.threadSenseButton || null : null;
+}
+
+function getAdvancedRecallButton(nodeName) {
+  const definition = getTowerNodeDefinition(nodeName);
+
+  return definition ? definition.advancedRecallButton || null : null;
+}
+
+function getAdvancedRecallCost(nodeName) {
+  const definition = getTowerNodeDefinition(nodeName);
+
+  return { ...((definition && definition.advancedRecallCost) || { mana: 5 }) };
+}
+
+function getAdvancedRecallCarriedItems() {
+  const carriedItems = gameState.expedition.carriedItems || {};
+  const items = [];
+
+  for (let itemName in carriedItems) {
+    const amount = carriedItems[itemName] || 0;
+    const resource = getResource(itemName);
+
+    if (amount > 0 && resource) {
+      items.push({
+        itemName,
+        amount,
+        storableAmount: getAdvancedRecallItemStorableAmount(itemName),
+        label: resource.label || itemName,
+      });
+    }
+  }
+
+  return items.sort(function (a, b) {
+    return a.label.localeCompare(b.label);
+  });
+}
+
+function getAdvancedRecallItemStorableAmount(itemName) {
+  const resource = getResource(itemName);
+  const carriedAmount = gameState.expedition.carriedItems[itemName] || 0;
+
+  if (!resource || carriedAmount <= 0) return 0;
+
+  return Math.max(0, Math.min(carriedAmount, roundResourceAmount(resource.maxValue - resource.value)));
+}
+
+function hasAdvancedRecallCarriedItems() {
+  return getAdvancedRecallCarriedItems().length > 0;
+}
+
+function canUseAdvancedRecallAtNode(nodeName) {
+  const definition = getTowerNodeDefinition(nodeName);
+  const state = getTowerNodeState(nodeName);
+
+  if (!definition || !state || !state.advancedRecallUnlocked) return false;
+  if (gameState.expedition.currentLocation !== definition.locationName) return false;
+  if (isActivityActive()) return false;
+
+  return hasAdvancedRecallCarriedItems();
+}
+
+function canAdvancedRecallItem(nodeName, itemName) {
+  const definition = getTowerNodeDefinition(nodeName);
+  const state = getTowerNodeState(nodeName);
+  const carriedAmount = gameState.expedition.carriedItems[itemName] || 0;
+
+  if (!definition || !state || !state.advancedRecallUnlocked) return false;
+  if (gameState.expedition.currentLocation !== definition.locationName) return false;
+  if (carriedAmount <= 0 || !getResource(itemName)) return false;
+  if (getAdvancedRecallItemStorableAmount(itemName) <= 0) return false;
+
+  return canAffordCost(getAdvancedRecallCost(nodeName));
+}
+
+function showAdvancedRecallPopup(nodeName) {
+  if (!ui.advancedRecallPopup || !ui.advancedRecallOptions) return;
+  if (!canUseAdvancedRecallAtNode(nodeName)) return;
+
+  ui.advancedRecallPopup.dataset.nodeName = nodeName;
+  renderAdvancedRecallPopupOptions(nodeName);
+  showElement(ui.advancedRecallPopup, "flex");
+}
+
+function hideAdvancedRecallPopup() {
+  if (!ui.advancedRecallPopup) return;
+
+  ui.advancedRecallPopup.dataset.nodeName = "";
+  hideElement(ui.advancedRecallPopup);
+}
+
+function renderAdvancedRecallPopupOptions(nodeName) {
+  if (!ui.advancedRecallOptions) return;
+
+  const items = getAdvancedRecallCarriedItems();
+  const cost = getAdvancedRecallCost(nodeName);
+
+  ui.advancedRecallOptions.innerHTML = "";
+
+  if (ui.advancedRecallPopupText) {
+    ui.advancedRecallPopupText.textContent = items.length
+      ? "Send one carried stack back to the Tower through the northern node."
+      : "Your pack is empty.";
+  }
+
+  if (items.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "advanced-recall-empty";
+    empty.textContent = "Nothing in your pack answers the thread.";
+    ui.advancedRecallOptions.appendChild(empty);
+    return;
+  }
+
+  items.forEach(function (item) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "advanced-recall-option";
+    button.textContent =
+      item.storableAmount > 0
+        ? "Send " + item.label + " (" + formatTrainingNumber(item.storableAmount) + ") - " + formatCost(cost)
+        : item.label + " Storage Full";
+    button.disabled = !canAdvancedRecallItem(nodeName, item.itemName);
+
+    button.addEventListener("click", function () {
+      advancedRecallItem(nodeName, item.itemName);
+    });
+
+    ui.advancedRecallOptions.appendChild(button);
+  });
+}
+
+function advancedRecallItem(nodeName, itemName) {
+  const amount = getAdvancedRecallItemStorableAmount(itemName);
+  const cost = getAdvancedRecallCost(nodeName);
+
+  if (amount <= 0) return;
+  if (!canAdvancedRecallItem(nodeName, itemName)) return;
+  if (!spendCost(cost)) return;
+  if (!removeCarriedItem(itemName, amount)) {
+    refundCost(cost);
+    return;
+  }
+
+  addResource(itemName, amount);
+
+  const resource = getResource(itemName);
+  const manaSpent = cost && Number.isFinite(cost.mana) ? cost.mana : 0;
+
+  if (manaSpent > 0 && typeof recordManaControl === "function") {
+    recordManaControl(manaSpent, "Advanced Recall");
+  }
+
+  addStoryEntry("The node thread tightens. " + formatTrainingNumber(amount) + " " + (resource ? resource.label : itemName) + " reaches the Tower.");
+  refreshExpeditionUI();
+  updateTowerNodePanel();
+  updateAllActionButtons();
+
+  if (hasAdvancedRecallCarriedItems()) {
+    renderAdvancedRecallPopupOptions(nodeName);
+  } else {
+    hideAdvancedRecallPopup();
+  }
+}
+
+function renderTowerNodePanel(locationName) {
+  if (!ui.towerNodePanel) return;
+
+  ui.towerNodePanel.innerHTML = "";
+  hideElement(ui.towerNodePanel);
+
+  if (!locationName) return;
+
+  const definitions = getTowerNodeDefinitions();
+
+  for (let nodeName in definitions) {
+    const definition = definitions[nodeName];
+    const state = getTowerNodeState(nodeName);
+
+    if (!definition || !state) continue;
+    if (definition.locationName !== locationName) continue;
+    if (!state.researchUnlocked && !state.built) continue;
+
+    ui.towerNodePanel.appendChild(createTowerNodePanel(nodeName, definition, state));
+    showElement(ui.towerNodePanel, "block");
+    updateTowerNodeButtons();
+    return;
+  }
+}
+
+function updateTowerNodePanel() {
+  renderTowerNodePanel(gameState.expedition.currentLocation);
+}
+
+function createTowerNodePanel(nodeName, definition, state) {
+  const entry = document.createElement("div");
+  entry.className = "project-entry tower-project-entry tower-node-entry";
+
+  const header = document.createElement("div");
+  header.className = "project-entry-header tower-project-header";
+
+  const title = document.createElement("strong");
+  title.textContent = definition.label;
+
+  header.appendChild(title);
+  entry.appendChild(header);
+
+  const layout = document.createElement("div");
+  layout.className = "tower-project-layout tower-node-layout";
+
+  const visualPanel = document.createElement("section");
+  visualPanel.className = "tower-visual-panel";
+  visualPanel.setAttribute("aria-label", definition.label + " visual");
+
+  const visualWrap = document.createElement("div");
+  visualWrap.className = "tower-visual-wrap tower-node-visual-wrap";
+  visualWrap.appendChild(createTowerNodeVisual(nodeName, state.built));
+  visualPanel.appendChild(visualWrap);
+
+  const detailPanel = document.createElement("aside");
+  detailPanel.className = "tower-stage-panel";
+
+  const details = document.createElement("div");
+  details.className = "tower-stage-details";
+
+  const heading = document.createElement("h4");
+  heading.textContent = state.built ? definition.completeTitle : definition.incompleteTitle;
+
+  const description = document.createElement("p");
+  description.textContent = state.built ? definition.completeDescription : definition.incompleteDescription;
+
+  details.appendChild(heading);
+  details.appendChild(description);
+  detailPanel.appendChild(details);
+
+  if (!state.built) {
+    definition.threadSenseButton = null;
+    definition.advancedRecallButton = null;
+    detailPanel.appendChild(createTowerNodeMaterialList(nodeName, definition));
+    detailPanel.appendChild(createTowerNodeActivationProgress(nodeName, definition, state));
+    detailPanel.appendChild(createTowerNodeActions(nodeName, definition));
+  } else {
+    definition.imbueButton = null;
+    detailPanel.appendChild(createTowerNodeThreadProgress(nodeName, definition, state));
+    detailPanel.appendChild(createTowerNodeUtilityActions(nodeName, definition, state));
+  }
+
+  layout.appendChild(visualPanel);
+  layout.appendChild(detailPanel);
+  entry.appendChild(layout);
+
+  return entry;
+}
+
+function createTowerNodeVisual(nodeName, built) {
+  const svg = createSvgElement("svg", {
+    class: "tower-visual tower-node-visual",
+    viewBox: "0 0 600 300",
+    role: "img",
+    "aria-label": built ? "Completed northern tower node with a small static mana orb." : "Bare ground where the northern tower node can be built.",
+  });
+
+  const defs = appendSvgElement(svg, "defs");
+  const patternId = "towerNodeSoilPattern-" + nodeName;
+  const gradientId = "towerNodeHeartGradient-" + nodeName;
+  const glowId = "towerNodeHeartGlow-" + nodeName;
+  const pattern = appendSvgElement(defs, "pattern", {
+    id: patternId,
+    width: "18",
+    height: "18",
+    patternUnits: "userSpaceOnUse",
+  });
+
+  appendSvgElement(pattern, "rect", { width: "18", height: "18", fill: "#c8ad82" });
+  appendSvgElement(pattern, "path", {
+    d: "M2 4h4M12 9h3M5 15h5",
+    stroke: "#ad8f64",
+    "stroke-width": "1.2",
+    "stroke-linecap": "round",
+    opacity: "0.58",
+  });
+
+  const gradient = appendSvgElement(defs, "linearGradient", {
+    id: gradientId,
+    x1: "0",
+    x2: "1",
+    y1: "0",
+    y2: "1",
+  });
+
+  appendSvgElement(gradient, "stop", { offset: "0", "stop-color": "#e5fdff" });
+  appendSvgElement(gradient, "stop", { offset: "0.48", "stop-color": "#8be1ef" });
+  appendSvgElement(gradient, "stop", { offset: "1", "stop-color": "#5d7fd1" });
+
+  const filter = appendSvgElement(defs, "filter", {
+    id: glowId,
+    x: "-80%",
+    y: "-80%",
+    width: "260%",
+    height: "260%",
+  });
+  appendSvgElement(filter, "feGaussianBlur", { stdDeviation: "4", result: "blur" });
+  appendSvgElement(filter, "feFlood", { "flood-color": "#8deaff", "flood-opacity": "0.72", result: "color" });
+  appendSvgElement(filter, "feComposite", { in: "color", in2: "blur", operator: "in", result: "glow" });
+  const merge = appendSvgElement(filter, "feMerge");
+  appendSvgElement(merge, "feMergeNode", { in: "glow" });
+  appendSvgElement(merge, "feMergeNode", { in: "SourceGraphic" });
+
+  appendSvgElement(svg, "path", { class: "tower-node-soil-fill", d: "M0 104 H600 V300 H0 Z", fill: "url(#" + patternId + ")" });
+  appendSvgElement(svg, "path", { class: "tower-ground-edge", d: "M0 104 H600" });
+
+  if (!built) {
+    return svg;
+  }
+
+  appendSvgElement(svg, "path", { class: "tower-node-foundation", d: "M206 214 H394" });
+  appendSvgElement(svg, "path", { class: "tower-node-base", d: "M238 214 L258 166 H342 L362 214 Z" });
+  appendSvgElement(svg, "path", { class: "tower-node-cap", d: "M254 166 L268 144 H332 L346 166 Z" });
+  appendSvgElement(svg, "path", { class: "tower-node-channel", d: "M300 144 V188 M268 176 L222 202 M332 176 L378 202" });
+  appendSvgElement(svg, "circle", {
+    class: "tower-node-heart",
+    cx: "300",
+    cy: "118",
+    r: "20",
+    fill: "url(#" + gradientId + ")",
+    filter: "url(#" + glowId + ")",
+  });
+  appendSvgElement(svg, "circle", { class: "tower-node-facet", cx: "300", cy: "118", r: "10" });
+  appendSvgElement(svg, "path", { class: "tower-node-facet", d: "M300 100 V136 M282 118 H318 M290 108 L310 128 M310 108 L290 128" });
+
+  return svg;
+}
+
+function createTowerNodeMaterialList(nodeName, definition) {
+  const list = document.createElement("div");
+  list.className = "project-material-list tower-node-material-list";
+  const materials = definition.materials || {};
+
+  for (let resourceName in materials) {
+    list.appendChild(createTowerNodeMaterialRow(nodeName, resourceName));
+  }
+
+  return list;
+}
+
+function createTowerNodeMaterialRow(nodeName, resourceName) {
+  const resource = getResource(resourceName);
+  const row = document.createElement("div");
+  row.className = "project-material-row tower-node-material-row";
+
+  const label = document.createElement("span");
+  label.textContent =
+    (resource ? resource.label : resourceName) +
+    ": " +
+    formatTrainingNumber(getTowerNodeMaterialDeposited(nodeName, resourceName)) +
+    " / " +
+    formatTrainingNumber(getTowerNodeMaterialRequirement(nodeName, resourceName));
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "project-deposit-btn";
+  button.dataset.towerNodeDeposit = nodeName;
+  button.dataset.resource = resourceName;
+  button.textContent = "Deposit";
+
+  button.addEventListener("click", function () {
+    depositTowerNodeResource(nodeName, resourceName);
+  });
+
+  row.appendChild(label);
+  row.appendChild(button);
+
+  return row;
+}
+
+function createTowerNodeActivationProgress(nodeName, definition, state) {
+  const group = document.createElement("div");
+  group.className = "project-progress-group tower-node-activation-progress";
+
+  const text = document.createElement("div");
+  text.className = "training-progress-text";
+  text.textContent =
+    "Activation: " +
+    formatTrainingNumber(state.imbueProgress || 0) +
+    " / " +
+    formatTrainingNumber(definition.imbueRequired || 0) +
+    " Mana";
+
+  const track = document.createElement("div");
+  track.className = "training-progress-track";
+
+  const fill = document.createElement("div");
+  fill.className = "training-progress-fill";
+  fill.style.width = Math.min(Math.max((state.imbueProgress || 0) / (definition.imbueRequired || 1), 0), 1) * 100 + "%";
+
+  track.appendChild(fill);
+  group.appendChild(text);
+  group.appendChild(track);
+
+  return group;
+}
+
+function createTowerNodeActions(nodeName, definition) {
+  const actions = document.createElement("div");
+  actions.className = "project-actions tower-project-actions tower-node-actions";
+
+  const actionName = document.createElement("div");
+  actionName.className = "tower-project-action-name";
+  actionName.textContent = "Activate Northern Node";
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "action-btn project-work-btn tower-project-work-btn";
+  button.dataset.towerNodeImbue = nodeName;
+
+  const fill = document.createElement("div");
+  fill.className = "progressFill";
+
+  const label = document.createElement("span");
+  label.textContent = "Imbue Northern Node - " + formatCost(definition.imbueCost || {});
+
+  button.appendChild(fill);
+  button.appendChild(label);
+  button.addEventListener("click", function () {
+    startTowerNodeImbue(nodeName);
+  });
+
+  definition.imbueButton = button;
+  actions.appendChild(actionName);
+  actions.appendChild(button);
+
+  return actions;
+}
+
+function createTowerNodeThreadProgress(nodeName, definition, state) {
+  const group = document.createElement("div");
+  group.className = "project-progress-group tower-node-thread-progress";
+
+  const text = document.createElement("div");
+  text.className = "training-progress-text";
+
+  const required = definition.threadSenseRequired || 0;
+  const progress = Math.min(state.threadSenseProgress || 0, required);
+
+  text.textContent = state.advancedRecallUnlocked
+    ? "Thread sensed"
+    : "Thread sensed: " + formatTrainingNumber(progress) + " / " + formatTrainingNumber(required);
+
+  const track = document.createElement("div");
+  track.className = "training-progress-track";
+
+  const fill = document.createElement("div");
+  fill.className = "training-progress-fill";
+  fill.style.width = required > 0 ? Math.min(Math.max(progress / required, 0), 1) * 100 + "%" : "100%";
+
+  track.appendChild(fill);
+  group.appendChild(text);
+  group.appendChild(track);
+
+  return group;
+}
+
+function createTowerNodeUtilityActions(nodeName, definition, state) {
+  const actions = document.createElement("div");
+  actions.className = "project-actions tower-project-actions tower-node-actions";
+
+  const actionName = document.createElement("div");
+  actionName.className = "tower-project-action-name";
+  actionName.textContent = state.advancedRecallUnlocked ? "Advanced Recall" : "Sense Node Thread";
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "action-btn project-work-btn tower-project-work-btn";
+
+  const fill = document.createElement("div");
+  fill.className = "progressFill";
+
+  const label = document.createElement("span");
+
+  button.appendChild(fill);
+  button.appendChild(label);
+
+  if (state.advancedRecallUnlocked) {
+    button.dataset.towerNodeAdvancedRecall = nodeName;
+    label.textContent = "Advanced Recall Pack";
+    button.addEventListener("click", function () {
+      showAdvancedRecallPopup(nodeName);
+    });
+    definition.advancedRecallButton = button;
+    definition.threadSenseButton = null;
+  } else {
+    button.dataset.towerNodeThreadSense = nodeName;
+    label.textContent = "Sense Node Thread - " + formatCost(getTowerNodeThreadSenseCost(nodeName));
+    button.addEventListener("click", function () {
+      startTowerNodeThreadSense(nodeName);
+    });
+    definition.threadSenseButton = button;
+    definition.advancedRecallButton = null;
+  }
+
+  actions.appendChild(actionName);
+  actions.appendChild(button);
+
+  return actions;
+}
+
+function updateTowerNodeButtons() {
+  const definitions = getTowerNodeDefinitions();
+
+  for (let nodeName in definitions) {
+    updateTowerNodeButtonState(nodeName);
+    updateTowerNodeThreadSenseButtonState(nodeName);
+    updateAdvancedRecallButtonState(nodeName);
+    updateTowerNodeDepositButtonStates(nodeName);
+  }
+}
+
+function updateTowerNodeButtonState(nodeName) {
+  const definition = getTowerNodeDefinition(nodeName);
+  const state = getTowerNodeState(nodeName);
+  const button = definition ? definition.imbueButton : null;
+
+  if (!definition || !state || !button) return;
+
+  const isActive = isActivityActive() && gameState.activity.kind === "towerNodeImbue" && gameState.activity.id === nodeName;
+  const label = button.querySelector("span");
+
+  button.classList.toggle("running", isActive);
+  button.disabled = state.built || (!isActive && (isActivityActive() || !canImbueTowerNode(nodeName)));
+
+  if (label) {
+    if (state.built || getTowerNodeImbueRemaining(nodeName) <= 0) {
+      label.textContent = "Activation Complete";
+    } else {
+      label.textContent = "Imbue Northern Node - " + formatCost(definition.imbueCost || {});
+    }
+  }
+}
+
+function updateTowerNodeThreadSenseButtonState(nodeName) {
+  const definition = getTowerNodeDefinition(nodeName);
+  const state = getTowerNodeState(nodeName);
+  const button = definition ? definition.threadSenseButton : null;
+
+  if (!definition || !state || !button) return;
+
+  const isActive = isActivityActive() && gameState.activity.kind === "towerNodeThreadSense" && gameState.activity.id === nodeName;
+  const label = button.querySelector("span");
+
+  button.classList.toggle("running", isActive);
+  button.disabled = state.advancedRecallUnlocked || (!isActive && (isActivityActive() || !canSenseTowerNodeThread(nodeName)));
+
+  if (label) {
+    label.textContent =
+      state.advancedRecallUnlocked || getTowerNodeThreadSenseRemaining(nodeName) <= 0
+        ? "Thread Sensed"
+        : "Sense Node Thread - " + formatCost(getTowerNodeThreadSenseCost(nodeName));
+  }
+}
+
+function updateAdvancedRecallButtonState(nodeName) {
+  const definition = getTowerNodeDefinition(nodeName);
+  const state = getTowerNodeState(nodeName);
+  const button = definition ? definition.advancedRecallButton : null;
+
+  if (!definition || !state || !button) return;
+
+  const label = button.querySelector("span");
+  const hasItems = hasAdvancedRecallCarriedItems();
+  const canUse = canUseAdvancedRecallAtNode(nodeName);
+
+  button.disabled = !canUse;
+
+  if (label) {
+    label.textContent = hasItems ? "Advanced Recall Pack" : "Pack Empty";
+  }
+}
+
+function updateTowerNodeDepositButtonStates(nodeName) {
+  if (!ui.towerNodePanel) return;
+
+  const state = getTowerNodeState(nodeName);
+  const buttons = ui.towerNodePanel.querySelectorAll('[data-tower-node-deposit="' + nodeName + '"]');
+
+  buttons.forEach(function (button) {
+    const resourceName = button.dataset.resource;
+    const carriedAmount = gameState.expedition.carriedItems[resourceName] || 0;
+    const remaining = getTowerNodeMaterialRemaining(nodeName, resourceName);
+    const amount = Math.min(carriedAmount, remaining);
+
+    button.disabled = !state || state.built || isActivityActive() || remaining <= 0 || amount <= 0;
+    button.textContent = remaining <= 0 ? "Done" : "Deposit " + formatTrainingNumber(amount);
+  });
+}
+
 function checkProjectLevelCompletion(projectName) {
   const state = getProjectState(projectName);
 
@@ -2387,13 +3590,7 @@ function advanceProjectLevel(projectName) {
   if (state.level >= definition.levels.length) {
     state.completed = true;
     state.unlocked = true;
-    gameState.towerConstructionUnlocked = true;
-
-    if (definition.completedStory) {
-      addStoryEntry(definition.completedStory);
-    }
-
-    addJournalEntry("towerFoundationAwakened");
+    completeProject(projectName, definition);
   }
 
   updateProjectUI();
@@ -2401,14 +3598,66 @@ function advanceProjectLevel(projectName) {
   updateWorkTabsVisibility();
 }
 
+function completeProject(projectName, definition) {
+  if (definition.completedStory) {
+    addStoryEntry(definition.completedStory);
+  }
+
+  if (projectName === "towerFoundation") {
+    gameState.towerConstructionUnlocked = true;
+    addJournalEntry("towerFoundationAwakened");
+    activateTowerNode("north", true);
+
+    if (typeof checkRank2SkillUnlocks === "function") {
+      checkRank2SkillUnlocks();
+    }
+  } else if (projectName === "towerBasement") {
+    gameState.towerBasementCompleted = true;
+    addJournalEntry("towerBasementCompleted");
+  }
+
+  checkResearchDiscoveries();
+  updateCurrentGoalUI();
+}
+
+function getVisibleTowerProjectEntry() {
+  const definitions = getProjectDefinitions();
+
+  for (let i = TOWER_PROJECT_SEQUENCE.length - 1; i >= 0; i--) {
+    const projectName = TOWER_PROJECT_SEQUENCE[i];
+    const state = getProjectState(projectName);
+
+    if (!state || (!state.unlocked && !state.completed)) continue;
+
+    return {
+      id: projectName,
+      definition: definitions[projectName],
+      state,
+    };
+  }
+
+  return null;
+}
+
 function getVisibleProjectEntries() {
   const entries = [];
   const definitions = getProjectDefinitions();
+  const towerEntry = getVisibleTowerProjectEntry();
+  let towerEntryAdded = false;
 
   ensureProjectsState();
 
   for (let projectName in definitions) {
     const state = getProjectState(projectName);
+
+    if (isTowerProject(projectName)) {
+      if (!towerEntryAdded && towerEntry) {
+        entries.push(towerEntry);
+        towerEntryAdded = true;
+      }
+
+      continue;
+    }
 
     if (!state || (!state.unlocked && !state.completed)) continue;
 
@@ -2445,7 +3694,18 @@ function updateProjectUI() {
   updateProjectButtons();
 }
 
+function getProjectWorkActionLabel(projectName) {
+  const definition = getProjectDefinition(projectName);
+  const level = getProjectCurrentLevel(projectName);
+
+  return (level && level.actionLabel) || (definition && definition.actionLabel) || "Work";
+}
+
 function createProjectEntry(projectName, definition, state) {
+  if (isTowerProject(projectName)) {
+    return createTowerProjectEntry(projectName, definition, state);
+  }
+
   const level = getProjectCurrentLevel(projectName);
   const entry = document.createElement("div");
   entry.className = "project-entry";
@@ -2475,6 +3735,466 @@ function createProjectEntry(projectName, definition, state) {
   return entry;
 }
 
+function getTowerProjectStageIndex(definition, state) {
+  const stages = definition && Array.isArray(definition.visualStages) ? definition.visualStages : [];
+  const maxStage = Math.max(0, stages.length - 1);
+
+  if (!state) return 0;
+  if (state.completed) return maxStage;
+
+  return Math.max(0, Math.min(Number.isFinite(state.level) ? Math.floor(state.level) : 0, maxStage));
+}
+
+function getTowerProjectStage(definition, stageIndex) {
+  const stages = definition && Array.isArray(definition.visualStages) ? definition.visualStages : [];
+
+  return stages[stageIndex] || stages[0] || {
+    title: definition ? definition.label || "Tower" : "Tower",
+    description: definition ? definition.description || "" : "",
+    additions: "",
+    read: "",
+    aria: "Tower project.",
+  };
+}
+
+function createTowerProjectEntry(projectName, definition, state) {
+  const level = getProjectCurrentLevel(projectName);
+  const stageIndex = getTowerProjectStageIndex(definition, state);
+  const stage = getTowerProjectStage(definition, stageIndex);
+  const entry = document.createElement("div");
+  entry.className = "project-entry tower-project-entry";
+
+  const header = document.createElement("div");
+  header.className = "project-entry-header tower-project-header";
+
+  const title = document.createElement("strong");
+  title.textContent = definition.towerPhaseTitle || definition.label || "Tower";
+
+  header.appendChild(title);
+  entry.appendChild(header);
+
+  const layout = document.createElement("div");
+  layout.className = "tower-project-layout";
+
+  const visualPanel = document.createElement("section");
+  visualPanel.className = "tower-visual-panel";
+  visualPanel.setAttribute("aria-label", (definition.label || "Tower") + " visual");
+
+  const visualWrap = document.createElement("div");
+  visualWrap.className = "tower-visual-wrap";
+  visualWrap.appendChild(createTowerProjectVisual(projectName, stageIndex, stage));
+
+  visualPanel.appendChild(visualWrap);
+
+  const detailPanel = document.createElement("aside");
+  detailPanel.className = "tower-stage-panel";
+
+  const details = document.createElement("div");
+  details.className = "tower-stage-details";
+
+  const heading = document.createElement("h4");
+  heading.textContent = state.completed ? definition.completedLabel || "Heart Restored" : getProjectWorkActionLabel(projectName);
+
+  const description = document.createElement("p");
+  description.textContent = getTowerProjectDetailDescription(projectName, definition, state, level, stage);
+
+  details.appendChild(heading);
+  details.appendChild(description);
+
+  detailPanel.appendChild(details);
+
+  if (state.completed) {
+    definition.workButton = null;
+    definition.workButtons = {};
+  } else {
+    if (isTowerFoundationHeartActivationLevel(projectName)) {
+      detailPanel.appendChild(createProjectMaterialList(projectName, level, state));
+      detailPanel.appendChild(createTowerFoundationActivationProgress(projectName, level, state));
+    } else {
+      detailPanel.appendChild(createProjectWorkProgress(projectName, level, state));
+      detailPanel.appendChild(createProjectMaterialList(projectName, level, state));
+    }
+
+    detailPanel.appendChild(createTowerProjectActions(projectName, definition, state));
+  }
+
+  layout.appendChild(visualPanel);
+  layout.appendChild(detailPanel);
+  entry.appendChild(layout);
+
+  return entry;
+}
+
+function getTowerProjectDetailDescription(projectName, definition, state, level, stage) {
+  if (state.completed) return definition.completedDescription;
+  if (isTowerFoundationHeartActivationLevel(projectName) && level && level.description) return level.description;
+
+  return stage.description;
+}
+
+function createSvgElement(name, attrs, text) {
+  const element = document.createElementNS("http://www.w3.org/2000/svg", name);
+
+  if (attrs) {
+    Object.keys(attrs).forEach(function (attrName) {
+      const attrValue = attrs[attrName];
+
+      if (attrValue !== undefined && attrValue !== null) {
+        element.setAttribute(attrName, attrValue);
+      }
+    });
+  }
+
+  if (text !== undefined) {
+    element.textContent = text;
+  }
+
+  return element;
+}
+
+function appendSvgElement(parent, name, attrs, text) {
+  const element = createSvgElement(name, attrs, text);
+  parent.appendChild(element);
+  return element;
+}
+
+function createTowerProjectVisual(projectName, stageIndex, stage) {
+  if (projectName === "towerBasement") {
+    return createTowerBasementVisual(stageIndex, stage);
+  }
+
+  return createTowerFoundationVisual(stageIndex, stage);
+}
+
+function createTowerFoundationVisual(stageIndex, stage) {
+  const svg = createSvgElement("svg", {
+    class: "tower-visual",
+    viewBox: "0 0 600 300",
+    role: "img",
+    "aria-label": stage.aria || stage.title,
+  });
+
+  const defs = appendSvgElement(svg, "defs");
+  const pattern = appendSvgElement(defs, "pattern", {
+    id: "towerFoundationSoilPattern",
+    width: "18",
+    height: "18",
+    patternUnits: "userSpaceOnUse",
+  });
+
+  appendSvgElement(pattern, "rect", { width: "18", height: "18", fill: "#c8ad82" });
+  appendSvgElement(pattern, "path", {
+    d: "M2 4h4M12 9h3M5 15h5",
+    stroke: "#ad8f64",
+    "stroke-width": "1.2",
+    "stroke-linecap": "round",
+    opacity: "0.58",
+  });
+  appendSvgElement(pattern, "circle", { cx: "14", cy: "3", r: "1.1", fill: "#9d7f58", opacity: "0.5" });
+
+  const gradient = appendSvgElement(defs, "linearGradient", {
+    id: "towerFoundationHeartGradient",
+    x1: "0",
+    x2: "1",
+    y1: "0",
+    y2: "1",
+  });
+
+  appendSvgElement(gradient, "stop", { offset: "0", "stop-color": "#e5fdff" });
+  appendSvgElement(gradient, "stop", { offset: "0.45", "stop-color": "#8be1ef" });
+  appendSvgElement(gradient, "stop", { offset: "1", "stop-color": "#5d7fd1" });
+
+  const filter = appendSvgElement(defs, "filter", {
+    id: "towerFoundationHeartGlow",
+    x: "-80%",
+    y: "-80%",
+    width: "260%",
+    height: "260%",
+  });
+  appendSvgElement(filter, "feGaussianBlur", { stdDeviation: "5", result: "blur" });
+  appendSvgElement(filter, "feFlood", { "flood-color": "#8deaff", "flood-opacity": "0.82", result: "color" });
+  appendSvgElement(filter, "feComposite", { in: "color", in2: "blur", operator: "in", result: "glow" });
+  const merge = appendSvgElement(filter, "feMerge");
+  appendSvgElement(merge, "feMergeNode", { in: "glow" });
+  appendSvgElement(merge, "feMergeNode", { in: "SourceGraphic" });
+
+  appendSvgElement(svg, "line", { x1: "38", y1: "90", x2: "562", y2: "90", class: "tower-guide-line" });
+  appendSvgElement(svg, "text", { x: "42", y: "80", class: "tower-depth-label" }, "Ground");
+  appendSvgElement(svg, "line", { x1: "38", y1: "198", x2: "562", y2: "198", class: "tower-guide-line" });
+  appendSvgElement(svg, "text", { x: "42", y: "218", class: "tower-depth-label" }, "Foundation depth");
+
+  const art = appendSvgElement(svg, "g", { class: "tower-stage-art", "data-tower-stage": stageIndex });
+  appendTowerFoundationStageArt(art, stageIndex);
+
+  return svg;
+}
+
+function appendTowerFoundationStageArt(group, stageIndex) {
+  if (stageIndex <= 0) {
+    appendSvgElement(group, "path", { class: "tower-soil-fill", d: "M0 90 H600 V300 H0 Z" });
+    appendSvgElement(group, "path", { class: "tower-ground-edge", d: "M0 90 H600" });
+    appendSvgElement(group, "path", { class: "tower-hidden-foundation", d: "M182 198 H418" });
+    return;
+  }
+
+  if (stageIndex === 1) {
+    appendSvgElement(group, "path", {
+      class: "tower-soil-fill",
+      d: "M0 90 H158 C196 90 213 107 246 119 C278 131 322 131 354 119 C387 107 404 90 442 90 H600 V300 H0 Z",
+    });
+    appendSvgElement(group, "path", {
+      class: "tower-ground-edge",
+      d: "M0 90 H158 C196 90 213 107 246 119 C278 131 322 131 354 119 C387 107 404 90 442 90 H600",
+    });
+    appendSvgElement(group, "path", { class: "tower-hidden-foundation", d: "M182 198 H418" });
+    return;
+  }
+
+  if (stageIndex === 2) {
+    appendSvgElement(group, "path", {
+      class: "tower-soil-fill",
+      d: "M0 90 H146 C185 90 203 112 231 140 C259 168 270 198 300 198 C330 198 341 168 369 140 C397 112 415 90 454 90 H600 V300 H0 Z",
+    });
+    appendSvgElement(group, "path", {
+      class: "tower-ground-edge",
+      d: "M0 90 H146 C185 90 203 112 231 140 C259 168 270 198 300 198 C330 198 341 168 369 140 C397 112 415 90 454 90 H600",
+    });
+    appendSvgElement(group, "path", { class: "tower-hidden-foundation", d: "M182 198 H418" });
+    appendSvgElement(group, "circle", { cx: "300", cy: "198", r: "5", fill: "#fffaf0", stroke: "#6f604a", "stroke-width": "2" });
+    return;
+  }
+
+  appendTowerFoundationShoredSite(group);
+
+  if (stageIndex >= 4) {
+    appendTowerFoundationPlinth(group);
+  }
+
+  if (stageIndex >= 5) {
+    appendTowerFoundationHeart(group);
+  }
+}
+
+function appendTowerFoundationShoredSite(group) {
+  appendSvgElement(group, "path", {
+    class: "tower-soil-fill",
+    d: "M0 90 H128 C151 90 158 104 166 126 L190 198 H410 L434 126 C442 104 449 90 472 90 H600 V300 H0 Z",
+  });
+  appendSvgElement(group, "path", {
+    class: "tower-ground-edge",
+    d: "M0 90 H128 C151 90 158 104 166 126 L190 198",
+  });
+  appendSvgElement(group, "path", {
+    class: "tower-ground-edge",
+    d: "M410 198 L434 126 C442 104 449 90 472 90 H600",
+  });
+  appendSvgElement(group, "path", { class: "tower-exposed-foundation", d: "M190 198 H410" });
+  appendSvgElement(group, "path", { class: "tower-foundation-highlight", d: "M194 195 H406" });
+
+  const bracing = appendSvgElement(group, "g", { "aria-label": "Wooden excavation supports" });
+  appendSvgElement(bracing, "path", {
+    class: "tower-timber-shadow",
+    d: "M150 190 L178 112 M184 190 L136 138 M450 190 L422 112 M416 190 L464 138 M142 150 H180 M420 150 H458",
+  });
+  appendSvgElement(bracing, "path", {
+    class: "tower-timber",
+    d: "M150 190 L178 112 M184 190 L136 138 M450 190 L422 112 M416 190 L464 138 M142 150 H180 M420 150 H458",
+  });
+  appendSvgElement(bracing, "path", {
+    class: "tower-timber-grain",
+    d: "M152 187 L176 116 M182 187 L139 141 M448 187 L424 116 M418 187 L461 141 M148 147 H176 M424 147 H452",
+  });
+}
+
+function appendTowerFoundationPlinth(group) {
+  appendSvgElement(group, "path", { class: "tower-plinth-base", d: "M260 198 L270 164 H330 L340 198 Z" });
+  appendSvgElement(group, "path", { class: "tower-plinth-top", d: "M267 164 L276 148 H324 L333 164 Z" });
+  appendSvgElement(group, "path", { class: "tower-plinth-line", d: "M274 160 H326 M278 153 H322" });
+}
+
+function appendTowerFoundationHeart(group) {
+  appendSvgElement(group, "path", { class: "tower-mana-channel", d: "M300 160 V185 M278 174 L242 190 M322 174 L358 190" });
+  appendSvgElement(group, "circle", {
+    class: "tower-mana-heart",
+    cx: "300",
+    cy: "123",
+    r: "25",
+    fill: "url(#towerFoundationHeartGradient)",
+    filter: "url(#towerFoundationHeartGlow)",
+  });
+  appendSvgElement(group, "circle", { class: "tower-mana-facet", cx: "300", cy: "123", r: "14" });
+  appendSvgElement(group, "path", { class: "tower-mana-facet", d: "M300 99 V147 M276 123 H324 M286 109 L314 137 M314 109 L286 137" });
+}
+
+function createTowerBasementVisual(stageIndex, stage) {
+  const svg = createSvgElement("svg", {
+    class: "tower-visual tower-basement-visual",
+    viewBox: "0 0 600 300",
+    role: "img",
+    "aria-label": stage.aria || stage.title,
+  });
+
+  const defs = appendSvgElement(svg, "defs");
+  const pattern = appendSvgElement(defs, "pattern", {
+    id: "towerFoundationSoilPattern",
+    width: "18",
+    height: "18",
+    patternUnits: "userSpaceOnUse",
+  });
+
+  appendSvgElement(pattern, "rect", { width: "18", height: "18", fill: "#c8ad82" });
+  appendSvgElement(pattern, "path", {
+    d: "M2 4h4M12 9h3M5 15h5",
+    stroke: "#ad8f64",
+    "stroke-width": "1.2",
+    "stroke-linecap": "round",
+    opacity: "0.58",
+  });
+  appendSvgElement(pattern, "circle", { cx: "14", cy: "3", r: "1.1", fill: "#9d7f58", opacity: "0.5" });
+
+  const gradient = appendSvgElement(defs, "linearGradient", {
+    id: "towerFoundationHeartGradient",
+    x1: "0",
+    x2: "1",
+    y1: "0",
+    y2: "1",
+  });
+
+  appendSvgElement(gradient, "stop", { offset: "0", "stop-color": "#e5fdff" });
+  appendSvgElement(gradient, "stop", { offset: "0.45", "stop-color": "#8be1ef" });
+  appendSvgElement(gradient, "stop", { offset: "1", "stop-color": "#5d7fd1" });
+
+  const filter = appendSvgElement(defs, "filter", {
+    id: "towerFoundationHeartGlow",
+    x: "-80%",
+    y: "-80%",
+    width: "260%",
+    height: "260%",
+  });
+  appendSvgElement(filter, "feGaussianBlur", { stdDeviation: "5", result: "blur" });
+  appendSvgElement(filter, "feFlood", { "flood-color": "#8deaff", "flood-opacity": "0.82", result: "color" });
+  appendSvgElement(filter, "feComposite", { in: "color", in2: "blur", operator: "in", result: "glow" });
+  const merge = appendSvgElement(filter, "feMerge");
+  appendSvgElement(merge, "feMergeNode", { in: "glow" });
+  appendSvgElement(merge, "feMergeNode", { in: "SourceGraphic" });
+
+  appendSvgElement(svg, "line", { x1: "38", y1: "90", x2: "562", y2: "90", class: "tower-guide-line" });
+  appendSvgElement(svg, "text", { x: "42", y: "80", class: "tower-depth-label" }, "Ground");
+  appendSvgElement(svg, "line", { x1: "38", y1: "198", x2: "562", y2: "198", class: "tower-guide-line" });
+  appendSvgElement(svg, "text", { x: "42", y: "218", class: "tower-depth-label" }, "Foundation depth");
+
+  const art = appendSvgElement(svg, "g", { class: "tower-stage-art", "data-tower-stage": stageIndex });
+  appendTowerBasementStageArt(art, stageIndex);
+
+  return svg;
+}
+
+function appendTowerBasementStageArt(group, stageIndex) {
+  if (stageIndex <= 0) {
+    appendTowerFoundationShoredSite(group);
+    appendTowerFoundationPlinth(group);
+    appendTowerFoundationHeart(group);
+    return;
+  }
+
+  const wallTops = [198, 180, 154, 130, 104, 90];
+  const wallTop = wallTops[Math.max(1, Math.min(stageIndex, wallTops.length - 1))];
+
+  appendTowerBasementExcavation(group, stageIndex, wallTop);
+  appendTowerBasementWalls(group, stageIndex, wallTop);
+
+  if (stageIndex === 3) {
+    appendTowerBasementBracing(group, wallTop);
+  }
+
+  appendTowerFoundationPlinth(group);
+  appendTowerFoundationHeart(group);
+}
+
+function appendTowerBasementExcavation(group, stageIndex, wallTop) {
+  if (stageIndex >= 5) {
+    appendSvgElement(group, "path", {
+      class: "tower-soil-fill",
+      d: "M0 90 H198 V300 H0 Z M402 90 H600 V300 H402 Z",
+    });
+    appendSvgElement(group, "path", { class: "tower-ground-edge", d: "M0 90 H198 M402 90 H600" });
+  } else {
+    appendSvgElement(group, "path", {
+      class: "tower-soil-fill",
+      d: "M0 90 H128 C151 90 158 104 166 126 L190 198 H410 L434 126 C442 104 449 90 472 90 H600 V300 H0 Z",
+    });
+    appendSvgElement(group, "path", {
+      class: "tower-ground-edge",
+      d: "M0 90 H128 C151 90 158 104 166 126 L190 198",
+    });
+    appendSvgElement(group, "path", {
+      class: "tower-ground-edge",
+      d: "M410 198 L434 126 C442 104 449 90 472 90 H600",
+    });
+  }
+
+  appendSvgElement(group, "path", { class: "tower-exposed-foundation", d: "M190 198 H410" });
+  appendSvgElement(group, "path", { class: "tower-foundation-highlight", d: "M194 195 H406" });
+
+  if (stageIndex >= 4) {
+    appendSvgElement(group, "path", { class: "tower-basement-cap", d: "M198 " + wallTop + " H402" });
+  }
+}
+
+function appendTowerBasementWalls(group, stageIndex, wallTop) {
+  const leftWall = "M198 198 H240 V" + wallTop + " H202 Z";
+  const rightWall = "M360 198 H402 L398 " + wallTop + " H360 Z";
+
+  appendSvgElement(group, "path", { class: "tower-basement-wall-shadow", d: leftWall + " " + rightWall });
+  appendSvgElement(group, "path", { class: "tower-basement-wall", d: leftWall });
+  appendSvgElement(group, "path", { class: "tower-basement-wall", d: rightWall });
+  appendSvgElement(group, "path", { class: "tower-basement-wall-highlight", d: "M207 194 V" + (wallTop + 5) + " M393 194 V" + (wallTop + 5) });
+
+  const courseGap = stageIndex <= 1 ? 16 : 18;
+  let courseY = 190;
+  const courses = [];
+
+  while (courseY > wallTop + 8) {
+    courses.push("M202 " + courseY + " H239 M361 " + courseY + " H398");
+    courseY -= courseGap;
+  }
+
+  if (courses.length > 0) {
+    appendSvgElement(group, "path", { class: "tower-basement-stone-line", d: courses.join(" ") });
+  }
+}
+
+function appendTowerBasementBracing(group, wallTop) {
+  const bracing = appendSvgElement(group, "g", { "aria-label": "Temporary outer wall staging" });
+  const bracingPath =
+    "M174 198 V" +
+    (wallTop + 6) +
+    " M426 198 V" +
+    (wallTop + 6) +
+    " M170 178 H196 M404 178 H430 M176 196 L198 " +
+    (wallTop + 10) +
+    " M424 196 L402 " +
+    (wallTop + 10);
+
+  appendSvgElement(bracing, "path", {
+    class: "tower-timber-shadow",
+    d: bracingPath,
+  });
+  appendSvgElement(bracing, "path", {
+    class: "tower-timber",
+    d: bracingPath,
+  });
+  appendSvgElement(bracing, "path", {
+    class: "tower-timber-grain",
+    d:
+      "M177 194 V" +
+      (wallTop + 10) +
+      " M423 194 V" +
+      (wallTop + 10) +
+      " M174 175 H193 M407 175 H426",
+  });
+}
+
 function createProjectWorkProgress(projectName, level, state) {
   const group = document.createElement("div");
   group.className = "project-progress-group";
@@ -2486,6 +4206,43 @@ function createProjectWorkProgress(projectName, level, state) {
     text.textContent = "Work: " + formatTrainingNumber(state.work || 0) + " / " + formatTrainingNumber(level.workRequired || 0);
   } else {
     text.textContent = "Work: complete";
+  }
+
+  const track = document.createElement("div");
+  track.className = "training-progress-track";
+
+  const fill = document.createElement("div");
+  fill.className = "training-progress-fill";
+
+  if (level && level.workRequired > 0) {
+    fill.style.width = Math.min(Math.max((state.work || 0) / level.workRequired, 0), 1) * 100 + "%";
+  } else {
+    fill.style.width = "100%";
+  }
+
+  track.appendChild(fill);
+  group.appendChild(text);
+  group.appendChild(track);
+
+  return group;
+}
+
+function createTowerFoundationActivationProgress(projectName, level, state) {
+  const group = document.createElement("div");
+  group.className = "project-progress-group tower-activation-progress-group";
+
+  const text = document.createElement("div");
+  text.className = "training-progress-text";
+
+  if (level) {
+    text.textContent =
+      "Activation: " +
+      formatTrainingNumber(state.work || 0) +
+      " / " +
+      formatTrainingNumber(level.workRequired || 0) +
+      " Mana";
+  } else {
+    text.textContent = "Activation: complete";
   }
 
   const track = document.createElement("div");
@@ -2569,7 +4326,7 @@ function createProjectActions(projectName, definition, state) {
   fill.className = "progressFill";
 
   const label = document.createElement("span");
-  label.textContent = state.completed ? "Project Complete" : definition.actionLabel || "Work";
+  label.textContent = state.completed ? "Project Complete" : getProjectWorkActionLabel(projectName);
 
   button.appendChild(fill);
   button.appendChild(label);
@@ -2581,6 +4338,79 @@ function createProjectActions(projectName, definition, state) {
   actions.appendChild(button);
 
   return actions;
+}
+
+function createTowerProjectActions(projectName, definition, state) {
+  const actions = document.createElement("div");
+  actions.className = "project-actions tower-project-actions";
+
+  const actionName = document.createElement("div");
+  actionName.className = "tower-project-action-name";
+  actionName.textContent = state.completed ? "Project Complete" : getProjectWorkActionLabel(projectName);
+
+  const buttonGroup = document.createElement("div");
+  buttonGroup.className = "tower-project-action-buttons";
+
+  definition.workButtons = {};
+
+  if (isTowerFoundationHeartActivationLevel(projectName)) {
+    const imbueButton = createTowerProjectWorkButton(projectName, PROJECT_WORK_MODE_IMBUE_HEART);
+
+    definition.workButton = imbueButton;
+    definition.workButtons[PROJECT_WORK_MODE_IMBUE_HEART] = imbueButton;
+    buttonGroup.appendChild(imbueButton);
+  } else {
+    const energyButton = createTowerProjectWorkButton(projectName, PROJECT_WORK_MODE_ENERGY);
+    const arcaneForceButton = createTowerProjectWorkButton(projectName, PROJECT_WORK_MODE_ARCANE_FORCE);
+
+    definition.workButton = energyButton;
+    definition.workButtons[PROJECT_WORK_MODE_ENERGY] = energyButton;
+    definition.workButtons[PROJECT_WORK_MODE_ARCANE_FORCE] = arcaneForceButton;
+    buttonGroup.appendChild(energyButton);
+    buttonGroup.appendChild(arcaneForceButton);
+  }
+
+  actions.appendChild(actionName);
+  actions.appendChild(buttonGroup);
+
+  return actions;
+}
+
+function createTowerProjectWorkButton(projectName, mode) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "action-btn project-work-btn tower-project-work-btn";
+  button.dataset.projectWork = projectName;
+  button.dataset.projectWorkMode = mode;
+
+  const fill = document.createElement("div");
+  fill.className = "progressFill";
+
+  const label = document.createElement("span");
+  label.textContent = getProjectWorkModeButtonLabel(projectName, mode);
+
+  button.appendChild(fill);
+  button.appendChild(label);
+  button.addEventListener("click", function () {
+    startProjectWork(projectName, mode);
+  });
+
+  return button;
+}
+
+function getProjectWorkModeButtonLabel(projectName, mode) {
+  if (isProjectImbueHeartWorkMode(projectName, mode)) {
+    const level = getProjectCurrentLevel(projectName);
+    const label = (level && (level.activationLabel || level.actionLabel)) || "Imbue Heart";
+
+    return label + " - " + formatCost(getProjectWorkCost(projectName, mode));
+  }
+
+  if (isProjectArcaneForceWorkMode(projectName, mode)) {
+    return "Arcane Force - " + formatCost(getProjectWorkCost(projectName, mode));
+  }
+
+  return formatCost(getProjectWorkCost(projectName, mode));
 }
 
 function updateProjectButtons() {
@@ -2599,6 +4429,11 @@ function updateProjectWorkButtonState(projectName) {
 
   if (!definition || !definition.workButton) return;
 
+  if (isTowerProject(projectName)) {
+    updateTowerProjectWorkButtonStates(projectName, definition);
+    return;
+  }
+
   const state = getProjectState(projectName);
   const isActiveProjectWork = isActivityActive() && gameState.activity.kind === "projectWork" && gameState.activity.id === projectName;
   const canStart = canWorkOnProject(projectName);
@@ -2613,9 +4448,39 @@ function updateProjectWorkButtonState(projectName) {
     } else if (getProjectWorkRemaining(projectName) <= 0) {
       label.textContent = "Work Complete";
     } else {
-      label.textContent = (definition.actionLabel || "Work") + " - " + formatCost(getProjectWorkCost(projectName));
+      label.textContent = getProjectWorkActionLabel(projectName) + " - " + formatCost(getProjectWorkCost(projectName));
     }
   }
+}
+
+function updateTowerProjectWorkButtonStates(projectName, definition) {
+  const state = getProjectState(projectName);
+  const isActiveProjectWork = isActivityActive() && gameState.activity.kind === "projectWork" && gameState.activity.id === projectName;
+  const activeMode = isActiveProjectWork ? getNormalizedProjectWorkMode(projectName, gameState.activity.mode) : null;
+
+  if (!state || !definition.workButtons) return;
+
+  Object.keys(definition.workButtons).forEach(function (mode) {
+    const button = definition.workButtons[mode];
+    const label = button ? button.querySelector("span") : null;
+    const isActiveMode = isActiveProjectWork && activeMode === mode;
+    const canStart = canWorkOnProject(projectName, mode);
+
+    if (!button) return;
+
+    button.classList.toggle("running", isActiveMode);
+    button.disabled = state.completed || (!isActiveMode && (isActivityActive() || !canStart));
+
+    if (label) {
+      if (state.completed) {
+        label.textContent = "Project Complete";
+      } else if (getProjectWorkRemaining(projectName) <= 0) {
+        label.textContent = isProjectImbueHeartWorkMode(projectName, mode) ? "Activation Complete" : "Work Complete";
+      } else {
+        label.textContent = getProjectWorkModeButtonLabel(projectName, mode);
+      }
+    }
+  });
 }
 
 function updateProjectDepositButtonStates(projectName) {
@@ -2637,12 +4502,15 @@ function updateProjectDepositButtonStates(projectName) {
 
 function resetProjectWorkButtonProgress(projectName) {
   const definition = getProjectDefinition(projectName);
-  const button = definition ? definition.workButton : null;
-  const progressFill = button ? button.querySelector(".progressFill") : null;
+  const buttons = definition && definition.workButtons ? Object.values(definition.workButtons) : [definition ? definition.workButton : null];
 
-  if (progressFill) {
-    progressFill.style.width = "0%";
-  }
+  buttons.forEach(function (button) {
+    const progressFill = button ? button.querySelector(".progressFill") : null;
+
+    if (progressFill) {
+      progressFill.style.width = "0%";
+    }
+  });
 }
 
 function getVisibleResearchEntries() {
@@ -3492,18 +5360,19 @@ function hasActiveAttunement(attunementName) {
 }
 
 function getActiveAttunementEffectTotal(effectName) {
-  const multiplier = getAttunementBonusMultiplier();
-
   return getActiveAttunements().reduce(function (total, entry) {
     const definition = getAttunementDefinition(entry.id);
-    const effects = definition ? definition.effects || {} : {};
 
-    return total + (effects[effectName] || 0) * multiplier;
+    return total + getAttunementScaledEffectValue(entry.id, definition, effectName);
   }, 0);
 }
 
-function getAttunementScaledEffectValue(definition, effectName) {
+function getAttunementScaledEffectValue(attunementName, definition, effectName) {
   const effects = definition ? definition.effects || {} : {};
+
+  if (attunementName === "reinforcedBody" && effectName === "maxEnergyFlat" && typeof getReinforcedBodyMaxEnergyBonus === "function") {
+    return getReinforcedBodyMaxEnergyBonus();
+  }
 
   return (effects[effectName] || 0) * getAttunementBonusMultiplier();
 }
@@ -3513,15 +5382,17 @@ function getAttunementTargetDescription(attunementName, definition, options = {}
   const parts = [];
 
   if (effects.travelDistanceFlat) {
-    parts.push("+" + formatAttunementEffectNumber(getAttunementScaledEffectValue(definition, "travelDistanceFlat")) + " travel distance per step");
+    parts.push(
+      "+" + formatAttunementEffectNumber(getAttunementScaledEffectValue(attunementName, definition, "travelDistanceFlat")) + " travel distance per step"
+    );
   }
 
   if (effects.carryCapacityFlat) {
-    parts.push("+" + formatAttunementEffectNumber(getAttunementScaledEffectValue(definition, "carryCapacityFlat")) + " carry capacity");
+    parts.push("+" + formatAttunementEffectNumber(getAttunementScaledEffectValue(attunementName, definition, "carryCapacityFlat")) + " carry capacity");
   }
 
   if (effects.maxEnergyFlat) {
-    parts.push("+" + formatAttunementEffectNumber(getAttunementScaledEffectValue(definition, "maxEnergyFlat")) + " max energy");
+    parts.push("+" + formatAttunementEffectNumber(getAttunementScaledEffectValue(attunementName, definition, "maxEnergyFlat")) + " max energy");
   }
 
   if (effects.huntSuccessChancePerLevel) {

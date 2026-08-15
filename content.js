@@ -142,6 +142,8 @@ const expeditionLocations = {
     knownPathDistance: 39,
     discovered: false,
     explored: true,
+    looseStoneMax: 80,
+    looseStoneRemaining: 80,
     onDiscoverStory: "A dark opening cuts into the hillside. Loose stone is scattered around the cave mouth.",
     panelText: {
       discovered: "A dark opening cuts into the hillside. Loose stone is scattered around the cave mouth.",
@@ -2207,117 +2209,384 @@ const researchDefinitions = {
       { type: "goal", id: "clearTowerFoundation" },
     ],
   },
+
+  towerBasement: {
+    label: "Tower Basement",
+    duration: 10,
+    deepThought: 6,
+    completed: false,
+    unlocked: false,
+    cost: {
+      energy: 80,
+      focus: 8,
+    },
+    requires: {
+      flags: ["towerConstructionUnlocked"],
+    },
+    discoveryStory:
+      "The awakened foundation changes how the partial plans read. They still do not show the full tower, but the basement course is clear enough to begin.",
+    story:
+      "The basement plan resolves into a masonry rise: stone walls, timber staging, iron pins, and nail-fastened bracing strong enough to meet the ground floor cleanly.",
+    unlocks: [
+      { type: "project", id: "towerBasement" },
+      { type: "journal", id: "towerBasementStarted" },
+      { type: "goal", id: "buildTowerBasement" },
+    ],
+  },
+
+  attunedMeditation: {
+    label: "Attuned Meditation",
+    duration: 10,
+    deepThought: 6,
+    completed: false,
+    unlocked: false,
+    cost: {
+      energy: 100,
+      focus: 8,
+      manaCrystal: 2,
+      chargedCrystal: 2,
+    },
+    requires: {
+      flags: ["towerConstructionUnlocked"],
+      campUpgradesPurchased: ["meditationSpot"],
+      skills: {
+        meditation: { rank: 1, level: 5 },
+      },
+    },
+    discoveryStory:
+      "The restored Heart changes the quiet around your meditation spot. With enough work, the place could be tuned to answer that deeper pulse.",
+    story:
+      "You trace the Heart's rhythm through the meditation pattern. The old quiet can become an attuned practice instead of simple recovery.",
+    unlocks: [{ type: "campUpgrade", id: "attunedMeditationSpot" }],
+  },
+
+  northernTowerNode: {
+    label: "Northern Tower Node",
+    duration: 8,
+    deepThought: 5,
+    completed: false,
+    unlocked: false,
+    cost: {
+      energy: 60,
+      focus: 8,
+    },
+    requires: {
+      locationsExplored: ["minersCamp"],
+      towerNodes: {
+        north: { activated: true },
+      },
+    },
+    discoveryStory:
+      "The restored Heart hums toward the northern ridge. The answer is faint, but it points straight through the Miners' Camp.",
+    story:
+      "The northern signal resolves into a buildable pattern: stone anchor, iron binding, charged crystal focus, and enough imbuement to wake the node.",
+    unlocks: [
+      { type: "towerNode", id: "north" },
+      { type: "journal", id: "northernTowerNodeResearch" },
+    ],
+  },
 };
 
 const projectDefinitions = {
   towerFoundation: {
     label: "Tower Foundation",
+    towerPhaseTitle: "Tower - Foundation Phase",
+    visualType: "foundation",
     actionLabel: "Work on Foundation",
-    completedLabel: "Foundation Awakened",
+    completedLabel: "Heart Restored",
     workCost: {
       energy: 20,
     },
+    arcaneForceWorkCost: {
+      mana: 10,
+    },
+    arcaneForceWorkMultiplier: 3,
     workDuration: 3,
     description:
       "The tower plans point to the clearing beneath your camp. The stone below is old, deliberate, and still waiting for the shape above it.",
     completedDescription:
-      "The buried foundation has been cleared, repaired, reinforced, and awakened. The clearing is no longer just a camp; it is the base of something larger.",
+      "The buried foundation has been excavated, shored, and awakened around the restored Heart. The clearing is no longer just a camp; it is the base of something larger.",
     completedStory:
-      "Charged crystals settle into the restored channels. Blue-white light runs through the old stone, and the whole foundation answers at once.",
+      "The Heart settles onto the repaired plinth. Blue-white light runs through the old stone, and the whole foundation answers at once.",
+    visualStages: [
+      {
+        title: "Not Yet Started",
+        description: "The clearing still looks ordinary, but Mana Sense keeps finding the same deliberate line below the soil.",
+        additions: "Buried foundation trace",
+        read: "Something substantial is waiting under camp.",
+        aria: "Undisturbed ground with a buried foundation trace below it.",
+      },
+      {
+        title: "Started Digging",
+        description: "The first cut breaks the surface. The buried foundation remains below the dig, fixed and patient.",
+        additions: "Shallow excavation",
+        read: "The work has begun, but the old stone is still out of reach.",
+        aria: "A shallow excavation above the same buried foundation trace.",
+      },
+      {
+        title: "Reached Foundation",
+        description: "The excavation deepens until the center strikes worked stone. You have found the foundation, not exposed it.",
+        additions: "Deep contact point",
+        read: "The structure is real, deliberate, and directly beneath camp.",
+        aria: "A deep excavation reaches the foundation at one central contact point.",
+      },
+      {
+        title: "Uncover Foundation And Shore Walls",
+        description: "Earth falls away from the old stone. Timber supports hold the walls while the first stable span comes into view.",
+        additions: "Exposed stone and timber shoring",
+        read: "The Tower finally has a workable construction site.",
+        aria: "A wide excavation exposes a solid foundation line with timber supports.",
+      },
+      {
+        title: "Repair Heart Plinth",
+        description: "A shaped plinth rises from the exposed foundation, giving the whole site a clear center.",
+        additions: "Repaired Heart plinth",
+        read: "The foundation is ready to receive its central mechanism.",
+        aria: "A Heart plinth stands on the exposed foundation inside the shored excavation.",
+      },
+      {
+        title: "Restore The Heart",
+        description: "The restored Heart wakes on the plinth. Light follows the old channels and gives the foundation its first living motion.",
+        additions: "Mana Heart and active channels",
+        read: "The buried ruin has become a living Tower foundation.",
+        aria: "A glowing Mana Heart sits on the plinth above the exposed foundation.",
+      },
+    ],
     levels: [
       {
-        name: "Site Cleared",
+        name: "Started Digging",
+        actionLabel: "Begin Digging",
         workYield: 20,
-        workRequired: 100,
+        workRequired: 120,
         materials: {
           wood: 25,
         },
-        description: "Brush, roots, and camp clutter cover the footprint shown in the plans.",
-        completionStory: "You clear enough of the site to see the first deliberate curve beneath the soil.",
+        description: "Brush, roots, and camp clutter still cover the foundation footprint shown in the plans.",
+        completionStory: "The first real cut opens in the clearing. Camp now has a dig site where the tower plans insist one should be.",
       },
       {
-        name: "Excavation Rig",
+        name: "Reached Foundation",
+        actionLabel: "Dig Toward Foundation",
         workYield: 20,
-        workRequired: 200,
+        workRequired: 260,
         materials: {
           wood: 50,
         },
-        description: "The foundation is too large to clear by hand alone. Braces, ramps, and hauling frames will keep the work moving.",
-        completionStory: "A crude rig rises over the clearing, turning hard digging into repeatable labor.",
+        description: "The excavation needs ramps, braces, and steady hauling before it can reach the worked stone below.",
+        completionStory: "Your tools strike fitted stone at the bottom of the dig. The foundation was not destroyed; it was buried.",
       },
       {
-        name: "Buried Stonework",
+        name: "Uncover Foundation And Shore Walls",
+        actionLabel: "Shore Dig Site",
         workYield: 22,
-        workRequired: 300,
-        materials: {
-          wood: 100,
-          nails: 25,
-        },
-        description: "Packed earth and rubble hide fitted stonework beneath the camp.",
-        completionStory: "Your tools strike fitted stone. The foundation was not destroyed; it was buried.",
-      },
-      {
-        name: "Outer Ring Exposed",
-        workYield: 22,
-        workRequired: 450,
+        workRequired: 420,
         materials: {
           wood: 150,
           nails: 50,
         },
-        description: "The outer ring is visible now, wide enough to make the camp feel like it was built inside a sleeping tower.",
-        completionStory: "The tower footprint resolves into a full ring beneath the clearing.",
+        description: "The dig must widen without collapsing. Timber and nails can hold the walls while the foundation is uncovered.",
+        completionStory: "The earth pulls back from a stable span of foundation. Shored walls turn the hidden ruin into a real worksite.",
       },
       {
-        name: "Foundation Repaired",
+        name: "Repair Heart Plinth",
+        actionLabel: "Repair Heart Plinth",
         workYield: 25,
-        workRequired: 600,
+        workRequired: 650,
         materials: {
-          wood: 100,
-          nails: 25,
-          stone: 20,
-        },
-        description: "Cracked foundation sections need fitted stone and iron pins before they can bear weight again.",
-        completionStory: "The repaired ring settles with a deep, steady weight. The old foundation can carry structure again.",
-      },
-      {
-        name: "Reinforced Foundation",
-        workYield: 25,
-        workRequired: 800,
-        materials: {
-          stone: 100,
+          stone: 50,
           iron: 15,
         },
-        description: "Iron reinforcement from the northern forge can bind the ancient structure into one frame.",
-        completionStory: "Iron ties the old stone together, making the foundation feel less like ruins and more like engineering.",
+        description: "The central plinth is cracked and misaligned. Fitted stone and iron pins can make it whole again.",
+        completionStory: "The repaired plinth settles into the old channels, giving the foundation a center again.",
+      },
+      {
+        name: "Restore The Heart",
+        actionLabel: "Restore The Heart",
+        activationLabel: "Imbue Heart",
+        activationSpell: "imbue",
+        activationCost: {
+          mana: 10,
+        },
+        activationYield: 10,
+        workRequired: 100,
+        materials: {
+          manaCrystal: 8,
+          chargedCrystal: 8,
+        },
+        description: "The Heart needs its mana crystals seated before you can imbue the full charge that wakes the old channels.",
+        completionStory:
+          "One by one, charged crystals seat into the Heart. The foundation lights from edge to center, remembering the tower it was meant to hold.",
         onComplete: function () {
           unlockPersonalWard(true);
         },
       },
+    ],
+  },
+  towerBasement: {
+    label: "Tower Basement",
+    towerPhaseTitle: "Tower - Basement Phase",
+    visualType: "basement",
+    actionLabel: "Work on Basement",
+    completedLabel: "Basement Complete",
+    workCost: {
+      energy: 20,
+    },
+    arcaneForceWorkCost: {
+      mana: 10,
+    },
+    arcaneForceWorkMultiplier: 3,
+    workDuration: 3,
+    description:
+      "The awakened foundation can carry more than a camp. The next work is a basement ring of stone walls rising from the old base to a clean ground-floor line.",
+    completedDescription:
+      "Stone basement walls now rise from the restored foundation to meet the ground cleanly. The tower has its first built height above the awakened Heart.",
+    completedStory:
+      "The final capstones settle into the wall tops. Soil meets fitted stone instead of an open dig, and the restored foundation now carries a true basement.",
+    visualStages: [
       {
-        name: "Central Footing Restored",
-        workYield: 30,
-        workRequired: 1000,
-        materials: {
-          stone: 150,
-          iron: 25,
-        },
-        description: "The central footing holds narrow channels that look less like drainage and more like mana pathways.",
-        completionStory: "The central footing opens under your hands. Faint mana channels run through the entire foundation.",
+        title: "Open Foundation",
+        description: "The restored foundation is still an open worksite. The Heart is awake, but the tower has not yet begun to rise.",
+        aria: "The restored tower foundation remains open below ground.",
       },
       {
-        name: "Foundation Awakened",
-        workYield: 30,
-        workRequired: 1250,
-        materials: {
-          stone: 200,
-          iron: 50,
-          chargedCrystal: 8,
-        },
-        description: "The foundation is physically whole. Charged crystals should be able to wake the channels carved through the stone.",
-        completionStory:
-          "One by one, charged crystals seat into the channels. The foundation lights from edge to center, remembering the tower it was meant to hold.",
+        title: "Lay Footing Course",
+        description: "The first new stones lock onto the old foundation, establishing where the basement walls will climb.",
+        aria: "Low basement footing stones rest on the restored foundation.",
+      },
+      {
+        title: "Raise Lower Walls",
+        description: "The lower wall courses rise from the foundation, turning the old excavation into the beginning of a room.",
+        aria: "Stone basement walls rise partway from the foundation.",
+      },
+      {
+        title: "Brace And Bind Walls",
+        description: "Timber staging and iron pins hold the growing masonry steady while the wall faces are bound together.",
+        aria: "Stone basement walls stand with temporary timber staging and iron binding.",
+      },
+      {
+        title: "Set Ground-Floor Ring",
+        description: "The wall tops reach toward ground level, ready for the ring that will carry the first floor above.",
+        aria: "Tall basement walls reach close to the ground-floor ring.",
+      },
+      {
+        title: "Basement Complete",
+        description: "Clean earth meets the completed stone walls. The basement is ready to support whatever tower plans come next.",
+        aria: "Completed basement walls meet the ground cleanly above the restored foundation.",
       },
     ],
+    levels: [
+      {
+        name: "Lay Footing Course",
+        actionLabel: "Lay Footing Course",
+        workYield: 22,
+        workRequired: 240,
+        materials: {
+          stone: 150,
+          wood: 40,
+        },
+        description: "New wall lines need a stable footing course keyed into the old foundation.",
+        completionStory: "The first course of new masonry locks onto the restored foundation, giving the basement its footprint.",
+      },
+      {
+        name: "Raise Lower Walls",
+        actionLabel: "Raise Lower Walls",
+        workYield: 24,
+        workRequired: 420,
+        materials: {
+          stone: 250,
+          wood: 60,
+        },
+        description: "The lower wall courses need steady lifting, fitting, and timber staging.",
+        completionStory: "The basement walls rise high enough to make the old dig feel like a room instead of a hole.",
+      },
+      {
+        name: "Brace And Bind Walls",
+        actionLabel: "Brace And Bind Walls",
+        workYield: 26,
+        workRequired: 600,
+        materials: {
+          stone: 225,
+          wood: 120,
+          iron: 20,
+          nails: 100,
+        },
+        description: "The growing walls need braces, binders, and iron pins before more weight can be trusted to them.",
+        completionStory: "Timber staging and iron binding pull the wall faces true, readying them for the upper courses.",
+      },
+      {
+        name: "Set Ground-Floor Ring",
+        actionLabel: "Set Ground-Floor Ring",
+        workYield: 28,
+        workRequired: 760,
+        materials: {
+          stone: 275,
+          wood: 80,
+          iron: 35,
+          nails: 125,
+        },
+        description: "The wall tops must be squared and tied into a ring that can carry the future ground floor.",
+        completionStory: "A fitted ring locks across the top of the basement walls, giving the future floor a stable seat.",
+      },
+      {
+        name: "Basement Complete",
+        actionLabel: "Complete Basement Walls",
+        workYield: 30,
+        workRequired: 920,
+        materials: {
+          stone: 300,
+          wood: 50,
+          iron: 45,
+          nails: 125,
+        },
+        description: "Final capstones, pins, and backfilled edges will bring the basement cleanly up to ground level.",
+        completionStory: "The basement closes its last rough edges. Soil meets fitted stone, and the tower has a stable lower level.",
+      },
+    ],
+  },
+};
+
+const towerNodeDefinitions = {
+  north: {
+    label: "Northern Tower Node",
+    locationName: "minersCamp",
+    regionId: "north",
+    destinationLabel: "Northern Node",
+    researchName: "northernTowerNode",
+    materials: {
+      stone: 100,
+      iron: 25,
+      chargedCrystal: 4,
+    },
+    imbueRequired: 50,
+    imbueCost: {
+      mana: 10,
+    },
+    imbueYield: 10,
+    imbueDuration: 3,
+    jumpCost: {
+      mana: 10,
+    },
+    threadSenseRequired: 5,
+    threadSenseCost: {
+      mana: 1,
+    },
+    threadSenseDuration: 1,
+    advancedRecallCost: {
+      mana: 5,
+    },
+    threadSenseStories: [
+      "Mana Sense slips across the finished node. A faint strand tugs southward, too thin to follow yet.",
+      "The strand brightens when you let your mana rest against it. It is not a path through space, but a tie between anchors.",
+      "The node's strand hums with the same rhythm as the Tower Heart. Your pack shifts as if the thread has noticed its weight.",
+      "You trace the strand far enough to feel the Tower answer from camp. Matter could ride that pull if you guided it carefully.",
+      "The thread resolves into a usable pattern. You can send carried supplies back to the Tower without recalling yourself.",
+    ],
+    incompleteTitle: "Buried Northern Node",
+    completeTitle: "Northern Node Online",
+    incompleteDescription:
+      "The ground answers the Heart with a faint pressure. A node can be raised here, but it needs a stone body, iron binding, charged crystals, and imbuement.",
+    completeDescription:
+      "A small Tower Heart glows over the repaired northern node. Its path back to camp is stable enough to jump.",
   },
 };
 
@@ -2582,6 +2851,35 @@ const campUpgrades = {
     display: null,
     onComplete() {
       unlockAction("meditate");
+    },
+  },
+
+  attunedMeditationSpot: {
+    label: "Attuned Meditation Spot",
+    displayName: "Attuned Meditation Spot",
+    campSlot: "meditation",
+    campSlotLabel: "Meditation",
+    campSlotOrder: 5,
+    campSlotRank: 2,
+    duration: 12,
+    cost: {
+      stone: 80,
+      iron: 15,
+      manaCrystal: 4,
+      chargedCrystal: 4,
+      focus: 5,
+      energy: 120,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      unlockAction("meditate");
+
+      if (typeof promoteSkillToRank === "function") {
+        promoteSkillToRank("meditation", 2);
+      }
     },
   },
 
@@ -2950,6 +3248,8 @@ const gearUpgrades = {
     duration: 6,
     cost: {
       pelt: 3,
+      fiber: 2,
+      energy: 8,
     },
     unlocked: false,
     purchased: false,
@@ -3685,7 +3985,7 @@ const attunementDefinitions = {
 
   reinforcedBody: {
     label: "Reinforced Body",
-    description: "+25 max energy",
+    description: "+25 max energy, improved by Conditioning Rank II",
     requiredAttunementLevel: 5,
     cost: { mana: 10 },
     effects: {
@@ -4202,6 +4502,19 @@ const goalDefinitions = {
       },
     ],
   },
+  buildTowerBasement: {
+    title: "Build The Tower Basement",
+    text: "Raise stone basement walls from the restored foundation to the ground floor.",
+    items: [
+      {
+        label: "Complete the tower basement project",
+        isComplete: function () {
+          const project = typeof getProjectState === "function" ? getProjectState("towerBasement") : null;
+          return !!project && project.completed;
+        },
+      },
+    ],
+  },
 };
 
 const journalDefinitions = {
@@ -4293,9 +4606,33 @@ const journalDefinitions = {
     title: "Foundation Awakened",
     text: "Charged crystals woke the restored channels beneath camp. The foundation is ready for whatever tower plans you can recover next.",
   },
+  towerBasementStarted: {
+    title: "Tower Basement",
+    text: "The awakened foundation gives the partial plans a new reading: a basement of stone walls rising cleanly to the ground floor.",
+  },
+  towerBasementCompleted: {
+    title: "Basement Complete",
+    text: "The tower basement now rises from the restored foundation to meet the ground cleanly. The next plans can build upward from real walls.",
+  },
+  northernTowerNodeActivated: {
+    title: "Northern Node Stirring",
+    text: "The restored Heart answers a dormant point to the north. The signal is faint, but it is steady enough to research.",
+  },
+  northernTowerNodeResearch: {
+    title: "Northern Tower Node",
+    text: "The northern signal can be rebuilt as a small local node: stone for the body, iron for the binding, charged crystals for the focus, and imbuement to wake the path.",
+  },
+  northernTowerNodeBuilt: {
+    title: "Northern Node Online",
+    text: "The Miners' Camp node now holds a stable link to the Tower Heart. With mana, you can jump there directly after packing for an expedition.",
+  },
+  advancedRecallUnlocked: {
+    title: "Advanced Recall",
+    text: "Repeated Mana Sense at the northern node revealed the thread tying it to the Tower Heart. You can now send carried supplies home while standing at the node.",
+  },
   personalWardRemembered: {
     title: "Personal Ward",
-    text: "A ward-forming section of the reinforced foundation resonated with your mana. The pattern felt familiar, and with it came the memory of holding a ward around yourself.",
+    text: "A ward-forming section of the restored foundation resonated with your mana. The pattern felt familiar, and with it came the memory of holding a ward around yourself.",
   },
 };
 

@@ -526,6 +526,51 @@ const actions = {
     onComplete: function () {},
   },
 
+  packStone: {
+    label: "Pack Stone",
+    duration: 0,
+    cost: {
+      stone: 1,
+    },
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+
+  packIron: {
+    label: "Pack Iron",
+    duration: 0,
+    cost: {
+      iron: 1,
+    },
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+
+  packChargedCrystal: {
+    label: "Pack Charged Mana Crystal",
+    duration: 0,
+    cost: {
+      chargedCrystal: 1,
+    },
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+
   beginExpedition: {
     label: "Prepare for Expedition",
     duration: 1,
@@ -1003,15 +1048,37 @@ const skillDefinitions = {
     label: "Conditioning",
     progressLabel: "Distance traveled",
     capacityLabel: "Maximum Energy",
+    rank2ProgressLabel: "Reinforced energy spent",
     revealAt: 50,
     ranks: [
-      { rank: 0, threshold: 0, capacity: 40 },
-      { rank: 1, threshold: 100, capacity: 50 },
-      { rank: 2, threshold: 350, capacity: 60 },
-      { rank: 3, threshold: 850, capacity: 70 },
-      { rank: 4, threshold: 1850, capacity: 80 },
-      { rank: 5, threshold: 3850, capacity: 90 },
-      { rank: 6, threshold: 7850, capacity: 100 },
+      {
+        rank: 1,
+        levels: [
+          { level: 0, threshold: 0, capacity: 40 },
+          { level: 1, threshold: 100, capacity: 50 },
+          { level: 2, threshold: 350, capacity: 60 },
+          { level: 3, threshold: 850, capacity: 70 },
+          { level: 4, threshold: 1850, capacity: 80 },
+          { level: 5, threshold: 3850, capacity: 90 },
+          { level: 6, threshold: 7850, capacity: 100 },
+        ],
+      },
+      {
+        rank: 2,
+        levels: [
+          { level: 0, threshold: 0, capacity: 100, reinforcedBodyBonus: 25 },
+          { level: 1, threshold: 150, capacity: 100, reinforcedBodyBonus: 33 },
+          { level: 2, threshold: 350, capacity: 100, reinforcedBodyBonus: 40 },
+          { level: 3, threshold: 650, capacity: 100, reinforcedBodyBonus: 48 },
+          { level: 4, threshold: 1050, capacity: 100, reinforcedBodyBonus: 55 },
+          { level: 5, threshold: 1550, capacity: 100, reinforcedBodyBonus: 63 },
+          { level: 6, threshold: 2200, capacity: 100, reinforcedBodyBonus: 70 },
+          { level: 7, threshold: 3000, capacity: 100, reinforcedBodyBonus: 78 },
+          { level: 8, threshold: 4000, capacity: 100, reinforcedBodyBonus: 85 },
+          { level: 9, threshold: 5250, capacity: 100, reinforcedBodyBonus: 93 },
+          { level: 10, threshold: 6750, capacity: 100, reinforcedBodyBonus: 100 },
+        ],
+      },
     ],
   },
 
@@ -1021,53 +1088,107 @@ const skillDefinitions = {
     capacityLabel: "Maximum Focus",
     revealAt: 5,
     ranks: [
-      { rank: 0, threshold: 0, capacity: 3 },
-      { rank: 1, threshold: 5, capacity: 4 },
-      { rank: 2, threshold: 15, capacity: 5 },
-      { rank: 3, threshold: 35, capacity: 6 },
-      { rank: 4, threshold: 70, capacity: 7 },
-      { rank: 5, threshold: 130, capacity: 8 },
+      {
+        rank: 1,
+        levels: [
+          { level: 0, threshold: 0, capacity: 3 },
+          { level: 1, threshold: 5, capacity: 4 },
+          { level: 2, threshold: 15, capacity: 5 },
+          { level: 3, threshold: 35, capacity: 6 },
+          { level: 4, threshold: 70, capacity: 7 },
+          { level: 5, threshold: 130, capacity: 8 },
+        ],
+      },
     ],
   },
 
   manaCycling: {
     label: "Mana Cycling",
-    progressLabel: "Successful cycles",
+    progressLabel: "Cycling points",
+    rank2ProgressLabel: "Deep cycling points",
     capacityLabel: "Maximum Mana",
     ranks: [
-      { rank: 0, threshold: 0, capacity: 10 },
-      { rank: 1, threshold: 3, capacity: 12 },
-      { rank: 2, threshold: 7, capacity: 14 },
-      { rank: 3, threshold: 12, capacity: 16 },
-      { rank: 4, threshold: 18, capacity: 18 },
-      { rank: 5, threshold: 25, capacity: 20 },
+      {
+        rank: 1,
+        levels: [
+          { level: 0, threshold: 0, capacity: 10 },
+          { level: 1, threshold: 3, capacity: 12 },
+          { level: 2, threshold: 7, capacity: 14 },
+          { level: 3, threshold: 12, capacity: 16 },
+          { level: 4, threshold: 18, capacity: 18 },
+          { level: 5, threshold: 25, capacity: 20 },
+        ],
+      },
+      {
+        rank: 2,
+        levels: [
+          { level: 0, threshold: 0, capacity: 20 },
+          { level: 1, threshold: 5, capacity: 23 },
+          { level: 2, threshold: 12, capacity: 26 },
+          { level: 3, threshold: 22, capacity: 29 },
+          { level: 4, threshold: 35, capacity: 32 },
+          { level: 5, threshold: 52, capacity: 35 },
+          { level: 6, threshold: 74, capacity: 38 },
+          { level: 7, threshold: 102, capacity: 41 },
+          { level: 8, threshold: 137, capacity: 44 },
+          { level: 9, threshold: 180, capacity: 47 },
+          { level: 10, threshold: 230, capacity: 50 },
+        ],
+      },
     ],
   },
 
   meditation: {
     label: "Meditation",
     progressLabel: "Successful meditations",
+    rank2ProgressLabel: "Attuned meditations",
     capacityLabel: "Meditate speed",
     capacitySuffix: "% faster",
     ranks: [
-      { rank: 0, threshold: 0, capacity: 0 },
-      { rank: 1, threshold: 5, capacity: 10 },
-      { rank: 2, threshold: 15, capacity: 20 },
-      { rank: 3, threshold: 35, capacity: 30 },
-      { rank: 4, threshold: 70, capacity: 40 },
-      { rank: 5, threshold: 130, capacity: 50 },
+      {
+        rank: 1,
+        levels: [
+          { level: 0, threshold: 0, capacity: 0 },
+          { level: 1, threshold: 5, capacity: 10 },
+          { level: 2, threshold: 15, capacity: 20 },
+          { level: 3, threshold: 35, capacity: 30 },
+          { level: 4, threshold: 70, capacity: 40 },
+          { level: 5, threshold: 130, capacity: 50 },
+        ],
+      },
+      {
+        rank: 2,
+        levels: [
+          { level: 0, threshold: 0, capacity: 50, manaRestore: 1, energyCost: 5 },
+          { level: 1, threshold: 8, capacity: 55, manaRestore: 1, energyCost: 4 },
+          { level: 2, threshold: 20, capacity: 60, manaRestore: 1, energyCost: 4 },
+          { level: 3, threshold: 38, capacity: 65, manaRestore: 2, energyCost: 3 },
+          { level: 4, threshold: 62, capacity: 70, manaRestore: 2, energyCost: 3 },
+          { level: 5, threshold: 95, capacity: 75, manaRestore: 2, energyCost: 2 },
+          { level: 6, threshold: 140, capacity: 80, manaRestore: 2, energyCost: 2 },
+          { level: 7, threshold: 200, capacity: 83, manaRestore: 2, energyCost: 1 },
+          { level: 8, threshold: 275, capacity: 86, manaRestore: 3, energyCost: 1 },
+          { level: 9, threshold: 370, capacity: 88, manaRestore: 3, energyCost: 1 },
+          { level: 10, threshold: 500, capacity: 90, manaRestore: 3, energyCost: 1 },
+        ],
+      },
     ],
   },
 
   manaControl: {
     label: "Mana Control",
     progressLabel: "Mana spent casting",
-    capacityLabel: "Control rank",
+    capacityLabel: "Control level",
     ranks: [
-      { rank: 0, threshold: 0, capacity: 0 },
-      { rank: 1, threshold: 20, capacity: 1 },
-      { rank: 2, threshold: 60, capacity: 2 },
-      { rank: 3, threshold: 120, capacity: 3 },
+      {
+        rank: 1,
+        levels: [
+          { level: 0, threshold: 0, capacity: 0 },
+          { level: 1, threshold: 20, capacity: 1 },
+          { level: 2, threshold: 60, capacity: 2 },
+          { level: 3, threshold: 120, capacity: 3 },
+        ],
+      },
     ],
   },
 };
@@ -1086,6 +1207,7 @@ const gameState = {
     kind: null,
     type: null,
     id: null,
+    mode: null,
     label: null,
     startTime: null,
     duration: 0,
@@ -1163,6 +1285,7 @@ const gameState = {
   manaCondenserPlansFound: false,
   partialTowerPlansFound: false,
   towerConstructionUnlocked: false,
+  towerBasementCompleted: false,
   personalWardUnlocked: false,
   personalWardPopupShown: false,
 
@@ -1198,32 +1321,41 @@ const gameState = {
 
   skills: {
     conditioning: {
-      rank: 0,
+      rank: 1,
+      level: 0,
       distance: 0,
+      reinforcedEnergyUnlockSpent: 0,
+      reinforcedEnergySpent: 0,
       pending: false,
       revealed: false,
     },
 
     concentration: {
-      rank: 0,
+      rank: 1,
+      level: 0,
       deepThought: 0,
       revealed: false,
     },
 
     manaCycling: {
-      rank: 0,
+      rank: 1,
+      level: 0,
       successfulCycles: 0,
+      deepCycles: 0,
       revealed: false,
     },
 
     meditation: {
-      rank: 0,
+      rank: 1,
+      level: 0,
       successfulMeditations: 0,
+      attunedMeditations: 0,
       revealed: false,
     },
 
     manaControl: {
-      rank: 0,
+      rank: 1,
+      level: 0,
       manaSpent: 0,
       revealed: false,
     },
@@ -1237,13 +1369,35 @@ const gameState = {
       work: 0,
       deposits: {},
     },
+    towerBasement: {
+      unlocked: false,
+      completed: false,
+      level: 0,
+      work: 0,
+      deposits: {},
+    },
+  },
+
+  towerNodes: {
+    north: {
+      activated: false,
+      researchUnlocked: false,
+      built: false,
+      deposits: {
+        stone: 0,
+        iron: 0,
+        chargedCrystal: 0,
+      },
+      imbueProgress: 0,
+      threadSenseProgress: 0,
+      threadSensed: false,
+      advancedRecallUnlocked: false,
+    },
   },
 
   expedition: {
     active: false,
     discoveredSomething: false,
-    returning: false,
-    returnPenalty: 0,
     completed: false,
     currentLocation: null,
     regionId: "outskirts",

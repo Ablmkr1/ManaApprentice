@@ -164,6 +164,7 @@
 
         <div id="locationContent" style="display: none">
           <div id="locationDescription"></div>
+          <div id="towerNodePanel" style="display: none"></div>
           <div id="dungeonSection" class="dungeon-section" style="display: none">
             <h3 id="dungeonTitle"></h3>
             <div id="dungeonMap" class="dungeon-map" role="group" aria-label="Dungeon map"></div>
@@ -307,7 +308,7 @@
             <button id="craftingTabBtn" class="work-tab active" type="button">Crafting</button>
             <button id="researchTabBtn" class="work-tab" type="button">Research</button>
             <button id="automationTabBtn" class="work-tab" type="button" style="display: none">Automation</button>
-            <button id="projectTabBtn" class="work-tab" type="button" style="display: none">Projects</button>
+            <button id="projectTabBtn" class="work-tab" type="button" style="display: none">Tower</button>
           </div>
 
           <div id="craftingPanel" class="work-panel">
@@ -324,6 +325,7 @@
               <button id="stoneFirePitBtn" style="display: none"></button>
               <button id="researchSpotBtn" style="display: none"></button>
               <button id="meditationSpotBtn" style="display: none"></button>
+              <button id="attunedMeditationSpotBtn" style="display: none"></button>
               <button id="lumberMillBtn" style="display: none"></button>
               <button id="foragingLureBtn" style="display: none"></button>
               <button id="researchBenchBtn" style="display: none"></button>
@@ -380,7 +382,7 @@
           </div>
 
           <div id="projectPanel" class="work-panel project-panel" style="display: none">
-            <h3>Projects</h3>
+            <h3>Tower</h3>
             <div id="projectList" class="project-list"></div>
           </div>
         </div>
@@ -490,6 +492,16 @@
               <span>Pack Wood</span>
             </button>
 
+            <button class="action-btn" data-action="packStone" style="display: none">
+              <div class="progressFill"></div>
+              <span>Pack Stone</span>
+            </button>
+
+            <button class="action-btn" data-action="packIron" style="display: none">
+              <div class="progressFill"></div>
+              <span>Pack Iron</span>
+            </button>
+
             <button class="action-btn" data-action="packImbuedWood" style="display: none">
               <div class="progressFill"></div>
               <span>Pack Imbued Wood</span>
@@ -503,6 +515,11 @@
             <button class="action-btn" data-action="packGlimmerleaf" style="display: none">
               <div class="progressFill"></div>
               <span>Pack Glimmerleaf</span>
+            </button>
+
+            <button class="action-btn" data-action="packChargedCrystal" style="display: none">
+              <div class="progressFill"></div>
+              <span>Pack Charged Mana Crystal</span>
             </button>
           </div>
         </div>
@@ -528,6 +545,13 @@
             <button class="dev-speed-btn active" type="button" data-speed="1">x1</button>
             <button class="dev-speed-btn" type="button" data-speed="5">x5</button>
             <button class="dev-speed-btn" type="button" data-speed="10">x10</button>
+          </div>
+          <div class="dev-tier-controls" aria-label="Developer tier jumps">
+            <span class="dev-speed-label">Dev Tier</span>
+            <button class="dev-tier-btn" type="button" data-tier="1">T1</button>
+            <button class="dev-tier-btn" type="button" data-tier="2">T2</button>
+            <button class="dev-tier-btn" type="button" data-tier="3">T3</button>
+            <button class="dev-tier-btn" type="button" data-tier="4">T4</button>
           </div>
         </div>
       </section>
@@ -652,6 +676,15 @@
         </p>
 
         <button id="personalWardContinueBtn">Continue</button>
+      </div>
+    </div>
+
+    <div id="advancedRecallPopup" class="popup" style="display: none">
+      <div class="popup-content">
+        <h2>Advanced Recall</h2>
+        <p id="advancedRecallPopupText">The node thread is ready to carry supplies back to the Tower.</p>
+        <div id="advancedRecallOptions" class="advanced-recall-options"></div>
+        <button id="advancedRecallCloseBtn">Close</button>
       </div>
     </div>
 

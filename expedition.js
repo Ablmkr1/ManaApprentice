@@ -3,7 +3,7 @@ const REGION_MASTERY_TRAVEL_MULTIPLIER = 1.2;
 const EXPEDITION_ROUTE_OPEN = "open";
 const EXPEDITION_ROUTE_DESTINATION = "destination";
 const EXPEDITION_ROUTE_INTRA_REGION = "intraRegion";
-const INSTANT_MANUAL_RETURN_TO_CAMP = true;
+const EXPEDITION_ROUTE_TOWER_NODE = "towerNode";
 
 function setCurrentLocation(locationName) {
   clearTemporaryLocationSpellEffects(gameState.expedition.currentLocation);
@@ -128,6 +128,53 @@ function getFoothillScreeOreFindChance() {
   return getStoneSenseOreFindChance();
 }
 
+function normalizeLocationLooseStone(location) {
+  if (!location || !Number.isFinite(location.looseStoneMax)) return 0;
+
+  const max = Math.max(0, Math.floor(location.looseStoneMax));
+
+  if (!Number.isFinite(location.looseStoneRemaining)) {
+    location.looseStoneRemaining = max;
+  }
+
+  location.looseStoneRemaining = Math.max(0, Math.min(max, Math.floor(location.looseStoneRemaining)));
+
+  return location.looseStoneRemaining;
+}
+
+function getLocationLooseStoneRemaining(location) {
+  return normalizeLocationLooseStone(location);
+}
+
+function canGatherStoneAtCurrentLocation() {
+  const locationName = gameState.expedition.currentLocation;
+
+  if (locationName === "creepyCave") {
+    return getLocationLooseStoneRemaining(getExpeditionLocation(locationName)) > 0;
+  }
+
+  return locationName === "foothillScree";
+}
+
+function spendCurrentLocationLooseStone(amount) {
+  const location = getExpeditionLocation(gameState.expedition.currentLocation);
+
+  if (!location || !Number.isFinite(location.looseStoneMax)) return 0;
+
+  const remaining = getLocationLooseStoneRemaining(location);
+  location.looseStoneRemaining = Math.max(0, remaining - amount);
+
+  return getLocationLooseStoneRemaining(location);
+}
+
+function isLocationActionAvailable(actionName, locationName, location) {
+  if (actionName === "gatherStone" && locationName === "creepyCave") {
+    return getLocationLooseStoneRemaining(location) > 0;
+  }
+
+  return true;
+}
+
 function updateLocationActions() {
   const locationName = gameState.expedition.currentLocation;
 
@@ -151,6 +198,8 @@ function updateLocationActions() {
 
   if (location.availableActions) {
     location.availableActions.forEach((actionName) => {
+      if (!isLocationActionAvailable(actionName, locationName, location)) return;
+
       unlockAction(actionName);
     });
   }
@@ -229,6 +278,7 @@ const carriedItemWeights = {
   herb: 0.2,
   glimmerleaf: 0.2,
   manaCrystal: 0.5,
+  chargedCrystal: 0.5,
 };
 
 function getCarriedItemWeight(itemName) {
@@ -418,55 +468,6 @@ function getCarriedSummary() {
   return parts.join(", ");
 }
 
-function applyReturnPenalty() {
-  const expedition = gameState.expedition;
-  const dropChance = expedition.returnPenalty;
-
-  if (dropChance <= 0) return;
-
-  const carriedItems = expedition.carriedItems;
-  let lostSomething = false;
-
-  if (carriedItems.food && carriedItems.food > 0) {
-    delete carriedItems.food;
-    lostSomething = true;
-  }
-
-  if (expedition.water > 0) {
-    expedition.water = 0;
-    lostSomething = true;
-  }
-
-  for (let itemName in carriedItems) {
-    if (itemName === "food") continue;
-
-    const currentAmount = carriedItems[itemName];
-    let keptAmount = 0;
-
-    for (let i = 0; i < currentAmount; i++) {
-      if (Math.random() >= dropChance) {
-        keptAmount++;
-      }
-    }
-
-    if (keptAmount < currentAmount) {
-      lostSomething = true;
-    }
-
-    if (keptAmount <= 0) {
-      delete carriedItems[itemName];
-    } else {
-      carriedItems[itemName] = keptAmount;
-    }
-  }
-
-  expedition.returnPenalty = 0;
-
-  if (lostSomething) {
-    addStoryEntry("Food and water are spent on the hard return, and some supplies are lost along the way.");
-  }
-}
-
 // Cargo Helpers
 function transferCarriedItemsToCamp() {
   const carriedItems = gameState.expedition.carriedItems;
@@ -523,10 +524,7 @@ function resolveExpeditionStep() {
 
   step.distance *= getRouteTravelDistanceMultiplier();
 
-  const expedition = gameState.expedition;
-  const canUseTravelModifiers = !expedition.returning || canAffordCost({ energy: step.energyCost });
-
-  const affordableModifiers = canUseTravelModifiers ? getAffordableExpeditionModifiers() : [];
+  const affordableModifiers = getAffordableExpeditionModifiers();
 
   for (let i = 0; i < affordableModifiers.length; i++) {
     const modifierName = affordableModifiers[i];
@@ -566,17 +564,10 @@ function resolveExpeditionStep() {
 
 function applyExpeditionStep(step) {
   const expedition = gameState.expedition;
-  const traveledDistance = expedition.returning ? Math.min(step.distance, expedition.distance) : step.distance;
 
-  recordPhysicalTravelDistance(traveledDistance);
-
-  if (expedition.returning) {
-    expedition.distance = Math.max(0, expedition.distance - step.distance);
-    return;
-  }
+  recordPhysicalTravelDistance(step.distance);
 
   const regionId = expedition.regionId || "outskirts";
-  const previousDistance = expedition.distance;
 
   expedition.distance += step.distance;
 
@@ -609,60 +600,21 @@ function beginReturnToCamp(reason) {
 
   if (!expedition.active) return;
 
-  if (shouldReturnToCampInstantly(reason)) {
-    const awakened = unlockRecallMagic();
+  const awakened = unlockRecallMagic();
 
-    if (!awakened) {
+  if (!awakened) {
+    if (reason === "exhausted") {
+      addStoryEntry("Your strength gives out. You pluck the faint thread leading back to camp and the camp appears.");
+    } else {
       addStoryEntry("You pluck the faint thread leading back to camp and the camp appears.");
     }
-
-    expedition.distance = 0;
-    expedition.destination = null;
-    resetTemporaryLocationObjectSpellCharges(expedition.currentLocation);
-    expedition.currentLocation = null;
-    expedition.returning = false;
-    expedition.returnPenalty = 0;
-    endExpedition("recalled");
-    return;
   }
 
-  expedition.returning = true;
-
-  expedition.returnPenalty = reason === "exhausted" ? 0.25 : 0;
-
-  if (expedition.currentLocation) {
-    const location = getExpeditionLocation(expedition.currentLocation);
-
-    if (location) {
-      expedition.regionId = getLocationRegionId(location);
-      expedition.distance = getLocationTravelDistance(location);
-      expedition.targetDistance = expedition.distance;
-      expedition.routeType = EXPEDITION_ROUTE_DESTINATION;
-    }
-  }
-
+  expedition.distance = 0;
   expedition.destination = null;
   resetTemporaryLocationObjectSpellCharges(expedition.currentLocation);
   expedition.currentLocation = null;
-
-  lockAction("returnToCamp");
-  updateLocationActions();
-  setPackingActionsAvailable(false);
-
-  if (reason === "manual") {
-    addStoryEntry("You turn back toward camp.");
-  }
-
-  if (reason === "exhausted") {
-    addStoryEntry("Your strength gives out. You pluck the faint thread and the camp appears.");
-  }
-
-  refreshExpeditionUI();
-  updatePlacePanel();
-}
-
-function shouldReturnToCampInstantly(reason) {
-  return INSTANT_MANUAL_RETURN_TO_CAMP && (reason === "manual" || reason === "exhausted");
+  endExpedition("recalled");
 }
 
 function completeTier2Exploration() {
@@ -701,11 +653,9 @@ function endExpedition(reason) {
   stopTraveling();
 
   expedition.active = false;
-  expedition.returning = false;
 
   clearActiveAttunements();
 
-  applyReturnPenalty();
   transferCarriedItemsToCamp();
   applyPendingConditioningAtCamp();
   updateTrapCapacityUI();
@@ -730,10 +680,6 @@ function endExpedition(reason) {
     } else {
       completeRegionalExploration(completedRegionId);
     }
-  }
-
-  if (reason === "exhausted") {
-    addStoryEntry("Your strength gives out. You turn back toward the clearing.");
   }
 
   updateRegionalMapVisibility();
@@ -889,7 +835,7 @@ function isOutskirtsTravelActive() {
   const expedition = gameState.expedition;
 
   if (!gameState.knownOutskirtsPathsUnlocked) return false;
-  if (!expedition.active || expedition.returning) return false;
+  if (!expedition.active) return false;
   if (getExpeditionRouteType(expedition) === EXPEDITION_ROUTE_INTRA_REGION) return false;
 
   if (!expedition.regionId || expedition.regionId === "outskirts") return true;
@@ -931,10 +877,6 @@ function isRegionalMasteryTravelActive() {
 
   if (getExpeditionRouteType(expedition) === EXPEDITION_ROUTE_INTRA_REGION) return true;
 
-  if (expedition.returning) {
-    return expedition.distance > REGION_APPROACH_DISTANCE;
-  }
-
   return expedition.distance >= REGION_APPROACH_DISTANCE;
 }
 
@@ -964,10 +906,6 @@ function getCurrentTravelSegmentRegionId() {
 
   if (routeType === EXPEDITION_ROUTE_INTRA_REGION || regionId === "outskirts") {
     return regionId;
-  }
-
-  if (expedition.returning) {
-    return expedition.distance > REGION_APPROACH_DISTANCE ? regionId : "outskirts";
   }
 
   return expedition.distance < REGION_APPROACH_DISTANCE ? "outskirts" : regionId;
@@ -1016,29 +954,15 @@ function getLocationLabel(locationName) {
 function updatePlacePanel() {
   const expedition = gameState.expedition;
   updateLocationStorageUI(null);
+  renderTowerNodePanel(null);
   renderLocationTravelActions(null);
   updateDungeonUI();
   updateEquipmentSlotUI();
 
   if (isTravelActivityActive()) {
-    if (expedition.returning) {
-      safeSetText(ui.campPanelTitle, "Returning to Camp");
-      safeSetText(ui.locationDescription, getCurrentTravelDescription());
-    } else {
-      safeSetText(ui.campPanelTitle, "Traveling");
-      safeSetText(ui.locationDescription, getCurrentTravelDescription());
-    }
-
-    hideElement(ui.campContent);
-    showElement(ui.locationContent, "block");
-    updateTrapSitesUI(null);
-    updateLocationObjectActionsUI(null);
-    return;
-  }
-
-  if (expedition.returning) {
-    safeSetText(ui.campPanelTitle, "Returning to Camp");
+    safeSetText(ui.campPanelTitle, "Traveling");
     safeSetText(ui.locationDescription, getCurrentTravelDescription());
+
     hideElement(ui.campContent);
     showElement(ui.locationContent, "block");
     updateTrapSitesUI(null);
@@ -1076,6 +1000,7 @@ function updatePlacePanel() {
 
     safeSetText(ui.campPanelTitle, getLocationLabel(expedition.currentLocation));
     safeSetText(ui.locationDescription, getLocationPanelText(location));
+    renderTowerNodePanel(expedition.currentLocation);
     hideElement(ui.campContent);
     showElement(ui.locationContent, "block");
     return;
@@ -1660,17 +1585,27 @@ function hasUncheckedInstalledTrapSite(locationName) {
 function getLocationPanelText(location) {
   if (!location) return "";
 
+  let text = location.onDiscoverStory || "";
+
   if (location.panelText) {
     if (location.explored && location.panelText.explored) {
-      return location.panelText.explored;
-    }
-
-    if (location.panelText.discovered) {
-      return location.panelText.discovered;
+      text = location.panelText.explored;
+    } else if (location.panelText.discovered) {
+      text = location.panelText.discovered;
     }
   }
 
-  return location.onDiscoverStory || "";
+  if (Number.isFinite(location.looseStoneMax)) {
+    const remaining = getLocationLooseStoneRemaining(location);
+
+    if (remaining <= 0) {
+      return "The loose stone around the cave mouth has been picked clean. More stone will have to come from the foothills. Loose stone remaining: 0";
+    }
+
+    return text + " Loose stone remaining: " + remaining;
+  }
+
+  return text;
 }
 
 function checkExpeditionDiscovery() {
@@ -1708,7 +1643,7 @@ function checkExpeditionDiscovery() {
 function getDisplayedExpeditionDistance() {
   const expedition = gameState.expedition;
 
-  if (!expedition.active || expedition.returning || expedition.currentLocation) {
+  if (!expedition.active || expedition.currentLocation) {
     return expedition.distance;
   }
 
@@ -1850,10 +1785,13 @@ function setPackingActionsAvailable(available) {
     lockAction("packTrap");
     lockAction("packPelt");
     lockAction("packWood");
+    lockAction("packStone");
+    lockAction("packIron");
     lockAction("packImbuedWood");
     lockAction("packOre");
     lockAction("packHerb");
     lockAction("packGlimmerleaf");
+    lockAction("packChargedCrystal");
     hideElement(ui.packingSection);
     return;
   }
@@ -1897,6 +1835,18 @@ function setPackingActionsAvailable(available) {
     lockAction("packWood");
   }
 
+  if (typeof canPackTowerNodeMaterial === "function" && canPackTowerNodeMaterial("stone")) {
+    unlockAction("packStone");
+  } else {
+    lockAction("packStone");
+  }
+
+  if (typeof canPackTowerNodeMaterial === "function" && canPackTowerNodeMaterial("iron")) {
+    unlockAction("packIron");
+  } else {
+    lockAction("packIron");
+  }
+
   const imbuedWood = getResource("imbuedWood");
 
   if (imbuedWood.value > 0) {
@@ -1928,13 +1878,18 @@ function setPackingActionsAvailable(available) {
   } else {
     lockAction("packGlimmerleaf");
   }
+
+  if (typeof canPackTowerNodeMaterial === "function" && canPackTowerNodeMaterial("chargedCrystal")) {
+    unlockAction("packChargedCrystal");
+  } else {
+    lockAction("packChargedCrystal");
+  }
 }
 
 function enterExpeditionPreparation() {
   const expedition = gameState.expedition;
 
   expedition.active = true;
-  expedition.returning = false;
   expedition.completed = false;
   expedition.distance = 0;
   if (expedition.destination) {
@@ -1943,8 +1898,6 @@ function enterExpeditionPreparation() {
   } else {
     expedition.targetDistance = getSelectedTravelDistance();
   }
-  expedition.returnPenalty = 0;
-
   resetTrapSiteChecks();
   clearCurrentLocation();
 
@@ -1989,6 +1942,64 @@ function prepareDestinationTravel(locationName) {
   updatePlacePanel();
 }
 
+function prepareTowerNodeJump(nodeName) {
+  const definition = getTowerNodeDefinition(nodeName);
+
+  if (!definition || !canPrepareTowerNodeJump(nodeName, definition.locationName)) return;
+
+  gameState.expedition.destination = definition.locationName;
+  gameState.expedition.regionId = definition.regionId || getLocationRegionId(getExpeditionLocation(definition.locationName));
+  gameState.expedition.routeType = EXPEDITION_ROUTE_TOWER_NODE;
+
+  enterExpeditionPreparation();
+  gameState.expedition.targetDistance = 0;
+  renderDestinationActions();
+
+  addStoryEntry("You prepare to jump to the " + definition.destinationLabel + ".");
+  refreshExpeditionUI();
+  updateTravelButton(false);
+  updatePlacePanel();
+}
+
+function getPreparedTowerNodeName() {
+  const expedition = gameState.expedition;
+
+  if (!expedition.active || expedition.routeType !== EXPEDITION_ROUTE_TOWER_NODE || !expedition.destination) return null;
+
+  return typeof getBuiltTowerNodeForLocation === "function" ? getBuiltTowerNodeForLocation(expedition.destination) : null;
+}
+
+function isTowerNodeJumpExpedition() {
+  return !!getPreparedTowerNodeName();
+}
+
+function startTowerNodeJump() {
+  const nodeName = getPreparedTowerNodeName();
+  const definition = nodeName ? getTowerNodeDefinition(nodeName) : null;
+
+  if (!definition || !canPrepareTowerNodeJump(nodeName, definition.locationName)) return;
+  if (!spendCost(getTowerNodeJumpCost(nodeName))) return;
+
+  resetActivity();
+  gameState.expedition.distance = 0;
+  gameState.expedition.targetDistance = 0;
+  gameState.expedition.destination = null;
+  gameState.expedition.routeType = EXPEDITION_ROUTE_DESTINATION;
+
+  setCurrentLocation(definition.locationName);
+  lockAction("travel");
+  unlockAction("returnToCamp");
+  setPackingActionsAvailable(false);
+
+  addStoryEntry("Mana folds through the Heart's northern path. You arrive at the " + getLocationLabel(definition.locationName) + " with your pack intact.");
+  updateResource("mana");
+  refreshExpeditionUI();
+  updateTravelButton(false);
+  updateAllActionButtons();
+  updateCraftingButtons();
+  updatePlacePanel();
+}
+
 function renderDestinationActions() {
   if (!ui.destinationActions) return;
 
@@ -2018,6 +2029,26 @@ function renderDestinationActions() {
     });
 
     ui.destinationActions.appendChild(button);
+
+    const nodeName = typeof getBuiltTowerNodeForLocation === "function" ? getBuiltTowerNodeForLocation(locationName) : null;
+
+    if (nodeName && canPrepareTowerNodeJump(nodeName, locationName)) {
+      const nodeDefinition = getTowerNodeDefinition(nodeName);
+      const nodeButton = document.createElement("button");
+      nodeButton.type = "button";
+      nodeButton.classList.add("action-btn");
+      nodeButton.textContent = "Prepare " + ((nodeDefinition && nodeDefinition.destinationLabel) || "Tower Node") + " Jump";
+
+      nodeButton.addEventListener("click", function () {
+        startActivity({
+          kind: "instant",
+          id: "towerNodeJumpPreparation",
+          context: { nodeName: nodeName },
+        });
+      });
+
+      ui.destinationActions.appendChild(nodeButton);
+    }
   });
 }
 
@@ -2160,7 +2191,6 @@ function beginLocationToLocationTravel(fromLocationName, targetLocationName) {
   gameState.expedition.routeType = EXPEDITION_ROUTE_INTRA_REGION;
   gameState.expedition.distance = 0;
   gameState.expedition.targetDistance = distance;
-  gameState.expedition.returning = false;
 
   clearCurrentLocation();
   unlockAction("travel");

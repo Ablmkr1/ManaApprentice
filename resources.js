@@ -57,6 +57,10 @@ function spendCost(cost) {
 
     resource.value = Math.max(0, roundResourceAmount(roundResourceAmount(resource.value) - costAmount));
     updateResource(resourceName);
+
+    if (resourceName === "energy" && typeof recordReinforcedEnergySpent === "function") {
+      recordReinforcedEnergySpent(costAmount);
+    }
   }
 
   if (typeof updateSelectedResearchButtonState === "function") {

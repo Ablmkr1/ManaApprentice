@@ -4,7 +4,7 @@ function hookActionCompletions() {
   };
 
   getAction("meditate").onComplete = function () {
-    addResource("mana", 1);
+    addResource("mana", getMeditationManaRestoreAmount());
     recordMeditation();
 
     if (getResource("mana").value >= getResource("mana").maxValue) {
@@ -20,8 +20,8 @@ function hookActionCompletions() {
     }
   };
 
-  getAction("practiceManaCycling").onComplete = function () {
-    recordManaCycle();
+  getAction("practiceManaCycling").onComplete = function (context = {}) {
+    recordManaCycle(context.manaSpent);
   };
 
   getAction("gatherWood").onComplete = function () {
@@ -61,8 +61,27 @@ function hookActionCompletions() {
   };
 
   getAction("gatherStone").onComplete = function () {
+    if (!canGatherStoneAtCurrentLocation()) {
+      addStoryEntry("The loose stone around the cave has been picked clean. The foothills will have more.");
+      updateLocationActions();
+      updatePlacePanel();
+      return;
+    }
+
     if (!addCarriedItem("stone", 1)) {
       addStoryEntry("The stones are too heavy to carry more.");
+      return;
+    }
+
+    if (gameState.expedition.currentLocation === "creepyCave") {
+      const remaining = spendCurrentLocationLooseStone(1);
+
+      if (remaining <= 0) {
+        addStoryEntry("The last loose stones around the cave mouth are gone. You will need to gather more from the foothills.");
+      }
+
+      updateLocationActions();
+      updatePlacePanel();
       return;
     }
 
@@ -292,6 +311,18 @@ function hookActionCompletions() {
     }
   };
 
+  getAction("packStone").onComplete = function () {
+    if (!addCarriedItem("stone", 1)) {
+      addResource("stone", 1);
+    }
+  };
+
+  getAction("packIron").onComplete = function () {
+    if (!addCarriedItem("iron", 1)) {
+      addResource("iron", 1);
+    }
+  };
+
   getAction("packImbuedWood").onComplete = function () {
     if (!addCarriedItem("imbuedWood", 1)) {
       addResource("imbuedWood", 1);
@@ -507,6 +538,12 @@ function hookActionCompletions() {
     addStoryEntry("You pack " + amountPacked + " glimmerleaf.");
   };
 
+  getAction("packChargedCrystal").onComplete = function () {
+    if (!addCarriedItem("chargedCrystal", 1)) {
+      addResource("chargedCrystal", 1);
+    }
+  };
+
   getAction("enterDungeon").onComplete = function () {
     enterCurrentLocationDungeon();
   };
@@ -700,6 +737,10 @@ function shouldStopAutoAction(actionName) {
     return true;
   }
 
+  if (actionName === "gatherStone" && typeof canGatherStoneAtCurrentLocation === "function" && !canGatherStoneAtCurrentLocation()) {
+    return true;
+  }
+
   return false;
 }
 
@@ -761,6 +802,11 @@ function runAction(actionName) {
 
   if (actionName === "travel" && isTravelActivityActive()) {
     toggleTraveling();
+    return;
+  }
+
+  if (actionName === "travel" && typeof isTowerNodeJumpExpedition === "function" && isTowerNodeJumpExpedition()) {
+    startTowerNodeJump();
     return;
   }
 
@@ -831,7 +877,9 @@ function startActionExecution(actionName) {
     return;
   }
 
-  if (!spendCost(getActionCost(actionName))) {
+  const actionCost = getActionCost(actionName);
+
+  if (!spendCost(actionCost)) {
     if (isAutoAction(actionName)) {
       if (canPauseAutoActionForRest(actionName)) {
         pauseAutoActionForRest(actionName);
@@ -852,10 +900,21 @@ function startActionExecution(actionName) {
   startActivity({
     kind: "action",
     id: actionName,
+    context: getActionActivityContext(actionName, actionCost),
   });
 
   updateAllActionButtons();
   updateCraftingButtons();
+}
+
+function getActionActivityContext(actionName, actionCost) {
+  if (actionName === "practiceManaCycling") {
+    return {
+      manaSpent: actionCost && Number.isFinite(actionCost.mana) ? actionCost.mana : 0,
+    };
+  }
+
+  return null;
 }
 
 function resetActivity() {
@@ -863,6 +922,7 @@ function resetActivity() {
   gameState.activity.kind = null;
   gameState.activity.type = null;
   gameState.activity.id = null;
+  gameState.activity.mode = null;
   gameState.activity.label = null;
   gameState.activity.startTime = null;
   gameState.activity.duration = 0;
@@ -906,8 +966,20 @@ function getActivityButton(activity) {
   }
 
   if (activity.kind === "projectWork") {
+    if (typeof getProjectLevelWorkButton === "function") {
+      return getProjectLevelWorkButton(activity.id, activity.mode);
+    }
+
     const project = getProjectDefinition(activity.id);
     return project ? project.workButton : null;
+  }
+
+  if (activity.kind === "towerNodeImbue") {
+    return typeof getTowerNodeImbueButton === "function" ? getTowerNodeImbueButton(activity.id) : null;
+  }
+
+  if (activity.kind === "towerNodeThreadSense") {
+    return typeof getTowerNodeThreadSenseButton === "function" ? getTowerNodeThreadSenseButton(activity.id) : null;
   }
 
   return null;
@@ -1011,6 +1083,22 @@ function processActivityTick() {
     }
   }
 
+  if (activity.kind === "towerNodeImbue" && button) {
+    const progressFill = button.querySelector(".progressFill");
+
+    if (progressFill) {
+      progressFill.style.width = progress * 100 + "%";
+    }
+  }
+
+  if (activity.kind === "towerNodeThreadSense" && button) {
+    const progressFill = button.querySelector(".progressFill");
+
+    if (progressFill) {
+      progressFill.style.width = progress * 100 + "%";
+    }
+  }
+
   if (progress < 1) return;
 
   completeActivity();
@@ -1055,28 +1143,9 @@ function completeActivity() {
     updateResource("energy");
 
     if (!result.success && result.reason === "notEnoughEnergy") {
-      if (!expedition.returning) {
-        resetActivity();
-        updateTravelButton(false);
-        beginReturnToCamp("exhausted");
-        updateAllActionButtons();
-        updateCraftingButtons();
-        return;
-      }
-
-      applyExpeditionStep(result.step);
-      refreshExpeditionUI();
-      updatePlacePanel();
-
-      if (expedition.distance <= 0) {
-        resetActivity();
-        updateTravelButton(false);
-        endExpedition("returned");
-        return;
-      }
-
-      gameState.activity.startTime = getGameTime();
-      updateTravelButton(true);
+      resetActivity();
+      updateTravelButton(false);
+      beginReturnToCamp("exhausted");
       updateAllActionButtons();
       updateCraftingButtons();
       return;
@@ -1093,13 +1162,6 @@ function completeActivity() {
     applyExpeditionStep(result.step);
     refreshExpeditionUI();
     updatePlacePanel();
-
-    if (expedition.returning && expedition.distance <= 0) {
-      resetActivity();
-      updateTravelButton(false);
-      endExpedition("returned");
-      return;
-    }
 
     if (checkDestinationArrival()) {
       resetActivity();
@@ -1119,7 +1181,7 @@ function completeActivity() {
       return;
     }
 
-    if (!expedition.returning && expedition.distance >= expedition.targetDistance) {
+    if (expedition.distance >= expedition.targetDistance) {
       resetActivity();
       updateTravelButton(false);
       endExpedition("completed");
@@ -1193,6 +1255,7 @@ function completeActivity() {
 
   if (activity.kind === "projectWork") {
     const projectName = activity.id;
+    const projectWorkMode = activity.mode;
     const button = getActivityButton(activity);
 
     if (button) {
@@ -1204,7 +1267,45 @@ function completeActivity() {
     }
 
     resetActivity();
-    completeProjectWork(projectName);
+    completeProjectWork(projectName, projectWorkMode);
+    updateAllActionButtons();
+    updateCraftingButtons();
+    return;
+  }
+
+  if (activity.kind === "towerNodeImbue") {
+    const nodeName = activity.id;
+    const button = getActivityButton(activity);
+
+    if (button) {
+      const progressFill = button.querySelector(".progressFill");
+
+      if (progressFill) {
+        progressFill.style.width = "0%";
+      }
+    }
+
+    resetActivity();
+    completeTowerNodeImbue(nodeName);
+    updateAllActionButtons();
+    updateCraftingButtons();
+    return;
+  }
+
+  if (activity.kind === "towerNodeThreadSense") {
+    const nodeName = activity.id;
+    const button = getActivityButton(activity);
+
+    if (button) {
+      const progressFill = button.querySelector(".progressFill");
+
+      if (progressFill) {
+        progressFill.style.width = "0%";
+      }
+    }
+
+    resetActivity();
+    completeTowerNodeThreadSense(nodeName);
     updateAllActionButtons();
     updateCraftingButtons();
     return;
@@ -1220,6 +1321,10 @@ function completeActivity() {
       prepareDestinationTravel(context.locationName);
     }
 
+    if (instantId === "towerNodeJumpPreparation") {
+      prepareTowerNodeJump(context.nodeName);
+    }
+
     updateAllActionButtons();
     updateCraftingButtons();
     return;
@@ -1228,6 +1333,7 @@ function completeActivity() {
   if (activity.kind === "action") {
     const action = getAction(activity.id);
     const completedActionName = activity.id;
+    const completedActionContext = activity.context;
 
     if (action) {
       action.running = false;
@@ -1236,7 +1342,7 @@ function completeActivity() {
       resetActivity();
 
       if (action.onComplete) {
-        action.onComplete();
+        action.onComplete(completedActionContext);
       }
 
       checkResearchDiscoveries();
@@ -1301,6 +1407,7 @@ function startActivity(activityRequest) {
   gameState.activity.kind = activityRequest.kind;
   gameState.activity.type = activityRequest.type || null;
   gameState.activity.id = activityRequest.id || null;
+  gameState.activity.mode = activityRequest.mode || null;
   gameState.activity.label = activityRequest.label || null;
   gameState.activity.startTime = getGameTime();
   gameState.activity.duration = duration;

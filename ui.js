@@ -47,6 +47,7 @@ function hookDomToUI() {
   ui.loadGameBtn = document.getElementById("loadGameBtn");
   ui.resetSaveBtn = document.getElementById("resetSaveBtn");
   ui.devSpeedButtons = Array.from(document.querySelectorAll(".dev-speed-btn"));
+  ui.devTierButtons = Array.from(document.querySelectorAll(".dev-tier-btn"));
   ui.destinationActions = document.getElementById("destinationActions");
   ui.craftingSection = document.getElementById("craftingSection");
   ui.outskirtsCompletePopup = document.getElementById("outskirtsCompletePopup");
@@ -100,6 +101,7 @@ function hookDomToUI() {
   ui.dungeonRoomText = document.getElementById("dungeonRoomText");
   ui.locationContent = document.getElementById("locationContent");
   ui.locationDescription = document.getElementById("locationDescription");
+  ui.towerNodePanel = document.getElementById("towerNodePanel");
   ui.dungeonSection = document.getElementById("dungeonSection");
   ui.dungeonTitle = document.getElementById("dungeonTitle");
   ui.dungeonMap = document.getElementById("dungeonMap");
@@ -120,6 +122,10 @@ function hookDomToUI() {
   ui.campFoundationContinueBtn = document.getElementById("campFoundationContinueBtn");
   ui.personalWardPopup = document.getElementById("personalWardPopup");
   ui.personalWardContinueBtn = document.getElementById("personalWardContinueBtn");
+  ui.advancedRecallPopup = document.getElementById("advancedRecallPopup");
+  ui.advancedRecallPopupText = document.getElementById("advancedRecallPopupText");
+  ui.advancedRecallOptions = document.getElementById("advancedRecallOptions");
+  ui.advancedRecallCloseBtn = document.getElementById("advancedRecallCloseBtn");
   ui.dungeonActions = document.getElementById("dungeonActions");
   ui.nailsAmount = document.getElementById("nailsAmount");
   ui.automationTabBtn = document.getElementById("automationTabBtn");
@@ -243,6 +249,10 @@ function updateAllActionButtons() {
 
   if (typeof updateProjectButtons === "function") {
     updateProjectButtons();
+  }
+
+  if (typeof updateTowerNodeButtons === "function") {
+    updateTowerNodeButtons();
   }
 }
 
@@ -422,6 +432,7 @@ function updateActionButton(actionName) {
   if (!action || !action.button) return;
 
   action.button.style.display = action.unlocked ? "inline-block" : "none";
+  updateDynamicActionButtonLabel(actionName, action);
 
   if (!action.unlocked) {
     action.button.disabled = true;
@@ -434,6 +445,18 @@ function updateActionButton(actionName) {
       (gameState.activity.kind === "travel" && actionName === "travel"));
 
   action.button.disabled = !action.unlocked || (!isCurrentActivity && isActivityActive()) || !canUseAction(actionName);
+}
+
+function updateDynamicActionButtonLabel(actionName, action) {
+  if (!action || !action.button) return;
+
+  const label = action.button.querySelector("span");
+
+  if (!label) return;
+
+  if (actionName === "practiceManaCycling" && typeof getManaCyclingActionLabel === "function") {
+    label.textContent = getManaCyclingActionLabel();
+  }
 }
 
 function canUseAction(actionName) {
@@ -451,16 +474,28 @@ function canUseAction(actionName) {
 }
 
 function isCampMeditationContext() {
-  return !gameState.expedition.active && !gameState.expedition.currentLocation && hasPurchasedCampUpgrade("meditationSpot");
+  return (
+    !gameState.expedition.active &&
+    !gameState.expedition.currentLocation &&
+    (hasPurchasedCampUpgrade("meditationSpot") || hasPurchasedCampUpgrade("attunedMeditationSpot"))
+  );
 }
 
 function isActionContextAvailable(actionName) {
   const locationName = gameState.expedition.currentLocation;
 
+  if (actionName === "catchBreath") {
+    return gameState.phase === "lost" && !gameState.discoveredClearing;
+  }
+
   if (actionName === "travel") {
     const expedition = gameState.expedition;
 
     return !!expedition.active && !expedition.currentLocation;
+  }
+
+  if (actionName === "gatherStone") {
+    return typeof canGatherStoneAtCurrentLocation === "function" && canGatherStoneAtCurrentLocation();
   }
 
   if (actionName === "scoutTrapSite") {
@@ -490,6 +525,18 @@ function isActionContextAvailable(actionName) {
   if (actionName === "storePelt") {
     const location = getExpeditionLocation(locationName);
     return !!location && !!location.storage && location.storage.pelt !== undefined && gameState.expedition.carriedItems.pelt > 0;
+  }
+
+  if (actionName === "packStone") {
+    return typeof canPackTowerNodeMaterial === "function" && canPackTowerNodeMaterial("stone");
+  }
+
+  if (actionName === "packIron") {
+    return typeof canPackTowerNodeMaterial === "function" && canPackTowerNodeMaterial("iron");
+  }
+
+  if (actionName === "packChargedCrystal") {
+    return typeof canPackTowerNodeMaterial === "function" && canPackTowerNodeMaterial("chargedCrystal");
   }
 
   if (actionName === "takeLeather") {
@@ -567,7 +614,12 @@ function isActionContextAvailable(actionName) {
   }
 
   if (actionName === "practiceManaCycling") {
-    return !gameState.expedition.active && !gameState.expedition.currentLocation && getSkillState("manaCycling").revealed;
+    return (
+      !gameState.expedition.active &&
+      !gameState.expedition.currentLocation &&
+      getSkillState("manaCycling").revealed &&
+      (typeof canPracticeManaCycling !== "function" || canPracticeManaCycling())
+    );
   }
 
   return true;
@@ -593,6 +645,17 @@ function updateTravelButton(isTraveling) {
   const label = travelButton.querySelector("span");
 
   if (label) {
+    if (!isTraveling && typeof isTowerNodeJumpExpedition === "function" && isTowerNodeJumpExpedition()) {
+      const nodeName =
+        typeof getPreparedTowerNodeName === "function" ? getPreparedTowerNodeName() : null;
+      const definition =
+        nodeName && typeof getTowerNodeDefinition === "function" ? getTowerNodeDefinition(nodeName) : null;
+
+      label.textContent =
+        "Jump to " + ((definition && definition.destinationLabel) || "Tower Node") + " - " + formatCost(getActionCost("travel"));
+      return;
+    }
+
     label.textContent = isTraveling ? "Pause Travel" : "Travel";
   }
 }
@@ -849,8 +912,7 @@ function updateRegionalMapVisibility() {
     gameState.tier3Unlocked &&
     gameState.phase === "expedition" &&
     !gameState.expedition.active &&
-    !gameState.expedition.currentLocation &&
-    !gameState.expedition.returning;
+    !gameState.expedition.currentLocation;
 
   if (shouldShowRegionMap) {
     showElement(ui.regionalMapSection, "block");

@@ -1,5 +1,5 @@
 const SAVE_KEY = "manaApprenticeSaveV1";
-const SAVE_VERSION = 15;
+const SAVE_VERSION = 19;
 let saveSuppressed = false;
 
 function createSaveData() {
@@ -119,6 +119,10 @@ function createExpeditionLocationSaveData() {
       explored: location.explored,
       explorationProgress: location.explorationProgress || 0,
     };
+
+    if (Number.isFinite(location.looseStoneMax) && typeof getLocationLooseStoneRemaining === "function") {
+      savedLocations[locationName].looseStoneRemaining = getLocationLooseStoneRemaining(location);
+    }
 
     if (location.trapSites) {
       savedLocations[locationName].trapSites = {
@@ -276,6 +280,22 @@ function migrateSaveData(saveData) {
     migrateV14SaveDataToV15(normalizedSaveData);
   }
 
+  if (version <= 15) {
+    migrateV15SaveDataToV16(normalizedSaveData);
+  }
+
+  if (version <= 16) {
+    migrateV16SaveDataToV17(normalizedSaveData);
+  }
+
+  if (version <= 17) {
+    migrateV17SaveDataToV18(normalizedSaveData);
+  }
+
+  if (version <= 18) {
+    migrateV18SaveDataToV19(normalizedSaveData);
+  }
+
   normalizedSaveData.version = SAVE_VERSION;
 
   return normalizedSaveData;
@@ -290,6 +310,7 @@ function normalizeSaveData(saveData) {
   saveData.gameState.expedition.carriedItems = ensureObject(saveData.gameState.expedition.carriedItems);
   saveData.gameState.skills = ensureObject(saveData.gameState.skills);
   saveData.gameState.projects = ensureObject(saveData.gameState.projects);
+  saveData.gameState.towerNodes = ensureObject(saveData.gameState.towerNodes);
   saveData.gameState.magic = ensureObject(saveData.gameState.magic);
   saveData.gameState.magic.sensedReveals = ensureObject(saveData.gameState.magic.sensedReveals);
   saveData.gameState.magic.spellProgress = ensureObject(saveData.gameState.magic.spellProgress);
@@ -404,9 +425,9 @@ function migrateV14SaveDataToV15(saveData) {
   const savedGameState = ensureObject(saveData.gameState);
   const savedProjects = ensureObject(savedGameState.projects);
   const towerFoundation = ensureObject(savedProjects.towerFoundation);
-  const hasReinforcedFoundation = !!towerFoundation.completed || (Number.isFinite(towerFoundation.level) && towerFoundation.level > 5);
+  const hasCompletedFoundation = !!towerFoundation.completed;
 
-  savedGameState.personalWardUnlocked = !!savedGameState.personalWardUnlocked || hasReinforcedFoundation;
+  savedGameState.personalWardUnlocked = !!savedGameState.personalWardUnlocked || hasCompletedFoundation;
   savedGameState.personalWardPopupShown = !!savedGameState.personalWardPopupShown;
 
   if (savedGameState.personalWardUnlocked) {
@@ -434,6 +455,118 @@ function migrateV14SaveDataToV15(saveData) {
   }
 
   saveData.gameState = savedGameState;
+}
+
+function migrateV15SaveDataToV16(saveData) {
+  const savedGameState = ensureObject(saveData.gameState);
+  const savedSkills = ensureObject(savedGameState.skills);
+  const definitions = getSkillDefinitions();
+
+  for (let skillName in definitions) {
+    const savedSkill = ensureObject(savedSkills[skillName]);
+    const oldProgressionRank = Number.isFinite(savedSkill.rank) ? Math.max(0, Math.floor(savedSkill.rank)) : 0;
+    const level = Number.isFinite(savedSkill.level) ? Math.max(0, Math.floor(savedSkill.level)) : oldProgressionRank;
+
+    savedSkills[skillName] = {
+      ...getDefaultSkillState(skillName),
+      ...savedSkill,
+      rank: DEFAULT_SKILL_RANK,
+      level: normalizeSkillLevel(skillName, level, DEFAULT_SKILL_RANK),
+    };
+  }
+
+  savedGameState.skills = savedSkills;
+  saveData.gameState = savedGameState;
+}
+
+function migrateV16SaveDataToV17(saveData) {
+  const savedGameState = ensureObject(saveData.gameState);
+  const savedSkills = ensureObject(savedGameState.skills);
+
+  savedSkills.conditioning = {
+    ...getDefaultSkillState("conditioning"),
+    ...ensureObject(savedSkills.conditioning),
+  };
+  savedSkills.manaCycling = {
+    ...getDefaultSkillState("manaCycling"),
+    ...ensureObject(savedSkills.manaCycling),
+  };
+  savedSkills.meditation = {
+    ...getDefaultSkillState("meditation"),
+    ...ensureObject(savedSkills.meditation),
+  };
+
+  savedSkills.conditioning.reinforcedEnergyUnlockSpent = Number.isFinite(savedSkills.conditioning.reinforcedEnergyUnlockSpent)
+    ? Math.max(0, savedSkills.conditioning.reinforcedEnergyUnlockSpent)
+    : 0;
+  savedSkills.conditioning.reinforcedEnergySpent = Number.isFinite(savedSkills.conditioning.reinforcedEnergySpent)
+    ? Math.max(0, savedSkills.conditioning.reinforcedEnergySpent)
+    : 0;
+  savedSkills.manaCycling.deepCycles = Number.isFinite(savedSkills.manaCycling.deepCycles) ? Math.max(0, savedSkills.manaCycling.deepCycles) : 0;
+  savedSkills.meditation.attunedMeditations = Number.isFinite(savedSkills.meditation.attunedMeditations)
+    ? Math.max(0, savedSkills.meditation.attunedMeditations)
+    : 0;
+
+  savedGameState.skills = savedSkills;
+  saveData.gameState = savedGameState;
+}
+
+function migrateV17SaveDataToV18(saveData) {
+  const savedGameState = ensureObject(saveData.gameState);
+  const savedProjects = ensureObject(savedGameState.projects);
+  const towerFoundation = ensureObject(savedProjects.towerFoundation);
+  const towerCompleted = !!savedGameState.towerConstructionUnlocked || !!towerFoundation.completed;
+
+  savedGameState.towerNodes = normalizeSavedTowerNodes(savedGameState.towerNodes, towerCompleted);
+  saveData.gameState = savedGameState;
+}
+
+function migrateV18SaveDataToV19(saveData) {
+  const savedGameState = ensureObject(saveData.gameState);
+
+  savedGameState.towerNodes = normalizeSavedTowerNodes(savedGameState.towerNodes, false);
+  saveData.gameState = savedGameState;
+}
+
+function normalizeSavedTowerNodes(savedTowerNodes, towerCompleted = false) {
+  const towerNodes = ensureObject(savedTowerNodes);
+  const definitions = typeof getTowerNodeDefinitions === "function" ? getTowerNodeDefinitions() : {};
+  const normalized = {};
+
+  for (let nodeName in definitions) {
+    const definition = definitions[nodeName];
+    const savedNode = ensureObject(towerNodes[nodeName]);
+    const savedDeposits = ensureObject(savedNode.deposits);
+    const deposits = {};
+
+    for (let resourceName in definition.materials || {}) {
+      const requirement = definition.materials[resourceName] || 0;
+      const deposited = Number.isFinite(savedDeposits[resourceName]) ? savedDeposits[resourceName] : 0;
+      deposits[resourceName] = Math.max(0, Math.min(deposited, requirement));
+    }
+
+    const imbueProgress = Number.isFinite(savedNode.imbueProgress) ? savedNode.imbueProgress : 0;
+    const threadSenseRequired = definition.threadSenseRequired || 0;
+    const threadSenseProgress = Number.isFinite(savedNode.threadSenseProgress) ? savedNode.threadSenseProgress : 0;
+    const normalizedThreadSenseProgress = Math.max(0, Math.min(threadSenseProgress, threadSenseRequired));
+    const threadSensed =
+      !!savedNode.threadSensed ||
+      !!savedNode.advancedRecallUnlocked ||
+      (threadSenseRequired > 0 && normalizedThreadSenseProgress >= threadSenseRequired);
+
+    normalized[nodeName] = {
+      activated: !!savedNode.activated || (nodeName === "north" && towerCompleted),
+      researchUnlocked: !!savedNode.researchUnlocked,
+      built: !!savedNode.built,
+      deposits,
+      imbueProgress: Math.max(0, Math.min(imbueProgress, definition.imbueRequired || 0)),
+      threadSenseProgress: normalizedThreadSenseProgress,
+      threadSensed: threadSensed || (threadSenseRequired > 0 && normalizedThreadSenseProgress >= threadSenseRequired),
+      advancedRecallUnlocked: !!savedNode.advancedRecallUnlocked || threadSensed,
+    };
+  }
+
+  return normalized;
 }
 
 function normalizeSavedFuelLocationStorage(savedLocations) {
@@ -611,15 +744,17 @@ function seedSavedSkillFromResourceCapacity(saveData, skillName, resourceName, p
   const savedSkills = ensureObject(saveData.gameState.skills);
   const savedSkill = ensureObject(savedSkills[skillName]);
   const maxValue = Number.isFinite(savedResource.maxValue) ? savedResource.maxValue : getResource(resourceName).maxValue;
-  const rank = Math.max(Number.isFinite(savedSkill.rank) ? savedSkill.rank : 0, getSkillRankFromCapacity(skillName, maxValue));
-  const threshold = getSkillThresholdForRank(skillName, rank);
+  const savedLevel = Number.isFinite(savedSkill.level) ? savedSkill.level : Number.isFinite(savedSkill.rank) ? savedSkill.rank : 0;
+  const level = Math.max(Math.max(0, Math.floor(savedLevel)), getSkillLevelFromCapacity(skillName, maxValue, DEFAULT_SKILL_RANK));
+  const threshold = getSkillThresholdForLevel(skillName, level, DEFAULT_SKILL_RANK);
 
   const migratedSkill = {
     ...getDefaultSkillState(skillName),
     ...savedSkill,
-    rank,
+    rank: DEFAULT_SKILL_RANK,
+    level,
     [progressField]: Math.max(Number.isFinite(savedSkill[progressField]) ? savedSkill[progressField] : 0, threshold),
-    revealed: !!savedSkill.revealed || rank > 0,
+    revealed: !!savedSkill.revealed || level > 0,
   };
 
   if (skillName === "conditioning") {
@@ -692,6 +827,35 @@ function applyProjectSaveData(savedProjects) {
     if (projectName === "towerFoundation" && state.completed) {
       gameState.towerConstructionUnlocked = true;
     }
+
+    if (projectName === "towerBasement" && state.completed) {
+      gameState.towerBasementCompleted = true;
+    }
+  }
+}
+
+function applyTowerNodeSaveData(savedTowerNodes) {
+  ensureTowerNodesState();
+
+  if (!savedTowerNodes) return;
+
+  const towerNodeDefinitions = getTowerNodeDefinitions();
+
+  for (let nodeName in towerNodeDefinitions) {
+    const state = getTowerNodeState(nodeName);
+    const savedNode = ensureObject(savedTowerNodes[nodeName]);
+
+    applySavedFields(state, savedNode, [
+      "activated",
+      "researchUnlocked",
+      "built",
+      "imbueProgress",
+      "threadSenseProgress",
+      "threadSensed",
+      "advancedRecallUnlocked",
+    ]);
+    state.deposits = structuredClone(ensureObject(savedNode.deposits));
+    normalizeTowerNodeState(nodeName);
   }
 }
 
@@ -751,6 +915,7 @@ function applyGameStateSaveData(savedGameState) {
     "manaCondenserPlansFound",
     "partialTowerPlansFound",
     "towerConstructionUnlocked",
+    "towerBasementCompleted",
     "personalWardUnlocked",
     "personalWardPopupShown",
     "destination",
@@ -778,8 +943,6 @@ function applyGameStateSaveData(savedGameState) {
     applySavedFields(gameState.expedition, savedGameState.expedition, [
       "active",
       "discoveredSomething",
-      "returning",
-      "returnPenalty",
       "completed",
       "currentLocation",
       "destination",
@@ -838,11 +1001,25 @@ function applyGameStateSaveData(savedGameState) {
 
   if (savedGameState.skills) {
     ensureSkillsState();
-    applySavedFields(gameState.skills.conditioning, savedGameState.skills.conditioning, ["rank", "distance", "pending", "revealed"]);
-    applySavedFields(gameState.skills.concentration, savedGameState.skills.concentration, ["rank", "deepThought", "revealed"]);
-    applySavedFields(gameState.skills.manaCycling, savedGameState.skills.manaCycling, ["rank", "successfulCycles", "revealed"]);
-    applySavedFields(gameState.skills.meditation, savedGameState.skills.meditation, ["rank", "successfulMeditations", "revealed"]);
-    applySavedFields(gameState.skills.manaControl, savedGameState.skills.manaControl, ["rank", "manaSpent", "revealed"]);
+    applySavedFields(gameState.skills.conditioning, savedGameState.skills.conditioning, [
+      "rank",
+      "level",
+      "distance",
+      "reinforcedEnergyUnlockSpent",
+      "reinforcedEnergySpent",
+      "pending",
+      "revealed",
+    ]);
+    applySavedFields(gameState.skills.concentration, savedGameState.skills.concentration, ["rank", "level", "deepThought", "revealed"]);
+    applySavedFields(gameState.skills.manaCycling, savedGameState.skills.manaCycling, ["rank", "level", "successfulCycles", "deepCycles", "revealed"]);
+    applySavedFields(gameState.skills.meditation, savedGameState.skills.meditation, [
+      "rank",
+      "level",
+      "successfulMeditations",
+      "attunedMeditations",
+      "revealed",
+    ]);
+    applySavedFields(gameState.skills.manaControl, savedGameState.skills.manaControl, ["rank", "level", "manaSpent", "revealed"]);
     ensureSkillsState();
 
     if (typeof syncSpellUpgradeEffects === "function") {
@@ -851,6 +1028,7 @@ function applyGameStateSaveData(savedGameState) {
   }
 
   applyProjectSaveData(savedGameState.projects);
+  applyTowerNodeSaveData(savedGameState.towerNodes);
 
   resetActivity();
   gameState.autoAction.actionName = null;
@@ -903,6 +1081,16 @@ function applyExpeditionLocationSaveData(savedLocations) {
     if (!location || !savedLocation) continue;
 
     applySavedFields(location, savedLocation, ["discovered", "explored", "explorationProgress"]);
+
+    if (Number.isFinite(location.looseStoneMax)) {
+      if (Number.isFinite(savedLocation.looseStoneRemaining)) {
+        location.looseStoneRemaining = savedLocation.looseStoneRemaining;
+      }
+
+      if (typeof getLocationLooseStoneRemaining === "function") {
+        getLocationLooseStoneRemaining(location);
+      }
+    }
 
     if (location && location.trapSites && savedLocation.trapSites && savedLocation.trapSites.sites) {
       savedLocation.trapSites.sites.forEach((savedSite, index) => {
@@ -968,6 +1156,7 @@ function refreshGameUIAfterLoad() {
   hideElement(ui.manaAwakenedPopup);
   hideElement(ui.campFoundationPopup);
   hideElement(ui.personalWardPopup);
+  hideElement(ui.advancedRecallPopup);
 
   const resourceDefinitions = getResourceDefinitions();
 
@@ -1015,7 +1204,7 @@ function refreshGameUIAfterLoad() {
   updateTrapCapacityUI();
   updateTrainingUI();
   const canPackAfterLoad =
-    gameState.expedition.active && !gameState.expedition.returning && !gameState.expedition.currentLocation && gameState.expedition.distance <= 0;
+    gameState.expedition.active && !gameState.expedition.currentLocation && gameState.expedition.distance <= 0;
 
   setPackingActionsAvailable(canPackAfterLoad);
   updateAllActionButtons();
@@ -1046,10 +1235,16 @@ function loadGame() {
   applyExpeditionLocationSaveData(saveData.expeditionLocations);
   applyDungeonSaveData(saveData.dungeons);
   applyResearchSaveData(saveData.research);
+  repairTowerNodeResearchFromCompletedResearch();
   applyAutomationSaveData(saveData.automation);
   ensureSkillsState();
   ensureProjectsState();
+  ensureTowerNodesState();
   repairPersonalWardUnlockFromProject(false);
+  repairTowerNodeActivationFromHeart(false);
+  if (typeof checkRank2SkillUnlocks === "function") {
+    checkRank2SkillUnlocks();
+  }
   recalculateCharacterStats();
   recalculateCampEffects();
   recalculateToolEffects();

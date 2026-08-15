@@ -18,6 +18,7 @@ const gameDefinitions = {
   manaSenseDefinitions,
   automationDefinitions,
   projectDefinitions,
+  towerNodeDefinitions,
   attunementDefinitions,
   imbueDefinitions,
   arcaneForceDefinitions,
@@ -172,6 +173,14 @@ function getProjectDefinitions() {
 
 function getProjectDefinition(projectName) {
   return getProjectDefinitions()[projectName];
+}
+
+function getTowerNodeDefinitions() {
+  return gameDefinitions.towerNodeDefinitions;
+}
+
+function getTowerNodeDefinition(nodeName) {
+  return getTowerNodeDefinitions()[nodeName];
 }
 
 function getAttunementDefinitions() {

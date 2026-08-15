@@ -118,7 +118,8 @@ h1 {
   background: rgba(255, 250, 240, 0.2);
 }
 
-.dev-speed-controls {
+.dev-speed-controls,
+.dev-tier-controls {
   display: flex;
   align-items: center;
   gap: 3px;
@@ -130,7 +131,8 @@ h1 {
   font-size: 10px;
 }
 
-.save-section .save-controls .dev-speed-btn.active {
+.save-section .save-controls .dev-speed-btn.active,
+.save-section .save-controls .dev-tier-btn.active {
   background: #fffaf0;
   color: #2b241c;
 }
@@ -457,6 +459,35 @@ button {
 .popup-content p {
   margin-bottom: 20px;
   line-height: 1.5;
+}
+
+.advanced-recall-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+
+.advanced-recall-option {
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid #8deaff;
+  border-radius: 4px;
+  background: rgba(141, 234, 255, 0.14);
+  color: #f4fdff;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.advanced-recall-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.advanced-recall-empty {
+  color: #d8ccb8;
+  font-size: 13px;
+  line-height: 1.35;
 }
 
 .action-btn {
@@ -1139,6 +1170,350 @@ button:disabled {
 
 .project-work-btn {
   min-width: 180px;
+}
+
+.project-entry.tower-project-entry {
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.tower-project-header {
+  padding: 9px 10px;
+  border-bottom: 1px solid #d8ccb8;
+  background: rgba(232, 218, 180, 0.52);
+}
+
+.tower-project-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(240px, 0.85fr);
+  gap: 0;
+}
+
+.tower-visual-panel,
+.tower-stage-panel {
+  min-width: 0;
+}
+
+.tower-visual-wrap {
+  min-height: 292px;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(255, 250, 240, 0.94) 0 32%, rgba(226, 208, 174, 0.18) 32% 100%);
+}
+
+.tower-visual {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 292px;
+}
+
+.tower-stage-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-left: 1px solid #d8ccb8;
+  background: rgba(255, 250, 240, 0.5);
+}
+
+.tower-stage-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tower-stage-details h4 {
+  margin: 0;
+  color: #2b241c;
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.tower-stage-details p {
+  margin: 0;
+  color: #4a3e31;
+  font-size: 13px;
+  line-height: 1.42;
+}
+
+.tower-stage-panel .project-actions {
+  display: flex;
+}
+
+.tower-project-actions {
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tower-project-action-name {
+  color: #2b241c;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.tower-project-action-buttons {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.tower-stage-panel .project-work-btn {
+  width: 100%;
+  min-width: 0;
+}
+
+.tower-project-work-btn {
+  min-height: 38px;
+  padding-right: 8px;
+  padding-left: 8px;
+}
+
+.tower-soil-fill {
+  fill: url(#towerFoundationSoilPattern);
+}
+
+.tower-ground-edge {
+  fill: none;
+  stroke: #5a442f;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tower-hidden-foundation {
+  fill: none;
+  stroke: #777068;
+  stroke-width: 5;
+  stroke-dasharray: 12 10;
+  stroke-linecap: round;
+  opacity: 0.8;
+}
+
+.tower-exposed-foundation {
+  fill: none;
+  stroke: #5e5a54;
+  stroke-width: 10;
+  stroke-linecap: round;
+}
+
+.tower-foundation-highlight {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.44);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.tower-timber-shadow {
+  stroke: rgba(58, 38, 20, 0.28);
+  stroke-linecap: round;
+  stroke-width: 13;
+}
+
+.tower-timber {
+  stroke: #80572f;
+  stroke-linecap: round;
+  stroke-width: 10;
+}
+
+.tower-timber-grain {
+  stroke: #a77b49;
+  stroke-linecap: round;
+  stroke-width: 2;
+  opacity: 0.78;
+}
+
+.tower-plinth-base {
+  fill: #8b8175;
+  stroke: #4d4943;
+  stroke-width: 3;
+}
+
+.tower-plinth-top {
+  fill: #b5aa9c;
+  stroke: #4d4943;
+  stroke-width: 3;
+}
+
+.tower-plinth-line,
+.tower-mana-facet {
+  fill: none;
+}
+
+.tower-plinth-line {
+  stroke: rgba(255, 255, 255, 0.4);
+  stroke-width: 2;
+}
+
+.tower-mana-channel {
+  fill: none;
+  stroke: #86d8ec;
+  stroke-dasharray: 6 6;
+  stroke-linecap: round;
+  stroke-width: 3;
+  opacity: 0.9;
+  animation: towerChannelFlow 1.1s linear infinite;
+}
+
+.tower-mana-heart {
+  stroke: #456aa8;
+  stroke-width: 3;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: towerHeartPulse 1.9s ease-in-out infinite;
+}
+
+.tower-mana-facet {
+  stroke: rgba(255, 255, 255, 0.85);
+  stroke-width: 1.7;
+}
+
+.tower-basement-wall-shadow {
+  fill: rgba(68, 58, 48, 0.28);
+  transform: translate(4px, 3px);
+}
+
+.tower-basement-wall {
+  fill: #7d756d;
+  stroke: #48433d;
+  stroke-linejoin: round;
+  stroke-width: 3;
+}
+
+.tower-basement-wall-highlight,
+.tower-basement-stone-line {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.tower-basement-wall-highlight {
+  stroke: rgba(255, 255, 255, 0.36);
+  stroke-width: 2;
+}
+
+.tower-basement-stone-line {
+  stroke: rgba(54, 49, 45, 0.42);
+  stroke-width: 2;
+}
+
+.tower-basement-cap {
+  fill: none;
+  stroke: #5f5952;
+  stroke-linecap: round;
+  stroke-width: 10;
+}
+
+.tower-node-entry {
+  margin-top: 10px;
+}
+
+.tower-node-visual-wrap {
+  min-height: 220px;
+}
+
+.tower-node-visual {
+  min-height: 220px;
+}
+
+.tower-node-foundation {
+  fill: none;
+  stroke: #5e5a54;
+  stroke-width: 11;
+  stroke-linecap: round;
+}
+
+.tower-node-base {
+  fill: #8b8175;
+  stroke: #4d4943;
+  stroke-width: 3;
+}
+
+.tower-node-cap {
+  fill: #b5aa9c;
+  stroke: #4d4943;
+  stroke-width: 3;
+}
+
+.tower-node-channel {
+  fill: none;
+  stroke: #86d8ec;
+  stroke-linecap: round;
+  stroke-width: 3;
+  opacity: 0.72;
+}
+
+.tower-node-heart {
+  stroke: #456aa8;
+  stroke-width: 3;
+}
+
+.tower-node-facet {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.85);
+  stroke-width: 1.6;
+}
+
+.tower-depth-label {
+  fill: #6f604a;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tower-guide-line {
+  stroke: rgba(111, 96, 74, 0.36);
+  stroke-dasharray: 3 5;
+  stroke-width: 1;
+}
+
+@keyframes towerHeartPulse {
+  0%,
+  100% {
+    opacity: 0.88;
+    transform: scale(0.98);
+  }
+
+  45% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+
+  60% {
+    opacity: 0.96;
+    transform: scale(1);
+  }
+}
+
+@keyframes towerChannelFlow {
+  to {
+    stroke-dashoffset: -12;
+  }
+}
+
+@media (max-width: 760px) {
+  .tower-project-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .tower-stage-panel {
+    border-top: 1px solid #d8ccb8;
+    border-left: 0;
+  }
+
+  .tower-visual-wrap,
+  .tower-visual {
+    min-height: 244px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tower-mana-channel,
+  .tower-mana-heart {
+    animation-duration: 0.001ms;
+    animation-iteration-count: 1;
+  }
 }
 
 .automation-list {
