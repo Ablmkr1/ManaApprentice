@@ -20,8 +20,8 @@ function hookActionCompletions() {
     }
   };
 
-  getAction("practiceManaCycling").onComplete = function (context = {}) {
-    recordManaCycle(context.manaSpent);
+  getAction("practiceManaCycling").onComplete = function () {
+    recordManaCycle();
   };
 
   getAction("gatherWood").onComplete = function () {
@@ -50,6 +50,12 @@ function hookActionCompletions() {
 
   getAction("exploreLocation").onComplete = function () {
     exploreCurrentLocation();
+  };
+
+  getAction("investigateNorthernDisturbance").onComplete = function () {
+    if (typeof startNorthernDisturbanceCombat === "function") {
+      startNorthernDisturbanceCombat();
+    }
   };
 
   getAction("gatherFiber").onComplete = function () {
@@ -872,7 +878,7 @@ function animateMetaBar(bar, target) {
 function startActionExecution(actionName) {
   const action = getAction(actionName);
 
-  if (!action || !action.unlocked || action.running || isActivityActive()) return;
+  if (!action || !action.unlocked || action.running || isActivityActive() || (typeof isCombatActive === "function" && isCombatActive())) return;
 
   if (isAutoAction(actionName) && shouldStopAutoAction(actionName)) {
     stopAutoAction();
@@ -1020,6 +1026,10 @@ function processActivityTick() {
   const elapsed = getGameTime() - activity.startTime;
   const progress = Math.min(elapsed / durationMs, 1);
   const button = getActivityButton(activity);
+
+  if (typeof updateActiveTaskProgress === "function") {
+    updateActiveTaskProgress(progress, Math.max(0, durationMs - elapsed) / 1000);
+  }
 
   if (activity.kind === "action") {
     const action = getAction(activity.id);

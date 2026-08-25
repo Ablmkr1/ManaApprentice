@@ -7,7 +7,6 @@ const BASE_TOOL_GATHER_YIELDS = {
 const DEFAULT_SKILL_RANK = 1;
 const RANK_TWO_SKILL_RANK = 2;
 const CONDITIONING_RANK_TWO_UNLOCK_ENERGY = 100;
-const MANA_CYCLING_MANA_PER_PROGRESS = 5;
 
 function isManaControlSystemEnabled() {
   return typeof MANA_CONTROL_SYSTEM_ENABLED === "undefined" || MANA_CONTROL_SYSTEM_ENABLED;
@@ -40,6 +39,8 @@ function getDefaultSkillState(skillName) {
   if (skillName === "manaCycling") {
     return {
       ...defaults,
+      manaXp: 0,
+      breakthroughReady: false,
       successfulCycles: 0,
       deepCycles: 0,
     };
@@ -87,6 +88,12 @@ function ensureSkillsState() {
 
     saved.rank = normalizeSkillRank(skillName, saved.rank);
     saved.level = normalizeSkillLevel(skillName, saved.level, saved.rank);
+
+    if (skillName === "manaCycling") {
+      saved.manaXp = Math.max(0, Number.isFinite(saved.manaXp) ? saved.manaXp : 0);
+      saved.manaXp = Math.max(saved.manaXp, getSkillThresholdForLevel("manaCycling", saved.level, saved.rank));
+      saved.breakthroughReady = !!saved.breakthroughReady;
+    }
   }
 }
 
@@ -173,13 +180,13 @@ function getSkillProgressValue(skillName) {
 
   if (skill.rank === RANK_TWO_SKILL_RANK) {
     if (skillName === "conditioning") return skill.reinforcedEnergySpent || 0;
-    if (skillName === "manaCycling") return skill.deepCycles || 0;
+    if (skillName === "manaCycling") return skill.manaXp || 0;
     if (skillName === "meditation") return skill.attunedMeditations || 0;
   }
 
   if (skillName === "conditioning") return skill.distance || 0;
   if (skillName === "concentration") return skill.deepThought || 0;
-  if (skillName === "manaCycling") return skill.successfulCycles || 0;
+  if (skillName === "manaCycling") return skill.manaXp || 0;
   if (skillName === "meditation") return skill.successfulMeditations || 0;
   if (skillName === "manaControl") return skill.manaSpent || 0;
 
@@ -291,6 +298,10 @@ function promoteSkillToRank(skillName, rank = RANK_TWO_SKILL_RANK, story) {
   skill.level = 0;
   skill.revealed = true;
 
+  if (skillName === "manaCycling") {
+    skill.breakthroughReady = false;
+  }
+
   if (skillName === "conditioning") {
     skill.pending = false;
   }
@@ -347,6 +358,15 @@ function revealSkill(skillName, story) {
   }
 
   updateTrainingUI();
+}
+
+function unlockManaCyclingForManaAccess() {
+  revealSkill("manaCycling");
+
+  const action = getAction("practiceManaCycling");
+  if (action && !action.unlocked) {
+    unlockAction("practiceManaCycling");
+  }
 }
 
 function recordPhysicalTravelDistance(distance) {
@@ -429,45 +449,77 @@ function getManaCyclingAvailableMana() {
   return mana ? Math.max(0, roundResourceAmount(mana.value || 0)) : 0;
 }
 
-function getManaCyclingProgressFromMana(manaSpent) {
-  const normalizedManaSpent = Number.isFinite(manaSpent) ? Math.max(0, manaSpent) : MANA_CYCLING_MANA_PER_PROGRESS;
+function getNextManaCyclingLevelDefinition(skill) {
+  return getSkillLevelDefinition("manaCycling", (skill.level || 0) + 1, skill.rank || DEFAULT_SKILL_RANK);
+}
 
-  return roundResourceAmount(normalizedManaSpent / MANA_CYCLING_MANA_PER_PROGRESS);
+function isManaCyclingBreakthroughReady() {
+  const skill = getSkillState("manaCycling");
+  return !!skill && !!skill.breakthroughReady;
 }
 
 function canPracticeManaCycling() {
-  return getManaCyclingAvailableMana() > 0;
+  return isManaCyclingBreakthroughReady() && getManaCyclingAvailableMana() > 0;
 }
 
-function recordManaCycle(manaSpent) {
+function applyManaCyclingLevel(skill, levelDefinition, wasBreakthrough) {
+  skill.level = levelDefinition.level;
+  skill.breakthroughReady = false;
+  skill.revealed = true;
+
+  addStoryEntry(
+    wasBreakthrough
+      ? "You complete a deliberate mana cycle. The path through you settles wider without losing its shape."
+      : "Using mana is teaching your inner cycle a steadier, wider rhythm."
+  );
+  recalculateCharacterStats();
+  updateTrainingUI();
   checkRank2SkillUnlocks();
+}
+
+function recordManaCyclingManaSpent(amount) {
+  if (!Number.isFinite(amount) || amount <= 0) return;
 
   const skill = getSkillState("manaCycling");
-  const oldLevel = skill.level;
-  const progressField = skill.rank === RANK_TWO_SKILL_RANK ? "deepCycles" : "successfulCycles";
-  const progressGain = getManaCyclingProgressFromMana(manaSpent);
 
-  if (progressGain <= 0) {
+  if (!skill || !skill.revealed || skill.breakthroughReady) return;
+
+  const maxLevel = getSkillMaxLevel("manaCycling", skill.rank);
+
+  if ((skill.level || 0) >= maxLevel) return;
+
+  skill.manaXp = roundResourceAmount((skill.manaXp || 0) + amount);
+
+  while (!skill.breakthroughReady) {
+    const nextLevelDefinition = getNextManaCyclingLevelDefinition(skill);
+
+    if (!nextLevelDefinition || nextLevelDefinition.level <= skill.level || skill.manaXp < nextLevelDefinition.threshold) break;
+
+    if (nextLevelDefinition.breakthrough) {
+      skill.breakthroughReady = true;
+      addStoryEntry("Your mana has reached the limit of its current path. A deliberate Mana Cycling breakthrough can widen it further.");
+      break;
+    }
+
+    applyManaCyclingLevel(skill, nextLevelDefinition, false);
+  }
+
+  updateTrainingUI();
+}
+
+function recordManaCycle() {
+  const skill = getSkillState("manaCycling");
+
+  if (!skill || !skill.breakthroughReady) {
     updateTrainingUI();
     return;
   }
 
-  skill[progressField] = roundResourceAmount((skill[progressField] || 0) + progressGain);
-  skill.revealed = true;
-  skill.level = getSkillLevelFromProgress("manaCycling", skill[progressField], skill.rank);
+  const nextLevelDefinition = getNextManaCyclingLevelDefinition(skill);
 
-  if (skill.level > oldLevel) {
-    const story =
-      skill.rank === RANK_TWO_SKILL_RANK
-        ? "The deep cycle opens wider. The restored Heart gives your mana more room to move."
-        : "The cycle settles wider than before. More mana can move through you without breaking your control.";
+  if (!nextLevelDefinition || !nextLevelDefinition.breakthrough || (skill.manaXp || 0) < nextLevelDefinition.threshold) return;
 
-    addStoryEntry(story);
-    recalculateCharacterStats();
-  }
-
-  updateTrainingUI();
-  checkRank2SkillUnlocks();
+  applyManaCyclingLevel(skill, nextLevelDefinition, true);
 }
 
 function recordMeditation() {
@@ -688,6 +740,11 @@ function syncSpellUpgradeEffects() {
   if (Array.isArray(state.active) && state.active.length > capacity) {
     state.active = state.active.slice(0, capacity);
   }
+
+  if (typeof syncWardResourceState === "function" && gameState.personalWardUnlocked) {
+    syncWardResourceState();
+    updateResource("ward");
+  }
 }
 
 function getManaControlRewardText(level) {
@@ -809,9 +866,7 @@ function getManaCyclingCost() {
 }
 
 function getManaCyclingActionLabel() {
-  const skill = getSkillState("manaCycling");
-
-  return skill && skill.rank === RANK_TWO_SKILL_RANK ? "Practice Deep Mana Cycling" : "Practice Mana Cycling";
+  return isManaCyclingBreakthroughReady() ? "Mana Cycling Breakthrough" : "Mana Cycling Breakthrough (Locked)";
 }
 
 function getEquipmentEffectValue(equipmentType, slotName, effectName, fallback = 0) {
@@ -1088,7 +1143,23 @@ function createTrainingEntry(skillName) {
 
   let detail = "";
 
-  if (skillName === "conditioning" && skill.pending) {
+  if (skillName === "manaCycling") {
+    if (skill.breakthroughReady) {
+      detail = "Breakthrough Ready — cycle your available mana deliberately to expand your maximum mana.";
+    } else if (nextLevelDefinition && nextLevelDefinition.level > skill.level) {
+      detail =
+        "Spend mana to progress. " +
+        formatTrainingNumber(progressValue) +
+        " / " +
+        formatTrainingNumber(nextLevelDefinition.threshold) +
+        " mana spent. " +
+        (nextLevelDefinition.breakthrough ? "Breakthrough required at the threshold." : "The next level advances automatically.") +
+        " Next: " +
+        getSkillCapacityDisplayText(skillName, definition, nextLevelDefinition, skill);
+    } else {
+      detail = "Fully developed for now.";
+    }
+  } else if (skillName === "conditioning" && skill.pending) {
     detail = "Pending level-up when you return to camp.";
   } else if (
     skillName === "conditioning" &&

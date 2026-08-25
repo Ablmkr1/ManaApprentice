@@ -177,6 +177,17 @@ const resources = {
     perClickDisplay: null,
     perSecondDisplay: null,
   },
+  earthElementalCore: {
+    label: "Earth Elemental Core",
+    value: 0,
+    maxValue: 1,
+    perClick: 0,
+    perSecond: 0,
+    hidden: true,
+    display: null,
+    perClickDisplay: null,
+    perSecondDisplay: null,
+  },
   nails: {
     label: "Nails",
     value: 0,
@@ -573,7 +584,7 @@ const actions = {
 
   beginExpedition: {
     label: "Prepare for Expedition",
-    duration: 1,
+    duration: 0,
     cost: {},
     unlocked: false,
     running: false,
@@ -879,6 +890,18 @@ const actions = {
     onStart: function () {},
     onComplete: function () {},
   },
+  investigateNorthernDisturbance: {
+    label: "Investigate the Tremors",
+    duration: 0,
+    cost: {},
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
 
   setTrap: {
     label: "Set Trap",
@@ -1104,35 +1127,35 @@ const skillDefinitions = {
 
   manaCycling: {
     label: "Mana Cycling",
-    progressLabel: "Cycling points",
-    rank2ProgressLabel: "Deep cycling points",
+    progressLabel: "Mana spent",
+    rank2ProgressLabel: "Mana spent",
     capacityLabel: "Maximum Mana",
     ranks: [
       {
         rank: 1,
         levels: [
-          { level: 0, threshold: 0, capacity: 10 },
-          { level: 1, threshold: 3, capacity: 12 },
-          { level: 2, threshold: 7, capacity: 14 },
-          { level: 3, threshold: 12, capacity: 16 },
-          { level: 4, threshold: 18, capacity: 18 },
-          { level: 5, threshold: 25, capacity: 20 },
+          { level: 0, threshold: 0, capacity: 3 },
+          { level: 1, threshold: 10, capacity: 5, breakthrough: true },
+          { level: 2, threshold: 25, capacity: 8, breakthrough: true },
+          { level: 3, threshold: 50, capacity: 11, breakthrough: true },
+          { level: 4, threshold: 90, capacity: 15, breakthrough: true },
+          { level: 5, threshold: 150, capacity: 20, breakthrough: true },
         ],
       },
       {
         rank: 2,
         levels: [
-          { level: 0, threshold: 0, capacity: 20 },
-          { level: 1, threshold: 5, capacity: 23 },
-          { level: 2, threshold: 12, capacity: 26 },
-          { level: 3, threshold: 22, capacity: 29 },
-          { level: 4, threshold: 35, capacity: 32 },
-          { level: 5, threshold: 52, capacity: 35 },
-          { level: 6, threshold: 74, capacity: 38 },
-          { level: 7, threshold: 102, capacity: 41 },
-          { level: 8, threshold: 137, capacity: 44 },
-          { level: 9, threshold: 180, capacity: 47 },
-          { level: 10, threshold: 230, capacity: 50 },
+          { level: 0, threshold: 150, capacity: 20 },
+          { level: 1, threshold: 250, capacity: 25 },
+          { level: 2, threshold: 375, capacity: 30 },
+          { level: 3, threshold: 525, capacity: 36 },
+          { level: 4, threshold: 700, capacity: 42 },
+          { level: 5, threshold: 900, capacity: 50, breakthrough: true },
+          { level: 6, threshold: 1150, capacity: 58 },
+          { level: 7, threshold: 1450, capacity: 67 },
+          { level: 8, threshold: 1800, capacity: 77 },
+          { level: 9, threshold: 2200, capacity: 88 },
+          { level: 10, threshold: 2700, capacity: 100, breakthrough: true },
         ],
       },
     ],
@@ -1215,6 +1238,21 @@ const gameState = {
     context: null,
   },
 
+  // Combat is intentionally transient: save/load always returns to normal play.
+  combat: {
+    active: false,
+    resolved: false,
+    enemyId: null,
+    enemyHealth: 0,
+    enemyMaxHealth: 0,
+    nextAttackTime: null,
+    cast: null,
+    rewardGranted: false,
+    reward: null,
+    storyEncounter: false,
+    resultMessage: "",
+  },
+
   exploration: {
     currentStage: "findClearing",
     count: 0,
@@ -1288,6 +1326,11 @@ const gameState = {
   towerBasementCompleted: false,
   personalWardUnlocked: false,
   personalWardPopupShown: false,
+  northernDisturbance: {
+    triggered: false,
+    resolved: false,
+    popupShown: false,
+  },
 
   magic: {
     sensedReveals: {},
@@ -1308,6 +1351,15 @@ const gameState = {
         xp: 0,
         level: 0,
       },
+      ward: {
+        xp: 0,
+        level: 0,
+      },
+    },
+    ward: {
+      rank: 1,
+      formed: false,
+      maintainEnabled: false,
     },
     attunements: {
       capacity: 1,
@@ -1340,6 +1392,8 @@ const gameState = {
     manaCycling: {
       rank: 1,
       level: 0,
+      manaXp: 0,
+      breakthroughReady: false,
       successfulCycles: 0,
       deepCycles: 0,
       revealed: false,

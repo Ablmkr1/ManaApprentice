@@ -66,8 +66,22 @@ const SPELL_PROGRESS_DEFINITIONS = {
     maxLevel: 5,
     thresholds: [10, 30, 60, 100, 150],
   },
+  ward: {
+    maxLevel: 5,
+    thresholds: [10, 30, 60, 100, 150],
+  },
 };
+
+const WARD_RANK_1_PROGRESSION = [
+  { maxWard: 10, restoreEfficiency: 1 },
+  { maxWard: 15, restoreEfficiency: 1.5 },
+  { maxWard: 20, restoreEfficiency: 2 },
+  { maxWard: 30, restoreEfficiency: 2.5 },
+  { maxWard: 40, restoreEfficiency: 3 },
+  { maxWard: 50, restoreEfficiency: 4 },
+];
 let openSpellMenuName = null;
+let selectedEquipmentDetailId = null;
 
 function applyUnlock(unlock) {
   if (!unlock || !unlock.type || !unlock.id) {
@@ -96,10 +110,11 @@ function unlockPersonalWard(showPopup = true) {
   const wasUnlocked = !!gameState.personalWardUnlocked;
 
   gameState.personalWardUnlocked = true;
+  unlockSpell("ward");
+  ensureWardState();
 
   if (ward) {
-    ward.maxValue = 10;
-    ward.value = 10;
+    syncWardResourceState();
     unlockResource("ward");
     updateResource("ward");
   }
@@ -122,8 +137,9 @@ function repairPersonalWardUnlockFromProject(showPopup = false) {
     const ward = getResource("ward");
 
     if (ward) {
-      ward.maxValue = 10;
-      ward.value = Number.isFinite(ward.value) ? Math.max(0, Math.min(ward.maxValue, ward.value)) : ward.maxValue;
+      unlockSpell("ward");
+      ensureWardState();
+      syncWardResourceState();
       unlockResource("ward");
       updateResource("ward");
     }
@@ -136,6 +152,164 @@ function repairPersonalWardUnlockFromProject(showPopup = false) {
   if (foundation && foundation.completed) {
     unlockPersonalWard(showPopup);
   }
+}
+
+function getWardState() {
+  ensureWardState();
+  return gameState.magic.ward;
+}
+
+function ensureWardState() {
+  if (!gameState.magic || typeof gameState.magic !== "object") gameState.magic = {};
+  if (!gameState.magic.ward || typeof gameState.magic.ward !== "object") {
+    const ward = getResource("ward");
+    gameState.magic.ward = {
+      rank: 1,
+      formed: !!ward && ward.value > 0,
+      maintainEnabled: false,
+    };
+  }
+
+  const state = gameState.magic.ward;
+  state.rank = 1;
+  state.formed = !!state.formed;
+  state.maintainEnabled = !!state.maintainEnabled;
+}
+
+function getWardLevel() {
+  return getSpellProgressState("ward").level || 0;
+}
+
+function getWardRankProgression() {
+  return WARD_RANK_1_PROGRESSION[Math.max(0, Math.min(getWardLevel(), WARD_RANK_1_PROGRESSION.length - 1))];
+}
+
+function getWardMaximum() {
+  return getWardRankProgression().maxWard;
+}
+
+function getWardRestoreEfficiency() {
+  return getWardRankProgression().restoreEfficiency;
+}
+
+function formatWardRestoreEfficiency() {
+  return formatResourceAmountForDisplay(getWardRestoreEfficiency());
+}
+
+function syncWardResourceState() {
+  const ward = getResource("ward");
+  if (!ward) return;
+
+  ward.maxValue = getWardMaximum();
+  ward.value = roundResourceAmount(Math.max(0, Math.min(ward.maxValue, Number(ward.value) || 0)));
+}
+
+function getWardRestorationPlan(maxMana = 5) {
+  const ward = getResource("ward");
+  const mana = getResource("mana");
+  const state = getWardState();
+
+  if (!ward || !mana || !gameState.personalWardUnlocked) return null;
+  if (state.formed && ward.value >= ward.maxValue) return null;
+
+  const missing = roundResourceAmount(ward.maxValue - ward.value);
+  const efficiency = getWardRestoreEfficiency();
+  const availableMana = Math.max(0, Math.min(Number(maxMana) || 0, mana.value));
+  const manaSpent = roundResourceAmount(Math.min(availableMana, missing / efficiency));
+  const wardRestored = roundResourceAmount(Math.min(missing, manaSpent * efficiency));
+
+  return manaSpent > 0 && wardRestored > 0 ? { manaSpent, wardRestored } : null;
+}
+
+function restoreWard(plan, options = {}) {
+  const ward = getResource("ward");
+  const state = getWardState();
+
+  if (!ward || !plan || plan.wardRestored <= 0) return 0;
+  if (!state.formed && !options.forming) return 0;
+
+  const actualRestored = roundResourceAmount(Math.min(plan.wardRestored, ward.maxValue - ward.value));
+  if (actualRestored <= 0) return 0;
+
+  if (options.forming) state.formed = true;
+  ward.value = roundResourceAmount(ward.value + actualRestored);
+  recordWardExperience(actualRestored);
+  updateResource("ward");
+  updateEquipmentSlotUI();
+  updateAllActionButtons();
+  return actualRestored;
+}
+
+function startWardChannel(action) {
+  if (isActivityActive() || (typeof isCombatActive === "function" && isCombatActive())) return false;
+
+  const state = getWardState();
+  if ((action === "form" && state.formed) || (action === "restore" && !state.formed)) return false;
+
+  const plan = getWardRestorationPlan(5);
+  if (!plan || !spendCost({ mana: plan.manaSpent })) return false;
+
+  if (!startActivity({
+    kind: "spell",
+    id: "ward",
+    duration: getSpell("ward").duration,
+    context: { type: "ward", action, plan },
+  })) {
+    refundCost({ mana: plan.manaSpent });
+    return false;
+  }
+
+  updateAllResources();
+  updateEquipmentSlotUI();
+  updateAllActionButtons();
+  return true;
+}
+
+function completeWardChannel(context) {
+  if (!context || context.type !== "ward" || !context.plan) return false;
+
+  const restored = restoreWard(context.plan, { forming: context.action === "form" });
+  if (restored > 0) {
+    addStoryEntry(context.action === "form" ? "A new Ward settles around you." : "Mana reinforces your Ward.");
+  }
+  return restored > 0;
+}
+
+function applyWardDamage(amount) {
+  const ward = getResource("ward");
+  const state = getWardState();
+  const damage = roundResourceAmount(Math.max(0, Number(amount) || 0));
+
+  if (!ward || !state.formed || damage <= 0) return 0;
+
+  const absorbed = roundResourceAmount(Math.min(ward.value, damage));
+  ward.value = roundResourceAmount(ward.value - absorbed);
+  updateResource("ward");
+
+  if (ward.value <= 0) {
+    state.formed = false;
+    state.maintainEnabled = false;
+    if (!(typeof isCombatActive === "function" && isCombatActive()) && typeof beginReturnToCamp === "function") {
+      beginReturnToCamp("wardBroken");
+    }
+    return absorbed;
+  }
+
+  if (state.maintainEnabled && !(typeof isCombatActive === "function" && isCombatActive())) {
+    const plan = getWardRestorationPlan(getResource("mana").value);
+    if (plan && spendCost({ mana: plan.manaSpent })) restoreWard(plan);
+  }
+
+  updateEquipmentSlotUI();
+  return absorbed;
+}
+
+function toggleMaintainWard() {
+  const state = getWardState();
+  if (getWardLevel() < 3 || !state.formed || (typeof isCombatActive === "function" && isCombatActive())) return;
+
+  state.maintainEnabled = !state.maintainEnabled;
+  updateEquipmentSlotUI();
 }
 
 function getDefaultProjectState() {
@@ -428,10 +602,6 @@ function completeResearch(researchName, costAlreadyPaid = false) {
 
   applyResearchUnlocks(researchName);
   recordDeepThought(research.deepThought || 1, research.label);
-
-  if (researchName === "manaCycling") {
-    revealSkill("manaCycling");
-  }
 
   if (typeof checkRank2SkillUnlocks === "function") {
     checkRank2SkillUnlocks();
@@ -881,7 +1051,7 @@ function setCampActionsAvailable(available) {
       lockAction("concentrateManaTonicBase");
     }
 
-    ui.restBtn.style.display = canRestAtCurrentPlace() ? "inline-block" : "none";
+    ui.restBtn.style.display = canRestAtCurrentPlace() ? "grid" : "none";
   } else {
     lockAction("gatherWood");
     lockAction("addWoodToFuel");
@@ -1011,13 +1181,138 @@ function checkClearingComplete() {
 }
 
 function updateEquipmentSlotUI() {
-  renderEquipmentSlots(ui.gearSlotsGroup, ui.gearSlots, "gear");
-  renderEquipmentSlots(ui.toolSlotsGroup, ui.toolSlots, "tool");
+  renderPaperDollEquipment();
   renderSpellSlots();
   renderTonicSlots();
   renderMagicWorkflowPanel();
   renderSpellProgressSummary();
+  syncContextualActionPlacement();
+  renderContextualLocationSpellActions();
   syncMainViewAvailability();
+}
+
+// Actions retain their original owners, but the active place decides where the
+// player uses them. Moving the existing button preserves its action handler,
+// progress bar, and availability state.
+function syncContextualActionPlacement() {
+  const meditation = typeof getAction === "function" ? getAction("meditate") : null;
+  const meditationButton = meditation && meditation.button;
+
+  if (!meditationButton) return;
+
+  const atLocation = !!gameState.expedition.currentLocation && isActionContextAvailable("meditate");
+  const atCamp = !gameState.expedition.active && !gameState.expedition.currentLocation && isActionContextAvailable("meditate");
+  const target = atLocation ? ui.locationContextualActions : atCamp ? ui.campContextualActions : ui.magicContextualActions;
+
+  if (target && meditationButton.parentElement !== target) {
+    target.appendChild(meditationButton);
+  }
+
+  [ui.locationContextualActions, ui.campContextualActions].forEach(function (container) {
+    if (!container) return;
+
+    const hasAction = container.contains(meditationButton);
+    container.style.display = hasAction ? "flex" : "none";
+  });
+}
+
+function renderContextualLocationSpellActions() {
+  const container = ui.locationSpellActions;
+
+  if (!container) return;
+
+  container.innerHTML = "<h3>Available magic</h3>";
+
+  if (!gameState.expedition.currentLocation || (typeof isCombatActive === "function" && isCombatActive())) {
+    hideElement(container);
+    return;
+  }
+
+  let hasActions = false;
+  const manaSense = getSpell("manaSense");
+
+  if (manaSense && manaSense.unlocked) {
+    const definitions = getManaSenseDefinitions();
+
+    for (let targetName in definitions) {
+      if (!canApplyManaSenseTarget(targetName)) continue;
+      appendManaSenseTargetOption(targetName, container);
+      hasActions = true;
+    }
+
+    const context = getSpellCastContext("manaSense");
+    if (context && canCastSpell("manaSense")) {
+      appendSpellCastOption("manaSense", context, container);
+      hasActions = true;
+    }
+  }
+
+  const arcaneForce = getSpell("arcaneForce");
+  const forceContext = arcaneForce && arcaneForce.unlocked ? getSpellCastContext("arcaneForce") : null;
+
+  if (forceContext && canCastSpell("arcaneForce")) {
+    appendSpellCastOption("arcaneForce", forceContext, container);
+    hasActions = true;
+  }
+
+  if (hasActions) {
+    showElement(container, "flex");
+  } else {
+    hideElement(container);
+  }
+}
+
+function renderContextualCraftingSpellActions() {
+  const container = ui.craftingSpellActions;
+
+  if (!container) return;
+
+  container.innerHTML = "<h3>Magic for this work</h3>";
+
+  if (isActivityActive()) {
+    hideElement(container);
+    return;
+  }
+
+  let hasActions = false;
+
+  ["imbue", "arcaneForce"].forEach(function (spellName) {
+    const spell = getSpell(spellName);
+    const definitions = getProductionSpellDefinitions(spellName) || {};
+
+    if (!spell || !spell.unlocked) return;
+
+    for (let targetName in definitions) {
+      if (!isProductionSpellTargetAvailable(spellName, targetName)) continue;
+
+      const definition = getProductionSpellDefinition(spellName, targetName);
+      const targetContext = getProductionSpellTargetContext(spellName, targetName);
+      const context = {
+        type: "productionSpell",
+        spellName,
+        targetId: targetName,
+        mode: targetContext ? targetContext.mode : null,
+      };
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "attunement-target-btn";
+      appendProductionSpellOptionContent(button, spellName, definition, context);
+      const usable = canApplyProductionSpellTarget(spellName, targetName);
+      button.disabled = !usable;
+      applyUiSpellOptionState(button, targetContext ? targetContext.cost : {}, usable);
+      button.addEventListener("click", function () {
+        castTargetedSpell(spellName, context);
+      });
+      container.appendChild(button);
+      hasActions = true;
+    }
+  });
+
+  if (hasActions) {
+    showElement(container, "flex");
+  } else {
+    hideElement(container);
+  }
 }
 
 function renderCampUpgradeSlots() {
@@ -1070,27 +1365,100 @@ function getPurchasedCampUpgradeSlots() {
   });
 }
 
-function renderEquipmentSlots(groupEl, containerEl, equipmentType) {
-  if (!groupEl || !containerEl) return;
+function renderPaperDollEquipment() {
+  if (!ui.gearSlotsGroup || !ui.gearSlots || !ui.toolSlotsGroup || !ui.toolSlots) return;
 
-  const slots = getPurchasedEquipmentSlots(equipmentType);
-  containerEl.innerHTML = "";
+  const gearSlots = getPurchasedEquipmentSlots("gear");
+  const toolSlots = getPurchasedEquipmentSlots("tool");
+  const availableItems = gearSlots.map(function (slot) { return slot.current; }).concat(toolSlots.map(function (slot) { return slot.current; }));
 
-  if (slots.length === 0) {
-    hideElement(groupEl);
-    return;
+  if (!availableItems.some(function (item) { return item === selectedEquipmentDetailId; })) {
+    selectedEquipmentDetailId = availableItems[0] || null;
   }
 
-  showElement(groupEl, "flex");
+  ui.gearSlots.innerHTML = "";
+  ui.toolSlots.innerHTML = "";
 
-  slots.forEach(function (slot) {
-    const renderedSlot = createUiSlot({
-      itemLabel: slot.current.displayName || slot.current.label,
-      slotLabel: slot.label,
+  if (gearSlots.length > 0) {
+    showElement(ui.gearSlotsGroup, "flex");
+    gearSlots.forEach(function (slot) {
+      ui.gearSlots.appendChild(createPaperDollItemButton(slot.current));
     });
+  } else {
+    hideElement(ui.gearSlotsGroup);
+  }
 
-    containerEl.appendChild(renderedSlot.slot);
+  if (toolSlots.length > 0) {
+    showElement(ui.toolSlotsGroup, "flex");
+    toolSlots.forEach(function (slot) {
+      ui.toolSlots.appendChild(createToolItemButton(slot.current));
+    });
+  } else {
+    hideElement(ui.toolSlotsGroup);
+  }
+
+  updateEquipmentDetail(availableItems);
+}
+
+function createPaperDollItemButton(item) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "paper-doll-item slot-" + item.slot + (item.iconVariant ? " icon-" + item.iconVariant : "");
+  button.setAttribute("aria-label", (item.displayName || item.label) + ": " + getEquipmentEffectText(item));
+  button.title = item.displayName || item.label;
+  button.textContent = item.icon || "✦";
+  button.classList.toggle("is-selected", item === selectedEquipmentDetailId);
+  button.addEventListener("click", function () {
+    selectedEquipmentDetailId = item;
+    renderPaperDollEquipment();
   });
+  return button;
+}
+
+function createToolItemButton(item) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "tool-icon-item" + (item.iconVariant ? " icon-" + item.iconVariant : "");
+  button.setAttribute("aria-label", (item.displayName || item.label) + ": " + getEquipmentEffectText(item));
+  button.title = item.displayName || item.label;
+  button.classList.toggle("is-selected", item === selectedEquipmentDetailId);
+
+  const icon = document.createElement("span");
+  icon.className = "tool-item-icon";
+  icon.textContent = item.icon || "✦";
+  const effect = document.createElement("span");
+  effect.className = "tool-item-effect";
+  effect.textContent = getEquipmentEffectText(item);
+  button.append(icon, effect);
+  button.addEventListener("click", function () {
+    selectedEquipmentDetailId = item;
+    renderPaperDollEquipment();
+  });
+  return button;
+}
+
+function updateEquipmentDetail(availableItems) {
+  if (!ui.equipmentDetail) return;
+  const item = selectedEquipmentDetailId && availableItems.indexOf(selectedEquipmentDetailId) !== -1 ? selectedEquipmentDetailId : availableItems[0];
+  ui.equipmentDetail.textContent = item ? (item.displayName || item.label) + "  " + getEquipmentEffectText(item) : "";
+}
+
+function getEquipmentEffectText(item) {
+  const effects = item.effects || {};
+  const parts = [];
+  if (effects.carryCapacity !== undefined) parts.push("Carry " + effects.carryCapacity);
+  if (effects.waterCapacity !== undefined) parts.push("Water " + effects.waterCapacity);
+  if (effects.explorationEnergyReduction !== undefined) parts.push("Explore Energy −" + effects.explorationEnergyReduction);
+  if (effects.travelEnergyMultiplier !== undefined) parts.push("Travel Energy −" + Math.round((1 - effects.travelEnergyMultiplier) * 100) + "%");
+  if (effects.travelDistanceFlat !== undefined) parts.push("Travel +" + Math.round(effects.travelDistanceFlat * 100) + "%");
+  if (effects.tonicSlots !== undefined) parts.push("Tonics " + effects.tonicSlots);
+  if (effects.forageYieldFlat !== undefined) parts.push("Food +" + effects.forageYieldFlat, "Herb +" + effects.forageYieldFlat);
+  if (effects.cuttingYieldFlat !== undefined) parts.push("Fiber +" + effects.cuttingYieldFlat);
+  if (effects.huntRewardFlat !== undefined) parts.push("Pelts +" + effects.huntRewardFlat);
+  if (effects.choppingYieldFlat !== undefined) parts.push("Wood +" + effects.choppingYieldFlat);
+  if (effects.miningYieldBase !== undefined) parts.push("Ore " + effects.miningYieldBase);
+  if (effects.darkExploration) parts.push("Dark places");
+  return parts.join(" · ");
 }
 
 function renderTonicSlots() {
@@ -1315,6 +1683,7 @@ function createSpellProgressEntry(spellName) {
   if (spellName === "attunement") return createAttunementExperienceEntry();
   if (spellName === "imbue") return createImbueExperienceEntry();
   if (spellName === "arcaneForce") return createArcaneForceExperienceEntry();
+  if (spellName === "ward") return createWardExperienceEntry();
 
   return null;
 }
@@ -1357,6 +1726,7 @@ function getCurrentManaSensePlace() {
 }
 
 function canCastSpell(spellName) {
+  if (typeof isCombatActive === "function" && isCombatActive()) return false;
   const spell = getSpell(spellName);
   const context = getSpellCastContext(spellName);
 
@@ -1702,6 +2072,11 @@ function completeSpellCast(spellName, context) {
   const manaControlManaSpent = manaControlEnabled ? manaSpent : 0;
   let completedSuccessfully = false;
 
+  if (spellName === "ward" && context && context.type === "ward") {
+    completeWardChannel(context);
+    return;
+  }
+
   if (context && context.type === "locationObjectSpellCharge") {
     const addedCharge = addLocationObjectSpellCharge(context.locationName, context.objectName, context.spellName);
 
@@ -1918,7 +2293,7 @@ function updateGearUpgradeUI(upgradeName) {
   }
 
   if (upgrade.button) {
-    upgrade.button.style.display = isCraftContextAvailable(upgrade) && upgrade.unlocked && !upgrade.purchased ? "inline-block" : "none";
+    upgrade.button.style.display = isCraftContextAvailable(upgrade) && upgrade.unlocked && !upgrade.purchased ? "grid" : "none";
     if (upgrade.unlocked && !upgrade.purchased) {
       updateCraftButtonLabel("gearUpgrade", upgradeName);
     }
@@ -1964,17 +2339,22 @@ function completeGearUpgrade(upgradeName) {
 function updateCraftingSectionVisibility() {
   if (!ui.craftingSection) return;
 
-  const canUseCampWork = isCampWorkContextAvailable();
-  const hasCampCrafting = hasAvailableCampUpgrade();
-  const hasGearCrafting = hasAvailableGearUpgrade();
-  const hasResourceCrafting = hasAvailableResourceCraft();
-  const hasResearchCrafting = hasAvailableResearch();
-
-  if (hasCampCrafting || hasGearCrafting || hasResourceCrafting || hasResearchCrafting) {
+  if (hasDiscoveredCraftingContent()) {
     showElement(ui.craftingSection, "flex");
   } else {
     hideElement(ui.craftingSection);
   }
+}
+
+function hasDiscoveredCraftingContent() {
+  const craftGroups = [getCampUpgradeDefinitions(), getGearUpgradeDefinitions(), getResourceCraftDefinitions(), getResearchDefinitions()];
+
+  return craftGroups.some(function (definitions) {
+    return Object.keys(definitions).some(function (entryName) {
+      const entry = definitions[entryName];
+      return !!entry && (!!entry.unlocked || !!entry.purchased || !!entry.completed);
+    });
+  });
 }
 
 function getCraftDefinition(craftType, craftId) {
@@ -2143,6 +2523,22 @@ function updateCraftButtonsForType(craftType, definitions) {
 
     craft.button.disabled = !isActiveCraft && (!available || isActivityActive() || !canAffordCost(cost));
 
+    let uiAvailability = { state: "ready", reason: "" };
+
+    if (isActiveCraft) {
+      uiAvailability = { state: "running", reason: "Workbench task in progress" };
+    } else if (isActivityActive()) {
+      uiAvailability = { state: "busy", reason: "Another task is in progress" };
+    } else if (!available) {
+      uiAvailability = { state: "wrong-context", reason: "Requirements are not met for this work" };
+    } else if (!canAffordCost(cost)) {
+      uiAvailability = { state: "unaffordable", reason: getUiCostShortfall(cost) || "Insufficient resources" };
+    }
+
+    if (typeof applyUiActionState === "function") {
+      applyUiActionState(craft.button, uiAvailability, "craft:" + craftType + ":" + craftId);
+    }
+
     if (isActiveCraft) {
       craft.button.classList.add("running");
     } else {
@@ -2210,7 +2606,7 @@ function updateResourceCraftUI(craftName) {
 
   if (!craft || !craft.button) return;
 
-  craft.button.style.display = context && isResourceCraftUnlockedForContext(craft, context) ? "inline-block" : "none";
+  craft.button.style.display = context && isResourceCraftUnlockedForContext(craft, context) ? "grid" : "none";
   updateCraftButtonLabel("resourceCraft", craftName);
   updateCraftingButtons();
 }
@@ -2279,6 +2675,7 @@ function updateCraftingUIForCurrentContext() {
   updateCraftingButtons();
   updateCraftingSectionVisibility();
   updateWorkTabsVisibility();
+  renderContextualCraftingSpellActions();
 
   if (ui.researchPanel && ui.researchPanel.style.display !== "none") {
     updateResearchHistoryUI();
@@ -2350,14 +2747,23 @@ function updateWorkTabsVisibility() {
   if (!ui.workTabs) return;
 
   const canUseCampWork = isCampWorkContextAvailable();
+  const hasCrafting = hasDiscoveredCraftingContent();
   const hasResearch = canUseCampWork && isResearchSpotPurchased();
   const hasAutomation = canUseCampWork && hasUnlockedAutomation();
 
-  if (hasResearch || hasAutomation) {
+  if (hasCrafting || hasResearch || hasAutomation) {
     showElement(ui.workTabs, "flex");
   } else {
     hideElement(ui.workTabs);
     showWorkPanel("crafting");
+  }
+
+  if ((!hasResearch && ui.researchPanel && ui.researchPanel.style.display !== "none") || (!hasAutomation && ui.automationPanel && ui.automationPanel.style.display !== "none")) {
+    showWorkPanel("crafting");
+  }
+
+  if (ui.craftingTabBtn) {
+    ui.craftingTabBtn.style.display = hasCrafting ? "inline-block" : "none";
   }
 
   if (ui.researchTabBtn) {
@@ -2389,15 +2795,25 @@ function showWorkPanel(panelName) {
 
   if (ui.craftingTabBtn) {
     ui.craftingTabBtn.classList.toggle("active", showingCrafting);
+    ui.craftingTabBtn.setAttribute("aria-selected", String(showingCrafting));
+    ui.craftingTabBtn.setAttribute("tabindex", showingCrafting ? "0" : "-1");
   }
 
   if (ui.researchTabBtn) {
     ui.researchTabBtn.classList.toggle("active", showingResearch);
+    ui.researchTabBtn.setAttribute("aria-selected", String(showingResearch));
+    ui.researchTabBtn.setAttribute("tabindex", showingResearch ? "0" : "-1");
   }
 
   if (ui.automationTabBtn) {
     ui.automationTabBtn.classList.toggle("active", showingAutomation);
+    ui.automationTabBtn.setAttribute("aria-selected", String(showingAutomation));
+    ui.automationTabBtn.setAttribute("tabindex", showingAutomation ? "0" : "-1");
   }
+
+  if (ui.craftingPanel) ui.craftingPanel.setAttribute("aria-hidden", String(!showingCrafting));
+  if (ui.researchPanel) ui.researchPanel.setAttribute("aria-hidden", String(!showingResearch));
+  if (ui.automationPanel) ui.automationPanel.setAttribute("aria-hidden", String(!showingAutomation));
 
   if (showingResearch) updateResearchHistoryUI();
   if (showingAutomation) updateAutomationUI();
@@ -2989,10 +3405,50 @@ function completeTowerNodeThreadSense(nodeName) {
     state.advancedRecallUnlocked = true;
     addStoryEntry("The node thread settles into a pattern you can use. You can now recall carried supplies through the northern node.");
     addJournalEntry("advancedRecallUnlocked");
+
+    if (nodeName === "north") {
+      triggerNorthernDisturbance(true);
+    }
   }
 
   updateTowerNodePanel();
   updateAllActionButtons();
+}
+
+function getNorthernDisturbanceState() {
+  if (!gameState.northernDisturbance || typeof gameState.northernDisturbance !== "object") {
+    gameState.northernDisturbance = { triggered: false, resolved: false, popupShown: false };
+  }
+
+  return gameState.northernDisturbance;
+}
+
+function triggerNorthernDisturbance(showPopup) {
+  const disturbance = getNorthernDisturbanceState();
+
+  if (disturbance.triggered) return false;
+
+  disturbance.triggered = true;
+  addStoryEntry("As the northern node settles, mana shifts across the ridge. A low tremor rolls out from somewhere near the Iron Mine.");
+  setCurrentGoal("investigateNorthernDisturbance");
+
+  if (showPopup) {
+    disturbance.popupShown = true;
+    showNorthernDisturbancePopup();
+  }
+
+  updateLocationActions();
+  updatePlacePanel();
+  return true;
+}
+
+function repairNorthernDisturbanceFromNorthNode() {
+  const northNode = getTowerNodeState("north");
+  const disturbance = getNorthernDisturbanceState();
+
+  if (northNode && northNode.advancedRecallUnlocked && !disturbance.triggered && !disturbance.resolved) {
+    triggerNorthernDisturbance(false);
+  }
 }
 
 function getTowerNodeThreadSenseButton(nodeName) {
@@ -5359,6 +5815,26 @@ function getArcaneForceLevel() {
   return getArcaneForceProgressState().level || 0;
 }
 
+function getWardLevelRewardText(level) {
+  const progression = WARD_RANK_1_PROGRESSION[Math.max(0, Math.min(level, WARD_RANK_1_PROGRESSION.length - 1))];
+  const maintainText = level >= 3 ? ", Maintain Ward" : "";
+  return progression.maxWard + " maximum Ward · " + formatResourceAmountForDisplay(progression.restoreEfficiency) + " Ward per mana" + maintainText;
+}
+
+function recordWardExperience(amount) {
+  if (!Number.isFinite(amount) || amount <= 0) return;
+
+  const progress = getSpellProgressState("ward");
+  const oldLevel = progress.level || 0;
+  progress.xp = roundResourceAmount((progress.xp || 0) + amount);
+  progress.level = getSpellLevelFromXp("ward", progress.xp);
+  syncWardResourceState();
+
+  if (progress.level > oldLevel) {
+    addStoryEntry("Your Ward strengthens. " + getWardLevelRewardText(progress.level) + ".");
+  }
+}
+
 function getArcaneForceLevelRewardText(level) {
   const rewards = [
     "Shape Nails",
@@ -5366,7 +5842,7 @@ function getArcaneForceLevelRewardText(level) {
     "Force-open dungeon doors",
     "Bulk harvest herbs and glimmerleaf",
     "Detonate ore nodes",
-    "Ward research ready, story gated",
+    "Rank 2 research ready, story gated",
   ];
 
   return rewards[Math.max(0, Math.min(level, rewards.length - 1))];
@@ -5406,6 +5882,11 @@ function recordSpellProgressExperience(spellName, amount) {
 
   if (spellName === "arcaneForce") {
     recordArcaneForceExperience(amount);
+    return;
+  }
+
+  if (spellName === "ward") {
+    recordWardExperience(amount);
   }
 }
 
@@ -5576,6 +6057,8 @@ function renderSpellTargetMenu(spellName, menuEl) {
 
   if (spellName === "attunement") {
     renderAttunementTargetMenu(menuEl);
+  } else if (spellName === "ward") {
+    renderWardTargetMenu(menuEl);
   } else if (isProductionSpell(spellName)) {
     renderProductionSpellTargetMenu(spellName, menuEl);
   } else {
@@ -5623,7 +6106,9 @@ function renderAttunementTargetMenu(menuEl) {
     button.appendChild(description);
     button.appendChild(details);
 
-    button.disabled = !canApplyAttunement(attunementName);
+    const usable = canApplyAttunement(attunementName);
+    button.disabled = !usable;
+    applyUiSpellOptionState(button, definition.cost || {}, usable);
 
     button.addEventListener("click", function () {
       castTargetedSpell("attunement", context);
@@ -5672,23 +6157,11 @@ function renderProductionSpellTargetMenu(spellName, menuEl) {
     button.type = "button";
     button.className = "attunement-target-btn";
 
-    const label = document.createElement("span");
-    label.className = "attunement-target-label";
-    label.textContent = definition.label;
+    appendProductionSpellOptionContent(button, spellName, definition, context, true);
 
-    const description = document.createElement("span");
-    description.className = "attunement-target-description";
-    description.textContent = definition.description || "";
-
-    const details = document.createElement("span");
-    details.className = "attunement-target-details";
-    details.textContent = formatSpellOptionDetails(spellName, definition, context);
-
-    button.appendChild(label);
-    button.appendChild(description);
-    button.appendChild(details);
-
-    button.disabled = !canApplyProductionSpellTarget(spellName, targetName);
+    const usable = canApplyProductionSpellTarget(spellName, targetName);
+    button.disabled = !usable;
+    applyUiSpellOptionState(button, targetContext ? targetContext.cost : {}, usable);
 
     button.addEventListener("click", function () {
       castTargetedSpell(spellName, context);
@@ -5719,6 +6192,53 @@ function renderBasicSpellTargetMenu(spellName, menuEl) {
   }
 
   appendSpellCastOption(spellName, context, menuEl);
+}
+
+function renderWardTargetMenu(menuEl) {
+  const ward = getResource("ward");
+  const state = getWardState();
+  const plan = getWardRestorationPlan(5);
+
+  menuEl.appendChild(createWardExperienceEntry());
+
+  const status = document.createElement("div");
+  status.className = "training-detail";
+  status.textContent =
+    "Ward: " +
+    formatResourceAmountForDisplay(ward.value) +
+    " / " +
+    formatResourceAmountForDisplay(ward.maxValue) +
+    " · " +
+    formatWardRestoreEfficiency() +
+    " Ward per mana.";
+  menuEl.appendChild(status);
+
+  const action = state.formed ? "restore" : "form";
+  const actionButton = createUiActionButton({
+    label: state.formed ? "Restore Ward" : "Form Ward",
+    detail: state.formed ? "Channel mana into your existing Ward." : "Establish a collapsed Ward with mana.",
+    cost: plan ? formatResourceAmountForDisplay(plan.manaSpent) + " Mana" : "",
+    progress: false,
+  });
+  actionButton.disabled = !plan || isActivityActive() || (typeof isCombatActive === "function" && isCombatActive());
+  applyUiSpellOptionState(actionButton, {}, !!plan, {
+    unavailableReason: state.formed ? "Ward is full or insufficient mana" : "Insufficient mana to form Ward",
+  });
+  actionButton.addEventListener("click", function () {
+    startWardChannel(action);
+  });
+  menuEl.appendChild(actionButton);
+
+  if (getWardLevel() >= 3) {
+    const maintainButton = createUiActionButton({
+      label: state.maintainEnabled ? "Maintain Ward: On" : "Maintain Ward: Off",
+      detail: "Outside combat, automatically restore Ward after it takes damage.",
+      progress: false,
+    });
+    maintainButton.disabled = !state.formed || (typeof isCombatActive === "function" && isCombatActive());
+    maintainButton.addEventListener("click", toggleMaintainWard);
+    menuEl.appendChild(maintainButton);
+  }
 }
 
 function renderManaSenseTargetMenu(menuEl, context) {
@@ -5774,7 +6294,9 @@ function appendManaSenseTargetOption(targetName, menuEl) {
   button.appendChild(description);
   button.appendChild(details);
 
-  button.disabled = isActive || !canApplyManaSenseTarget(targetName);
+  const usable = !isActive && canApplyManaSenseTarget(targetName);
+  button.disabled = !usable;
+  applyUiSpellOptionState(button, definition.cost || {}, usable, { active: isActive });
 
   if (!isActive) {
     button.addEventListener("click", function () {
@@ -5820,7 +6342,10 @@ function appendSpellCastOption(spellName, context, menuEl) {
   button.appendChild(description);
   button.appendChild(details);
 
-  button.disabled = !canCastSpell(spellName);
+  const usable = canCastSpell(spellName);
+  const cost = getSpellCastCost(spellName, context);
+  button.disabled = !usable;
+  applyUiSpellOptionState(button, cost, usable);
 
   button.addEventListener("click", function () {
     castSpell(spellName);
@@ -6091,7 +6616,7 @@ function createArcaneForceExperienceEntry() {
   detail.className = "training-detail";
 
   if (progress.level >= maxLevel || nextThreshold === null) {
-    detail.textContent = "Current: " + getArcaneForceLevelRewardText(progress.level) + ". Ward research ready, story gated.";
+    detail.textContent = "Current: " + getArcaneForceLevelRewardText(progress.level) + ".";
   } else {
     detail.textContent =
       "Current: " + getArcaneForceLevelRewardText(progress.level) + ". Next: " + getArcaneForceLevelRewardText(progress.level + 1) + ".";
@@ -6106,6 +6631,46 @@ function createArcaneForceExperienceEntry() {
     entry.appendChild(wardDetail);
   }
 
+  return entry;
+}
+
+function createWardExperienceEntry() {
+  const progress = getSpellProgressState("ward");
+  const definition = getSpellProgressDefinition("ward");
+  const nextThreshold = definition.thresholds[progress.level] || null;
+  const state = getWardState();
+  const entry = document.createElement("div");
+  entry.className = "training-entry spell-experience-entry";
+
+  const header = document.createElement("div");
+  header.className = "training-entry-header";
+  const title = document.createElement("strong");
+  title.textContent = "Ward - Rank " + state.rank + " Level " + progress.level;
+  const capacity = document.createElement("span");
+  capacity.textContent = getWardLevelRewardText(progress.level);
+  header.append(title, capacity);
+  entry.appendChild(header);
+
+  const progressText = document.createElement("div");
+  progressText.className = "training-progress-text";
+  progressText.textContent = nextThreshold === null ? "Ward restored: complete" : "Ward restored: " + formatTrainingNumber(progress.xp) + " / " + formatTrainingNumber(nextThreshold);
+  entry.appendChild(progressText);
+
+  const progressTrack = document.createElement("div");
+  progressTrack.className = "training-progress-track";
+  const progressFill = document.createElement("div");
+  progressFill.className = "training-progress-fill";
+  progressFill.style.width = getSpellProgressPercent("ward") * 100 + "%";
+  progressTrack.appendChild(progressFill);
+  entry.appendChild(progressTrack);
+
+  const detail = document.createElement("div");
+  detail.className = "training-detail";
+  detail.textContent =
+    "Current: " +
+    getWardLevelRewardText(progress.level) +
+    (nextThreshold === null ? "." : ". Next: " + getWardLevelRewardText(progress.level + 1) + ".");
+  entry.appendChild(detail);
   return entry;
 }
 
@@ -6405,6 +6970,97 @@ function formatSpellOptionDetails(spellName, definition, context) {
     "Time: " + formatSpellDuration(getSpellCastDuration(spellName, context)),
     "Materials: " + getSpellOptionMaterialCost(cost, storageCost, carriedCost),
   ].join(" | ");
+}
+
+function appendProductionSpellOptionContent(button, spellName, definition, context, includeDescription) {
+  const isImbueTonic = spellName === "imbue" && getProductionSpellConsumable(definition);
+  const label = document.createElement("span");
+  label.className = "attunement-target-label";
+  label.textContent = getProductionSpellOptionLabel(spellName, definition);
+
+  const details = document.createElement("span");
+  details.className = "attunement-target-details";
+  details.textContent = formatProductionSpellOptionDetails(spellName, definition, context);
+
+  if (isImbueTonic) {
+    button.classList.add("imbue-tonic-option");
+  }
+
+  button.appendChild(label);
+
+  if (includeDescription && !isImbueTonic) {
+    const description = document.createElement("span");
+    description.className = "attunement-target-description";
+    description.textContent = definition.description || "";
+    button.appendChild(description);
+  }
+
+  button.appendChild(details);
+}
+
+function getProductionSpellConsumable(definition) {
+  if (!definition || !definition.producesConsumable) return null;
+
+  const resourceName = definition.producesConsumable.resource;
+  return resourceName ? getResource(resourceName) : null;
+}
+
+function getProductionSpellOptionLabel(spellName, definition) {
+  const consumable = getProductionSpellConsumable(definition);
+
+  if (spellName === "imbue" && consumable) {
+    return "Imbue: " + consumable.label;
+  }
+
+  return definition ? definition.label : "";
+}
+
+function formatProductionSpellOptionDetails(spellName, definition, context) {
+  const consumable = getProductionSpellConsumable(definition);
+
+  if (spellName !== "imbue" || !consumable) {
+    return formatSpellOptionDetails(spellName, definition, context);
+  }
+
+  const targetContext = getProductionSpellTargetContext(spellName, context.targetId, context);
+  const cost = targetContext ? targetContext.cost : definition.cost || {};
+  const materialCost = formatProductionSpellMaterials(
+    cost,
+    targetContext ? targetContext.storageCost : definition.storageCost,
+    targetContext ? targetContext.carriedCost : null
+  );
+
+  return [
+    getSpellOptionManaCost(cost) + " Mana",
+    formatSpellDuration(getSpellCastDuration(spellName, context)),
+    materialCost,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function formatProductionSpellMaterials(cost, storageCost, carriedCost) {
+  const totals = {};
+
+  [cost, storageCost, carriedCost].forEach(function (source) {
+    if (!source) return;
+
+    for (let resourceName in source) {
+      if (resourceName === "mana") continue;
+
+      const amount = source[resourceName];
+      if (!Number.isFinite(amount) || amount <= 0) continue;
+
+      totals[resourceName] = (totals[resourceName] || 0) + amount;
+    }
+  });
+
+  return Object.keys(totals)
+    .map(function (resourceName) {
+      const resource = getResource(resourceName);
+      return totals[resourceName] + " " + (resource ? resource.label : resourceName);
+    })
+    .join(" · ");
 }
 
 function getSpellOptionManaCost(cost) {

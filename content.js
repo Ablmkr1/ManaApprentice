@@ -486,7 +486,7 @@ const expeditionLocations = {
       discovered: "A narrow mine cuts into the ridge. The stone is rich with ore, but too hard for bare hands.",
       explored: "Iron veins run through the mine wall. With the right pick, ore can be mined here reliably.",
     },
-    availableActions: ["mineOre"],
+    availableActions: ["mineOre", "investigateNorthernDisturbance"],
   },
 
   wildHerbPatch: {
@@ -838,9 +838,6 @@ const dungeonDefinitions = {
         explored: false,
         rewardClaimed: false,
         manaSenseCharges: 0,
-        requires: {
-          gearPurchased: ["crudeIronPick"],
-        },
         search: {
           duration: 10,
           baseChance: 30,
@@ -2103,7 +2100,7 @@ const researchDefinitions = {
     discoveryStory:
       "As mana returns, you begin to notice that it does not simply appear. It follows a path through you. With practice, that path might be widened.",
     story: "Careful meditation reveals the first safe path for cycling mana through yourself instead of casting it outward.",
-    unlocks: [{ type: "action", id: "practiceManaCycling" }],
+    unlocks: [],
   },
 
   campTanning: {
@@ -2357,7 +2354,7 @@ const projectDefinitions = {
         name: "Started Digging",
         actionLabel: "Begin Digging",
         workYield: 20,
-        workRequired: 120,
+        workRequired: 100,
         materials: {
           wood: 25,
         },
@@ -2368,7 +2365,7 @@ const projectDefinitions = {
         name: "Reached Foundation",
         actionLabel: "Dig Toward Foundation",
         workYield: 20,
-        workRequired: 260,
+        workRequired: 100,
         materials: {
           wood: 50,
         },
@@ -2379,7 +2376,7 @@ const projectDefinitions = {
         name: "Uncover Foundation And Shore Walls",
         actionLabel: "Shore Dig Site",
         workYield: 22,
-        workRequired: 420,
+        workRequired: 150,
         materials: {
           wood: 150,
           nails: 50,
@@ -2391,10 +2388,10 @@ const projectDefinitions = {
         name: "Repair Heart Plinth",
         actionLabel: "Repair Heart Plinth",
         workYield: 25,
-        workRequired: 650,
+        workRequired: 150,
         materials: {
-          stone: 50,
-          iron: 15,
+          stone: 25,
+          iron: 5,
         },
         description: "The central plinth is cracked and misaligned. Fitted stone and iron pins can make it whole again.",
         completionStory: "The repaired plinth settles into the old channels, giving the foundation a center again.",
@@ -2553,8 +2550,8 @@ const towerNodeDefinitions = {
     destinationLabel: "Northern Node",
     researchName: "northernTowerNode",
     materials: {
-      stone: 100,
-      iron: 25,
+      stone: 25,
+      iron: 5,
       chargedCrystal: 4,
     },
     imbueRequired: 50,
@@ -3091,6 +3088,8 @@ const gearUpgrades = {
     slotLabel: "Pack",
     slotOrder: 1,
     slotRank: 1,
+    icon: "👜",
+    effects: { carryCapacity: 10 },
     duration: 5,
     cost: {
       fiber: 7,
@@ -3101,7 +3100,7 @@ const gearUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      gameState.expedition.carryCapacity = 10;
+      gameState.expedition.carryCapacity = this.effects.carryCapacity;
       refreshExpeditionUI();
     },
   },
@@ -3113,6 +3112,7 @@ const gearUpgrades = {
     slotLabel: "Chest",
     slotOrder: 4,
     slotRank: 1,
+    icon: "👕",
     effects: {
       explorationEnergyReduction: 1,
     },
@@ -3139,6 +3139,7 @@ const gearUpgrades = {
     slotLabel: "Chest",
     slotOrder: 4,
     slotRank: 2,
+    icon: "🥋",
     effects: {
       explorationEnergyReduction: 2,
     },
@@ -3166,6 +3167,7 @@ const gearUpgrades = {
     slotLabel: "Legs",
     slotOrder: 5,
     slotRank: 1,
+    icon: "🩳",
     effects: {
       travelEnergyMultiplier: 0.9,
     },
@@ -3191,6 +3193,7 @@ const gearUpgrades = {
     slotLabel: "Legs",
     slotOrder: 5,
     slotRank: 2,
+    icon: "👖",
     effects: {
       travelEnergyMultiplier: 0.8,
     },
@@ -3218,6 +3221,7 @@ const gearUpgrades = {
     slotLabel: "Foraging",
     slotOrder: 0,
     slotRank: 1,
+    icon: "🧺",
     effects: {
       forageYieldFlat: 1,
     },
@@ -3245,6 +3249,8 @@ const gearUpgrades = {
     slotLabel: "Water",
     slotOrder: 2,
     slotRank: 1,
+    icon: "🫙",
+    effects: { waterCapacity: 10 },
     duration: 6,
     cost: {
       pelt: 3,
@@ -3256,7 +3262,7 @@ const gearUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      gameState.expedition.waterCapacity += 10;
+      gameState.expedition.waterCapacity = this.effects.waterCapacity;
       refreshExpeditionUI();
     },
   },
@@ -3269,6 +3275,8 @@ const gearUpgrades = {
     slotLabel: "Water",
     slotOrder: 2,
     slotRank: 2,
+    icon: "🍶",
+    effects: { waterCapacity: 25 },
     duration: 8,
     cost: {
       leather: 2,
@@ -3280,7 +3288,7 @@ const gearUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      gameState.expedition.waterCapacity += 15;
+      gameState.expedition.waterCapacity = this.effects.waterCapacity;
 
       if (getGearUpgrade("waterskin").display) {
         getGearUpgrade("waterskin").display.style.display = "none";
@@ -3298,6 +3306,8 @@ const gearUpgrades = {
     slotLabel: "Pack",
     slotOrder: 1,
     slotRank: 2,
+    icon: "🎒",
+    effects: { carryCapacity: 20 },
     duration: 10,
     cost: {
       pelt: 6,
@@ -3310,7 +3320,7 @@ const gearUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      gameState.expedition.carryCapacity = 20;
+      gameState.expedition.carryCapacity = this.effects.carryCapacity;
 
       if (getGearUpgrade("crudeSatchel").display) {
         getGearUpgrade("crudeSatchel").display.style.display = "none";
@@ -3328,6 +3338,8 @@ const gearUpgrades = {
     slotLabel: "Feet",
     slotOrder: 3,
     slotRank: 1,
+    icon: "👟",
+    effects: { travelDistanceFlat: 0.5 },
     duration: 7,
     cost: {
       pelt: 4,
@@ -3350,6 +3362,8 @@ const gearUpgrades = {
     slotLabel: "Feet",
     slotOrder: 3,
     slotRank: 2,
+    icon: "🥾",
+    effects: { travelDistanceFlat: 1 },
     duration: 7,
     cost: {
       leather: 4,
@@ -3373,6 +3387,7 @@ const gearUpgrades = {
     slotLabel: "Knife",
     slotOrder: 1,
     slotRank: 1,
+    icon: "🗡️",
     effects: {
       cuttingYieldFlat: 1,
       huntRewardFlat: 1,
@@ -3401,6 +3416,7 @@ const gearUpgrades = {
     slotLabel: "Knife",
     slotOrder: 1,
     slotRank: 2,
+    icon: "⚔️",
     effects: {
       cuttingYieldFlat: 2,
       huntRewardFlat: 2,
@@ -3428,6 +3444,7 @@ const gearUpgrades = {
     slotLabel: "Axe",
     slotOrder: 2,
     slotRank: 1,
+    icon: "🪓",
     effects: {
       choppingYieldFlat: 1,
     },
@@ -3455,6 +3472,8 @@ const gearUpgrades = {
     slotLabel: "Axe",
     slotOrder: 2,
     slotRank: 2,
+    icon: "🪓",
+    iconVariant: "iron",
     effects: {
       choppingYieldFlat: 2,
     },
@@ -3483,6 +3502,9 @@ const gearUpgrades = {
     slotLabel: "Pack",
     slotOrder: 1,
     slotRank: 3,
+    icon: "🎒",
+    iconVariant: "patched",
+    effects: { carryCapacity: 35 },
     duration: 10,
     cost: {
       pelt: 5,
@@ -3494,7 +3516,7 @@ const gearUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      gameState.expedition.carryCapacity = 35;
+      gameState.expedition.carryCapacity = this.effects.carryCapacity;
 
       if (getGearUpgrade("crudeSatchel").display) {
         getGearUpgrade("crudeSatchel").display.style.display = "none";
@@ -3516,6 +3538,9 @@ const gearUpgrades = {
     slotLabel: "Pack",
     slotOrder: 1,
     slotRank: 4,
+    icon: "🎒",
+    iconVariant: "reinforced",
+    effects: { carryCapacity: 50 },
     duration: 10,
     cost: {
       leather: 3,
@@ -3528,7 +3553,7 @@ const gearUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      gameState.expedition.carryCapacity = 50;
+      gameState.expedition.carryCapacity = this.effects.carryCapacity;
 
       if (getGearUpgrade("crudeSatchel").display) {
         getGearUpgrade("crudeSatchel").display.style.display = "none";
@@ -3550,6 +3575,8 @@ const gearUpgrades = {
     slotLabel: "Light",
     slotOrder: 4,
     slotRank: 1,
+    icon: "🔦",
+    effects: { darkExploration: true },
     duration: 6,
     cost: {
       wood: 5,
@@ -3573,6 +3600,7 @@ const gearUpgrades = {
     slotLabel: "Pick",
     slotOrder: 3,
     slotRank: 1,
+    icon: "⛏️",
     effects: {
       miningYieldBase: 2,
     },
@@ -3601,6 +3629,8 @@ const gearUpgrades = {
     slotLabel: "Belt",
     slotOrder: 4,
     slotRank: 1,
+    icon: "🪢",
+    effects: { tonicSlots: 1 },
     duration: 8,
     cost: {
       pelt: 5,
@@ -3612,7 +3642,7 @@ const gearUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      gameState.expedition.tonicSlots = [null];
+      gameState.expedition.tonicSlots = Array(this.effects.tonicSlots).fill(null);
       refreshExpeditionUI();
       updateEquipmentSlotUI();
     },
@@ -3626,6 +3656,8 @@ const gearUpgrades = {
     slotLabel: "Belt",
     slotOrder: 4,
     slotRank: 2,
+    icon: "🧷",
+    effects: { tonicSlots: 2 },
     duration: 10,
     cost: {
       leather: 2,
@@ -3638,7 +3670,7 @@ const gearUpgrades = {
     onComplete() {
       gameState.expedition.tonicSlots = gameState.expedition.tonicSlots || [];
 
-      while (gameState.expedition.tonicSlots.length < 2) {
+      while (gameState.expedition.tonicSlots.length < this.effects.tonicSlots) {
         gameState.expedition.tonicSlots.push(null);
       }
 
@@ -3655,6 +3687,8 @@ const gearUpgrades = {
     slotLabel: "Belt",
     slotOrder: 4,
     slotRank: 3,
+    icon: "⛓️",
+    effects: { tonicSlots: 3 },
     duration: 12,
     cost: {
       leather: 3,
@@ -3668,7 +3702,7 @@ const gearUpgrades = {
     onComplete() {
       gameState.expedition.tonicSlots = gameState.expedition.tonicSlots || [];
 
-      while (gameState.expedition.tonicSlots.length < 3) {
+      while (gameState.expedition.tonicSlots.length < this.effects.tonicSlots) {
         gameState.expedition.tonicSlots.push(null);
       }
 
@@ -3923,6 +3957,13 @@ const spellDefinitions = {
   arcaneForce: {
     label: "Arcane Force",
     duration: 2,
+    unlocked: false,
+    targeted: true,
+  },
+  ward: {
+    label: "Ward",
+    duration: 2,
+    unlockFlag: "personalWardUnlocked",
     unlocked: false,
     targeted: true,
   },
@@ -4219,29 +4260,6 @@ const arcaneForceDefinitions = {
     story: "You press the iron through a narrow force pattern until it draws into a neat row of nails.",
   },
 
-  rechargeWard: {
-    label: "Recharge Ward",
-    description: "Press mana into your personal ward, restoring part of its protective shell.",
-    requiredLocation: "any",
-    duration: 2,
-    cost: {
-      mana: 5,
-    },
-    requires: {
-      flags: ["personalWardUnlocked"],
-    },
-    canApply: function () {
-      const ward = getResource("ward");
-
-      return !!ward && ward.value < ward.maxValue;
-    },
-    apply: function () {
-      addResource("ward", 5);
-      updateResource("ward");
-    },
-    story: "Arcane Force tightens the ward around you until its surface steadies again.",
-  },
-
   crudeIronPickHead: {
     label: "Shape Pick Head",
     description: "Shape the iron head needed to assemble a crude iron pick.",
@@ -4367,6 +4385,18 @@ const arcaneForceDefinitions = {
 };
 
 const goalDefinitions = {
+  investigateNorthernDisturbance: {
+    title: "Investigate the Northern Disturbance",
+    text: "A tremor answered the northern node. Travel north and learn what has changed around the Iron Mine.",
+    items: [
+      {
+        label: "Resolve the disturbance",
+        isComplete: function () {
+          return !!gameState.northernDisturbance && gameState.northernDisturbance.resolved;
+        },
+      },
+    ],
+  },
   surviveTheWoods: {
     title: "Survive the Woods",
     text: "Find a place to rest.",

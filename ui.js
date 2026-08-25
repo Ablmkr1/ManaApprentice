@@ -2,8 +2,21 @@ const ui = {};
 let resourceElements = {};
 let panelElements = {};
 const MAIN_VIEW_NAMES = ["camp", "expedition", "magic", "tower", "journal"];
+const UI_VITAL_RESOURCE_NAMES = ["energy", "mana", "focus", "ward"];
 let currentMainView = null;
 let mainViewUserSelected = false;
+let shellEnhanced = false;
+let activeUiModal = null;
+let uiModalReturnFocus = null;
+let uiActionRefreshFrame = null;
+let lastInventorySummarySignature = "";
+let lastShellContextSignature = "";
+let lastActivitySignature = "";
+let lastCampWorkVisible = null;
+let debugUiEnabled = false;
+const resourceRenderCache = new Map();
+const actionStateRenderCache = new Map();
+const actionElementStateRenderCache = new WeakMap();
 
 function hookDomToUI() {
   ui.introPopup = document.getElementById("introPopup");
@@ -25,7 +38,6 @@ function hookDomToUI() {
   ui.expeditionPanelTitle = document.getElementById("expeditionPanelTitle");
   ui.expeditionDistanceAmount = document.getElementById("expeditionDistanceAmount");
   ui.fiberAmount = document.getElementById("fiberAmount");
-  ui.storyLog = document.getElementById("storyLog");
   ui.trapAmount = document.getElementById("trapAmount");
   ui.peltAmount = document.getElementById("peltAmount");
   ui.carriedAmount = document.getElementById("carriedAmount");
@@ -52,6 +64,18 @@ function hookDomToUI() {
   ui.resetSaveBtn = document.getElementById("resetSaveBtn");
   ui.devSpeedButtons = Array.from(document.querySelectorAll(".dev-speed-btn"));
   ui.devTierButtons = Array.from(document.querySelectorAll(".dev-tier-btn"));
+  ui.testCombatBtn = document.getElementById("testCombatBtn");
+  ui.combatPanel = document.getElementById("combatPanel");
+  ui.combatEnemyName = document.getElementById("combatEnemyName");
+  ui.combatEnemyHealthText = document.getElementById("combatEnemyHealthText");
+  ui.combatEnemyHealthFill = document.getElementById("combatEnemyHealthFill");
+  ui.combatWardText = document.getElementById("combatWardText");
+  ui.combatAttackTimer = document.getElementById("combatAttackTimer");
+  ui.manaBoltBtn = document.getElementById("manaBoltBtn");
+  ui.manaBoltProgressFill = document.getElementById("manaBoltProgressFill");
+  ui.combatRecallBtn = document.getElementById("combatRecallBtn");
+  ui.combatStatus = document.getElementById("combatStatus");
+  ui.closeCombatBtn = document.getElementById("closeCombatBtn");
   ui.destinationActions = document.getElementById("destinationActions");
   ui.craftingSection = document.getElementById("craftingSection");
   ui.outskirtsCompletePopup = document.getElementById("outskirtsCompletePopup");
@@ -59,6 +83,8 @@ function hookDomToUI() {
   ui.currentGoalSection = document.getElementById("currentGoalSection");
   ui.currentGoalTitle = document.getElementById("currentGoalTitle");
   ui.currentGoalText = document.getElementById("currentGoalText");
+  ui.inventorySummary = document.getElementById("inventorySummary");
+  ui.notificationStack = document.getElementById("notificationStack");
   ui.journalEntries = document.getElementById("journalEntries");
   ui.torchSparkPopup = document.getElementById("torchSparkPopup");
   ui.torchSparkContinueBtn = document.getElementById("torchSparkContinueBtn");
@@ -79,6 +105,7 @@ function hookDomToUI() {
   ui.gearSlots = document.getElementById("gearSlots");
   ui.toolSlotsGroup = document.getElementById("toolSlotsGroup");
   ui.toolSlots = document.getElementById("toolSlots");
+  ui.equipmentDetail = document.getElementById("equipmentDetail");
   ui.carriedInventoryStrip = document.getElementById("carriedInventoryStrip");
   ui.campResourcesSection = document.getElementById("campResourcesSection");
   ui.campUpgradeSection = document.getElementById("campUpgradeSection");
@@ -87,6 +114,7 @@ function hookDomToUI() {
   ui.locationStorageList = document.getElementById("locationStorageList");
   ui.oreAmount = document.getElementById("oreAmount");
   ui.ironAmount = document.getElementById("ironAmount");
+  ui.earthElementalCoreAmount = document.getElementById("earthElementalCoreAmount");
   ui.herbAmount = document.getElementById("herbAmount");
   ui.glimmerleafAmount = document.getElementById("glimmerleafAmount");
   ui.staminaTonicBaseAmount = document.getElementById("staminaTonicBaseAmount");
@@ -105,6 +133,9 @@ function hookDomToUI() {
   ui.dungeonRoomText = document.getElementById("dungeonRoomText");
   ui.locationContent = document.getElementById("locationContent");
   ui.locationDescription = document.getElementById("locationDescription");
+  ui.campContextualActions = document.getElementById("campContextualActions");
+  ui.locationContextualActions = document.getElementById("locationContextualActions");
+  ui.locationSpellActions = document.getElementById("locationSpellActions");
   ui.towerNodePanel = document.getElementById("towerNodePanel");
   ui.dungeonSection = document.getElementById("dungeonSection");
   ui.dungeonTitle = document.getElementById("dungeonTitle");
@@ -122,6 +153,8 @@ function hookDomToUI() {
   ui.spellSlotsGroup = document.getElementById("spellSlotsGroup");
   ui.spellSlots = document.getElementById("spellSlots");
   ui.spellTargetMenu = document.getElementById("spellTargetMenu");
+  ui.magicContextualActions = document.getElementById("magicContextualActions");
+  ui.craftingSpellActions = document.getElementById("craftingSpellActions");
   ui.campFoundationPopup = document.getElementById("campFoundationPopup");
   ui.campFoundationContinueBtn = document.getElementById("campFoundationContinueBtn");
   ui.personalWardPopup = document.getElementById("personalWardPopup");
@@ -130,6 +163,8 @@ function hookDomToUI() {
   ui.advancedRecallPopupText = document.getElementById("advancedRecallPopupText");
   ui.advancedRecallOptions = document.getElementById("advancedRecallOptions");
   ui.advancedRecallCloseBtn = document.getElementById("advancedRecallCloseBtn");
+  ui.northernDisturbancePopup = document.getElementById("northernDisturbancePopup");
+  ui.northernDisturbanceContinueBtn = document.getElementById("northernDisturbanceContinueBtn");
   ui.dungeonActions = document.getElementById("dungeonActions");
   ui.nailsAmount = document.getElementById("nailsAmount");
   ui.automationTabBtn = document.getElementById("automationTabBtn");
@@ -149,8 +184,590 @@ function hookDomToUI() {
   ui.magicProgressSection = document.getElementById("magicProgressSection");
   ui.spellProgressList = document.getElementById("spellProgressList");
   ui.towerStatusPanel = document.getElementById("towerStatusPanel");
+  ui.appShell = document.getElementById("appShell");
+  ui.topBar = document.querySelector(".top-bar");
+  ui.gameShell = document.querySelector(".game-shell");
+  ui.shellStatusLine = document.getElementById("shellStatusLine");
+  ui.shellLocationText = document.getElementById("shellLocationText");
+  ui.shellViewEyebrow = document.getElementById("shellViewEyebrow");
+  ui.shellViewTitle = document.getElementById("shellViewTitle");
+  ui.shellViewDescription = document.getElementById("shellViewDescription");
+  ui.settingsToggleBtn = document.getElementById("settingsToggleBtn");
+  ui.settingsOverlay = document.getElementById("settingsOverlay");
+  ui.settingsDrawer = document.getElementById("settingsDrawer");
+  ui.settingsBackdrop = document.getElementById("settingsBackdrop");
+  ui.settingsCloseBtn = document.getElementById("settingsCloseBtn");
+  ui.developerSettings = document.getElementById("developerSettings");
+  ui.developerAccessSection = document.getElementById("developerAccessSection");
+  ui.enableDeveloperToolsBtn = document.getElementById("enableDeveloperToolsBtn");
+  ui.storyPreviewSelect = document.getElementById("storyPreviewSelect");
+  ui.storyPreviewBtn = document.getElementById("storyPreviewBtn");
+  ui.uiLiveRegion = document.getElementById("uiLiveRegion");
+  ui.activeTaskCard = document.getElementById("activeTaskCard");
+  ui.activeTaskTitle = document.getElementById("activeTaskTitle");
+  ui.activeTaskDetail = document.getElementById("activeTaskDetail");
+  ui.activeTaskMeter = ui.activeTaskCard ? ui.activeTaskCard.querySelector(".active-task-meter") : null;
+  ui.activeTaskProgressFill = document.getElementById("activeTaskProgressFill");
+  ui.activeTaskProgressText = document.getElementById("activeTaskProgressText");
+  ui.activeTaskRemainingText = document.getElementById("activeTaskRemainingText");
+  ui.journalViewTabs = document.getElementById("journalViewTabs");
   ui.journalSwitchTabs = Array.from(document.querySelectorAll("[data-journal-view]"));
   ui.journalSubpanels = Array.from(document.querySelectorAll("[data-journal-panel]"));
+  ui.storyLog = document.getElementById("storyLog");
+
+  if (ui.inventorySummary) {
+    ui.inventorySummary.addEventListener("click", function () {
+      setMainView("camp", { userSelected: true });
+      if (ui.campResourcesSection) {
+        ui.campResourcesSection.open = true;
+        ui.inventorySummary.setAttribute("aria-expanded", "true");
+        ui.campResourcesSection.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    });
+  }
+}
+
+function enhanceGameShell() {
+  if (shellEnhanced) return;
+
+  shellEnhanced = true;
+  syncDeveloperToolsVisibility();
+
+  UI_VITAL_RESOURCE_NAMES.forEach(ensureVitalResourceMarkup);
+  prepareUiActionButton(ui.restBtn);
+  enhanceMainViewSemantics();
+  enhanceJournalViewSemantics();
+  enhanceWorkTabSemantics();
+  enhancePopupSemantics();
+  hookSettingsDrawer();
+
+  if (ui.enableDeveloperToolsBtn) {
+    ui.enableDeveloperToolsBtn.addEventListener("click", function () {
+      debugUiEnabled = true;
+      syncDeveloperToolsVisibility();
+    });
+  }
+
+  if (ui.storyPreviewSelect && ui.storyPreviewBtn) {
+    ui.storyPreviewBtn.addEventListener("click", openSelectedStoryPreview);
+  }
+
+  document.addEventListener("keydown", handleGlobalUiKeydown);
+  updateShellContext();
+  updateCampWorkVisibility();
+  syncVisiblePopupModal();
+}
+
+function syncDeveloperToolsVisibility() {
+  const debugEnabled = debugUiEnabled || new URLSearchParams(window.location.search).get("dev") === "1";
+
+  document.documentElement.dataset.debugUi = debugEnabled ? "true" : "false";
+
+  if (ui.developerSettings) {
+    ui.developerSettings.hidden = !debugEnabled;
+  }
+
+  if (ui.developerAccessSection) {
+    ui.developerAccessSection.hidden = debugEnabled;
+  }
+}
+
+function ensureVitalResourceMarkup(resourceName) {
+  const display = document.getElementById(resourceName + "Amount");
+
+  if (!display || display.dataset.vitalEnhanced === "true") return;
+
+  display.dataset.vitalEnhanced = "true";
+  display.dataset.resource = resourceName;
+  display.setAttribute("aria-label", resourceName + " status");
+  display.textContent = "";
+
+  const head = document.createElement("div");
+  head.className = "vital-head";
+
+  const name = document.createElement("span");
+  name.className = "vital-name";
+
+  const dot = document.createElement("i");
+  dot.className = "vital-dot";
+  dot.setAttribute("aria-hidden", "true");
+
+  const label = document.createElement("span");
+  label.className = "vital-label";
+  label.textContent = resourceName;
+
+  const value = document.createElement("strong");
+  value.className = "vital-value";
+  value.textContent = "0 / 0";
+
+  const track = document.createElement("div");
+  track.className = "resource-meter-track";
+  track.setAttribute("role", "progressbar");
+  track.setAttribute("aria-valuemin", "0");
+  track.setAttribute("aria-valuemax", "0");
+  track.setAttribute("aria-valuenow", "0");
+
+  const fill = document.createElement("span");
+  fill.className = "resource-meter-fill";
+
+  name.append(dot, label);
+  head.append(name, value);
+  track.appendChild(fill);
+  display.append(head, track);
+}
+
+function enhanceMainViewSemantics() {
+  if (!ui.mainViewTabs) return;
+
+  ui.mainViewTabs.setAttribute("role", "tablist");
+
+  ui.mainViewButtons.forEach(function (button) {
+    const viewName = button.dataset.mainViewTab;
+    const panel = document.querySelector('[data-main-view-panel="' + viewName + '"]');
+
+    button.setAttribute("role", "tab");
+    button.setAttribute("aria-controls", panel ? panel.id : "");
+    button.setAttribute("tabindex", button.classList.contains("active") ? "0" : "-1");
+    button.addEventListener("keydown", handleMainViewTabKeydown);
+
+    if (panel) {
+      panel.setAttribute("role", "tabpanel");
+      panel.setAttribute("aria-labelledby", button.id);
+      panel.setAttribute("tabindex", "0");
+    }
+  });
+}
+
+function handleMainViewTabKeydown(event) {
+  const availableTabs = ui.mainViewButtons.filter(function (button) {
+    return button.style.display !== "none" && !button.hidden;
+  });
+  const currentIndex = availableTabs.indexOf(event.currentTarget);
+
+  if (currentIndex < 0) return;
+
+  const vertical = window.matchMedia("(min-width: 1180px)").matches;
+  const previousKey = vertical ? "ArrowUp" : "ArrowLeft";
+  const nextKey = vertical ? "ArrowDown" : "ArrowRight";
+  let nextIndex = currentIndex;
+
+  if (event.key === previousKey || event.key === "ArrowLeft" || event.key === "ArrowUp") {
+    nextIndex = (currentIndex - 1 + availableTabs.length) % availableTabs.length;
+  } else if (event.key === nextKey || event.key === "ArrowRight" || event.key === "ArrowDown") {
+    nextIndex = (currentIndex + 1) % availableTabs.length;
+  } else if (event.key === "Home") {
+    nextIndex = 0;
+  } else if (event.key === "End") {
+    nextIndex = availableTabs.length - 1;
+  } else {
+    return;
+  }
+
+  event.preventDefault();
+  const target = availableTabs[nextIndex];
+  setMainView(target.dataset.mainViewTab, { userSelected: true });
+  target.focus();
+}
+
+function enhanceJournalViewSemantics() {
+  if (!ui.journalViewTabs) return;
+
+  ui.journalViewTabs.setAttribute("role", "tablist");
+
+  ui.journalSwitchTabs.forEach(function (button) {
+    const panel = document.querySelector('[data-journal-panel="' + button.dataset.journalView + '"]');
+
+    button.setAttribute("role", "tab");
+    button.setAttribute("aria-controls", panel ? panel.id : "");
+    button.setAttribute("aria-selected", button.classList.contains("active") ? "true" : "false");
+    button.setAttribute("tabindex", button.classList.contains("active") ? "0" : "-1");
+    button.addEventListener("keydown", handleJournalTabKeydown);
+
+    if (panel) {
+      panel.setAttribute("role", "tabpanel");
+      panel.setAttribute("aria-labelledby", button.id);
+      panel.setAttribute("tabindex", "0");
+    }
+  });
+}
+
+function handleJournalTabKeydown(event) {
+  const tabs = ui.journalSwitchTabs.filter(function (button) {
+    return button.style.display !== "none" && !button.hidden;
+  });
+  const index = tabs.indexOf(event.currentTarget);
+  let nextIndex = index;
+
+  if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+    nextIndex = (index - 1 + tabs.length) % tabs.length;
+  } else if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+    nextIndex = (index + 1) % tabs.length;
+  } else if (event.key === "Home") {
+    nextIndex = 0;
+  } else if (event.key === "End") {
+    nextIndex = tabs.length - 1;
+  } else {
+    return;
+  }
+
+  event.preventDefault();
+  setJournalSubView(tabs[nextIndex].dataset.journalView);
+  tabs[nextIndex].focus();
+}
+
+function enhanceWorkTabSemantics() {
+  if (!ui.workTabs) return;
+
+  ui.workTabs.setAttribute("role", "tablist");
+  const tabPairs = [
+    [ui.craftingTabBtn, ui.craftingPanel],
+    [ui.researchTabBtn, ui.researchPanel],
+    [ui.automationTabBtn, ui.automationPanel],
+  ];
+
+  tabPairs.forEach(function (pair) {
+    const button = pair[0];
+    const panel = pair[1];
+
+    if (!button || !panel) return;
+
+    button.setAttribute("role", "tab");
+    button.setAttribute("aria-controls", panel.id);
+    button.setAttribute("aria-selected", button.classList.contains("active") ? "true" : "false");
+    button.setAttribute("tabindex", button.classList.contains("active") ? "0" : "-1");
+    panel.setAttribute("role", "tabpanel");
+    panel.setAttribute("aria-labelledby", button.id);
+    panel.setAttribute("tabindex", "0");
+    button.addEventListener("keydown", handleWorkTabKeydown);
+  });
+}
+
+function handleWorkTabKeydown(event) {
+  const tabs = [ui.craftingTabBtn, ui.researchTabBtn, ui.automationTabBtn].filter(function (button) {
+    return button && button.style.display !== "none" && !button.hidden;
+  });
+  const index = tabs.indexOf(event.currentTarget);
+  let nextIndex = index;
+
+  if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+    nextIndex = (index - 1 + tabs.length) % tabs.length;
+  } else if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+    nextIndex = (index + 1) % tabs.length;
+  } else if (event.key === "Home") {
+    nextIndex = 0;
+  } else if (event.key === "End") {
+    nextIndex = tabs.length - 1;
+  } else {
+    return;
+  }
+
+  event.preventDefault();
+  const panelName = tabs[nextIndex].id.replace("TabBtn", "").replace("Tab", "");
+  showWorkPanel(panelName);
+  tabs[nextIndex].focus();
+}
+
+function hookJournalViewTabs() {
+  if (!Array.isArray(ui.journalSwitchTabs)) return;
+
+  ui.journalSwitchTabs.forEach(function (button) {
+    if (button.dataset.journalViewHooked === "true") return;
+
+    button.addEventListener("click", function () {
+      setJournalSubView(button.dataset.journalView);
+    });
+    button.dataset.journalViewHooked = "true";
+  });
+
+  setJournalSubView("entries");
+}
+
+function setJournalSubView(viewName) {
+  if (!Array.isArray(ui.journalSwitchTabs) || !Array.isArray(ui.journalSubpanels)) return;
+
+  ui.journalSwitchTabs.forEach(function (button) {
+    const active = button.dataset.journalView === viewName;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", String(active));
+    button.setAttribute("tabindex", active ? "0" : "-1");
+  });
+
+  ui.journalSubpanels.forEach(function (panel) {
+    const active = panel.dataset.journalPanel === viewName;
+    panel.classList.toggle("active", active);
+    panel.setAttribute("aria-hidden", String(!active));
+  });
+}
+
+function hookSettingsDrawer() {
+  if (!ui.settingsToggleBtn || !ui.settingsOverlay) return;
+
+  ui.settingsToggleBtn.addEventListener("click", openSettingsDrawer);
+  ui.settingsCloseBtn.addEventListener("click", closeSettingsDrawer);
+  ui.settingsBackdrop.addEventListener("click", closeSettingsDrawer);
+}
+
+function openSettingsDrawer() {
+  if (!ui.settingsOverlay || !ui.settingsDrawer) return;
+
+  uiModalReturnFocus = document.activeElement;
+  ui.settingsOverlay.hidden = false;
+  ui.settingsToggleBtn.setAttribute("aria-expanded", "true");
+  ui.topBar.setAttribute("inert", "");
+  ui.gameShell.setAttribute("inert", "");
+  activeUiModal = ui.settingsDrawer;
+  requestAnimationFrame(function () {
+    ui.settingsCloseBtn.focus();
+  });
+}
+
+function closeSettingsDrawer() {
+  if (!ui.settingsOverlay || ui.settingsOverlay.hidden) return;
+
+  ui.settingsOverlay.hidden = true;
+  ui.settingsToggleBtn.setAttribute("aria-expanded", "false");
+  ui.topBar.removeAttribute("inert");
+  ui.gameShell.removeAttribute("inert");
+  activeUiModal = null;
+  restoreUiModalFocus();
+}
+
+function enhancePopupSemantics() {
+  document.querySelectorAll(".popup").forEach(function (popup) {
+    const dialog = popup.querySelector(".popup-content");
+    const heading = dialog ? dialog.querySelector("h2") : null;
+
+    if (!dialog || !heading) return;
+
+    if (!heading.id) heading.id = popup.id + "Title";
+    heading.setAttribute("tabindex", "-1");
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+    dialog.setAttribute("aria-labelledby", heading.id);
+    popup.setAttribute("aria-hidden", isPopupVisible(popup) ? "false" : "true");
+
+    if (popup.id === "advancedRecallPopup") {
+      dialog.dataset.escapeClose = "true";
+    }
+
+    dialog.querySelectorAll("button").forEach(function (button) {
+      button.addEventListener("click", function (event) {
+        if (popup.dataset.uiPreview !== "true") return;
+
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        delete popup.dataset.uiPreview;
+        popup.style.display = "none";
+      }, true);
+    });
+
+    const observer = new MutationObserver(function () {
+      syncPopupModalState(popup);
+    });
+    observer.observe(popup, { attributes: true, attributeFilter: ["style", "class", "hidden"] });
+  });
+}
+
+function openSelectedStoryPreview() {
+  if (document.documentElement.dataset.debugUi !== "true") return;
+  const popup = ui.storyPreviewSelect ? document.getElementById(ui.storyPreviewSelect.value) : null;
+
+  if (!popup || document.documentElement.dataset.debugUi !== "true") return;
+
+  popup.dataset.uiPreview = "true";
+  popup.style.display = "flex";
+}
+
+function isPopupVisible(popup) {
+  return !!popup && !popup.hidden && window.getComputedStyle(popup).display !== "none";
+}
+
+function syncVisiblePopupModal() {
+  const visiblePopup = Array.from(document.querySelectorAll(".popup")).find(isPopupVisible);
+
+  if (visiblePopup) syncPopupModalState(visiblePopup);
+}
+
+function syncPopupModalState(popup) {
+  const dialog = popup.querySelector(".popup-content");
+  const visible = isPopupVisible(popup);
+
+  if (visible) {
+    popup.setAttribute("aria-hidden", "false");
+    if (activeUiModal === dialog) return;
+    if (activeUiModal === ui.settingsDrawer) closeSettingsDrawer();
+
+    uiModalReturnFocus = document.activeElement;
+    activeUiModal = dialog;
+    ui.appShell.setAttribute("inert", "");
+    requestAnimationFrame(function () {
+      const heading = dialog.querySelector("h2");
+      const primary = dialog.querySelector("button:not([disabled])");
+      (heading || primary || dialog).focus();
+    });
+    return;
+  }
+
+  if (activeUiModal === dialog) {
+    activeUiModal = null;
+    ui.appShell.removeAttribute("inert");
+    restoreUiModalFocus();
+  }
+
+  // A focused descendant must be moved out before the popup is hidden from
+  // assistive technology. Otherwise browsers reject the aria-hidden update.
+  popup.setAttribute("aria-hidden", "true");
+}
+
+function handleGlobalUiKeydown(event) {
+  if (!activeUiModal) return;
+
+  if (event.key === "Escape") {
+    if (activeUiModal === ui.settingsDrawer) {
+      event.preventDefault();
+      closeSettingsDrawer();
+    } else if (activeUiModal.dataset.escapeClose === "true") {
+      const closeButton = activeUiModal.querySelector("button[id*='Close']");
+
+      if (closeButton) {
+        event.preventDefault();
+        closeButton.click();
+      }
+    }
+
+    return;
+  }
+
+  if (event.key !== "Tab") return;
+
+  const focusable = getUiFocusableElements(activeUiModal);
+
+  if (focusable.length === 0) {
+    event.preventDefault();
+    activeUiModal.focus();
+    return;
+  }
+
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  const activeIndex = focusable.indexOf(document.activeElement);
+
+  if (activeIndex === -1) {
+    event.preventDefault();
+    (event.shiftKey ? last : first).focus();
+    return;
+  }
+
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+function getUiFocusableElements(container) {
+  return Array.from(container.querySelectorAll("button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])")).filter(function (element) {
+    return !element.hidden && window.getComputedStyle(element).display !== "none" && window.getComputedStyle(element).visibility !== "hidden";
+  });
+}
+
+function restoreUiModalFocus() {
+  const target = uiModalReturnFocus;
+  uiModalReturnFocus = null;
+
+  if (target && target.isConnected && typeof target.focus === "function") {
+    target.focus();
+  }
+}
+
+function announceUiStatus(message) {
+  if (!ui.uiLiveRegion || !message || ui.uiLiveRegion.textContent === message) return;
+
+  ui.uiLiveRegion.textContent = message;
+}
+
+function getUiTierLabel() {
+  if (gameState.personalWardUnlocked || gameState.towerConstructionUnlocked || gameState.partialTowerPlansFound) return "Tier IV Apprentice";
+  if (gameState.tier3Unlocked || gameState.magicUnlocked) return "Tier III Apprentice";
+  if (gameState.tier2Complete || gameState.phase === "expedition") return "Tier II Apprentice";
+  return "Tier I Apprentice";
+}
+
+function getUiLocationLabel() {
+  if (gameState.expedition && gameState.expedition.currentLocation && typeof getLocationLabel === "function") {
+    return getLocationLabel(gameState.expedition.currentLocation);
+  }
+
+  if (gameState.expedition && gameState.expedition.active) return "Expedition Trail";
+  if (gameState.discoveredClearing || gameState.hasCamp || gameState.phase === "clearing" || gameState.phase === "expedition") return "Camp Clearing";
+  return "Unknown Woods";
+}
+
+function getUiViewCopy(viewName) {
+  const location = getUiLocationLabel();
+  const copies = {
+    camp: {
+      eyebrow: location,
+      title: location === "Unknown Woods" ? "Survive, recover, and find your bearings." : "Prepare, learn, and push outward.",
+      description:
+        location === "Unknown Woods"
+          ? "Recover enough strength to explore and find a defensible place."
+          : "Your camp is the anchor. Recover, build what you need, and choose the next useful step.",
+    },
+    expedition: {
+      eyebrow: location,
+      title: "Prepare, travel, and return with purpose.",
+      description: "Pack deliberately, follow known routes, and keep the current destination clear.",
+    },
+    magic: {
+      eyebrow: "Arcane practice",
+      title: "Shape mana with deliberate practice.",
+      description: "Keep current mana and learned spellwork close to the choices they enable.",
+    },
+    tower: {
+      eyebrow: "The buried tower",
+      title: "Restore what the forest tried to forget.",
+      description: "Track the present stage, materials, and work beside the tower itself.",
+    },
+    journal: {
+      eyebrow: "Apprentice journal",
+      title: "Read the trail you have already walked.",
+      description: "Lasting discoveries and recent world events remain separate and easy to scan.",
+    },
+  };
+
+  return copies[viewName] || copies.camp;
+}
+
+function updateShellContext() {
+  const location = getUiLocationLabel();
+  const viewCopy = getUiViewCopy(currentMainView || "camp");
+  const signature = [location, currentMainView || "camp", viewCopy.title].join("|");
+
+  if (signature === lastShellContextSignature) return;
+
+  lastShellContextSignature = signature;
+  safeSetText(ui.shellLocationText, location);
+  safeSetText(ui.shellViewEyebrow, viewCopy.eyebrow);
+  safeSetText(ui.shellViewTitle, viewCopy.title);
+  safeSetText(ui.shellViewDescription, viewCopy.description);
+}
+
+function updateCampWorkVisibility() {
+  if (!ui.campContent) return;
+
+  const canShowCampWork = Boolean(gameState.discoveredClearing || gameState.hasCamp || gameState.phase === "clearing" || gameState.phase === "expedition");
+
+  if (lastCampWorkVisible === canShowCampWork) return;
+
+  lastCampWorkVisible = canShowCampWork;
+  ui.campContent.hidden = !canShowCampWork;
+
+  if (!canShowCampWork) {
+    ui.campContent.open = false;
+  }
 }
 
 //Hook Ui Maps Functions
@@ -170,6 +787,7 @@ function hookUIMaps() {
     leather: ui.leatherAmount,
     ore: ui.oreAmount,
     iron: ui.ironAmount,
+    earthElementalCore: ui.earthElementalCoreAmount,
     herb: ui.herbAmount,
     glimmerleaf: ui.glimmerleafAmount,
     staminaTonicBase: ui.staminaTonicBaseAmount,
@@ -245,6 +863,9 @@ function createUiProgressMeter(options = {}) {
     group.className += " " + options.className;
   }
 
+  if (options.compact) group.classList.add("is-compact");
+  if (options.state) group.dataset.uiState = options.state;
+
   const labelRow = document.createElement("div");
   labelRow.className = "ui-progress-labels training-progress-text";
 
@@ -260,6 +881,12 @@ function createUiProgressMeter(options = {}) {
 
   const track = document.createElement("div");
   track.className = "ui-progress-track training-progress-track";
+  track.setAttribute("role", "progressbar");
+  track.setAttribute("aria-valuemin", "0");
+  track.setAttribute("aria-valuemax", String(max > 0 ? max : 100));
+  track.setAttribute("aria-valuenow", String(max > 0 ? Math.min(Math.max(current, 0), max) : Math.round(clampedPercent * 100)));
+
+  if (options.label) track.setAttribute("aria-label", options.label);
 
   const fill = document.createElement("div");
   fill.className = "ui-progress-fill training-progress-fill";
@@ -280,8 +907,20 @@ function createUiSummaryCard(options = {}) {
     card.className += " " + options.className;
   }
 
+  if (options.state) card.dataset.uiState = options.state;
+
+  appendUiText(card, "span", "ui-summary-card-eyebrow", options.eyebrow || "");
+
   const header = document.createElement("div");
   header.className = "ui-summary-card-header";
+
+  if (options.icon instanceof Node) {
+    const iconSlot = document.createElement("span");
+    iconSlot.className = "ui-summary-card-icon";
+    iconSlot.setAttribute("aria-hidden", "true");
+    iconSlot.appendChild(options.icon);
+    header.appendChild(iconSlot);
+  }
 
   appendUiText(header, "strong", "ui-summary-card-title", options.title || "");
   appendUiText(header, "span", "ui-summary-card-meta", options.meta || "");
@@ -295,6 +934,15 @@ function createUiSummaryCard(options = {}) {
 
   appendUiText(card, "div", "ui-summary-card-detail", options.detail || "");
 
+  if (Array.isArray(options.actions) && options.actions.length > 0) {
+    const actions = document.createElement("div");
+    actions.className = "ui-summary-card-actions";
+    options.actions.forEach(function (action) {
+      if (action instanceof Node) actions.appendChild(action);
+    });
+    card.appendChild(actions);
+  }
+
   return card;
 }
 
@@ -305,6 +953,10 @@ function createUiContextPanel(options = {}) {
   if (options.className) {
     panel.className += " " + options.className;
   }
+
+  if (options.state) panel.dataset.uiState = options.state;
+
+  appendUiText(panel, "span", "ui-context-panel-label", options.label || "");
 
   const header = document.createElement("div");
   header.className = "ui-context-panel-header";
@@ -489,6 +1141,19 @@ function prepareUiActionButton(button, options = {}) {
     label.textContent = directText;
   }
 
+  let icon = button.querySelector(".ui-action-icon");
+
+  if (!icon) {
+    icon = document.createElement("span");
+    icon.className = "ui-action-icon";
+    icon.setAttribute("aria-hidden", "true");
+    label.before(icon);
+  }
+
+  if (options.icon !== undefined) {
+    icon.textContent = options.icon || "";
+  }
+
   let cost = button.querySelector("." + costClass) || button.querySelector(".ui-action-cost");
 
   if (!cost) {
@@ -523,11 +1188,25 @@ function prepareUiActionButton(button, options = {}) {
     detail.style.display = "none";
   }
 
+  let reason = button.querySelector(".ui-action-reason");
+
+  if (!reason) {
+    reason = document.createElement("span");
+    reason.className = "ui-action-reason";
+    button.appendChild(reason);
+  }
+
+  if (!reason.textContent.trim()) {
+    reason.style.display = "none";
+  }
+
   return {
     progressFill,
     label,
+    icon,
     cost,
     detail,
+    reason,
   };
 }
 
@@ -548,6 +1227,15 @@ function setUiActionButtonLabel(button, options = {}) {
   if (options.detail !== undefined) {
     parts.detail.textContent = options.detail || "";
     parts.detail.style.display = options.detail ? "block" : "none";
+  }
+
+  if (options.reason !== undefined) {
+    parts.reason.textContent = options.reason || "";
+    parts.reason.style.display = options.reason ? "block" : "none";
+  }
+
+  if (options.icon !== undefined) {
+    parts.icon.textContent = options.icon || "";
   }
 
   return parts;
@@ -572,6 +1260,8 @@ function createUiActionButton(options = {}) {
     label: options.label || "",
     cost: options.cost || "",
     detail: options.detail || "",
+    reason: options.reason || "",
+    icon: options.icon || "",
     progress: options.progress !== false,
   });
 
@@ -602,39 +1292,6 @@ function hookMainViewTabs() {
   });
 
   syncMainViewAvailability();
-}
-
-function hookJournalViewTabs() {
-  if (!Array.isArray(ui.journalSwitchTabs) || !Array.isArray(ui.journalSubpanels)) return;
-
-  ui.journalSwitchTabs.forEach(function (button) {
-    if (button.dataset.journalViewHooked) return;
-
-    button.addEventListener("click", function () {
-      setJournalSubView(button.dataset.journalView);
-    });
-
-    button.dataset.journalViewHooked = "true";
-  });
-
-  setJournalSubView("entries");
-}
-
-function setJournalSubView(viewName) {
-  if (!Array.isArray(ui.journalSwitchTabs) || !Array.isArray(ui.journalSubpanels)) return;
-
-  const targetView = viewName === "world" ? "world" : "entries";
-
-  ui.journalSwitchTabs.forEach(function (button) {
-    const active = button.dataset.journalView === targetView;
-
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-selected", String(active));
-  });
-
-  ui.journalSubpanels.forEach(function (panel) {
-    panel.classList.toggle("active", panel.dataset.journalPanel === targetView);
-  });
 }
 
 function setMainView(viewName, options = {}) {
@@ -692,16 +1349,21 @@ function updateMainViewTabStates() {
     const available = isMainViewAvailable(viewName);
     const isActive = viewName === currentMainView;
 
-    button.style.display = available ? "inline-block" : "none";
+    button.style.display = available ? "flex" : "none";
     button.classList.toggle("active", isActive);
     button.setAttribute("aria-selected", String(isActive));
+    button.setAttribute("tabindex", isActive ? "0" : "-1");
   });
 
   ui.mainViewPanels.forEach(function (panel) {
     const isActive = panel.dataset.mainViewPanel === currentMainView;
 
     panel.classList.toggle("active", isActive);
+    panel.setAttribute("aria-hidden", String(!isActive));
   });
+
+  updateShellContext();
+  updatePrimaryActionEmphasis();
 }
 
 function getDefaultMainView() {
@@ -764,13 +1426,65 @@ function hookStatsToUI() {
 function updateResource(resourceName) {
   const resource = getResource(resourceName);
 
-  const text = resource.label + ": " + formatResourceAmountForDisplay(resource.value) + " / " + resource.maxValue;
+  if (!resource) return;
 
-  safeSetText(resource.display, text);
+  if (UI_VITAL_RESOURCE_NAMES.includes(resourceName) && resource.display && resource.display.dataset.vitalEnhanced === "true") {
+    renderVitalResource(resourceName, resource);
+  } else {
+    const text = resource.label + ": " + formatResourceAmountForDisplay(resource.value) + " / " + resource.maxValue;
+    const cached = resourceRenderCache.get(resourceName) || {};
 
-  safeSetText(resource.perClickDisplay, "+" + resource.perClick + "/Click");
-  safeSetText(resource.perSecondDisplay, "+" + resource.perSecond + "/Sec");
-  updateAllActionButtons();
+    if (cached.text !== text) {
+      safeSetText(resource.display, text);
+      cached.text = text;
+      resourceRenderCache.set(resourceName, cached);
+    }
+  }
+
+  setUiTextIfChanged(resource.perClickDisplay, "+" + resource.perClick + "/Click");
+  setUiTextIfChanged(resource.perSecondDisplay, "+" + resource.perSecond + "/Sec");
+  updateInventorySummary();
+  scheduleActionUiRefresh();
+}
+
+function renderVitalResource(resourceName, resource) {
+  const display = resource.display;
+  const valueElement = display.querySelector(".vital-value");
+  const meter = display.querySelector(".resource-meter-track");
+  const fill = display.querySelector(".resource-meter-fill");
+  const current = formatResourceAmountForDisplay(resource.value);
+  const max = resource.maxValue;
+  const percent = max > 0 ? Math.min(Math.max(resource.value / max, 0), 1) : 0;
+  const percentText = Math.round(percent * 1000) / 10 + "%";
+  const signature = [current, max, percentText].join("|");
+
+  if (resourceRenderCache.get(resourceName) === signature) return;
+
+  resourceRenderCache.set(resourceName, signature);
+  setUiTextIfChanged(valueElement, current + " / " + max);
+
+  if (meter) {
+    meter.setAttribute("aria-valuemax", String(max));
+    meter.setAttribute("aria-valuenow", String(current));
+    meter.setAttribute("aria-valuetext", current + " of " + max + " " + resource.label);
+  }
+
+  if (fill && fill.style.width !== percentText) {
+    fill.style.width = percentText;
+  }
+}
+
+function setUiTextIfChanged(element, text) {
+  if (element && element.textContent !== text) element.textContent = text;
+}
+
+function scheduleActionUiRefresh() {
+  if (uiActionRefreshFrame !== null) return;
+
+  uiActionRefreshFrame = requestAnimationFrame(function () {
+    uiActionRefreshFrame = null;
+    updateAllActionButtons();
+  });
 }
 
 function updateAllResources() {
@@ -800,7 +1514,14 @@ function updateAllActionButtons() {
     syncMainViewAvailability();
   }
 
+  if (typeof updateRestButton === "function") {
+    updateRestButton();
+  }
+
   updateWorkflowPanels();
+  updatePrimaryActionEmphasis();
+  updateShellContext();
+  updateCampWorkVisibility();
 }
 
 //UI Unlock Resource and Panels
@@ -816,6 +1537,10 @@ function unlockResource(resourceName) {
   }
 
   showElement(resourceElement, "block");
+
+  if (resourceName === "mana" && typeof unlockManaCyclingForManaAccess === "function") {
+    unlockManaCyclingForManaAccess();
+  }
 
   updateCampResourcesSectionVisibility();
 }
@@ -835,6 +1560,7 @@ function updateCampResourcesSectionVisibility() {
     "leather",
     "ore",
     "iron",
+    "earthElementalCore",
     "herb",
     "glimmerleaf",
     "staminaTonicBase",
@@ -874,6 +1600,40 @@ function unlockPanel(panelName) {
   }
 }
 
+function updateInventorySummary() {
+  if (!ui.inventorySummary) return;
+
+  const resourceNames = ["food", "water", "wood", "stone", "iron", "leather", "herb", "manaCrystal", "chargedCrystal"];
+  const visibleResources = resourceNames.filter(function (resourceName) {
+    const resource = getResource(resourceName);
+    return resource && resource.display && resource.display.style.display !== "none";
+  });
+
+  if (visibleResources.length === 0) {
+    lastInventorySummarySignature = "";
+    hideElement(ui.inventorySummary);
+    return;
+  }
+
+  const shown = visibleResources.slice(0, 4);
+  const parts = shown.map(function (resourceName) {
+    const resource = getResource(resourceName);
+    return resource.label + " " + formatResourceAmountForDisplay(resource.value);
+  });
+  const remaining = visibleResources.length - shown.length;
+
+  if (remaining > 0) parts.push("+" + remaining);
+  const summary = parts.join(" · ");
+
+  if (summary !== lastInventorySummarySignature) {
+    lastInventorySummarySignature = summary;
+    safeSetText(ui.inventorySummary, summary);
+  }
+
+  ui.inventorySummary.title = "Open storage";
+  showElement(ui.inventorySummary, "inline-flex");
+}
+
 //Discover Popup & Function & CampDisplay
 function showCampEstablishedPopup() {
   ui.campEstablishedPopup.style.display = "flex";
@@ -907,6 +1667,10 @@ function showPersonalWardPopup() {
   ui.personalWardPopup.style.display = "flex";
 }
 
+function showNorthernDisturbancePopup() {
+  if (ui.northernDisturbancePopup) ui.northernDisturbancePopup.style.display = "flex";
+}
+
 //Update Expedition UI
 function updateExpeditionUI(carriedTotal, carriedSummary) {
   const expedition = gameState.expedition;
@@ -932,19 +1696,68 @@ function formatDistance(distance) {
   return Math.round(distance * 10) / 10;
 }
 
-//Add story event helper
+// Routine feedback is transient; lasting discoveries are written to the Journal separately.
 function addStoryEntry(text) {
-  const entry = document.createElement("div");
-  entry.classList.add("story-entry");
-  entry.textContent = text;
+  if (!text) return;
 
+  appendWorldLogEntry(text);
+
+  if (!ui.notificationStack) return;
+
+  const previous = ui.notificationStack.lastElementChild;
+  if (previous && previous.dataset.message === text) {
+    const count = Number(previous.dataset.count || 1) + 1;
+    previous.dataset.count = String(count);
+    previous.textContent = text + (count > 1 ? " ×" + count : "");
+    clearTimeout(Number(previous.dataset.dismissTimer));
+    previous.dataset.dismissTimer = String(scheduleNotificationDismissal(previous));
+    return;
+  }
+
+  const entry = document.createElement("div");
+  entry.className = "notification-toast";
+  entry.dataset.message = text;
+  entry.dataset.count = "1";
+  entry.textContent = text;
+  ui.notificationStack.appendChild(entry);
+
+  while (ui.notificationStack.children.length > 4) {
+    ui.notificationStack.removeChild(ui.notificationStack.firstChild);
+  }
+
+  entry.dataset.dismissTimer = String(scheduleNotificationDismissal(entry));
+}
+
+function appendWorldLogEntry(text) {
+  if (!ui.storyLog || !text) return;
+
+  const entry = document.createElement("article");
+  entry.className = "story-entry";
+
+  const marker = document.createElement("span");
+  marker.className = "story-entry-marker";
+  marker.setAttribute("aria-hidden", "true");
+
+  const copy = document.createElement("p");
+  copy.textContent = text;
+
+  entry.append(marker, copy);
   ui.storyLog.appendChild(entry);
 
-  while (ui.storyLog.children.length > 30) {
+  while (ui.storyLog.children.length > 40) {
     ui.storyLog.removeChild(ui.storyLog.firstChild);
   }
 
   ui.storyLog.scrollTop = ui.storyLog.scrollHeight;
+}
+
+function scheduleNotificationDismissal(entry) {
+  return setTimeout(function () {
+    entry.classList.add("is-dismissing");
+    setTimeout(function () {
+      if (entry.parentElement) entry.remove();
+    }, 220);
+  }, 4200);
 }
 
 //Update Camp Upgrade UI
@@ -952,7 +1765,7 @@ function updateCampUpgradeDisplay(upgrade) {
   if (!upgrade) return;
 
   if (upgrade.button) {
-    upgrade.button.style.display = isCraftContextAvailable(upgrade) && upgrade.unlocked && !upgrade.purchased ? "inline-block" : "none";
+    upgrade.button.style.display = isCraftContextAvailable(upgrade) && upgrade.unlocked && !upgrade.purchased ? "grid" : "none";
   }
 
   if (typeof renderCampUpgradeSlots === "function") {
@@ -983,7 +1796,11 @@ function updateActionButton(actionName) {
   if (!action || !action.button) return;
 
   prepareUiActionButton(action.button);
-  action.button.style.display = action.unlocked ? "inline-block" : "none";
+  const shouldShow =
+    action.unlocked &&
+    (actionName !== "practiceManaCycling" ||
+      (typeof isManaCyclingBreakthroughReady === "function" && isManaCyclingBreakthroughReady()));
+  action.button.style.display = shouldShow ? "grid" : "none";
   updateDynamicActionButtonLabel(actionName, action);
   setUiActionButtonLabel(action.button, {
     cost: getUiActionCostText(actionName),
@@ -991,6 +1808,7 @@ function updateActionButton(actionName) {
 
   if (!action.unlocked) {
     action.button.disabled = true;
+    applyUiActionState(action.button, { state: "locked", reason: "Not yet discovered" }, actionName);
     return;
   }
 
@@ -1000,6 +1818,190 @@ function updateActionButton(actionName) {
       (gameState.activity.kind === "travel" && actionName === "travel"));
 
   action.button.disabled = !action.unlocked || (!isCurrentActivity && isActivityActive()) || !canUseAction(actionName);
+  applyUiActionState(action.button, getUiActionAvailability(actionName), actionName);
+}
+
+function getUiActionAvailability(actionName) {
+  const action = getAction(actionName);
+
+  if (!action || !action.unlocked) {
+    return { state: "locked", reason: "Not yet discovered" };
+  }
+
+  const isCurrentActivity =
+    isActivityActive() &&
+    ((gameState.activity.kind === "action" && gameState.activity.id === actionName) ||
+      (gameState.activity.kind === "travel" && actionName === "travel"));
+
+  if (isCurrentActivity || action.running) {
+    return { state: "running", reason: "Task in progress" };
+  }
+
+  if (isActivityActive()) {
+    return { state: "busy", reason: "Another task is in progress" };
+  }
+
+  const cost = getActionCost(actionName);
+
+  if (!canAffordCost(cost)) {
+    return { state: "unaffordable", reason: getUiCostShortfall(cost) || "Insufficient resources" };
+  }
+
+  if (!isActionContextAvailable(actionName)) {
+    return { state: "wrong-context", reason: getUiActionContextReason(actionName) };
+  }
+
+  return { state: "ready", reason: "" };
+}
+
+function getUiCostShortfall(cost) {
+  if (!cost || typeof cost !== "object") return "";
+
+  const missing = [];
+
+  Object.keys(cost).forEach(function (resourceName) {
+    const resource = getResource(resourceName);
+    const required = Number(cost[resourceName]) || 0;
+    const available = resource ? Number(resource.value) || 0 : 0;
+    const shortfall = Math.max(0, roundResourceAmount(required - available));
+
+    if (shortfall <= 0) return;
+    missing.push(formatResourceAmountForDisplay(shortfall) + " more " + (resource ? resource.label : resourceName));
+  });
+
+  if (missing.length === 0) return "";
+  return "Need " + missing.slice(0, 2).join(" · ");
+}
+
+function applyUiSpellOptionState(button, cost, usable, options = {}) {
+  if (!button) return;
+
+  prepareUiActionButton(button, {
+    progress: false,
+    labelClass: options.labelClass || "attunement-target-label",
+    detailClass: options.detailClass || "attunement-target-description",
+    costClass: options.costClass || "attunement-target-details",
+  });
+
+  let availability = { state: "ready", reason: "" };
+
+  if (options.active) {
+    availability = { state: "locked", reason: "Already active" };
+  } else if (isActivityActive()) {
+    availability = { state: "busy", reason: "Another task is in progress" };
+  } else if (!canAffordCost(cost || {})) {
+    availability = { state: "unaffordable", reason: getUiCostShortfall(cost) || "Insufficient resources" };
+  } else if (!usable) {
+    availability = {
+      state: "wrong-context",
+      reason: options.unavailableReason || "Requirements or materials are not ready",
+    };
+  }
+
+  applyUiActionState(button, availability, button);
+}
+
+function getUiActionContextReason(actionName) {
+  const campActions = ["catchBreath", "recover", "gatherWood", "gatherFood", "addWoodToFuel", "addImbuedWoodToFuel", "practiceManaCycling"];
+  const packingActions = [
+    "packFood",
+    "packWater",
+    "packTrap",
+    "packPelt",
+    "packOre",
+    "packWood",
+    "packStone",
+    "packIron",
+    "packImbuedWood",
+    "packHerb",
+    "packGlimmerleaf",
+    "packChargedCrystal",
+  ];
+  const locationActions = [
+    "exploreLocation",
+    "gatherFiber",
+    "gatherHerbs",
+    "gatherGlimmerleaf",
+    "scoutTrapSite",
+    "setTrap",
+    "checkTrap",
+    "gatherStone",
+    "mineOre",
+    "trackGame",
+    "useHuntingLure",
+    "huntGame",
+    "storePelt",
+    "storeWood",
+    "storeOre",
+    "storeHerb",
+    "storeGlimmerleaf",
+    "takeLeather",
+    "takeIron",
+    "enterDungeon",
+    "leaveDungeon",
+    "investigateNorthernDisturbance",
+  ];
+
+  if (campActions.includes(actionName)) return "Available at Camp";
+  if (packingActions.includes(actionName)) return "Prepare an expedition first";
+  if (locationActions.includes(actionName)) return "Available at a matching location";
+  if (actionName === "beginExpedition") return "Choose a route at Camp";
+  if (actionName === "travel") return "Prepare an expedition first";
+  if (actionName === "returnToCamp") return "Available while exploring";
+  if (actionName === "meditate") return "Available at a meditation place";
+  if (actionName.indexOf("concentrate") === 0) return "Available at the alchemy workbench";
+  return "Requirements are not met in this context";
+}
+
+function applyUiActionState(button, availability, cacheKey) {
+  if (!button || !availability) return;
+
+  // Being busy is a temporary global state, not an action-specific failure.
+  // Keep the visual busy treatment, but do not add a reason line to every
+  // button because that changes their height and shifts the interface.
+  const visibleReason = availability.state === "busy" ? "" : availability.reason || "";
+  const signature = availability.state + "|" + visibleReason;
+  const key = cacheKey || button;
+  const cache = typeof key === "object" && key !== null ? actionElementStateRenderCache : actionStateRenderCache;
+
+  if (cache.get(key) === signature) return;
+
+  cache.set(key, signature);
+  button.dataset.uiState = availability.state;
+  button.classList.toggle("is-running", availability.state === "running");
+  button.classList.toggle("is-unaffordable", availability.state === "unaffordable");
+  button.classList.toggle("is-busy-blocked", availability.state === "busy");
+  button.classList.toggle("is-context-blocked", availability.state === "wrong-context");
+  button.classList.toggle("is-locked", availability.state === "locked");
+  setUiActionButtonLabel(button, { reason: visibleReason });
+  button.setAttribute("aria-disabled", String(button.disabled));
+}
+
+function updatePrimaryActionEmphasis() {
+  const activePanel = document.querySelector(".main-view-panel.active");
+
+  document.querySelectorAll(".is-primary").forEach(function (button) {
+    button.classList.remove("is-primary");
+  });
+
+  if (!activePanel) return;
+
+  const selectors = [
+    ".camp-actions-list .action-btn[data-ui-state='ready']",
+    ".travel-actions .action-btn[data-ui-state='ready']",
+    ".location-object-actions .action-btn[data-ui-state='ready']",
+    ".shared-actions-list .action-btn[data-ui-state='ready']",
+    ".project-work-btn:not([disabled])",
+  ];
+
+  for (let i = 0; i < selectors.length; i++) {
+    const candidate = activePanel.querySelector(selectors[i]);
+
+    if (candidate && candidate.style.display !== "none") {
+      candidate.classList.add("is-primary");
+      return;
+    }
+  }
 }
 
 function updateDynamicActionButtonLabel(actionName, action) {
@@ -1012,6 +2014,7 @@ function updateDynamicActionButtonLabel(actionName, action) {
   if (actionName === "practiceManaCycling" && typeof getManaCyclingActionLabel === "function") {
     setUiActionButtonLabel(action.button, {
       label: getManaCyclingActionLabel(),
+      cost: getUiActionCostText(actionName),
     });
   }
 }
@@ -1121,6 +2124,10 @@ function isActionContextAvailable(actionName) {
 
   if (actionName === "mineOre") {
     return locationName === "ironMine" && hasPurchasedGear("crudeIronPick");
+  }
+
+  if (actionName === "investigateNorthernDisturbance") {
+    return typeof canInvestigateNorthernDisturbance === "function" && canInvestigateNorthernDisturbance();
   }
 
   if (actionName === "storeHerb") {
@@ -1265,15 +2272,12 @@ function updateExpeditionLoadoutVisibility() {
   const campUnlocked = gameState.phase === "expedition";
 
   if (campUnlocked) {
-    showElement(ui.carriedInventoryStrip, "flex");
-
     if (hasUnlockedOrPurchasedGear()) {
       showElement(ui.gearSection, "flex");
     } else {
       hideElement(ui.gearSection);
     }
   } else {
-    hideElement(ui.carriedInventoryStrip);
     hideElement(ui.gearSection);
   }
 }
@@ -1412,20 +2416,62 @@ function getCurrentActivitySummaryText() {
 }
 
 function renderCampActivityLine() {
-  if (!ui.currentGoalText) return;
-
-  const existing = ui.currentGoalText.querySelector(".current-goal-activity");
-
-  if (existing) {
-    existing.remove();
-  }
+  if (!ui.activeTaskCard) return;
 
   const activityText = getCurrentActivitySummaryText();
-  const activity = document.createElement("div");
-  activity.className = "current-goal-activity";
-  activity.classList.toggle("empty", !activityText);
-  activity.textContent = activityText ? "In progress: " + activityText : "";
-  ui.currentGoalText.appendChild(activity);
+
+  if (!activityText) {
+    if (lastActivitySignature) announceUiStatus("The current task has ended.");
+    lastActivitySignature = "";
+    ui.activeTaskCard.hidden = true;
+    ui.currentGoalSection.classList.remove("has-active-task");
+    updateActiveTaskProgress(0, 0);
+    return;
+  }
+
+  const activity = gameState.activity;
+  const signature = [activity.kind, activity.type, activity.id, activity.mode, activityText].join("|");
+  const detailByKind = {
+    action: "Current action · other tasks remain paused.",
+    travel: "Travel progress remains visible while the route is active.",
+    craft: "Workbench task · materials were committed when work began.",
+    spell: "Spellwork in progress.",
+    projectWork: "Tower project work in progress.",
+    rest: "Recovering energy before the next choice.",
+  };
+
+  ui.activeTaskCard.hidden = false;
+  ui.currentGoalSection.classList.add("has-active-task");
+
+  if (signature !== lastActivitySignature) {
+    lastActivitySignature = signature;
+    setUiTextIfChanged(ui.activeTaskTitle, activityText);
+    setUiTextIfChanged(ui.activeTaskDetail, detailByKind[activity.kind] || "Current task in progress.");
+    announceUiStatus("Task started: " + activityText);
+  }
+
+  const durationMs = Math.max(0, Number(activity.duration) || 0) * 1000;
+  const elapsed = durationMs > 0 && activity.startTime ? Math.max(0, getGameTime() - activity.startTime) : 0;
+  const progress = durationMs > 0 ? Math.min(elapsed / durationMs, 1) : 0;
+  updateActiveTaskProgress(progress, Math.max(0, durationMs - elapsed) / 1000);
+}
+
+function updateActiveTaskProgress(progress, remainingSeconds) {
+  if (!ui.activeTaskProgressFill || !ui.activeTaskMeter) return;
+
+  const clamped = Math.min(Math.max(Number(progress) || 0, 0), 1);
+  const percent = Math.round(clamped * 100);
+  const bucket = String(percent);
+
+  if (ui.activeTaskProgressFill.dataset.progressBucket !== bucket) {
+    ui.activeTaskProgressFill.dataset.progressBucket = bucket;
+    ui.activeTaskProgressFill.style.width = percent + "%";
+    ui.activeTaskMeter.setAttribute("aria-valuenow", bucket);
+    setUiTextIfChanged(ui.activeTaskProgressText, percent + "%");
+  }
+
+  const remaining = remainingSeconds > 0 ? Math.ceil(remainingSeconds * 10) / 10 + "s remaining" : "";
+  setUiTextIfChanged(ui.activeTaskRemainingText, remaining);
 }
 
 function updateWorkflowPanels() {

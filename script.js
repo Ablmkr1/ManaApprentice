@@ -23,6 +23,7 @@ const DEV_RESOURCE_BASE_MAX_VALUES = {
   leather: 100,
   ore: 100,
   iron: 100,
+  earthElementalCore: 1,
   nails: 100,
   herb: 100,
   glimmerleaf: 50,
@@ -232,6 +233,7 @@ const DEV_TIER_RESOURCE_NAMES = {
 
 window.onload = function () {
   hookDomToUI();
+  enhanceGameShell();
   hookUIMaps();
   hookActionCompletions();
   ensureSkillsState();
@@ -270,6 +272,12 @@ window.onload = function () {
     trySaveGame();
   });
 
+  if (ui.northernDisturbanceContinueBtn) {
+    ui.northernDisturbanceContinueBtn.addEventListener("click", function () {
+      hideElement(ui.northernDisturbancePopup);
+    });
+  }
+
   if (ui.advancedRecallCloseBtn) {
     ui.advancedRecallCloseBtn.addEventListener("click", function () {
       hideAdvancedRecallPopup();
@@ -288,6 +296,7 @@ window.onload = function () {
   hookSaveControls();
   hookDevSpeedControls();
   hookDevTierControls();
+  hookCombatUI();
   hookWorkTabs();
   hookMainViewTabs();
   hookJournalViewTabs();
@@ -470,6 +479,10 @@ function resetDevTierBaseline() {
 }
 
 function resetDevTierActivityState() {
+  if (typeof resetCombatEncounter === "function") {
+    resetCombatEncounter();
+  }
+
   if (typeof stopAutoAction === "function") {
     stopAutoAction();
   } else if (gameState.autoAction) {
@@ -520,6 +533,12 @@ function resetDevTierProgressFlags() {
   DEV_TIER_FLAGS.forEach(function (flagName) {
     gameState[flagName] = false;
   });
+
+  gameState.northernDisturbance = {
+    triggered: false,
+    resolved: false,
+    popupShown: false,
+  };
 }
 
 function resetDevTierResources() {
@@ -803,6 +822,7 @@ function applyDevTier4() {
   unlockSpellForDev("attunement");
   unlockSpellForDev("arcaneForce");
   unlockSpellForDev("imbue");
+  unlockPersonalWard(false);
 
   DEV_T4_RESEARCH.forEach(completeResearchForDev);
   DEV_T4_CAMP_UPGRADES.forEach(purchaseCampUpgradeForDev);
@@ -1133,7 +1153,9 @@ function setSkillProgressForDev(skillName, progress) {
   } else if (skillName === "concentration") {
     skill.deepThought = progress;
   } else if (skillName === "manaCycling") {
-    skill.successfulCycles = progress;
+    skill.manaXp = progress;
+    skill.breakthroughReady = false;
+    skill.successfulCycles = 0;
     skill.deepCycles = 0;
   } else if (skillName === "meditation") {
     skill.successfulMeditations = progress;
@@ -1251,16 +1273,34 @@ function hideDevTierPopups() {
   hideElement(ui.campFoundationPopup);
   hideElement(ui.personalWardPopup);
   hideElement(ui.advancedRecallPopup);
+  hideElement(ui.northernDisturbancePopup);
 }
 
 // Rest Button Text Toggle
 function updateRestButton() {
   const isResting = isActivityActive() && gameState.activity.kind === "rest";
+  const energy = getResource("energy");
+  let availability = { state: "ready", reason: "" };
 
   if (isResting) {
     ui.restBtn.classList.add("running");
+    availability = { state: "running", reason: "Resting now" };
   } else {
     ui.restBtn.classList.remove("running");
+
+    if (isActivityActive()) {
+      availability = { state: "busy", reason: "Another task is in progress" };
+    } else if (energy && energy.value >= energy.maxValue) {
+      availability = { state: "wrong-context", reason: "Energy is already full" };
+    } else if (typeof canRestAtCurrentPlace === "function" && !canRestAtCurrentPlace()) {
+      availability = { state: "wrong-context", reason: "Rest is unavailable here" };
+    }
+  }
+
+  ui.restBtn.disabled = availability.state !== "ready" && availability.state !== "running";
+
+  if (typeof applyUiActionState === "function") {
+    applyUiActionState(ui.restBtn, availability, "rest");
   }
 }
 
@@ -1281,6 +1321,7 @@ function gameTick() {
 
   processAutomation(deltaSeconds);
   processActivityTick();
+  processCombatTick();
 }
 
 function startResting() {

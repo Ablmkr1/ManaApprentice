@@ -61,6 +61,10 @@ function spendCost(cost) {
     if (resourceName === "energy" && typeof recordReinforcedEnergySpent === "function") {
       recordReinforcedEnergySpent(costAmount);
     }
+
+    if (resourceName === "mana" && typeof recordManaCyclingManaSpent === "function") {
+      recordManaCyclingManaSpent(costAmount);
+    }
   }
 
   if (typeof updateSelectedResearchButtonState === "function") {

@@ -1,5 +1,5 @@
 const SAVE_KEY = "manaApprenticeSaveV1";
-const SAVE_VERSION = 19;
+const SAVE_VERSION = 23;
 let saveSuppressed = false;
 
 function createSaveData() {
@@ -296,6 +296,22 @@ function migrateSaveData(saveData) {
     migrateV18SaveDataToV19(normalizedSaveData);
   }
 
+  if (version <= 19) {
+    migrateV19SaveDataToV20(normalizedSaveData);
+  }
+
+  if (version <= 20) {
+    migrateV20SaveDataToV21(normalizedSaveData);
+  }
+
+  if (version <= 21) {
+    migrateV21SaveDataToV22(normalizedSaveData);
+  }
+
+  if (version <= 22) {
+    migrateV22SaveDataToV23(normalizedSaveData);
+  }
+
   normalizedSaveData.version = SAVE_VERSION;
 
   return normalizedSaveData;
@@ -318,6 +334,7 @@ function normalizeSaveData(saveData) {
   saveData.gameState.magic.spellProgress.attunement = normalizeSavedSpellProgress(saveData.gameState.magic.spellProgress.attunement);
   saveData.gameState.magic.spellProgress.imbue = normalizeSavedSpellProgress(saveData.gameState.magic.spellProgress.imbue);
   saveData.gameState.magic.spellProgress.arcaneForce = normalizeSavedSpellProgress(saveData.gameState.magic.spellProgress.arcaneForce);
+  saveData.gameState.magic.spellProgress.ward = normalizeSavedSpellProgress(saveData.gameState.magic.spellProgress.ward);
   saveData.gameState.magic.attunements = ensureObject(saveData.gameState.magic.attunements);
 
   if (!Array.isArray(saveData.gameState.magic.attunements.active)) {
@@ -528,6 +545,121 @@ function migrateV18SaveDataToV19(saveData) {
   saveData.gameState = savedGameState;
 }
 
+function migrateV19SaveDataToV20(saveData) {
+  const savedGameState = ensureObject(saveData.gameState);
+  const northNode = ensureObject(ensureObject(savedGameState.towerNodes).north);
+
+  savedGameState.northernDisturbance = {
+    triggered: !!northNode.advancedRecallUnlocked,
+    resolved: false,
+    popupShown: !!northNode.advancedRecallUnlocked,
+  };
+  saveData.gameState = savedGameState;
+}
+
+function migrateV20SaveDataToV21(saveData) {
+  const savedGameState = ensureObject(saveData.gameState);
+  const savedSkills = ensureObject(savedGameState.skills);
+  const manaCycling = ensureObject(savedSkills.manaCycling);
+  const rank = Number.isFinite(manaCycling.rank) ? manaCycling.rank : DEFAULT_SKILL_RANK;
+  const level = Number.isFinite(manaCycling.level) ? manaCycling.level : 0;
+  const legacyProgress = rank === RANK_TWO_SKILL_RANK ? manaCycling.deepCycles : manaCycling.successfulCycles;
+  const legacyManaXp = Math.max(0, Number.isFinite(legacyProgress) ? legacyProgress * 5 : 0);
+  const levelThreshold = getSkillThresholdForLevel("manaCycling", level, rank);
+
+  manaCycling.manaXp = Math.max(legacyManaXp, levelThreshold);
+  manaCycling.breakthroughReady = false;
+  savedSkills.manaCycling = manaCycling;
+  savedGameState.skills = savedSkills;
+  saveData.gameState = savedGameState;
+}
+
+function migrateV21SaveDataToV22(saveData) {
+  const savedGameState = ensureObject(saveData.gameState);
+  const savedResources = ensureObject(saveData.resources);
+  const savedMana = ensureObject(savedResources.mana);
+  const hasMana = !!savedGameState.magicUnlocked || !!savedMana.visible;
+
+  if (!hasMana) return;
+
+  const savedSkills = ensureObject(savedGameState.skills);
+  const manaCycling = {
+    ...getDefaultSkillState("manaCycling"),
+    ...ensureObject(savedSkills.manaCycling),
+  };
+  let rank = normalizeSkillRank("manaCycling", manaCycling.rank);
+  let level = normalizeSkillLevel("manaCycling", manaCycling.level, rank);
+  const savedManaMax = Number.isFinite(savedMana.maxValue) ? savedMana.maxValue : 0;
+  let preservedCapacity = getSkillLevelDefinition("manaCycling", level, rank).capacity || 0;
+
+  // Capacity is derived from this skill. Match an existing saved cap to its
+  // corresponding defined level before stats are recalculated.
+  getSkillDefinition("manaCycling").ranks.forEach(function (rankDefinition) {
+    rankDefinition.levels.forEach(function (levelDefinition) {
+      if (levelDefinition.capacity > savedManaMax || levelDefinition.capacity <= preservedCapacity) return;
+
+      rank = rankDefinition.rank;
+      level = levelDefinition.level;
+      preservedCapacity = levelDefinition.capacity;
+    });
+  });
+
+  manaCycling.rank = rank;
+  manaCycling.level = level;
+  manaCycling.revealed = true;
+  manaCycling.manaXp = Math.max(
+    0,
+    Number.isFinite(manaCycling.manaXp) ? manaCycling.manaXp : 0,
+    getSkillThresholdForLevel("manaCycling", level, rank)
+  );
+  manaCycling.breakthroughReady = false;
+
+  // Automatic levels are caught up here, but a required breakthrough is never
+  // skipped just because an old save already has enough cumulative mana XP.
+  while (true) {
+    const next = getSkillLevelDefinition("manaCycling", level + 1, rank);
+
+    if (!next || manaCycling.manaXp < next.threshold) break;
+    if (next.breakthrough) {
+      manaCycling.breakthroughReady = true;
+      break;
+    }
+
+    level = next.level;
+    manaCycling.level = level;
+  }
+
+  savedSkills.manaCycling = manaCycling;
+  savedGameState.skills = savedSkills;
+  saveData.gameState = savedGameState;
+  saveData.actions = ensureObject(saveData.actions);
+  saveData.actions.practiceManaCycling = {
+    ...ensureObject(saveData.actions.practiceManaCycling),
+    unlocked: true,
+  };
+}
+
+function migrateV22SaveDataToV23(saveData) {
+  const savedGameState = ensureObject(saveData.gameState);
+  const magic = ensureObject(savedGameState.magic);
+  const spellProgress = ensureObject(magic.spellProgress);
+  const savedWard = ensureObject(ensureObject(saveData.resources).ward);
+
+  spellProgress.ward = normalizeSavedSpellProgress(spellProgress.ward);
+  magic.spellProgress = spellProgress;
+  magic.ward = {
+    rank: 1,
+    formed: Number(savedWard.value) > 0,
+    maintainEnabled: false,
+    ...ensureObject(magic.ward),
+  };
+  magic.ward.rank = 1;
+  magic.ward.formed = !!magic.ward.formed;
+  magic.ward.maintainEnabled = !!magic.ward.maintainEnabled;
+  savedGameState.magic = magic;
+  saveData.gameState = savedGameState;
+}
+
 function normalizeSavedTowerNodes(savedTowerNodes, towerCompleted = false) {
   const towerNodes = ensureObject(savedTowerNodes);
   const definitions = typeof getTowerNodeDefinitions === "function" ? getTowerNodeDefinitions() : {};
@@ -709,6 +841,8 @@ function normalizeSavedExpeditionLocationSpellEffects(savedExpedition) {
 
 function createGameStateSaveData() {
   const savedGameState = structuredClone(gameState);
+  // Active combat is never persisted. Reloading safely returns to normal play.
+  delete savedGameState.combat;
   const activity = savedGameState.activity;
 
   if (activity && activity.active && Number.isFinite(activity.startTime) && typeof getGameTime === "function") {
@@ -922,6 +1056,13 @@ function applyGameStateSaveData(savedGameState) {
     "hasCamp",
   ]);
 
+  const savedDisturbance = ensureObject(savedGameState.northernDisturbance);
+  gameState.northernDisturbance = {
+    triggered: !!savedDisturbance.triggered,
+    resolved: !!savedDisturbance.resolved,
+    popupShown: !!savedDisturbance.popupShown,
+  };
+
   applySavedFields(gameState.exploration, savedGameState.exploration, ["currentStage", "count"]);
 
   if (savedGameState.magic) {
@@ -1011,7 +1152,15 @@ function applyGameStateSaveData(savedGameState) {
       "revealed",
     ]);
     applySavedFields(gameState.skills.concentration, savedGameState.skills.concentration, ["rank", "level", "deepThought", "revealed"]);
-    applySavedFields(gameState.skills.manaCycling, savedGameState.skills.manaCycling, ["rank", "level", "successfulCycles", "deepCycles", "revealed"]);
+    applySavedFields(gameState.skills.manaCycling, savedGameState.skills.manaCycling, [
+      "rank",
+      "level",
+      "manaXp",
+      "breakthroughReady",
+      "successfulCycles",
+      "deepCycles",
+      "revealed",
+    ]);
     applySavedFields(gameState.skills.meditation, savedGameState.skills.meditation, [
       "rank",
       "level",
@@ -1029,6 +1178,10 @@ function applyGameStateSaveData(savedGameState) {
 
   applyProjectSaveData(savedGameState.projects);
   applyTowerNodeSaveData(savedGameState.towerNodes);
+
+  if (typeof repairNorthernDisturbanceFromNorthNode === "function") {
+    repairNorthernDisturbanceFromNorthNode();
+  }
 
   resetActivity();
   gameState.autoAction.actionName = null;
@@ -1157,6 +1310,7 @@ function refreshGameUIAfterLoad() {
   hideElement(ui.campFoundationPopup);
   hideElement(ui.personalWardPopup);
   hideElement(ui.advancedRecallPopup);
+  hideElement(ui.northernDisturbancePopup);
 
   const resourceDefinitions = getResourceDefinitions();
 
@@ -1223,6 +1377,8 @@ function loadGame() {
   const saveData = readSaveData();
 
   if (!saveData) return false;
+
+  resetCombatEncounter();
 
   applyGameStateSaveData(saveData.gameState);
   applyResourceSaveData(saveData.resources);

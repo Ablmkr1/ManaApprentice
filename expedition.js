@@ -168,6 +168,10 @@ function spendCurrentLocationLooseStone(amount) {
 }
 
 function isLocationActionAvailable(actionName, locationName, location) {
+  if (actionName === "investigateNorthernDisturbance") {
+    return canInvestigateNorthernDisturbance();
+  }
+
   if (actionName === "gatherStone" && locationName === "creepyCave") {
     return getLocationLooseStoneRemaining(location) > 0;
   }
@@ -175,13 +179,33 @@ function isLocationActionAvailable(actionName, locationName, location) {
   return true;
 }
 
+function canInvestigateNorthernDisturbance() {
+  const northNode = typeof getTowerNodeState === "function" ? getTowerNodeState("north") : null;
+  const disturbance = gameState.northernDisturbance;
+
+  return (
+    gameState.expedition.currentLocation === "ironMine" &&
+    !!northNode &&
+    northNode.advancedRecallUnlocked &&
+    !!disturbance &&
+    disturbance.triggered &&
+    !disturbance.resolved &&
+    !(typeof isCombatActive === "function" && isCombatActive())
+  );
+}
+
 function updateLocationActions() {
   const locationName = gameState.expedition.currentLocation;
 
   lockLocationActions();
 
+  syncContextualActionPlacement();
+  renderContextualLocationSpellActions();
+
   if (gameState.expedition.dungeon && gameState.expedition.dungeon.active) {
     unlockAction("leaveDungeon");
+    syncContextualActionPlacement();
+    renderContextualLocationSpellActions();
     return;
   }
 
@@ -193,6 +217,8 @@ function updateLocationActions() {
 
   if (!location.explored) {
     unlockAction("exploreLocation");
+    syncContextualActionPlacement();
+    renderContextualLocationSpellActions();
     return;
   }
 
@@ -211,6 +237,9 @@ function updateLocationActions() {
   if (locationName === "creepyCave" && gameState.magicUnlocked) {
     unlockAction("meditate");
   }
+
+  syncContextualActionPlacement();
+  renderContextualLocationSpellActions();
 }
 
 function lockLocationActions() {
@@ -511,14 +540,7 @@ function resolveExpeditionStep() {
     modifiersUsed: [],
   };
 
-  const smellyShoes = getGearUpgrade("smellyShoes");
-  const travelBoots = getGearUpgrade("travelBoots");
-
-  if (travelBoots && travelBoots.purchased) {
-    step.distance += 1.0;
-  } else if (smellyShoes && smellyShoes.purchased) {
-    step.distance += 0.5;
-  }
+  step.distance += getEquipmentEffectValue("gear", "feet", "travelDistanceFlat", 0);
 
   step.distance += getActiveAttunementEffectTotal("travelDistanceFlat");
 
@@ -596,6 +618,10 @@ function setRegionProgressAtLeast(regionId, progress) {
 }
 
 function beginReturnToCamp(reason) {
+  if (typeof endCombatForRecall === "function") {
+    endCombatForRecall();
+  }
+
   const expedition = gameState.expedition;
 
   if (!expedition.active) return;
@@ -648,6 +674,10 @@ function getOpenExpeditionTargetDistance() {
 
 // End Expedition Function
 function endExpedition(reason) {
+  if (typeof endCombatForRecall === "function") {
+    endCombatForRecall();
+  }
+
   const expedition = gameState.expedition;
 
   stopTraveling();
@@ -685,6 +715,12 @@ function endExpedition(reason) {
   updateRegionalMapVisibility();
   refreshExpeditionUI();
   updatePlacePanel();
+
+  // Physical state, rather than the previously selected information tab,
+  // determines what the player sees after a return or recall.
+  if (typeof setMainView === "function") {
+    setMainView("camp");
+  }
 }
 
 // Explore Current Location Function
@@ -2034,6 +2070,10 @@ function enterExpeditionPreparation() {
   setPackingActionsAvailable(true);
   updateCraftingUIForCurrentContext();
   updateRegionalMapVisibility();
+
+  if (typeof setMainView === "function") {
+    setMainView("expedition");
+  }
 }
 
 function prepareOpenExpedition() {
@@ -2710,7 +2750,8 @@ function canEnterLocationDungeon(locationName) {
   const location = getExpeditionLocation(locationName);
 
   if (!location || !location.explored || !location.dungeon) return false;
-  if (!hasPurchasedGear("torch")) return false;
+  const lightTool = getPurchasedEquipmentForSlot("tool", "tool");
+  if (!lightTool || !lightTool.effects || !lightTool.effects.darkExploration) return false;
   if (location.dungeonUnlockedFlag && !gameState[location.dungeonUnlockedFlag]) return false;
   if (!getDungeon(location.dungeon)) return false;
 
