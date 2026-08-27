@@ -351,13 +351,13 @@ function hookWorkTabs() {
 
   if (ui.researchTabBtn) {
     ui.researchTabBtn.addEventListener("click", function () {
-      showWorkPanel("research");
+      showWorkPanel("research", { userSelected: true });
     });
   }
 
   if (ui.automationTabBtn) {
     ui.automationTabBtn.addEventListener("click", function () {
-      showWorkPanel("automation");
+      showWorkPanel("automation", { userSelected: true });
     });
   }
 

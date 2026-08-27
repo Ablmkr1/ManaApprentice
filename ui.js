@@ -13,7 +13,6 @@ let lastInventorySummarySignature = "";
 let lastShellContextSignature = "";
 let lastActivitySignature = "";
 let lastCampWorkVisible = null;
-let debugUiEnabled = false;
 const resourceRenderCache = new Map();
 const actionStateRenderCache = new Map();
 const actionElementStateRenderCache = new WeakMap();
@@ -188,24 +187,19 @@ function hookDomToUI() {
   ui.topBar = document.querySelector(".top-bar");
   ui.gameShell = document.querySelector(".game-shell");
   ui.shellStatusLine = document.getElementById("shellStatusLine");
-  ui.shellLocationText = document.getElementById("shellLocationText");
   ui.shellViewEyebrow = document.getElementById("shellViewEyebrow");
-  ui.shellViewTitle = document.getElementById("shellViewTitle");
-  ui.shellViewDescription = document.getElementById("shellViewDescription");
   ui.settingsToggleBtn = document.getElementById("settingsToggleBtn");
   ui.settingsOverlay = document.getElementById("settingsOverlay");
   ui.settingsDrawer = document.getElementById("settingsDrawer");
   ui.settingsBackdrop = document.getElementById("settingsBackdrop");
   ui.settingsCloseBtn = document.getElementById("settingsCloseBtn");
   ui.developerSettings = document.getElementById("developerSettings");
-  ui.developerAccessSection = document.getElementById("developerAccessSection");
-  ui.enableDeveloperToolsBtn = document.getElementById("enableDeveloperToolsBtn");
   ui.storyPreviewSelect = document.getElementById("storyPreviewSelect");
   ui.storyPreviewBtn = document.getElementById("storyPreviewBtn");
   ui.uiLiveRegion = document.getElementById("uiLiveRegion");
   ui.activeTaskCard = document.getElementById("activeTaskCard");
+  ui.activeTaskStatusText = document.getElementById("activeTaskStatusText");
   ui.activeTaskTitle = document.getElementById("activeTaskTitle");
-  ui.activeTaskDetail = document.getElementById("activeTaskDetail");
   ui.activeTaskMeter = ui.activeTaskCard ? ui.activeTaskCard.querySelector(".active-task-meter") : null;
   ui.activeTaskProgressFill = document.getElementById("activeTaskProgressFill");
   ui.activeTaskProgressText = document.getElementById("activeTaskProgressText");
@@ -241,13 +235,6 @@ function enhanceGameShell() {
   enhancePopupSemantics();
   hookSettingsDrawer();
 
-  if (ui.enableDeveloperToolsBtn) {
-    ui.enableDeveloperToolsBtn.addEventListener("click", function () {
-      debugUiEnabled = true;
-      syncDeveloperToolsVisibility();
-    });
-  }
-
   if (ui.storyPreviewSelect && ui.storyPreviewBtn) {
     ui.storyPreviewBtn.addEventListener("click", openSelectedStoryPreview);
   }
@@ -259,17 +246,9 @@ function enhanceGameShell() {
 }
 
 function syncDeveloperToolsVisibility() {
-  const debugEnabled = debugUiEnabled || new URLSearchParams(window.location.search).get("dev") === "1";
+  document.documentElement.dataset.debugUi = "true";
 
-  document.documentElement.dataset.debugUi = debugEnabled ? "true" : "false";
-
-  if (ui.developerSettings) {
-    ui.developerSettings.hidden = !debugEnabled;
-  }
-
-  if (ui.developerAccessSection) {
-    ui.developerAccessSection.hidden = debugEnabled;
-  }
+  if (ui.developerSettings) ui.developerSettings.hidden = false;
 }
 
 function ensureVitalResourceMarkup(resourceName) {
@@ -463,7 +442,7 @@ function handleWorkTabKeydown(event) {
 
   event.preventDefault();
   const panelName = tabs[nextIndex].id.replace("TabBtn", "").replace("Tab", "");
-  showWorkPanel(panelName);
+  showWorkPanel(panelName, { userSelected: true });
   tabs[nextIndex].focus();
 }
 
@@ -742,17 +721,13 @@ function getUiViewCopy(viewName) {
 }
 
 function updateShellContext() {
-  const location = getUiLocationLabel();
   const viewCopy = getUiViewCopy(currentMainView || "camp");
-  const signature = [location, currentMainView || "camp", viewCopy.title].join("|");
+  const signature = [currentMainView || "camp", viewCopy.eyebrow].join("|");
 
   if (signature === lastShellContextSignature) return;
 
   lastShellContextSignature = signature;
-  safeSetText(ui.shellLocationText, location);
   safeSetText(ui.shellViewEyebrow, viewCopy.eyebrow);
-  safeSetText(ui.shellViewTitle, viewCopy.title);
-  safeSetText(ui.shellViewDescription, viewCopy.description);
 }
 
 function updateCampWorkVisibility() {
@@ -1200,6 +1175,13 @@ function prepareUiActionButton(button, options = {}) {
     reason.style.display = "none";
   }
 
+  if (!button.querySelector(".action-result-feedback")) {
+    const result = document.createElement("span");
+    result.className = "action-result-feedback";
+    result.setAttribute("aria-hidden", "true");
+    button.appendChild(result);
+  }
+
   return {
     progressFill,
     label,
@@ -1208,6 +1190,43 @@ function prepareUiActionButton(button, options = {}) {
     detail,
     reason,
   };
+}
+
+// Completion feedback lives inside the action's existing footprint so it never moves controls.
+function showActionResult(button, result) {
+  if (!button || !result || !result.primary) return;
+
+  let feedback = button.querySelector(".action-result-feedback");
+  if (!feedback) {
+    feedback = document.createElement("span");
+    feedback.className = "action-result-feedback";
+    feedback.setAttribute("aria-hidden", "true");
+    button.appendChild(feedback);
+  }
+
+  clearTimeout(Number(feedback.dataset.dismissTimer));
+  feedback.textContent = result.secondary ? result.primary + " · " + result.secondary : result.primary;
+  feedback.classList.toggle("is-meaningful", result.importance === "meaningful");
+  feedback.classList.remove("is-visible");
+  void feedback.offsetWidth;
+  feedback.classList.add("is-visible");
+  feedback.dataset.dismissTimer = String(setTimeout(function () {
+    feedback.classList.remove("is-visible");
+  }, result.importance === "meaningful" ? 2600 : 1900));
+}
+
+function emphasizeResource(resourceName) {
+  const resource = getResource(resourceName);
+  const display = resource && resource.display;
+  if (!display) return;
+
+  clearTimeout(Number(display.dataset.emphasisTimer));
+  display.classList.remove("resource-gained");
+  void display.offsetWidth;
+  display.classList.add("resource-gained");
+  display.dataset.emphasisTimer = String(setTimeout(function () {
+    display.classList.remove("resource-gained");
+  }, 850));
 }
 
 function setUiActionButtonLabel(button, options = {}) {
@@ -1303,6 +1322,7 @@ function setMainView(viewName, options = {}) {
 
   if (options.userSelected) {
     mainViewUserSelected = true;
+    markMajorSystemSeen(targetView);
   }
 
   updateMainViewTabStates();
@@ -1312,6 +1332,7 @@ function syncMainViewAvailability() {
   if (!Array.isArray(ui.mainViewButtons) || !Array.isArray(ui.mainViewPanels)) return;
 
   syncContextPanelVisibility();
+  syncMajorSystemUnlocks();
 
   const defaultView = getDefaultMainView();
   const shouldUseDefault = !currentMainView || !isMainViewAvailable(currentMainView) || (!mainViewUserSelected && currentMainView !== defaultView);
@@ -1351,6 +1372,7 @@ function updateMainViewTabStates() {
 
     button.style.display = available ? "flex" : "none";
     button.classList.toggle("active", isActive);
+    updateSystemNewIndicator(button, viewName);
     button.setAttribute("aria-selected", String(isActive));
     button.setAttribute("tabindex", isActive ? "0" : "-1");
   });
@@ -1407,6 +1429,102 @@ function hasMagicViewContent() {
   }
 
   return false;
+}
+
+const MAJOR_SYSTEM_UNLOCKS = {
+  expedition: {
+    title: "EXPEDITION UNLOCKED",
+    description: "Prepare journeys beyond the safety of camp.",
+    isAvailable: function () { return isMainViewAvailable("expedition"); },
+  },
+  magic: {
+    title: "MAGIC UNLOCKED",
+    description: "Mana can now be shaped into spells.",
+    isAvailable: function () { return hasMagicViewContent(); },
+  },
+  research: {
+    title: "RESEARCH UNLOCKED",
+    description: "Study new principles to advance your camp.",
+    isAvailable: function () { return typeof isResearchSpotPurchased === "function" && isResearchSpotPurchased(); },
+  },
+  tower: {
+    title: "TOWER UNLOCKED",
+    description: "A new path of long-term advancement is available.",
+    isAvailable: function () { return isMainViewAvailable("tower"); },
+  },
+  automation: {
+    title: "AUTOMATION UNLOCKED",
+    description: "Build machines that keep working with mana.",
+    isAvailable: function () { return typeof hasUnlockedAutomation === "function" && hasUnlockedAutomation(); },
+  },
+};
+
+function getMajorSystemUnlockState() {
+  if (!gameState.systemUnlocks || typeof gameState.systemUnlocks !== "object") {
+    gameState.systemUnlocks = { initialized: false, announced: {}, seen: {} };
+  }
+
+  const state = gameState.systemUnlocks;
+  if (!state.announced || typeof state.announced !== "object") state.announced = {};
+  if (!state.seen || typeof state.seen !== "object") state.seen = {};
+  state.initialized = !!state.initialized;
+  return state;
+}
+
+function syncMajorSystemUnlocks() {
+  const state = getMajorSystemUnlockState();
+  const systems = Object.keys(MAJOR_SYSTEM_UNLOCKS);
+
+  if (!state.initialized) {
+    systems.forEach(function (systemName) {
+      if (!MAJOR_SYSTEM_UNLOCKS[systemName].isAvailable()) return;
+      state.announced[systemName] = true;
+      state.seen[systemName] = true;
+    });
+    state.initialized = true;
+    updateMajorSystemNewIndicators();
+    return;
+  }
+
+  systems.forEach(function (systemName) {
+    const system = MAJOR_SYSTEM_UNLOCKS[systemName];
+    if (!system.isAvailable() || state.announced[systemName]) return;
+
+    state.announced[systemName] = true;
+    state.seen[systemName] = false;
+    showMajorSystemUnlockEvent(system);
+  });
+
+  updateMajorSystemNewIndicators();
+}
+
+function markMajorSystemSeen(systemName) {
+  const state = getMajorSystemUnlockState();
+  if (!MAJOR_SYSTEM_UNLOCKS[systemName] || !state.announced[systemName] || state.seen[systemName]) return;
+
+  state.seen[systemName] = true;
+  updateMajorSystemNewIndicators();
+}
+
+function updateSystemNewIndicator(button, systemName) {
+  if (!button || !MAJOR_SYSTEM_UNLOCKS[systemName]) return;
+
+  const state = getMajorSystemUnlockState();
+  const isNew = !!state.announced[systemName] && !state.seen[systemName];
+  button.classList.toggle("has-new-system", isNew);
+  button.setAttribute("data-system-new", String(isNew));
+  button.setAttribute("aria-label", button.textContent.trim() + (isNew ? ", new" : ""));
+}
+
+function updateMajorSystemNewIndicators() {
+  if (Array.isArray(ui.mainViewButtons)) {
+    ui.mainViewButtons.forEach(function (button) {
+      updateSystemNewIndicator(button, button.dataset.mainViewTab);
+    });
+  }
+
+  updateSystemNewIndicator(ui.automationTabBtn, "automation");
+  updateSystemNewIndicator(ui.researchTabBtn, "research");
 }
 
 //Hook to UI Function
@@ -1728,6 +1846,27 @@ function addStoryEntry(text) {
   entry.dataset.dismissTimer = String(scheduleNotificationDismissal(entry));
 }
 
+function showMajorSystemUnlockEvent(system) {
+  if (!ui.notificationStack || !system) return;
+
+  const entry = document.createElement("div");
+  entry.className = "notification-toast notification-toast--system";
+  entry.setAttribute("role", "status");
+
+  const title = document.createElement("strong");
+  title.textContent = system.title;
+  const description = document.createElement("span");
+  description.textContent = system.description;
+  entry.append(title, description);
+  ui.notificationStack.appendChild(entry);
+
+  while (ui.notificationStack.children.length > 4) {
+    ui.notificationStack.removeChild(ui.notificationStack.firstChild);
+  }
+
+  entry.dataset.dismissTimer = String(scheduleNotificationDismissal(entry, 6800));
+}
+
 function appendWorldLogEntry(text) {
   if (!ui.storyLog || !text) return;
 
@@ -1751,13 +1890,13 @@ function appendWorldLogEntry(text) {
   ui.storyLog.scrollTop = ui.storyLog.scrollHeight;
 }
 
-function scheduleNotificationDismissal(entry) {
+function scheduleNotificationDismissal(entry, delay = 4200) {
   return setTimeout(function () {
     entry.classList.add("is-dismissing");
     setTimeout(function () {
       if (entry.parentElement) entry.remove();
     }, 220);
-  }, 4200);
+  }, delay);
 }
 
 //Update Camp Upgrade UI
@@ -2423,30 +2562,23 @@ function renderCampActivityLine() {
   if (!activityText) {
     if (lastActivitySignature) announceUiStatus("The current task has ended.");
     lastActivitySignature = "";
-    ui.activeTaskCard.hidden = true;
-    ui.currentGoalSection.classList.remove("has-active-task");
+    ui.activeTaskCard.dataset.active = "false";
+    ui.activeTaskCard.setAttribute("aria-label", "Activity: ready");
+    setUiTextIfChanged(ui.activeTaskStatusText, "Activity");
+    setUiTextIfChanged(ui.activeTaskTitle, "Ready");
     updateActiveTaskProgress(0, 0);
     return;
   }
 
   const activity = gameState.activity;
   const signature = [activity.kind, activity.type, activity.id, activity.mode, activityText].join("|");
-  const detailByKind = {
-    action: "Current action · other tasks remain paused.",
-    travel: "Travel progress remains visible while the route is active.",
-    craft: "Workbench task · materials were committed when work began.",
-    spell: "Spellwork in progress.",
-    projectWork: "Tower project work in progress.",
-    rest: "Recovering energy before the next choice.",
-  };
-
-  ui.activeTaskCard.hidden = false;
-  ui.currentGoalSection.classList.add("has-active-task");
+  ui.activeTaskCard.dataset.active = "true";
+  ui.activeTaskCard.setAttribute("aria-label", "Activity: " + activityText);
+  setUiTextIfChanged(ui.activeTaskStatusText, "Activity");
 
   if (signature !== lastActivitySignature) {
     lastActivitySignature = signature;
     setUiTextIfChanged(ui.activeTaskTitle, activityText);
-    setUiTextIfChanged(ui.activeTaskDetail, detailByKind[activity.kind] || "Current task in progress.");
     announceUiStatus("Task started: " + activityText);
   }
 
@@ -2470,7 +2602,7 @@ function updateActiveTaskProgress(progress, remainingSeconds) {
     setUiTextIfChanged(ui.activeTaskProgressText, percent + "%");
   }
 
-  const remaining = remainingSeconds > 0 ? Math.ceil(remainingSeconds * 10) / 10 + "s remaining" : "";
+  const remaining = remainingSeconds > 0 ? Math.ceil(remainingSeconds * 10) / 10 + "s" : "";
   setUiTextIfChanged(ui.activeTaskRemainingText, remaining);
 }
 

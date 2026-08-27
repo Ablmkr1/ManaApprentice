@@ -2773,13 +2773,22 @@ function updateWorkTabsVisibility() {
   if (ui.automationTabBtn) {
     ui.automationTabBtn.style.display = hasAutomation ? "inline-block" : "none";
   }
+
+  if (typeof syncMajorSystemUnlocks === "function") {
+    syncMajorSystemUnlocks();
+  }
 }
 
-function showWorkPanel(panelName) {
+function showWorkPanel(panelName, options = {}) {
   const canUseCampWork = isCampWorkContextAvailable();
   const showingResearch = canUseCampWork && panelName === "research" && isResearchSpotPurchased();
   const showingAutomation = canUseCampWork && panelName === "automation" && hasUnlockedAutomation();
   const showingCrafting = !showingResearch && !showingAutomation;
+
+  if (options.userSelected && typeof markMajorSystemSeen === "function") {
+    if (showingResearch) markMajorSystemSeen("research");
+    if (showingAutomation) markMajorSystemSeen("automation");
+  }
 
   if (ui.craftingPanel) {
     ui.craftingPanel.style.display = showingCrafting ? "block" : "none";

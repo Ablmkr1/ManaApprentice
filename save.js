@@ -1,5 +1,5 @@
 const SAVE_KEY = "manaApprenticeSaveV1";
-const SAVE_VERSION = 23;
+const SAVE_VERSION = 24;
 let saveSuppressed = false;
 
 function createSaveData() {
@@ -312,6 +312,10 @@ function migrateSaveData(saveData) {
     migrateV22SaveDataToV23(normalizedSaveData);
   }
 
+  if (version <= 23) {
+    migrateV23SaveDataToV24(normalizedSaveData);
+  }
+
   normalizedSaveData.version = SAVE_VERSION;
 
   return normalizedSaveData;
@@ -328,6 +332,7 @@ function normalizeSaveData(saveData) {
   saveData.gameState.projects = ensureObject(saveData.gameState.projects);
   saveData.gameState.towerNodes = ensureObject(saveData.gameState.towerNodes);
   saveData.gameState.magic = ensureObject(saveData.gameState.magic);
+  saveData.gameState.systemUnlocks = ensureObject(saveData.gameState.systemUnlocks);
   saveData.gameState.magic.sensedReveals = ensureObject(saveData.gameState.magic.sensedReveals);
   saveData.gameState.magic.spellProgress = ensureObject(saveData.gameState.magic.spellProgress);
   saveData.gameState.magic.spellProgress.manaSense = normalizeSavedSpellProgress(saveData.gameState.magic.spellProgress.manaSense);
@@ -657,6 +662,48 @@ function migrateV22SaveDataToV23(saveData) {
   magic.ward.formed = !!magic.ward.formed;
   magic.ward.maintainEnabled = !!magic.ward.maintainEnabled;
   savedGameState.magic = magic;
+  saveData.gameState = savedGameState;
+}
+
+function migrateV23SaveDataToV24(saveData) {
+  const savedGameState = ensureObject(saveData.gameState);
+  const savedExpedition = ensureObject(savedGameState.expedition);
+  const savedProjects = ensureObject(savedGameState.projects);
+  const savedSpells = ensureObject(saveData.spells);
+  const savedCampUpgrades = ensureObject(saveData.campUpgrades);
+  const savedAutomation = ensureObject(saveData.automation);
+  const announced = {};
+  const seen = {};
+  const markExistingSystemSeen = function (systemName, isAvailable) {
+    if (!isAvailable) return;
+    announced[systemName] = true;
+    seen[systemName] = true;
+  };
+  const hasUnlockedSavedSpell = Object.keys(savedSpells).some(function (spellName) {
+    return !!ensureObject(savedSpells[spellName]).unlocked;
+  });
+  const hasVisibleSavedProject = Object.keys(savedProjects).some(function (projectName) {
+    const project = ensureObject(savedProjects[projectName]);
+    return !!project.unlocked || !!project.completed;
+  });
+  const hasUnlockedSavedAutomation = Object.keys(savedAutomation).some(function (machineName) {
+    return !!ensureObject(savedAutomation[machineName]).unlocked;
+  });
+
+  markExistingSystemSeen(
+    "expedition",
+    savedGameState.phase === "expedition" || !!savedExpedition.active || !!savedExpedition.currentLocation
+  );
+  markExistingSystemSeen("magic", !!savedGameState.magicUnlocked || hasUnlockedSavedSpell);
+  markExistingSystemSeen("research", !!ensureObject(savedCampUpgrades.researchSpot).purchased);
+  markExistingSystemSeen("tower", hasVisibleSavedProject);
+  markExistingSystemSeen("automation", hasUnlockedSavedAutomation);
+
+  savedGameState.systemUnlocks = {
+    initialized: true,
+    announced,
+    seen,
+  };
   saveData.gameState = savedGameState;
 }
 
@@ -1055,6 +1102,13 @@ function applyGameStateSaveData(savedGameState) {
     "destination",
     "hasCamp",
   ]);
+
+  const savedSystemUnlocks = ensureObject(savedGameState.systemUnlocks);
+  gameState.systemUnlocks = {
+    initialized: !!savedSystemUnlocks.initialized,
+    announced: structuredClone(ensureObject(savedSystemUnlocks.announced)),
+    seen: structuredClone(ensureObject(savedSystemUnlocks.seen)),
+  };
 
   const savedDisturbance = ensureObject(savedGameState.northernDisturbance);
   gameState.northernDisturbance = {

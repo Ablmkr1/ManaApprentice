@@ -916,6 +916,10 @@ function startActionExecution(actionName) {
 }
 
 function getActionActivityContext(actionName, actionCost) {
+  if (actionName === "exploreLocation") {
+    return { locationName: gameState.expedition.currentLocation };
+  }
+
   if (actionName === "practiceManaCycling") {
     return {
       manaSpent: actionCost && Number.isFinite(actionCost.mana) ? actionCost.mana : 0,
@@ -936,6 +940,7 @@ function resetActivity() {
   gameState.activity.duration = 0;
   gameState.activity.interval = false;
   gameState.activity.context = null;
+  gameState.activity.resourceSnapshot = null;
 }
 
 function isActivityActive() {
@@ -1127,6 +1132,8 @@ function completeActivity() {
     }
 
     addResource("energy", getResource("energy").restPerSecond);
+    showCompletionFeedback(activity, ui.restBtn);
+    activity.resourceSnapshot = getResourceSnapshot();
 
     if (getResource("energy").value >= getResource("energy").maxValue) {
       resetActivity();
@@ -1346,6 +1353,7 @@ function completeActivity() {
     const action = getAction(activity.id);
     const completedActionName = activity.id;
     const completedActionContext = activity.context;
+    const completionSnapshot = activity.resourceSnapshot;
 
     if (action) {
       action.running = false;
@@ -1356,6 +1364,13 @@ function completeActivity() {
       if (action.onComplete) {
         action.onComplete(completedActionContext);
       }
+
+      showCompletionFeedback({
+        kind: "action",
+        id: completedActionName,
+        context: completedActionContext,
+        resourceSnapshot: completionSnapshot,
+      }, action.button);
 
       checkResearchDiscoveries();
 
@@ -1392,6 +1407,8 @@ function completeActivity() {
       completeResearch(craftId, true);
     }
 
+    showCompletionFeedback(activity, button);
+
     resetActivity();
     checkResearchDiscoveries();
 
@@ -1425,8 +1442,84 @@ function startActivity(activityRequest) {
   gameState.activity.duration = duration;
   gameState.activity.interval = !!activityRequest.interval;
   gameState.activity.context = activityRequest.context || null;
+  gameState.activity.resourceSnapshot = getResourceSnapshot();
 
   return true;
+}
+
+function getResourceSnapshot() {
+  const snapshot = {};
+  const definitions = getResourceDefinitions();
+
+  for (let resourceName in definitions) {
+    const resource = getResource(resourceName);
+    if (resource) snapshot[resourceName] = resource.value;
+  }
+
+  return snapshot;
+}
+
+function getCompletionResourceGains(snapshot) {
+  const gains = [];
+  const definitions = getResourceDefinitions();
+
+  for (let resourceName in definitions) {
+    const resource = getResource(resourceName);
+    const before = snapshot && Number(snapshot[resourceName]);
+    const gained = resource ? roundResourceAmount(resource.value - (Number.isFinite(before) ? before : resource.value)) : 0;
+
+    if (gained > 0) gains.push({ resourceName, amount: gained, label: resource.label });
+  }
+
+  return gains;
+}
+
+function formatCompletionGains(gains) {
+  return gains.slice(0, 2).map(function (gain) {
+    return "+" + formatResourceAmountForDisplay(gain.amount) + " " + gain.label;
+  }).join(" · ");
+}
+
+function showCompletionFeedback(activity, button) {
+  if (!activity || !button || typeof showActionResult !== "function") return;
+
+  const gains = getCompletionResourceGains(activity.resourceSnapshot);
+  let result = gains.length ? { primary: formatCompletionGains(gains), importance: "routine" } : null;
+
+  if (activity.kind === "action" && activity.id === "exploreLocation") {
+    const location = getExpeditionLocation(activity.context && activity.context.locationName);
+    if (location) {
+      const total = location.explorationRequired || 1;
+      if (location.explored) {
+        result = { primary: "LOCATION DISCOVERED", secondary: location.label, importance: "meaningful" };
+      } else {
+        result = { primary: "+1 exploration", secondary: location.explorationProgress + " / " + total + " explored", importance: "routine" };
+      }
+    }
+  }
+
+  if (activity.kind === "craft") {
+    const craft = getCraftDefinition(activity.type, activity.id);
+    const label = craft ? craft.label : activity.id;
+
+    if (activity.type === "research") {
+      result = { primary: "RESEARCH COMPLETE", secondary: label, importance: "meaningful" };
+    } else if (activity.type === "resourceCraft") {
+      result = { primary: "Crafted: " + label, importance: "routine" };
+    } else {
+      result = { primary: "Completed: " + label, importance: "meaningful" };
+    }
+  }
+
+  if (!result) return;
+  showActionResult(button, result);
+  gains.forEach(function (gain) {
+    if (typeof emphasizeResource === "function") emphasizeResource(gain.resourceName);
+  });
+
+  if (result.importance === "meaningful" && typeof showMajorSystemUnlockEvent === "function") {
+    showMajorSystemUnlockEvent({ title: result.primary, description: result.secondary || "" });
+  }
 }
 
 function continueAutoAction(actionName) {

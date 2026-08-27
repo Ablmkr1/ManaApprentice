@@ -1261,6 +1261,12 @@ const gameState = {
   currentGoalId: "surviveTheWoods",
 
   selectedResearchEntry: null,
+  // Major destinations track whether their first unlock has been announced and visited.
+  systemUnlocks: {
+    initialized: false,
+    announced: {},
+    seen: {},
+  },
   journal: {
     entries: [],
   },

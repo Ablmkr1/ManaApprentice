@@ -40,12 +40,10 @@
           <button id="journalViewTab" class="main-view-tab" type="button" data-main-view-tab="journal">Journal</button>
         </nav>
 
-        <section class="primary-play">
-          <header class="view-heading">
-            <p id="shellViewEyebrow" class="view-eyebrow">Unknown woods</p>
-            <h2 id="shellViewTitle">Survive, recover, and find your bearings.</h2>
-            <p id="shellViewDescription">Every useful choice begins with enough strength to make it safely.</p>
-          </header>
+          <section class="primary-play">
+            <header class="view-heading">
+              <p id="shellViewEyebrow" class="view-eyebrow">Unknown woods</p>
+            </header>
 
           <section id="currentGoalSection" class="current-goal-section ui-context-panel main-goal-card">
             <div class="objective-main">
@@ -53,10 +51,9 @@
               <h3 id="currentGoalTitle" class="current-goal-title"></h3>
               <div id="currentGoalText" class="current-goal-text"></div>
             </div>
-            <aside id="activeTaskCard" class="active-task-card" aria-label="Active task" hidden>
-              <span class="active-task-status"><i aria-hidden="true"></i>Task in progress</span>
-              <strong id="activeTaskTitle">Current task</strong>
-              <p id="activeTaskDetail"></p>
+            <aside id="activeTaskCard" class="active-task-card" aria-label="Activity: ready" data-active="false">
+              <span class="active-task-status"><i aria-hidden="true"></i><span id="activeTaskStatusText">Activity</span></span>
+              <strong id="activeTaskTitle">Ready</strong>
               <div class="active-task-meter" role="progressbar" aria-label="Active task progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
                 <span id="activeTaskProgressFill"></span>
               </div>
@@ -642,13 +639,9 @@
         </div>
       </section>
 
-        <aside class="support-stack" aria-label="Current context">
-          <section class="shell-context-card">
-            <span>Current place</span>
-            <strong id="shellLocationText">Unknown Woods</strong>
-          </section>
+        <div class="storage-summary-row">
           <button id="inventorySummary" class="inventory-summary" type="button" style="display: none" aria-expanded="false"></button>
-        </aside>
+        </div>
       </main>
 
       <div id="settingsOverlay" class="settings-overlay" hidden>
@@ -672,15 +665,9 @@
             </div>
           </section>
 
-          <section id="developerAccessSection" class="settings-section developer-access-section" aria-labelledby="developer-access-title">
-            <h3 id="developer-access-title">Developer tools</h3>
-            <p>Enable the tier and story controls for this browser session.</p>
-            <button id="enableDeveloperToolsBtn" class="utility-button" type="button">Enable developer tools</button>
-          </section>
-
-          <section id="developerSettings" class="developer-settings" hidden>
+          <section id="developerSettings" class="developer-settings">
             <h3>Developer tools</h3>
-            <p>Visible only in explicit debug mode.</p>
+            <p>Use these controls to test game speed, progression, and story events.</p>
             <div class="dev-speed-controls" aria-label="Developer game speed">
               <span class="dev-speed-label">Game speed</span>
               <button class="dev-speed-btn active" type="button" data-speed="1">x1</button>
