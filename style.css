@@ -4156,6 +4156,104 @@ button:disabled,
   background: rgba(255, 250, 238, 0.55);
 }
 
+.elemental-controlled-count,
+.elemental-compact-capacity {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.elemental-compact-panel {
+  gap: 6px;
+}
+
+.elemental-compact-row {
+  display: grid;
+  grid-template-columns: minmax(54px, 0.7fr) auto minmax(92px, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(91, 65, 40, 0.14);
+}
+
+.elemental-compact-label {
+  min-width: 0;
+  color: #2b241c;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.elemental-compact-controls {
+  display: inline-grid;
+  grid-template-columns: 34px minmax(24px, auto) 34px;
+  align-items: center;
+  gap: 4px;
+}
+
+.elemental-assignment-adjust.action-btn {
+  min-width: 34px;
+  min-height: 34px;
+  padding: 4px;
+  font-size: 17px;
+  line-height: 1;
+}
+
+.elemental-assignment-adjust:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.elemental-compact-count,
+.elemental-compact-return {
+  font-variant-numeric: tabular-nums;
+}
+
+.elemental-compact-count {
+  min-width: 24px;
+  color: #2b241c;
+  font-size: 14px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.elemental-compact-return {
+  color: #4a3e31;
+  font-size: 13px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.elemental-crafting-dropdown {
+  margin-top: 8px;
+  border-top: 1px solid rgba(91, 65, 40, 0.16);
+}
+
+.elemental-crafting-dropdown > summary {
+  padding: 8px 2px 2px;
+  color: #4a3e31;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.elemental-crafting-dropdown > summary:focus-visible {
+  outline: 2px solid #8b6f3f;
+  outline-offset: 2px;
+}
+
+.elemental-crafting-content {
+  display: grid;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+.elemental-crafting-content > .action-btn {
+  width: 100%;
+}
+
+.elemental-crafting-content .elemental-capability-panel {
+  margin-top: 0;
+}
+
 .elemental-job-row {
   flex-direction: column;
   gap: 8px;
@@ -4182,6 +4280,15 @@ button:disabled,
 
 @media (max-width: 720px) {
   .elemental-capability-row { grid-template-columns: 1fr; }
+
+  .elemental-compact-row {
+    grid-template-columns: minmax(48px, 0.65fr) auto minmax(82px, 1fr);
+    gap: 6px;
+  }
+
+  .elemental-compact-panel {
+    padding: 8px;
+  }
 }
 
 .tower-detail-content .tower-project-action-buttons {

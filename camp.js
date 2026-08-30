@@ -4530,7 +4530,94 @@ function createBoundEarthElementalUnassignButton(label, source) {
   });
 }
 
+function createBoundEarthElementalAssignmentAdjustButton(direction, destination, resourceLabel) {
+  const isIncrease = direction > 0;
+  const validation = isIncrease ? validateBoundEarthElementalAssignment(destination) : null;
+  const assigned = getBoundEarthElementalAssignmentCount(destination);
+  const button = createUiActionButton({
+    label: isIncrease ? "+" : "−",
+    className: "elemental-assignment-adjust",
+    progress: false,
+    onClick: function () {
+      if (isIncrease) changeBoundEarthElementalAssignment(destination);
+      else unassignBoundEarthElemental(destination);
+    },
+  });
+
+  button.disabled = isIncrease ? !validation.valid : assigned <= 0;
+  button.setAttribute("aria-label", (isIncrease ? "Assign one elemental to " : "Unassign one elemental from ") + resourceLabel);
+  if (isIncrease && !validation.valid) button.title = validation.reason;
+
+  return button;
+}
+
+function formatCompactElementalReturn(seconds) {
+  const total = Math.max(0, Math.ceil(seconds));
+  const minutes = Math.floor(total / 60);
+  const remainder = total % 60;
+  return minutes + ":" + String(remainder).padStart(2, "0");
+}
+
+// Compact, data-driven assignment rows can be reused by future regional nodes.
+function createCompactBoundEarthElementalAssignmentRow(nodeName, jobName) {
+  const job = getElementalNodeConfig(nodeName)?.jobs[jobName];
+  const destination = { type: "node", nodeName, jobName };
+  const workers = getBoundEarthElementalAssignmentCount(destination);
+  const resource = job ? getResource(job.resource) : null;
+  const resourceLabel = resource ? resource.label : (job ? job.label : jobName);
+  const row = document.createElement("div");
+  row.className = "elemental-compact-row";
+
+  const label = document.createElement("span");
+  label.className = "elemental-compact-label";
+  label.textContent = resourceLabel;
+
+  const controls = document.createElement("div");
+  controls.className = "elemental-compact-controls";
+  const count = document.createElement("span");
+  count.className = "elemental-compact-count";
+  count.textContent = String(workers);
+  count.setAttribute("aria-label", workers + " elementals assigned to " + resourceLabel);
+  controls.append(
+    createBoundEarthElementalAssignmentAdjustButton(-1, destination, resourceLabel),
+    count,
+    createBoundEarthElementalAssignmentAdjustButton(1, destination, resourceLabel)
+  );
+
+  const timer = document.createElement("span");
+  timer.className = "elemental-compact-return";
+  timer.textContent = workers > 0
+    ? "Return: " + formatCompactElementalReturn(getBoundEarthElementalCycle(nodeName, jobName).remaining)
+    : "—";
+
+  row.append(label, controls, timer);
+  return row;
+}
+
+function createCompactBoundEarthElementalNodePanel(nodeName) {
+  const config = getElementalNodeConfig(nodeName);
+  const nodeDefinition = getTowerNodeDefinition(nodeName);
+  const panel = document.createElement("section");
+  panel.className = "tower-stage-details elemental-assignment-panel elemental-compact-panel";
+
+  const heading = document.createElement("h4");
+  heading.textContent = nodeDefinition ? nodeDefinition.label : "Regional Node";
+
+  const capacity = document.createElement("p");
+  capacity.className = "elemental-compact-capacity";
+  capacity.textContent = "Assigned: " + getBoundEarthElementalNodeAssignmentCount(nodeName) + " / " + config.elementalCapacity;
+  panel.append(heading, capacity);
+
+  for (let jobName in config.jobs) {
+    panel.appendChild(createCompactBoundEarthElementalAssignmentRow(nodeName, jobName));
+  }
+
+  return panel;
+}
+
 function createBoundEarthElementalNodePanel(nodeName) {
+  if (nodeName === "north") return createCompactBoundEarthElementalNodePanel(nodeName);
+
   const config = getElementalNodeConfig(nodeName);
   const assignments = getBoundEarthElementalNodeAssignments(nodeName);
   const panel = document.createElement("section");
@@ -4584,46 +4671,56 @@ function createBoundEarthElementalNodePanel(nodeName) {
   return panel;
 }
 
-function createBoundEarthElementalTowerPanel() {
+function createBoundEarthElementalCraftingDropdown() {
   const elemental = getBoundEarthElementalState();
+  const details = document.createElement("details");
+  details.className = "elemental-crafting-dropdown";
+
+  const summary = document.createElement("summary");
+  summary.textContent = "Elemental Crafting";
+  details.appendChild(summary);
+
+  const content = document.createElement("div");
+  content.className = "elemental-crafting-content";
+  const coreCount = getResource("earthElementalCore").value;
+  const createButton = createUiActionButton({
+    label: "Create Bound Earth Elemental",
+    detail: coreCount > 0 ? "1 Earth Elemental Core" : "Requires an Earth Elemental Core",
+    progress: false,
+    onClick: createBoundEarthElemental,
+  });
+  createButton.disabled = coreCount <= 0;
+  content.appendChild(createButton);
+
+  if (elemental.capabilities.equipmentUnlocked && !isTowerRoomCompleted("workshop")) {
+    content.appendChild(createElementalCapabilityCraftingPanel("equipment"));
+  }
+  if (elemental.capabilities.attunementUnlocked && !isTowerRoomCompleted("alchemyRoom")) {
+    content.appendChild(createElementalCapabilityCraftingPanel("attunement"));
+  }
+
+  details.appendChild(content);
+  return details;
+}
+
+function createBoundEarthElementalTowerPanel() {
   const panel = document.createElement("section");
   panel.className = "ui-context-panel tower-status-summary elemental-tower-panel";
 
   const title = document.createElement("h3");
-  title.textContent = "Bound Earth Elementals";
+  title.textContent = "Tower Heart";
   panel.appendChild(title);
 
   const summary = document.createElement("p");
-  summary.textContent =
-    "Earth Elemental Cores: " + getResource("earthElementalCore").value +
-    " · Owned: " + elemental.owned +
-    " · Elemental Control: " + getBoundEarthElementalActiveCount() + " / " + getTowerHeartElementalControlCapacity() +
-    " · Tower Construction: " + elemental.assignments.tower +
-    " (" + formatTrainingNumber(getBoundEarthElementalTowerConstructionRate()) + " work/s)";
+  summary.className = "elemental-controlled-count";
+  summary.textContent = "Controlled: " + getBoundEarthElementalActiveCount() + " / " + getTowerHeartElementalControlCapacity();
   panel.appendChild(summary);
 
-  const actions = document.createElement("div");
-  actions.className = "tower-project-action-buttons";
-  const coreCount = getResource("earthElementalCore").value;
-  actions.appendChild(
-    createUiActionButton({
-      label: "Create Bound Earth Elemental",
-      detail: coreCount > 0 ? "1 Earth Elemental Core" : "Requires an Earth Elemental Core",
-      progress: false,
-      onClick: createBoundEarthElemental,
-    })
-  );
-
-  const towerDestination = { type: "tower" };
-  actions.appendChild(createBoundEarthElementalActionButton("Assign to Tower", towerDestination));
-  actions.appendChild(createBoundEarthElementalUnassignButton("Unassign Tower", towerDestination));
-  panel.appendChild(actions);
-
-  const config = getElementalAutomationConfig();
-  for (let nodeName in config.nodes) {
-    if ((nodeName === "east" || nodeName === "south") && !(gameState.regionalProgress && gameState.regionalProgress.unlocked)) continue;
-    panel.appendChild(createBoundEarthElementalNodePanel(nodeName));
+  if (isBoundEarthElementalNodeUnlocked("north")) {
+    panel.appendChild(createCompactBoundEarthElementalNodePanel("north"));
   }
+
+  panel.appendChild(createBoundEarthElementalCraftingDropdown());
 
   return panel;
 }
@@ -5757,13 +5854,6 @@ function renderTowerHeartDetail(container) {
 
   if (foundation && foundation.completed && isBoundEarthElementalTowerUnlocked()) {
     container.appendChild(createBoundEarthElementalTowerPanel());
-    const elemental = getBoundEarthElementalState();
-    if (elemental.capabilities.equipmentUnlocked && !isTowerRoomCompleted("workshop")) {
-      container.appendChild(createElementalCapabilityCraftingPanel("equipment"));
-    }
-    if (elemental.capabilities.attunementUnlocked && !isTowerRoomCompleted("alchemyRoom")) {
-      container.appendChild(createElementalCapabilityCraftingPanel("attunement"));
-    }
   }
 }
 
