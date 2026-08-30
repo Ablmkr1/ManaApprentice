@@ -806,14 +806,17 @@ function recalculateCharacterStats() {
 }
 
 function getEnergyRecoveryPerSecond() {
+  let baseRecovery = 1;
+
   if (typeof hasPurchasedCampUpgrade === "function") {
-    if (hasPurchasedCampUpgrade("smallHut")) return 12;
-    if (hasPurchasedCampUpgrade("framedShelter")) return 8;
-    if (hasPurchasedCampUpgrade("lessCrudeShelter")) return 4;
-    if (hasPurchasedCampUpgrade("crudeLeanTo")) return 2;
+    if (hasPurchasedCampUpgrade("smallHut")) baseRecovery = 12;
+    else if (hasPurchasedCampUpgrade("framedShelter")) baseRecovery = 8;
+    else if (hasPurchasedCampUpgrade("lessCrudeShelter")) baseRecovery = 4;
+    else if (hasPurchasedCampUpgrade("crudeLeanTo")) baseRecovery = 2;
   }
 
-  return 1;
+  const towerMultiplier = typeof getTowerRoomEffectValue === "function" ? getTowerRoomEffectValue("restEnergyMultiplier", 1) : 1;
+  return roundResourceAmount(baseRecovery * towerMultiplier);
 }
 
 function recalculateCampEffects() {
@@ -915,7 +918,8 @@ function getGatherResourceYield(resourceName) {
 }
 
 function getHerbGatherBonus() {
-  return getForageYieldBonus();
+  const towerBonus = typeof getTowerRoomEffectValue === "function" ? getTowerRoomEffectValue("herbGatherFlat", 0) : 0;
+  return getForageYieldBonus() + towerBonus;
 }
 
 function hasHunterEyeAttunement() {
@@ -1058,7 +1062,11 @@ function getResearchDuration(researchName) {
     duration *= 0.75;
   }
 
-  return duration;
+  if (typeof getTowerRoomEffectValue === "function") {
+    duration *= getTowerRoomEffectValue("researchDurationMultiplier", 1);
+  }
+
+  return roundResourceAmount(duration);
 }
 
 function getLocationObjectCost(object) {

@@ -280,7 +280,12 @@ function applyWardDamage(amount) {
   const state = getWardState();
   const damage = roundResourceAmount(Math.max(0, Number(amount) || 0));
 
-  if (!ward || !state.formed || damage <= 0) return 0;
+  if (!ward || ward.value <= 0 || damage <= 0) return 0;
+
+  // Ward is the source of truth for current protection. Repair the auxiliary
+  // presentation/channel state if an older save or interrupted update left it
+  // stale while Ward still exists.
+  if (!state.formed) state.formed = true;
 
   const absorbed = roundResourceAmount(Math.min(ward.value, damage));
   ward.value = roundResourceAmount(ward.value - absorbed);
@@ -289,6 +294,7 @@ function applyWardDamage(amount) {
   if (ward.value <= 0) {
     state.formed = false;
     state.maintainEnabled = false;
+    updateEquipmentSlotUI();
     if (!(typeof isCombatActive === "function" && isCombatActive()) && typeof beginReturnToCamp === "function") {
       beginReturnToCamp("wardBroken");
     }
@@ -355,6 +361,106 @@ function ensureProjectsState() {
 function getProjectState(projectName) {
   ensureProjectsState();
   return gameState.projects[projectName];
+}
+
+function ensureTowerStructureState() {
+  if (!gameState.tower || typeof gameState.tower !== "object" || Array.isArray(gameState.tower)) {
+    gameState.tower = {};
+  }
+
+  if (typeof gameState.tower.selectedId !== "string") {
+    gameState.tower.selectedId = "heart";
+  }
+
+  if (typeof gameState.tower.lastAutoSelectedProject !== "string") {
+    gameState.tower.lastAutoSelectedProject = "";
+  }
+}
+
+function getTowerFloorState(floorId) {
+  const floor = getTowerFloorDefinition(floorId);
+  return floor ? getProjectState(floor.projectId) : null;
+}
+
+function getTowerRoomState(roomId) {
+  const room = getTowerRoomDefinition(roomId);
+  return room ? getProjectState(room.projectId) : null;
+}
+
+function isTowerFloorCompleted(floorId) {
+  const state = getTowerFloorState(floorId);
+  return !!state && state.completed;
+}
+
+function isTowerRoomCompleted(roomId) {
+  const state = getTowerRoomState(roomId);
+  return !!state && state.completed;
+}
+
+function getTowerRoomEffectValue(effectType, fallbackValue) {
+  const rooms = getTowerRoomDefinitions();
+
+  for (let roomId in rooms) {
+    const effect = rooms[roomId].baselineEffect;
+
+    if (effect && effect.type === effectType && isTowerRoomCompleted(roomId)) {
+      return Number.isFinite(effect.value) ? effect.value : fallbackValue;
+    }
+  }
+
+  return fallbackValue;
+}
+
+function areTowerPrerequisitesMet(prerequisites) {
+  const requirements = prerequisites || {};
+  const projectsCompleted = requirements.projectsCompleted || [];
+  const roomsCompleted = requirements.roomsCompleted || [];
+
+  return (
+    projectsCompleted.every(function (projectId) {
+      const state = getProjectState(projectId);
+      return !!state && state.completed;
+    }) &&
+    roomsCompleted.every(isTowerRoomCompleted)
+  );
+}
+
+function syncTowerStructureUnlocks(announce = false) {
+  ensureProjectsState();
+  ensureTowerStructureState();
+  const entities = [...Object.values(getTowerFloorDefinitions()), ...Object.values(getTowerRoomDefinitions())];
+
+  entities.forEach(function (entity) {
+    const state = getProjectState(entity.projectId);
+
+    if (!state || state.unlocked || state.completed || !areTowerPrerequisitesMet(entity.prerequisites)) return;
+
+    state.unlocked = true;
+
+    if (announce) {
+      announceUiStatus(entity.name + " is now available to construct.");
+    }
+  });
+}
+
+function applyBasementStorageUpgrade() {
+  const basement = getProjectState("towerBasement");
+
+  if (!basement || !basement.completed) return;
+
+  const config = getTowerStorageConfig();
+  const minimumCapacity = config.basementMinimumCapacity;
+
+  config.applicableResources.forEach(function (resourceName) {
+    const resource = getResource(resourceName);
+
+    if (!resource || !Number.isFinite(resource.maxValue)) return;
+
+    resource.maxValue = Math.max(resource.maxValue, minimumCapacity);
+    updateResource(resourceName);
+  });
+
+  updateCampResourcesSectionVisibility();
 }
 
 function getDefaultTowerNodeDeposits(nodeName) {
@@ -443,6 +549,588 @@ function normalizeTowerNodeState(nodeName) {
   }
 }
 
+// Bound elementals use aggregate assignment counts instead of individual unit
+// records. This keeps identical workers simple while still allowing every
+// assignment to be moved or released independently.
+let lastBoundEarthAutomationUiSignature = "";
+
+function getDefaultBoundEarthElementalState() {
+  const config = getElementalAutomationConfig();
+  const nodes = {};
+
+  for (let nodeName in config.nodes) {
+    const nodeConfig = config.nodes[nodeName];
+    nodes[nodeName] = {};
+
+    for (let jobName in nodeConfig.jobs) {
+      nodes[nodeName][jobName] = 0;
+    }
+  }
+
+  return {
+    owned: 0,
+    bindingDiscovered: false,
+    assignments: {
+      tower: 0,
+      nodes: structuredClone(nodes),
+    },
+    cycles: {
+      nodes: Object.fromEntries(
+        Object.entries(nodes).map(function ([nodeName, jobs]) {
+          return [nodeName, Object.fromEntries(Object.keys(jobs).map(function (jobName) {
+            return [jobName, { remaining: 0 }];
+          }))];
+        })
+      ),
+    },
+    capabilities: {
+      equipmentUnlocked: false,
+      attunementUnlocked: false,
+      harnesses: Object.fromEntries(Object.keys(getElementalHarnessDefinitions()).map(function (name) { return [name, 0]; })),
+      attunements: Object.fromEntries(Object.keys(getElementalWorkerAttunementDefinitions()).map(function (name) { return [name, 0]; })),
+    },
+  };
+}
+
+function ensureElementalState() {
+  if (!gameState.elementals || typeof gameState.elementals !== "object" || Array.isArray(gameState.elementals)) {
+    gameState.elementals = {};
+  }
+
+  const defaults = getDefaultBoundEarthElementalState();
+  const saved = gameState.elementals.earth;
+
+  if (!saved || typeof saved !== "object" || Array.isArray(saved)) {
+    gameState.elementals.earth = defaults;
+  } else {
+    if (!saved.assignments || typeof saved.assignments !== "object" || Array.isArray(saved.assignments)) saved.assignments = {};
+    if (!saved.assignments.nodes || typeof saved.assignments.nodes !== "object" || Array.isArray(saved.assignments.nodes)) saved.assignments.nodes = {};
+    if (!saved.cycles || typeof saved.cycles !== "object" || Array.isArray(saved.cycles)) saved.cycles = {};
+    if (!saved.cycles.nodes || typeof saved.cycles.nodes !== "object" || Array.isArray(saved.cycles.nodes)) saved.cycles.nodes = {};
+
+    if (!Number.isFinite(saved.owned)) saved.owned = 0;
+    saved.owned = Math.max(0, Math.floor(saved.owned));
+    saved.bindingDiscovered = !!saved.bindingDiscovered;
+    saved.assignments.tower = Math.max(0, Math.floor(Number(saved.assignments.tower) || 0));
+    if (!saved.capabilities || typeof saved.capabilities !== "object" || Array.isArray(saved.capabilities)) saved.capabilities = {};
+    if (!saved.capabilities.harnesses || typeof saved.capabilities.harnesses !== "object") saved.capabilities.harnesses = {};
+    if (!saved.capabilities.attunements || typeof saved.capabilities.attunements !== "object") saved.capabilities.attunements = {};
+    saved.capabilities.equipmentUnlocked = !!saved.capabilities.equipmentUnlocked;
+    saved.capabilities.attunementUnlocked = !!saved.capabilities.attunementUnlocked;
+    for (let harnessName in defaults.capabilities.harnesses) {
+      saved.capabilities.harnesses[harnessName] = Math.max(0, Math.floor(Number(saved.capabilities.harnesses[harnessName]) || 0));
+    }
+    for (let attunementName in defaults.capabilities.attunements) {
+      saved.capabilities.attunements[attunementName] = Math.max(0, Math.floor(Number(saved.capabilities.attunements[attunementName]) || 0));
+    }
+
+    for (let nodeName in defaults.assignments.nodes) {
+      const defaultJobs = defaults.assignments.nodes[nodeName];
+
+      if (!saved.assignments.nodes[nodeName] || typeof saved.assignments.nodes[nodeName] !== "object") {
+        saved.assignments.nodes[nodeName] = {};
+      }
+      if (!saved.cycles.nodes[nodeName] || typeof saved.cycles.nodes[nodeName] !== "object") {
+        saved.cycles.nodes[nodeName] = {};
+      }
+
+      for (let jobName in defaultJobs) {
+        saved.assignments.nodes[nodeName][jobName] = Math.max(0, Math.floor(Number(saved.assignments.nodes[nodeName][jobName]) || 0));
+        const cycle = saved.cycles.nodes[nodeName][jobName];
+        const remaining = cycle && Number.isFinite(cycle.remaining) ? cycle.remaining : 0;
+        saved.cycles.nodes[nodeName][jobName] = { remaining: Math.max(0, remaining) };
+      }
+    }
+  }
+
+  const elemental = gameState.elementals.earth;
+  if (gameState.regionalProgress && gameState.regionalProgress.east && gameState.regionalProgress.east.capabilityDiscovered) {
+    elemental.capabilities.equipmentUnlocked = true;
+  }
+  if (gameState.regionalProgress && gameState.regionalProgress.south && gameState.regionalProgress.south.capabilityDiscovered) {
+    elemental.capabilities.attunementUnlocked = true;
+  }
+
+  normalizeBoundEarthElementalAssignments();
+}
+
+function getBoundEarthElementalState() {
+  ensureElementalState();
+  return gameState.elementals.earth;
+}
+
+function getElementalNodeConfig(nodeName) {
+  const config = getElementalAutomationConfig();
+  return config.nodes[nodeName] || null;
+}
+
+function getBoundEarthElementalNodeAssignments(nodeName) {
+  const elemental = getBoundEarthElementalState();
+  const nodeConfig = getElementalNodeConfig(nodeName);
+
+  if (!nodeConfig) return {};
+  if (!elemental.assignments.nodes[nodeName]) elemental.assignments.nodes[nodeName] = {};
+
+  for (let jobName in nodeConfig.jobs) {
+    elemental.assignments.nodes[nodeName][jobName] = Math.max(0, Math.floor(Number(elemental.assignments.nodes[nodeName][jobName]) || 0));
+  }
+
+  return elemental.assignments.nodes[nodeName];
+}
+
+function getBoundEarthElementalNodeAssignmentCount(nodeName) {
+  return Object.values(getBoundEarthElementalNodeAssignments(nodeName)).reduce(function (total, count) {
+    return total + count;
+  }, 0);
+}
+
+function getBoundEarthElementalAssignmentCount(destination) {
+  const elemental = getBoundEarthElementalState();
+
+  if (!destination) return 0;
+  if (destination.type === "tower") return elemental.assignments.tower || 0;
+  if (destination.type === "node") return getBoundEarthElementalNodeAssignments(destination.nodeName)[destination.jobName] || 0;
+  return 0;
+}
+
+function getBoundEarthElementalActiveCount() {
+  const elemental = getBoundEarthElementalState();
+  const config = getElementalAutomationConfig();
+  let active = elemental.assignments.tower || 0;
+
+  for (let nodeName in config.nodes) {
+    active += getBoundEarthElementalNodeAssignmentCount(nodeName);
+  }
+
+  return active;
+}
+
+function getBoundEarthElementalAvailableCount() {
+  const elemental = getBoundEarthElementalState();
+  return Math.max(0, elemental.owned - getBoundEarthElementalActiveCount());
+}
+
+function getTowerHeartElementalControlCapacity() {
+  return getElementalAutomationConfig().towerHeart.startingElementalControlCapacity;
+}
+
+function getBoundEarthElementalNodeCapacity(nodeName) {
+  const node = getElementalNodeConfig(nodeName);
+  return node ? node.elementalCapacity : 0;
+}
+
+function isBoundEarthElementalNodeUnlocked(nodeName) {
+  const node = getTowerNodeState(nodeName);
+  const definition = getTowerNodeDefinition(nodeName);
+  return !!node && node.built && (!!node.advancedRecallUnlocked || !!(definition && definition.automationOnBuild));
+}
+
+function getBoundEarthElementalCapabilityCount(kind, capabilityName) {
+  const elemental = getBoundEarthElementalState();
+  const collection = kind === "equipment" ? elemental.capabilities.harnesses : elemental.capabilities.attunements;
+  return Math.max(0, Math.floor(Number(collection[capabilityName]) || 0));
+}
+
+function getBoundEarthElementalCapabilityUseCount(kind, capabilityName, source = null) {
+  const config = getElementalAutomationConfig();
+  let used = 0;
+
+  for (let nodeName in config.nodes) {
+    const assignments = getBoundEarthElementalNodeAssignments(nodeName);
+    for (let jobName in config.nodes[nodeName].jobs) {
+      const job = config.nodes[nodeName].jobs[jobName];
+      const requirement = kind === "equipment" ? job.requiredEquipment : job.requiredAttunement;
+      if (requirement !== capabilityName) continue;
+      used += assignments[jobName] || 0;
+      if (source && source.type === "node" && source.nodeName === nodeName && source.jobName === jobName) used -= 1;
+    }
+  }
+
+  return Math.max(0, used);
+}
+
+function getBoundEarthElementalJobRequirementStatus(destination, source = null) {
+  if (!destination || destination.type !== "node") return { valid: true };
+  const nodeDefinition = getTowerNodeDefinition(destination.nodeName);
+  const nodeState = getTowerNodeState(destination.nodeName);
+  const job = getElementalNodeConfig(destination.nodeName)?.jobs[destination.jobName];
+
+  if (!nodeDefinition || !nodeState || !nodeState.built || !isBoundEarthElementalNodeUnlocked(destination.nodeName)) {
+    return { valid: false, reason: (nodeDefinition ? nodeDefinition.label : "Regional Node") + " required." };
+  }
+  if (!job) return { valid: false, reason: "That regional job is not available." };
+
+  if (job.requiredEquipment) {
+    const definition = getElementalHarnessDefinition(job.requiredEquipment);
+    const available = getBoundEarthElementalCapabilityCount("equipment", job.requiredEquipment) - getBoundEarthElementalCapabilityUseCount("equipment", job.requiredEquipment, source);
+    if (available <= 0) return { valid: false, reason: (definition ? definition.label : "Required harness") + " required." };
+  }
+
+  if (job.requiredAttunement) {
+    const definition = getElementalWorkerAttunementDefinition(job.requiredAttunement);
+    const available = getBoundEarthElementalCapabilityCount("attunement", job.requiredAttunement) - getBoundEarthElementalCapabilityUseCount("attunement", job.requiredAttunement, source);
+    if (available <= 0) return { valid: false, reason: (definition ? definition.label : "Required attunement") + " required." };
+  }
+
+  return { valid: true };
+}
+
+function isBoundEarthElementalTowerUnlocked() {
+  return !!gameState.towerConstructionUnlocked;
+}
+
+function isValidBoundEarthElementalDestination(destination) {
+  if (!destination) return false;
+  if (destination.type === "tower") return isBoundEarthElementalTowerUnlocked();
+
+  const nodeConfig = destination.type === "node" ? getElementalNodeConfig(destination.nodeName) : null;
+  return !!nodeConfig && !!nodeConfig.jobs[destination.jobName] && isBoundEarthElementalNodeUnlocked(destination.nodeName);
+}
+
+function validateBoundEarthElementalAssignment(destination, source = null) {
+  const elemental = getBoundEarthElementalState();
+
+  if (!isValidBoundEarthElementalDestination(destination)) {
+    const requirements = getBoundEarthElementalJobRequirementStatus(destination, source);
+    return requirements.valid ? { valid: false, reason: "That elemental assignment is not unlocked yet." } : requirements;
+  }
+
+  const requirements = getBoundEarthElementalJobRequirementStatus(destination, source);
+  if (!requirements.valid) return requirements;
+
+  const sourceCount = source ? getBoundEarthElementalAssignmentCount(source) : 0;
+  if (source && sourceCount <= 0) return { valid: false, reason: "No Bound Earth Elemental is assigned there." };
+  if (source && source.type === destination.type && source.nodeName === destination.nodeName && source.jobName === destination.jobName) {
+    return { valid: false, reason: "That elemental is already on this assignment." };
+  }
+
+  const activeAfterMove = getBoundEarthElementalActiveCount() - (source ? 1 : 0) + 1;
+  if (activeAfterMove > getTowerHeartElementalControlCapacity()) {
+    return { valid: false, reason: "No Tower Heart control capacity." };
+  }
+  if (!source && getBoundEarthElementalAvailableCount() <= 0) {
+    return { valid: false, reason: "No unassigned Bound Earth Elementals are available." };
+  }
+
+  if (destination.type === "node") {
+    const sourceLeavesNode = source && source.type === "node" && source.nodeName === destination.nodeName ? 1 : 0;
+    const nodeAfterMove = getBoundEarthElementalNodeAssignmentCount(destination.nodeName) - sourceLeavesNode + 1;
+
+    if (nodeAfterMove > getBoundEarthElementalNodeCapacity(destination.nodeName)) {
+      return { valid: false, reason: "This node has reached its elemental assignment capacity." };
+    }
+  }
+
+  return { valid: true };
+}
+
+function getBoundEarthElementalCycle(nodeName, jobName) {
+  const elemental = getBoundEarthElementalState();
+
+  if (!elemental.cycles.nodes[nodeName]) elemental.cycles.nodes[nodeName] = {};
+  if (!elemental.cycles.nodes[nodeName][jobName]) elemental.cycles.nodes[nodeName][jobName] = { remaining: 0 };
+
+  return elemental.cycles.nodes[nodeName][jobName];
+}
+
+function resetBoundEarthElementalCycle(nodeName, jobName) {
+  const job = getElementalNodeConfig(nodeName)?.jobs[jobName];
+  const cycle = getBoundEarthElementalCycle(nodeName, jobName);
+  cycle.remaining = job ? job.cycleDuration : 0;
+}
+
+function changeBoundEarthElementalAssignment(destination, source = null) {
+  const validation = validateBoundEarthElementalAssignment(destination, source);
+  if (!validation.valid) {
+    announceUiStatus(validation.reason);
+    return false;
+  }
+
+  const elemental = getBoundEarthElementalState();
+
+  if (source) {
+    if (source.type === "tower") {
+      elemental.assignments.tower -= 1;
+    } else {
+      const sourceAssignments = getBoundEarthElementalNodeAssignments(source.nodeName);
+      sourceAssignments[source.jobName] -= 1;
+      if (sourceAssignments[source.jobName] <= 0) resetBoundEarthElementalCycle(source.nodeName, source.jobName);
+    }
+  }
+
+  if (destination.type === "tower") {
+    elemental.assignments.tower += 1;
+  } else {
+    const destinationAssignments = getBoundEarthElementalNodeAssignments(destination.nodeName);
+    const wasEmpty = destinationAssignments[destination.jobName] <= 0;
+    destinationAssignments[destination.jobName] += 1;
+    if (wasEmpty) resetBoundEarthElementalCycle(destination.nodeName, destination.jobName);
+  }
+
+  announceUiStatus("Bound Earth Elemental assignment updated.");
+  refreshBoundEarthElementalUI();
+  trySaveGame();
+  return true;
+}
+
+function unassignBoundEarthElemental(source) {
+  const count = getBoundEarthElementalAssignmentCount(source);
+  if (count <= 0) {
+    announceUiStatus("No Bound Earth Elemental is assigned there.");
+    return false;
+  }
+
+  const elemental = getBoundEarthElementalState();
+  if (source.type === "tower") {
+    elemental.assignments.tower -= 1;
+  } else {
+    const assignments = getBoundEarthElementalNodeAssignments(source.nodeName);
+    assignments[source.jobName] -= 1;
+    if (assignments[source.jobName] <= 0) resetBoundEarthElementalCycle(source.nodeName, source.jobName);
+  }
+
+  announceUiStatus("Bound Earth Elemental released from its assignment.");
+  refreshBoundEarthElementalUI();
+  trySaveGame();
+  return true;
+}
+
+function createBoundEarthElemental() {
+  if (!isBoundEarthElementalTowerUnlocked()) {
+    announceUiStatus("The Tower must be available before a core can be bound.");
+    return false;
+  }
+  if (!spendCost({ earthElementalCore: 1 })) {
+    announceUiStatus("An Earth Elemental Core is required.");
+    return false;
+  }
+
+  const elemental = getBoundEarthElementalState();
+  elemental.owned += 1;
+
+  if (!elemental.bindingDiscovered) {
+    elemental.bindingDiscovered = true;
+    addStoryEntry("At the Tower Heart, the Earth Elemental Core accepts a stable binding. The Bound Earth Elemental can now join the Tower's regional labor network.");
+  }
+
+  announceUiStatus("A Bound Earth Elemental answers the Tower Heart.");
+  refreshBoundEarthElementalUI();
+  trySaveGame();
+  return true;
+}
+
+function craftElementalHarness(harnessName) {
+  const elemental = getBoundEarthElementalState();
+  const definition = getElementalHarnessDefinition(harnessName);
+  if (!definition || !elemental.capabilities.equipmentUnlocked) return false;
+  if (!spendCost(definition.recipe || {})) {
+    announceUiStatus("More materials are required for " + definition.label + ".");
+    return false;
+  }
+  elemental.capabilities.harnesses[harnessName] = getBoundEarthElementalCapabilityCount("equipment", harnessName) + 1;
+  addStoryEntry("You finish a persistent " + definition.label + " for the elemental workforce.");
+  refreshBoundEarthElementalUI();
+  trySaveGame();
+  return true;
+}
+
+function craftElementalWorkerAttunement(attunementName) {
+  const elemental = getBoundEarthElementalState();
+  const definition = getElementalWorkerAttunementDefinition(attunementName);
+  if (!definition || !elemental.capabilities.attunementUnlocked) return false;
+  if (!spendCost(definition.recipe || {})) {
+    announceUiStatus("More reagents are required for " + definition.label + ".");
+    return false;
+  }
+  elemental.capabilities.attunements[attunementName] = getBoundEarthElementalCapabilityCount("attunement", attunementName) + 1;
+  addStoryEntry("You bind a persistent " + definition.label + " into the elemental control pattern.");
+  refreshBoundEarthElementalUI();
+  trySaveGame();
+  return true;
+}
+
+function createElementalCapabilityCraftingPanel(kind) {
+  const elemental = getBoundEarthElementalState();
+  const isEquipment = kind === "equipment";
+  const definitions = isEquipment ? getElementalHarnessDefinitions() : getElementalWorkerAttunementDefinitions();
+  const panel = document.createElement("section");
+  panel.className = "tower-stage-details elemental-capability-panel";
+  const heading = document.createElement("h4");
+  heading.textContent = isEquipment ? "Elemental Harnesses" : "Elemental Attunements";
+  panel.appendChild(heading);
+
+  for (let capabilityName in definitions) {
+    const definition = definitions[capabilityName];
+    const row = document.createElement("div");
+    row.className = "elemental-capability-row";
+    const summary = document.createElement("p");
+    const owned = getBoundEarthElementalCapabilityCount(kind, capabilityName);
+    summary.textContent = definition.label + ": " + owned + " owned · " + definition.effectText;
+    const button = createUiActionButton({
+      label: isEquipment ? "Craft " + definition.label : "Create " + definition.label,
+      cost: formatCost(definition.recipe || {}),
+      progress: false,
+      onClick: function () {
+        if (isEquipment) craftElementalHarness(capabilityName);
+        else craftElementalWorkerAttunement(capabilityName);
+      },
+    });
+    button.disabled = !canAffordCost(definition.recipe || {});
+    row.append(summary, button);
+    panel.appendChild(row);
+  }
+
+  return panel;
+}
+
+function normalizeBoundEarthElementalAssignments() {
+  const elemental = gameState.elementals && gameState.elementals.earth;
+  if (!elemental) return;
+  const config = getElementalAutomationConfig();
+  let remaining = Math.min(elemental.owned, getTowerHeartElementalControlCapacity());
+
+  elemental.assignments.tower = Math.min(Math.max(0, elemental.assignments.tower || 0), getTowerHeartElementalControlCapacity(), remaining);
+  remaining -= elemental.assignments.tower;
+
+  for (let nodeName in config.nodes) {
+    const assignments = elemental.assignments.nodes[nodeName];
+    const nodeCapacity = getBoundEarthElementalNodeCapacity(nodeName);
+    let nodeRemaining = Math.min(nodeCapacity, remaining);
+
+    for (let jobName in config.nodes[nodeName].jobs) {
+      assignments[jobName] = Math.min(Math.max(0, assignments[jobName] || 0), nodeRemaining);
+      nodeRemaining -= assignments[jobName];
+      remaining -= assignments[jobName];
+      if (assignments[jobName] <= 0) elemental.cycles.nodes[nodeName][jobName].remaining = 0;
+    }
+  }
+}
+
+function getBoundEarthElementalOptionalEquipmentWorkers(nodeName, jobName) {
+  const config = getElementalAutomationConfig();
+  const targetJob = config.nodes[nodeName]?.jobs[jobName];
+  if (!targetJob || !targetJob.optionalEquipment) return 0;
+  let remaining = getBoundEarthElementalCapabilityCount("equipment", targetJob.optionalEquipment);
+
+  for (let currentNodeName in config.nodes) {
+    const assignments = getBoundEarthElementalNodeAssignments(currentNodeName);
+    for (let currentJobName in config.nodes[currentNodeName].jobs) {
+      const job = config.nodes[currentNodeName].jobs[currentJobName];
+      if (job.optionalEquipment !== targetJob.optionalEquipment) continue;
+      const equipped = Math.min(assignments[currentJobName] || 0, remaining);
+      if (currentNodeName === nodeName && currentJobName === jobName) return equipped;
+      remaining -= equipped;
+    }
+  }
+
+  return 0;
+}
+
+function getBoundEarthElementalJobBatchOutput(nodeName, jobName, workers) {
+  const job = getElementalNodeConfig(nodeName)?.jobs[jobName];
+  if (!job || workers <= 0) return 0;
+  const equippedWorkers = getBoundEarthElementalOptionalEquipmentWorkers(nodeName, jobName);
+  const harness = job.optionalEquipment ? getElementalHarnessDefinition(job.optionalEquipment) : null;
+  const multiplier = harness && harness.effect && Number.isFinite(harness.effect.productionMultiplier) ? harness.effect.productionMultiplier : 1;
+  return roundResourceAmount((workers - equippedWorkers) * job.batchSize + equippedWorkers * job.batchSize * multiplier);
+}
+
+function processBoundEarthElementalAutomation(deltaSeconds) {
+  const config = getElementalAutomationConfig();
+  let delivered = false;
+
+  processBoundEarthElementalTowerConstruction(deltaSeconds);
+
+  for (let nodeName in config.nodes) {
+    const assignments = getBoundEarthElementalNodeAssignments(nodeName);
+
+    for (let jobName in config.nodes[nodeName].jobs) {
+      const workers = assignments[jobName] || 0;
+      const job = config.nodes[nodeName].jobs[jobName];
+      const cycle = getBoundEarthElementalCycle(nodeName, jobName);
+
+      if (workers <= 0) {
+        cycle.remaining = 0;
+        continue;
+      }
+      if (cycle.remaining <= 0) cycle.remaining = job.cycleDuration;
+
+      cycle.remaining -= deltaSeconds;
+      while (cycle.remaining <= 0) {
+        addResource(job.resource, getBoundEarthElementalJobBatchOutput(nodeName, jobName, workers));
+        cycle.remaining += job.cycleDuration;
+        delivered = true;
+      }
+    }
+  }
+
+  const signature = getBoundEarthElementalAutomationSignature();
+  if (delivered || signature !== lastBoundEarthAutomationUiSignature) {
+    lastBoundEarthAutomationUiSignature = signature;
+    refreshBoundEarthElementalUI();
+  }
+}
+
+function getBoundEarthElementalAutomationSignature() {
+  const config = getElementalAutomationConfig();
+  const values = [];
+
+  const towerProject = getNextAvailableTowerProject();
+  if (towerProject) {
+    const towerProjectState = getProjectState(towerProject.id);
+    values.push("tower", towerProject.id, Math.floor(towerProjectState.work || 0));
+  }
+
+  for (let nodeName in config.nodes) {
+    for (let jobName in config.nodes[nodeName].jobs) {
+      values.push(Math.ceil(getBoundEarthElementalCycle(nodeName, jobName).remaining));
+    }
+  }
+
+  return values.join("|");
+}
+
+function getBoundEarthElementalTowerConstructionRate() {
+  const elemental = getBoundEarthElementalState();
+  return (elemental.assignments.tower || 0) * getElementalAutomationConfig().earth.towerConstructionWorkPerSecond;
+}
+
+function processBoundEarthElementalTowerConstruction(deltaSeconds) {
+  const workRate = getBoundEarthElementalTowerConstructionRate();
+  const project = getNextAvailableTowerProject();
+
+  if (!(deltaSeconds > 0) || !(workRate > 0) || !project) return false;
+
+  const state = getProjectState(project.id);
+  const remaining = getProjectWorkRemaining(project.id);
+
+  if (!state || state.completed || !(remaining > 0)) return false;
+
+  const workGain = Math.min(workRate * deltaSeconds, remaining);
+  state.work = roundResourceAmount((state.work || 0) + workGain);
+
+  const playerWorkingOnSameProject =
+    isActivityActive() &&
+    gameState.activity.kind === "projectWork" &&
+    gameState.activity.id === project.id;
+
+  if (!playerWorkingOnSameProject) checkProjectLevelCompletion(project.id);
+  return true;
+}
+
+function formatBoundEarthElementalRemaining(seconds) {
+  const total = Math.max(0, Math.ceil(seconds));
+  const minutes = Math.floor(total / 60);
+  const remainder = total % 60;
+  return minutes > 0 ? minutes + ":" + String(remainder).padStart(2, "0") : remainder + "s";
+}
+
+function refreshBoundEarthElementalUI() {
+  if (typeof renderTowerStatusPanel === "function") renderTowerStatusPanel();
+  if (typeof renderTowerDetailPanel === "function") renderTowerDetailPanel();
+  if (typeof updateTowerNodePanel === "function") updateTowerNodePanel();
+}
+
 function normalizeProjectState(projectName) {
   const definition = getProjectDefinition(projectName);
   const state = gameState.projects && gameState.projects[projectName];
@@ -479,6 +1167,16 @@ function unlockProject(projectName) {
   if (state.unlocked || state.completed) return;
 
   state.unlocked = true;
+
+  if (isTowerProject(projectName)) {
+    ensureTowerStructureState();
+    const selectedId = getTowerSelectionForProject(projectName);
+    if (selectedId) {
+      gameState.tower.selectedId = selectedId;
+      gameState.tower.lastAutoSelectedProject = projectName;
+    }
+  }
+
   updateProjectUI();
   updateCraftingSectionVisibility();
   updateWorkTabsVisibility();
@@ -2420,7 +3118,7 @@ function getCraftDuration(craftType, craftId) {
     return getResearchDuration(craftId);
   }
 
-  return craft.duration || 1;
+  return roundResourceAmount((craft.duration || 1) * getTowerRoomEffectValue("craftDurationMultiplier", 1));
 }
 
 function shouldContinueCrafting(craftType, craftId) {
@@ -2831,7 +3529,18 @@ function showWorkPanel(panelName, options = {}) {
 const PROJECT_WORK_MODE_ENERGY = "energy";
 const PROJECT_WORK_MODE_ARCANE_FORCE = "arcaneForce";
 const PROJECT_WORK_MODE_IMBUE_HEART = "imbueHeart";
-const TOWER_PROJECT_SEQUENCE = ["towerFoundation", "towerBasement"];
+const TOWER_PROJECT_SEQUENCE = [
+  "towerFoundation",
+  "towerBasement",
+  "towerFloor1",
+  "towerRoomBedroom",
+  "towerRoomLibrary",
+  "towerRoomWorkshop",
+  "towerFloor2",
+  "towerRoomAlchemyRoom",
+  "towerRoomForge",
+  "towerRoomEnchantingStudy",
+];
 
 function isTowerFoundationProject(projectName) {
   return projectName === "towerFoundation";
@@ -2873,13 +3582,14 @@ function getProjectLevelWorkYield(projectName, mode) {
   }
 
   const baseYield = Number.isFinite(level.workYield) ? level.workYield : 0;
+  const roomWorkMultiplier = isTowerProject(projectName) ? getTowerRoomEffectValue("towerConstructionWorkMultiplier", 1) : 1;
 
   if (isProjectArcaneForceWorkMode(projectName, mode)) {
     const multiplier = Number.isFinite(definition.arcaneForceWorkMultiplier) ? definition.arcaneForceWorkMultiplier : 3;
-    return baseYield * multiplier;
+    return roundResourceAmount(baseYield * multiplier * roomWorkMultiplier);
   }
 
-  return baseYield;
+  return roundResourceAmount(baseYield * roomWorkMultiplier);
 }
 
 function getProjectLevelWorkCost(projectName, mode = PROJECT_WORK_MODE_ENERGY) {
@@ -3020,6 +3730,7 @@ function startProjectWork(projectName, mode = PROJECT_WORK_MODE_ENERGY) {
   }
 
   updateProjectButtons();
+  renderTowerStructure();
   updateAllActionButtons();
 }
 
@@ -3117,8 +3828,8 @@ function activateTowerNode(nodeName, showStory = true) {
   state.activated = true;
 
   if (showStory) {
-    addStoryEntry("The restored Heart answers northward. Somewhere beyond the ridge, an old tower node has begun to stir.");
-    addJournalEntry("northernTowerNodeActivated");
+    addStoryEntry(definition.activationStory || "The restored Heart answers northward. Somewhere beyond the ridge, an old tower node has begun to stir.");
+    if (nodeName === "north") addJournalEntry("northernTowerNodeActivated");
   }
 
   checkResearchDiscoveries();
@@ -3278,16 +3989,19 @@ function completeTowerNodeImbue(nodeName) {
     recordSpellProgressExperience("imbue", manaSpent);
 
     if (typeof recordManaControl === "function") {
-      recordManaControl(manaSpent, "Imbue Northern Node");
+      recordManaControl(manaSpent, "Imbue " + definition.label);
     }
   }
 
   if (getTowerNodeImbueRemaining(nodeName) <= 0) {
     state.built = true;
     state.imbueProgress = definition.imbueRequired || state.imbueProgress;
-    addStoryEntry("The northern node locks into the Heart's rhythm. The path to Miners' Camp can now be crossed in a single mana jump.");
-    addJournalEntry("northernTowerNodeBuilt");
+    addStoryEntry(definition.builtStory || "The northern node locks into the Heart's rhythm. The path to Miners' Camp can now be crossed in a single mana jump.");
+    addJournalEntry(definition.builtJournal || "northernTowerNodeBuilt");
     updateDestinationActions();
+    refreshBoundEarthElementalUI();
+    updateCurrentGoalUI();
+    if (nodeName === "north") triggerRegionalProgression();
   }
 
   updateTowerNodePanel();
@@ -3417,6 +4131,7 @@ function completeTowerNodeThreadSense(nodeName) {
 
     if (nodeName === "north") {
       triggerNorthernDisturbance(true);
+      triggerRegionalProgression();
     }
   }
 
@@ -3430,6 +4145,74 @@ function getNorthernDisturbanceState() {
   }
 
   return gameState.northernDisturbance;
+}
+
+function getRegionalProgressState(regionId) {
+  if (!gameState.regionalProgress || typeof gameState.regionalProgress !== "object") gameState.regionalProgress = {};
+  if (!gameState.regionalProgress[regionId] || typeof gameState.regionalProgress[regionId] !== "object") {
+    gameState.regionalProgress[regionId] = { disturbanceTriggered: false, disturbanceResolved: false, capabilityDiscovered: false };
+  }
+  const progress = gameState.regionalProgress[regionId];
+  progress.disturbanceTriggered = !!progress.disturbanceTriggered;
+  progress.disturbanceResolved = !!progress.disturbanceResolved;
+  progress.capabilityDiscovered = !!progress.capabilityDiscovered;
+  return progress;
+}
+
+function triggerRegionalProgression() {
+  if (!gameState.regionalProgress || typeof gameState.regionalProgress !== "object") gameState.regionalProgress = {};
+  const east = getRegionalProgressState("east");
+  const south = getRegionalProgressState("south");
+  const wasUnlocked = !!gameState.regionalProgress.unlocked;
+  gameState.regionalProgress.unlocked = true;
+  east.disturbanceTriggered = true;
+  south.disturbanceTriggered = true;
+
+  if (!wasUnlocked) {
+    addStoryEntry("The Northern Node steadies, and two more disturbances answer at once: a quick predatory pulse in the Eastern Deepwood and a dense living pattern in the Southern Overgrowth.");
+    addJournalEntry("easternDisturbanceDiscovered");
+    addJournalEntry("southernDisturbanceDiscovered");
+  }
+
+  const eastNode = getTowerNodeState("east");
+  const southNode = getTowerNodeState("south");
+  if (!eastNode?.built || !southNode?.built) setCurrentGoal("investigateRegionalDisturbances");
+  updateLocationActions();
+  updatePlacePanel();
+  return !wasUnlocked;
+}
+
+function repairRegionalProgressionFromNorthNode() {
+  const northNode = getTowerNodeState("north");
+  if (northNode && northNode.built) triggerRegionalProgression();
+}
+
+function resolveRegionalDisturbanceVictory(regionId) {
+  const progress = getRegionalProgressState(regionId);
+  if (progress.disturbanceResolved) return;
+  progress.disturbanceResolved = true;
+  progress.capabilityDiscovered = true;
+  const elemental = getBoundEarthElementalState();
+
+  if (regionId === "east") {
+    elemental.capabilities.equipmentUnlocked = true;
+    addStoryEntry("Runed Leather bends without losing its magical pattern. With it, you can craft persistent harnesses that give Bound Earth Elementals specialized tools and leverage.");
+    addJournalEntry("elementalHarnessesLearned");
+    activateTowerNode("east", true);
+    unlockTowerNodeBuild("east");
+  } else if (regionId === "south") {
+    elemental.capabilities.attunementUnlocked = true;
+    addStoryEntry("Natural Essence carries a compressed instinct for living systems. Bound into an elemental, it could provide just enough perception to recognize useful herbs.");
+    addJournalEntry("elementalAttunementsLearned");
+    activateTowerNode("south", true);
+    unlockTowerNodeBuild("south");
+  }
+
+  updateCurrentGoalUI();
+  updateLocationActions();
+  updatePlacePanel();
+  refreshBoundEarthElementalUI();
+  trySaveGame();
 }
 
 function triggerNorthernDisturbance(showPopup) {
@@ -3704,8 +4487,14 @@ function createTowerNodePanel(nodeName, definition, state) {
     detailPanel.appendChild(createTowerNodeActions(nodeName, definition));
   } else {
     definition.imbueButton = null;
-    detailPanel.appendChild(createTowerNodeThreadProgress(nodeName, definition, state));
-    detailPanel.appendChild(createTowerNodeUtilityActions(nodeName, definition, state));
+    if ((definition.threadSenseRequired || 0) > 0) {
+      detailPanel.appendChild(createTowerNodeThreadProgress(nodeName, definition, state));
+      detailPanel.appendChild(createTowerNodeUtilityActions(nodeName, definition, state));
+    }
+
+    if (isBoundEarthElementalNodeUnlocked(nodeName)) {
+      detailPanel.appendChild(createBoundEarthElementalNodePanel(nodeName));
+    }
   }
 
   layout.appendChild(visualPanel);
@@ -3715,12 +4504,145 @@ function createTowerNodePanel(nodeName, definition, state) {
   return entry;
 }
 
+function createBoundEarthElementalActionButton(label, destination, source = null) {
+  const validation = validateBoundEarthElementalAssignment(destination, source);
+
+  return createUiActionButton({
+    label,
+    detail: validation.valid ? "" : validation.reason,
+    progress: false,
+    onClick: function () {
+      changeBoundEarthElementalAssignment(destination, source);
+    },
+  });
+}
+
+function createBoundEarthElementalUnassignButton(label, source) {
+  const assigned = getBoundEarthElementalAssignmentCount(source);
+
+  return createUiActionButton({
+    label,
+    detail: assigned > 0 ? "" : "No elemental assigned",
+    progress: false,
+    onClick: function () {
+      unassignBoundEarthElemental(source);
+    },
+  });
+}
+
+function createBoundEarthElementalNodePanel(nodeName) {
+  const config = getElementalNodeConfig(nodeName);
+  const assignments = getBoundEarthElementalNodeAssignments(nodeName);
+  const panel = document.createElement("section");
+  panel.className = "tower-stage-details elemental-assignment-panel";
+
+  const heading = document.createElement("h4");
+  const nodeDefinition = getTowerNodeDefinition(nodeName);
+  heading.textContent = nodeDefinition ? nodeDefinition.label : "Bound Earth Elementals";
+  panel.appendChild(heading);
+
+  const capacity = document.createElement("p");
+  capacity.textContent = "Node: " + (isBoundEarthElementalNodeUnlocked(nodeName) ? "Active" : "Required") + " · Workers: " + getBoundEarthElementalNodeAssignmentCount(nodeName) + " / " + config.elementalCapacity;
+  panel.appendChild(capacity);
+
+  for (let jobName in config.jobs) {
+    const job = config.jobs[jobName];
+    const row = document.createElement("div");
+    row.className = "project-actions elemental-job-row";
+    const workers = assignments[jobName] || 0;
+    const cycle = getBoundEarthElementalCycle(nodeName, jobName);
+    const summary = document.createElement("p");
+    const requirementText = [];
+    if (job.requiredEquipment) {
+      const harness = getElementalHarnessDefinition(job.requiredEquipment);
+      const owned = getBoundEarthElementalCapabilityCount("equipment", job.requiredEquipment);
+      const used = getBoundEarthElementalCapabilityUseCount("equipment", job.requiredEquipment);
+      requirementText.push((harness ? harness.label : "Harness") + " " + (owned > used || workers > 0 ? "✓" : "required"));
+    }
+    if (job.requiredAttunement) {
+      const attunement = getElementalWorkerAttunementDefinition(job.requiredAttunement);
+      const owned = getBoundEarthElementalCapabilityCount("attunement", job.requiredAttunement);
+      const used = getBoundEarthElementalCapabilityUseCount("attunement", job.requiredAttunement);
+      requirementText.push((attunement ? attunement.label : "Attunement") + " " + (owned > used || workers > 0 ? "✓" : "required"));
+    }
+    if (job.optionalEquipment) {
+      const harness = getElementalHarnessDefinition(job.optionalEquipment);
+      requirementText.push((harness ? harness.label : "Harness") + ": " + getBoundEarthElementalOptionalEquipmentWorkers(nodeName, jobName) + " / " + workers + " equipped");
+    }
+    summary.textContent = job.label + ": " + workers + " — " + (workers > 0 ? "Next delivery: " + formatBoundEarthElementalRemaining(cycle.remaining) : "No elemental assigned") + (requirementText.length ? " · " + requirementText.join(" · ") : "");
+    row.appendChild(summary);
+
+    const actions = document.createElement("div");
+    actions.className = "tower-project-action-buttons";
+    const destination = { type: "node", nodeName, jobName };
+    actions.appendChild(createBoundEarthElementalActionButton("Assign", destination));
+    actions.appendChild(createBoundEarthElementalUnassignButton("Unassign", destination));
+    row.appendChild(actions);
+    panel.appendChild(row);
+  }
+
+  return panel;
+}
+
+function createBoundEarthElementalTowerPanel() {
+  const elemental = getBoundEarthElementalState();
+  const panel = document.createElement("section");
+  panel.className = "ui-context-panel tower-status-summary elemental-tower-panel";
+
+  const title = document.createElement("h3");
+  title.textContent = "Bound Earth Elementals";
+  panel.appendChild(title);
+
+  const summary = document.createElement("p");
+  summary.textContent =
+    "Earth Elemental Cores: " + getResource("earthElementalCore").value +
+    " · Owned: " + elemental.owned +
+    " · Elemental Control: " + getBoundEarthElementalActiveCount() + " / " + getTowerHeartElementalControlCapacity() +
+    " · Tower Construction: " + elemental.assignments.tower +
+    " (" + formatTrainingNumber(getBoundEarthElementalTowerConstructionRate()) + " work/s)";
+  panel.appendChild(summary);
+
+  const actions = document.createElement("div");
+  actions.className = "tower-project-action-buttons";
+  const coreCount = getResource("earthElementalCore").value;
+  actions.appendChild(
+    createUiActionButton({
+      label: "Create Bound Earth Elemental",
+      detail: coreCount > 0 ? "1 Earth Elemental Core" : "Requires an Earth Elemental Core",
+      progress: false,
+      onClick: createBoundEarthElemental,
+    })
+  );
+
+  const towerDestination = { type: "tower" };
+  actions.appendChild(createBoundEarthElementalActionButton("Assign to Tower", towerDestination));
+  actions.appendChild(createBoundEarthElementalUnassignButton("Unassign Tower", towerDestination));
+  panel.appendChild(actions);
+
+  const config = getElementalAutomationConfig();
+  for (let nodeName in config.nodes) {
+    if ((nodeName === "east" || nodeName === "south") && !(gameState.regionalProgress && gameState.regionalProgress.unlocked)) continue;
+    panel.appendChild(createBoundEarthElementalNodePanel(nodeName));
+  }
+
+  return panel;
+}
+
+function appendBoundEarthElementalTowerPanel() {
+  if (!ui.towerStatusPanel) return;
+  const elemental = getBoundEarthElementalState();
+  const coreCount = getResource("earthElementalCore").value;
+
+  if (!isBoundEarthElementalTowerUnlocked() && coreCount <= 0 && elemental.owned <= 0) return;
+  ui.towerStatusPanel.appendChild(createBoundEarthElementalTowerPanel());
+}
+
 function createTowerNodeVisual(nodeName, built) {
   const svg = createSvgElement("svg", {
     class: "tower-visual tower-node-visual",
     viewBox: "0 0 600 300",
     role: "img",
-    "aria-label": built ? "Completed northern tower node with a small static mana orb." : "Bare ground where the northern tower node can be built.",
+    "aria-label": built ? "Completed " + (getTowerNodeDefinition(nodeName)?.label || "tower node") + " with a small static mana orb." : "Bare ground where the regional tower node can be built.",
   });
 
   const defs = appendSvgElement(svg, "defs");
@@ -3871,10 +4793,10 @@ function createTowerNodeActions(nodeName, definition) {
 
   const actionName = document.createElement("div");
   actionName.className = "tower-project-action-name";
-  actionName.textContent = "Activate Northern Node";
+  actionName.textContent = "Activate " + definition.label;
 
   const button = createUiActionButton({
-    label: "Imbue Northern Node",
+    label: "Imbue " + definition.label,
     cost: formatCost(definition.imbueCost || {}),
     className: "project-work-btn tower-project-work-btn",
     dataset: {
@@ -3997,7 +4919,7 @@ function updateTowerNodeButtonState(nodeName) {
     });
   } else {
     setUiActionButtonLabel(button, {
-      label: "Imbue Northern Node",
+      label: "Imbue " + definition.label,
       cost: formatCost(definition.imbueCost || {}),
     });
   }
@@ -4118,7 +5040,13 @@ function completeProject(projectName, definition) {
     }
   } else if (projectName === "towerBasement") {
     gameState.towerBasementCompleted = true;
+    applyBasementStorageUpgrade();
     addJournalEntry("towerBasementCompleted");
+  }
+
+  if (isTowerProject(projectName)) {
+    syncTowerStructureUnlocks(true);
+    recalculateCampEffects();
   }
 
   checkResearchDiscoveries();
@@ -4177,23 +5105,13 @@ function getVisibleProjectEntries() {
 }
 
 function updateProjectUI() {
-  if (!ui.projectList) return;
+  if (!ui.projectList || !ui.towerStructure) return;
 
   ensureProjectsState();
-  ui.projectList.innerHTML = "";
-
-  const entries = getVisibleProjectEntries();
-
-  if (entries.length === 0) {
-    ui.projectList.appendChild(createUiEmptyState("No projects started yet."));
-    renderTowerStatusPanel();
-    syncMainViewAvailability();
-    return;
-  }
-
-  entries.forEach(function (entry) {
-    ui.projectList.appendChild(createProjectEntry(entry.id, entry.definition, entry.state));
-  });
+  ensureTowerStructureState();
+  syncTowerStructureUnlocks(false);
+  renderTowerStructure();
+  renderTowerDetailPanel();
 
   updateProjectButtons();
   renderTowerStatusPanel();
@@ -4202,49 +5120,651 @@ function updateProjectUI() {
 
 function renderTowerStatusPanel() {
   if (!ui.towerStatusPanel) return;
+  const floors = Object.values(getTowerFloorDefinitions());
+  const rooms = Object.values(getTowerRoomDefinitions());
+  const completedFloors = floors.filter(function (floor) {
+    return isTowerFloorCompleted(floor.id);
+  }).length;
+  const completedRooms = rooms.filter(function (room) {
+    return isTowerRoomCompleted(room.id);
+  }).length;
+  const basementComplete = !!getProjectState("towerBasement").completed;
+  const nextProject = getNextAvailableTowerProject();
 
-  const entries = getVisibleProjectEntries();
+  renderUiContextPanel(ui.towerStatusPanel, {
+    title: "Wizard Tower",
+    status: completedRooms === rooms.length ? "First expansion complete" : nextProject ? "Construction ready" : "Rebuilding",
+    body: basementComplete
+      ? "The restored Heart anchors a permanent tower. Select any available floor or room to inspect and construct it."
+      : "The Tower Heart remains below camp while you restore the structure around it.",
+    meta: [
+      { label: "Basement", value: basementComplete ? "complete" : "in progress" },
+      { label: "Floors", value: completedFloors + " / " + floors.length },
+      { label: "Rooms", value: completedRooms + " / " + rooms.length },
+      { label: "Next", value: nextProject ? nextProject.label : completedRooms === rooms.length ? "Future expansion" : "Meet prerequisites" },
+    ],
+    className: "tower-status-summary",
+  });
+}
 
-  if (entries.length === 0) {
-    renderUiContextPanel(ui.towerStatusPanel, {
-      title: "Tower",
-      status: "No project",
-      body: "No tower project is visible yet.",
-      className: "tower-status-summary",
+function getNextAvailableTowerProject() {
+  for (let projectId of TOWER_PROJECT_SEQUENCE) {
+    const state = getProjectState(projectId);
+    const definition = getProjectDefinition(projectId);
+
+    if (state && definition && state.unlocked && !state.completed) {
+      return { id: projectId, label: definition.label };
+    }
+  }
+
+  return null;
+}
+
+function getTowerConstructionState(projectId) {
+  const state = getProjectState(projectId);
+
+  if (!state) return "locked";
+  if (state.completed) return "completed";
+  if (!state.unlocked) return "locked";
+  if (isActivityActive() && gameState.activity.kind === "projectWork" && gameState.activity.id === projectId) return "under-construction";
+  if ((state.work || 0) > 0 || Object.values(state.deposits || {}).some(function (amount) { return amount > 0; })) return "under-construction";
+
+  return "available";
+}
+
+function getTowerStateLabel(stateName) {
+  if (stateName === "completed") return "Complete";
+  if (stateName === "under-construction") return "Under construction";
+  if (stateName === "available") return "Ready to build";
+  return "Locked";
+}
+
+function isTowerSelectionVisible(selectedId) {
+  if (selectedId === "heart") {
+    const foundation = getProjectState("towerFoundation");
+    return !!foundation && (foundation.unlocked || foundation.completed);
+  }
+
+  if (selectedId === "basement") {
+    const basement = getProjectState("towerBasement");
+    return !!basement && (basement.unlocked || basement.completed);
+  }
+
+  const separatorIndex = typeof selectedId === "string" ? selectedId.indexOf(":") : -1;
+  if (separatorIndex < 0) return false;
+
+  const entityType = selectedId.slice(0, separatorIndex);
+  const entityId = selectedId.slice(separatorIndex + 1);
+  const definition = entityType === "floor" ? getTowerFloorDefinition(entityId) : entityType === "room" ? getTowerRoomDefinition(entityId) : null;
+  const state = definition ? getProjectState(definition.projectId) : null;
+
+  return !!state && (state.unlocked || state.completed);
+}
+
+function getDefaultVisibleTowerSelection() {
+  for (let i = TOWER_PROJECT_SEQUENCE.length - 1; i >= 0; i--) {
+    const projectId = TOWER_PROJECT_SEQUENCE[i];
+    const definition = getProjectDefinition(projectId);
+    const state = getProjectState(projectId);
+
+    if (!definition || !state || (!state.unlocked && !state.completed)) continue;
+    const selectedId = getTowerSelectionForProject(projectId);
+    if (selectedId) return selectedId;
+  }
+
+  return "heart";
+}
+
+function getTowerSelectionForProject(projectId) {
+  const definition = getProjectDefinition(projectId);
+
+  if (!definition) return null;
+  if (definition.towerEntityType === "floor") return "floor:" + definition.towerEntityId;
+  if (definition.towerEntityType === "room") return "room:" + definition.towerEntityId;
+  if (projectId === "towerBasement") return "basement";
+  if (projectId === "towerFoundation") return "heart";
+
+  return null;
+}
+
+function ensureVisibleTowerSelection() {
+  ensureTowerStructureState();
+
+  const nextProject = getNextAvailableTowerProject();
+
+  if (nextProject && gameState.tower.lastAutoSelectedProject !== nextProject.id) {
+    const selectedId = getTowerSelectionForProject(nextProject.id);
+
+    if (selectedId) {
+      gameState.tower.selectedId = selectedId;
+      gameState.tower.lastAutoSelectedProject = nextProject.id;
+    }
+  }
+
+  if (!isTowerSelectionVisible(gameState.tower.selectedId)) {
+    gameState.tower.selectedId = getDefaultVisibleTowerSelection();
+  }
+}
+
+function selectTowerEntity(selectedId) {
+  ensureTowerStructureState();
+  if (!isTowerSelectionVisible(selectedId)) return;
+
+  gameState.tower.selectedId = selectedId;
+  renderTowerStructure();
+  renderTowerDetailPanel();
+  updateProjectButtons();
+  trySaveGame();
+}
+
+function getTowerProjectVisualProgress(projectId) {
+  const state = getProjectState(projectId);
+  const level = getProjectCurrentLevel(projectId);
+
+  if (!state) return 0;
+  if (state.completed) return 1;
+
+  const workRequired = Math.max(0, Number(level && level.workRequired) || 0);
+  const workProgress = workRequired > 0 ? Math.min(1, Math.max(0, Number(state.work) || 0) / workRequired) : 0;
+  const materials = (level && level.materials) || {};
+  const resourceNames = Object.keys(materials);
+  const materialProgress = resourceNames.length
+    ? resourceNames.reduce(function (total, resourceName) {
+        const required = Math.max(0, Number(materials[resourceName]) || 0);
+        const deposited = Math.max(0, Number(state.deposits && state.deposits[resourceName]) || 0);
+        return total + (required > 0 ? Math.min(1, deposited / required) : 1);
+      }, 0) / resourceNames.length
+    : 0;
+
+  return Math.max(workProgress, materialProgress * 0.14);
+}
+
+function makeTowerSvgZone(group, selectedId, label, stateName) {
+  group.classList.add("tower-illustration-zone", "is-" + stateName);
+  group.dataset.towerSelect = selectedId;
+  group.setAttribute("role", "button");
+  group.setAttribute("tabindex", "0");
+  group.setAttribute("aria-label", label + ". " + getTowerStateLabel(stateName) + ".");
+  group.setAttribute("aria-pressed", String(gameState.tower.selectedId === selectedId));
+
+  if (gameState.tower.selectedId === selectedId) group.classList.add("is-selected");
+
+  const activate = function (event) {
+    event.stopPropagation();
+    selectTowerEntity(selectedId);
+  };
+  group.addEventListener("click", activate);
+  group.addEventListener("keydown", function (event) {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    activate(event);
+  });
+
+  appendSvgElement(group, "title", null, label + " — " + getTowerStateLabel(stateName));
+  return group;
+}
+
+function appendTowerSceneDefinitions(svg) {
+  const defs = appendSvgElement(svg, "defs");
+  const sky = appendSvgElement(defs, "linearGradient", { id: "towerSceneSky", x1: "0", x2: "0", y1: "0", y2: "1" });
+  appendSvgElement(sky, "stop", { offset: "0", "stop-color": "#eaf5f2" });
+  appendSvgElement(sky, "stop", { offset: "0.62", "stop-color": "#f8ecd2" });
+  appendSvgElement(sky, "stop", { offset: "1", "stop-color": "#d8bd8d" });
+
+  const stone = appendSvgElement(defs, "linearGradient", { id: "towerSceneStone", x1: "0", x2: "1", y1: "0", y2: "1" });
+  appendSvgElement(stone, "stop", { offset: "0", "stop-color": "#a79c8d" });
+  appendSvgElement(stone, "stop", { offset: "0.55", "stop-color": "#7b746b" });
+  appendSvgElement(stone, "stop", { offset: "1", "stop-color": "#625c55" });
+
+  const roomLight = appendSvgElement(defs, "linearGradient", { id: "towerRoomLight", x1: "0", x2: "0", y1: "0", y2: "1" });
+  appendSvgElement(roomLight, "stop", { offset: "0", "stop-color": "#fff1bd" });
+  appendSvgElement(roomLight, "stop", { offset: "1", "stop-color": "#c79a5c" });
+
+  const heart = appendSvgElement(defs, "radialGradient", { id: "towerSceneHeart" });
+  appendSvgElement(heart, "stop", { offset: "0", "stop-color": "#f2ffff" });
+  appendSvgElement(heart, "stop", { offset: "0.4", "stop-color": "#88e1ef" });
+  appendSvgElement(heart, "stop", { offset: "1", "stop-color": "#597ac3" });
+
+  const glow = appendSvgElement(defs, "filter", { id: "towerSceneGlow", x: "-100%", y: "-100%", width: "300%", height: "300%" });
+  appendSvgElement(glow, "feGaussianBlur", { stdDeviation: "7", result: "blur" });
+  const merge = appendSvgElement(glow, "feMerge");
+  appendSvgElement(merge, "feMergeNode", { in: "blur" });
+  appendSvgElement(merge, "feMergeNode", { in: "SourceGraphic" });
+}
+
+function appendTowerRoomArt(svg, room, x, y, width, height) {
+  const stateName = getTowerConstructionState(room.projectId);
+  if (stateName === "locked") return;
+
+  const group = makeTowerSvgZone(
+    appendSvgElement(svg, "g", { class: "tower-room-art" }),
+    "room:" + room.id,
+    room.name,
+    stateName
+  );
+  const inset = 9;
+  appendSvgElement(group, "path", {
+    class: "tower-room-arch",
+    d:
+      "M" +
+      (x + inset) +
+      " " +
+      (y + height) +
+      " V" +
+      (y + 37) +
+      " Q" +
+      (x + width / 2) +
+      " " +
+      (y + 5) +
+      " " +
+      (x + width - inset) +
+      " " +
+      (y + 37) +
+      " V" +
+      (y + height) +
+      " Z",
+  });
+
+  if (stateName !== "completed") {
+    const progress = getTowerProjectVisualProgress(room.projectId);
+    const buildHeight = Math.max(8, Math.round((height - 18) * progress));
+    appendSvgElement(group, "rect", {
+      class: "tower-room-rising-work",
+      x: x + inset + 4,
+      y: y + height - buildHeight,
+      width: width - inset * 2 - 8,
+      height: buildHeight,
     });
+    appendSvgElement(group, "path", {
+      class: "tower-scaffold",
+      d:
+        "M" + (x + 15) + " " + (y + height - 6) + " V" + (y + 25) +
+        " M" + (x + width - 15) + " " + (y + height - 6) + " V" + (y + 25) +
+        " M" + (x + 10) + " " + (y + 48) + " H" + (x + width - 10) +
+        " M" + (x + 10) + " " + (y + 82) + " H" + (x + width - 10),
+    });
+  }
+
+  appendSvgElement(group, "text", { class: "tower-room-glyph", x: x + width / 2, y: y + 68, "text-anchor": "middle" }, room.icon);
+  appendSvgElement(group, "text", { class: "tower-room-label", x: x + width / 2, y: y + height - 13, "text-anchor": "middle" }, room.name);
+}
+
+function appendTowerFloorArt(svg, floor, y) {
+  const stateName = getTowerConstructionState(floor.projectId);
+  if (stateName === "locked") return;
+
+  const width = floor.number === 1 ? 400 : 360;
+  const x = (600 - width) / 2;
+  const height = 150;
+  const group = makeTowerSvgZone(
+    appendSvgElement(svg, "g", { class: "tower-floor-art" }),
+    "floor:" + floor.id,
+    floor.name + ", " + floor.subtitle,
+    stateName
+  );
+
+  if (stateName === "completed") {
+    appendSvgElement(group, "rect", { class: "tower-floor-wall", x, y, width, height });
+    appendSvgElement(group, "path", { class: "tower-stone-courses", d: "M" + x + " " + (y + 38) + " H" + (x + width) + " M" + x + " " + (y + 76) + " H" + (x + width) + " M" + x + " " + (y + 114) + " H" + (x + width) });
+  } else {
+    const progress = getTowerProjectVisualProgress(floor.projectId);
+    const buildHeight = Math.max(13, Math.round(height * progress));
+    appendSvgElement(group, "rect", { class: "tower-floor-ghost", x, y, width, height });
+    appendSvgElement(group, "rect", { class: "tower-floor-rising-work", x, y: y + height - buildHeight, width, height: buildHeight });
+    appendSvgElement(group, "path", {
+      class: "tower-scaffold tower-floor-scaffold",
+      d:
+        "M" + (x - 22) + " " + (y + height) + " V" + (y + 2) +
+        " M" + (x + width + 22) + " " + (y + height) + " V" + (y + 2) +
+        " M" + (x - 32) + " " + (y + 32) + " H" + (x + width + 32) +
+        " M" + (x - 32) + " " + (y + 82) + " H" + (x + width + 32) +
+        " M" + (x - 32) + " " + (y + 132) + " H" + (x + width + 32) +
+        " M" + (x - 20) + " " + (y + 132) + " L" + (x + width + 20) + " " + (y + 32) +
+        " M" + (x + width + 20) + " " + (y + 132) + " L" + (x - 20) + " " + (y + 32),
+    });
+    appendSvgElement(group, "text", { class: "tower-construction-mark", x: 300, y: y + 77, "text-anchor": "middle" }, floor.icon);
+  }
+
+  appendSvgElement(group, "path", { class: "tower-floor-cornice", d: "M" + (x - 10) + " " + y + " H" + (x + width + 10) + " M" + (x - 6) + " " + (y + height) + " H" + (x + width + 6) });
+
+  if (stateName === "completed") {
+    const visibleRooms = floor.rooms
+      .map(getTowerRoomDefinition)
+      .filter(function (room) { return room && isTowerSelectionVisible("room:" + room.id); });
+    const roomWidth = width / Math.max(3, floor.rooms.length);
+
+    visibleRooms.forEach(function (room) {
+      const roomIndex = floor.rooms.indexOf(room.id);
+      appendTowerRoomArt(svg, room, x + roomIndex * roomWidth, y + 12, roomWidth, height - 16);
+    });
+  }
+}
+
+function appendTowerBasementAndHeartArt(svg) {
+  const basementState = getTowerConstructionState("towerBasement");
+  if (basementState === "locked") return;
+
+  const basement = appendSvgElement(svg, "g", { class: "tower-basement-art" });
+  appendSvgElement(basement, "path", { class: "tower-basement-chamber", d: "M175 602 H425 V700 H175 Z" });
+  appendSvgElement(basement, "path", { class: "tower-stone-courses", d: "M175 635 H425 M175 669 H425 M235 602 V700 M365 602 V700" });
+  appendSvgElement(basement, "text", { class: "tower-basement-label", x: 345, y: 658, "text-anchor": "middle" }, "BASEMENT");
+
+  const heart = makeTowerSvgZone(
+    appendSvgElement(svg, "g", { class: "tower-heart-art" }),
+    "heart",
+    "Tower Heart",
+    "completed"
+  );
+  appendSvgElement(heart, "rect", { x: 193, y: 607, width: 84, height: 84, fill: "transparent" });
+  appendSvgElement(heart, "path", { class: "tower-heart-channel", d: "M235 646 V675 M207 661 H263 M215 650 L255 672 M255 650 L215 672" });
+  appendSvgElement(heart, "path", { class: "tower-heart-crystal", d: "M235 615 L260 646 L235 676 L210 646 Z", fill: "url(#towerSceneHeart)", filter: "url(#towerSceneGlow)" });
+  appendSvgElement(heart, "path", { class: "tower-heart-facet", d: "M235 615 V676 M210 646 H260 M235 615 L222 646 L235 676 L248 646 Z" });
+}
+
+function createTowerBuildingVisual() {
+  const visibleFloors = Object.values(getTowerFloorDefinitions()).filter(function (floor) {
+    return isTowerSelectionVisible("floor:" + floor.id);
+  });
+  const highestFloor = visibleFloors.sort(function (a, b) { return b.number - a.number; })[0];
+  const sceneTop = highestFloor && highestFloor.number >= 2 ? 110 : 320;
+  const wrapper = document.createElement("div");
+  wrapper.className = "tower-building-stage";
+  const svg = createSvgElement("svg", {
+    class: "tower-building-visual",
+    viewBox: "0 " + sceneTop + " 600 " + (720 - sceneTop),
+    role: "img",
+    "aria-label": "The constructed Tower. Select a visible floor, room, basement, or the Tower Heart for details.",
+  });
+  appendTowerSceneDefinitions(svg);
+  appendSvgElement(svg, "rect", { class: "tower-scene-sky", x: 0, y: 0, width: 600, height: 720, fill: "url(#towerSceneSky)" });
+  appendSvgElement(svg, "path", { class: "tower-distant-hills", d: "M0 430 Q95 350 190 430 T380 420 T600 410 V602 H0 Z" });
+  appendSvgElement(svg, "path", { class: "tower-scene-ground", d: "M0 584 Q120 573 214 589 T402 585 T600 581 V720 H0 Z" });
+  appendSvgElement(svg, "path", { class: "tower-ground-line", d: "M0 591 Q120 580 214 596 T402 592 T600 588" });
+
+  Object.values(getTowerFloorDefinitions())
+    .sort(function (a, b) { return a.number - b.number; })
+    .forEach(function (floor) {
+      appendTowerFloorArt(svg, floor, 602 - floor.number * 150);
+    });
+  appendTowerBasementAndHeartArt(svg);
+
+  if (highestFloor && getTowerConstructionState(highestFloor.projectId) === "completed") {
+    const width = highestFloor.number === 1 ? 400 : 360;
+    const x = (600 - width) / 2;
+    const roofY = 602 - highestFloor.number * 150;
+    appendSvgElement(svg, "path", { class: "tower-current-roof", d: "M" + (x - 8) + " " + roofY + " L300 " + (roofY - 78) + " L" + (x + width + 8) + " " + roofY + " Z" });
+    appendSvgElement(svg, "path", { class: "tower-roof-ribs", d: "M300 " + (roofY - 72) + " V" + (roofY - 105) + " M288 " + (roofY - 91) + " L300 " + (roofY - 105) + " L312 " + (roofY - 91) });
+  }
+
+  wrapper.appendChild(svg);
+
+  const basementState = getTowerConstructionState("towerBasement");
+  if (basementState !== "locked") {
+    const basementButton = document.createElement("button");
+    basementButton.type = "button";
+    basementButton.className = "tower-stage-hotspot tower-building-basement-hotspot";
+    basementButton.dataset.towerSelect = "basement";
+    basementButton.setAttribute("aria-label", "Tower Basement. " + getTowerStateLabel(basementState) + ".");
+    basementButton.setAttribute("aria-pressed", String(gameState.tower.selectedId === "basement"));
+    if (gameState.tower.selectedId === "basement") basementButton.classList.add("is-selected");
+    basementButton.addEventListener("click", function () { selectTowerEntity("basement"); });
+    wrapper.appendChild(basementButton);
+  }
+
+  return wrapper;
+}
+
+function createTowerEarlyStageVisual() {
+  const foundation = getProjectState("towerFoundation");
+  const basement = getProjectState("towerBasement");
+  const useBasement = !!basement && (basement.unlocked || basement.completed);
+  const projectId = useBasement ? "towerBasement" : "towerFoundation";
+  const definition = getProjectDefinition(projectId);
+  const state = getProjectState(projectId);
+  const stageIndex = getTowerProjectStageIndex(definition, state);
+  const stage = getTowerProjectStage(definition, stageIndex);
+  const wrapper = document.createElement("div");
+  wrapper.className = "tower-early-stage";
+  const visual = createTowerProjectVisual(projectId, stageIndex, stage);
+  wrapper.appendChild(visual);
+
+  if (useBasement) {
+    const basementButton = document.createElement("button");
+    basementButton.type = "button";
+    basementButton.className = "tower-stage-hotspot tower-basement-hotspot";
+    basementButton.setAttribute("aria-label", "Tower Basement. " + getTowerStateLabel(getTowerConstructionState("towerBasement")) + ".");
+    basementButton.setAttribute("aria-pressed", String(gameState.tower.selectedId === "basement"));
+    if (gameState.tower.selectedId === "basement") basementButton.classList.add("is-selected");
+    basementButton.addEventListener("click", function () { selectTowerEntity("basement"); });
+    wrapper.appendChild(basementButton);
+  }
+
+  if (foundation && (foundation.unlocked || foundation.completed)) {
+    const heartButton = document.createElement("button");
+    heartButton.type = "button";
+    heartButton.className = "tower-stage-hotspot tower-heart-hotspot";
+    heartButton.setAttribute("aria-label", foundation.completed ? "Tower Heart." : "Tower foundation construction.");
+    heartButton.setAttribute("aria-pressed", String(gameState.tower.selectedId === "heart"));
+    if (gameState.tower.selectedId === "heart") heartButton.classList.add("is-selected");
+    heartButton.addEventListener("click", function () { selectTowerEntity("heart"); });
+    wrapper.appendChild(heartButton);
+  }
+
+  return wrapper;
+}
+
+function getTowerVisualCaption() {
+  const current = getVisibleTowerProjectEntry();
+  if (!current) return { title: "The Tower Site", status: "Undiscovered" };
+
+  return {
+    title: current.definition.label,
+    status: getTowerStateLabel(getTowerConstructionState(current.id)),
+  };
+}
+
+function renderTowerStructure() {
+  if (!ui.towerStructure) return;
+
+  ui.towerStructure.innerHTML = "";
+  ensureVisibleTowerSelection();
+
+  const captionData = getTowerVisualCaption();
+  const caption = document.createElement("div");
+  caption.className = "tower-card-caption";
+  const captionTitle = document.createElement("strong");
+  captionTitle.textContent = captionData.title;
+  const captionStatus = document.createElement("span");
+  captionStatus.textContent = captionData.status;
+  caption.append(captionTitle, captionStatus);
+  ui.towerStructure.appendChild(caption);
+
+  const hasVisibleFloor = Object.values(getTowerFloorDefinitions()).some(function (floor) {
+    return isTowerSelectionVisible("floor:" + floor.id);
+  });
+  ui.towerStructure.classList.toggle("has-building", hasVisibleFloor);
+  ui.towerStructure.appendChild(hasVisibleFloor ? createTowerBuildingVisual() : createTowerEarlyStageVisual());
+}
+
+function getTowerSelectedEntity() {
+  ensureTowerStructureState();
+  ensureVisibleTowerSelection();
+  const selectedId = gameState.tower.selectedId;
+
+  if (selectedId === "heart") return { type: "heart", id: "heart" };
+  if (selectedId === "basement") return { type: "basement", id: "basement" };
+  if (selectedId.startsWith("floor:")) {
+    const floorId = selectedId.slice(6);
+    const floor = getTowerFloorDefinition(floorId);
+    if (floor) return { type: "floor", id: floorId, definition: floor };
+  }
+  if (selectedId.startsWith("room:")) {
+    const roomId = selectedId.slice(5);
+    const room = getTowerRoomDefinition(roomId);
+    if (room) return { type: "room", id: roomId, definition: room };
+  }
+
+  gameState.tower.selectedId = "heart";
+  return { type: "heart", id: "heart" };
+}
+
+function appendTowerDetailHeading(container, titleText, statusText, descriptionText, iconText) {
+  const header = document.createElement("header");
+  header.className = "tower-detail-header";
+  const icon = document.createElement("span");
+  icon.className = "tower-detail-icon";
+  icon.setAttribute("aria-hidden", "true");
+  icon.textContent = iconText;
+  const copy = document.createElement("div");
+  const eyebrow = document.createElement("span");
+  eyebrow.className = "tower-detail-status";
+  eyebrow.textContent = statusText;
+  const title = document.createElement("h3");
+  title.textContent = titleText;
+  copy.append(eyebrow, title);
+  header.append(icon, copy);
+  const description = document.createElement("p");
+  description.className = "tower-detail-description";
+  description.textContent = descriptionText;
+  container.append(header, description);
+}
+
+function appendTowerProjectControls(container, projectId) {
+  const definition = getProjectDefinition(projectId);
+  const state = getProjectState(projectId);
+
+  if (!definition || !state || state.completed || !state.unlocked) return;
+
+  const level = getProjectCurrentLevel(projectId);
+  container.appendChild(createProjectWorkProgress(projectId, level, state));
+  container.appendChild(createProjectMaterialList(projectId, level, state));
+  container.appendChild(createTowerProjectActions(projectId, definition, state));
+}
+
+function getTowerPrerequisiteText(entity) {
+  const prerequisites = entity.prerequisites || {};
+  const names = [];
+
+  (prerequisites.projectsCompleted || []).forEach(function (projectId) {
+    const definition = getProjectDefinition(projectId);
+    if (definition) names.push(definition.label);
+  });
+  (prerequisites.roomsCompleted || []).forEach(function (roomId) {
+    const room = getTowerRoomDefinition(roomId);
+    if (room) names.push(room.name);
+  });
+
+  return names.length ? "Requires: " + names.join(", ") + "." : "Complete the preceding Tower work first.";
+}
+
+function renderTowerDetailPanel() {
+  if (!ui.projectList) return;
+
+  ui.projectList.innerHTML = "";
+  const selected = getTowerSelectedEntity();
+
+  if (selected.type === "heart") {
+    renderTowerHeartDetail(ui.projectList);
     return;
   }
 
-  const activeEntry =
-    entries.find(function (entry) {
-      return !entry.state.completed;
-    }) || entries[0];
-  const level = getProjectCurrentLevel(activeEntry.id);
-  const workRemaining = getProjectWorkRemaining(activeEntry.id);
-  const materialText = getProjectMaterialStatusText(activeEntry.id, level);
-  const status = activeEntry.state.completed ? activeEntry.definition.completedLabel || "Complete" : level ? level.name : "Complete";
-  const meta = [
-    {
-      label: "Work",
-      value: activeEntry.state.completed || !level ? "complete" : formatTrainingNumber(workRemaining) + " remaining",
-    },
-    {
-      label: "Materials",
-      value: materialText,
-    },
-  ];
+  if (selected.type === "basement") {
+    renderTowerBasementDetail(ui.projectList);
+    return;
+  }
 
-  renderUiContextPanel(ui.towerStatusPanel, {
-    title: activeEntry.definition.label || "Tower",
-    status,
-    body: activeEntry.state.completed
-      ? activeEntry.definition.completedDescription || "This project is complete."
-      : level && level.description
-        ? level.description
-        : activeEntry.definition.description || "",
-    meta,
-    className: "tower-status-summary",
-  });
+  const entity = selected.definition;
+  const state = getProjectState(entity.projectId);
+  const constructionState = getTowerConstructionState(entity.projectId);
+  appendTowerDetailHeading(ui.projectList, entity.name, getTowerStateLabel(constructionState), entity.description, entity.icon);
+
+  if (selected.type === "room") {
+    const effect = document.createElement("div");
+    effect.className = "tower-effect-callout";
+    const effectTitle = document.createElement("strong");
+    effectTitle.textContent = state.completed ? "Active effect" : "Planned effect";
+    const effectText = document.createElement("span");
+    effectText.textContent = entity.baselineEffect.label;
+    effect.append(effectTitle, effectText);
+    ui.projectList.appendChild(effect);
+  } else {
+    const visibleRooms = entity.rooms
+      .map(getTowerRoomDefinition)
+      .filter(function (room) { return room && isTowerSelectionVisible("room:" + room.id); });
+    const rooms = document.createElement("p");
+    rooms.className = "tower-detail-note";
+    rooms.textContent = visibleRooms.length
+      ? "Visible rooms: " + visibleRooms.map(function (room) { return room.name; }).join(", ") + "."
+      : "Complete this floor to reveal its interior spaces.";
+    ui.projectList.appendChild(rooms);
+  }
+
+  appendTowerProjectControls(ui.projectList, entity.projectId);
+
+  if (selected.type === "room" && state.completed) {
+    const elemental = getBoundEarthElementalState();
+    if (selected.id === "workshop" && elemental.capabilities.equipmentUnlocked) {
+      ui.projectList.appendChild(createElementalCapabilityCraftingPanel("equipment"));
+    }
+    if (selected.id === "alchemyRoom" && elemental.capabilities.attunementUnlocked) {
+      ui.projectList.appendChild(createElementalCapabilityCraftingPanel("attunement"));
+    }
+  }
+}
+
+function renderTowerBasementDetail(container) {
+  const basement = getProjectState("towerBasement");
+  const stateName = getTowerConstructionState("towerBasement");
+  const definition = getProjectDefinition("towerBasement");
+  const description = basement && basement.completed
+    ? "The finished stone chamber surrounds the Tower Heart and opens into the Tower's expanded storage."
+    : definition.description;
+
+  appendTowerDetailHeading(container, "Tower Basement", getTowerStateLabel(stateName), description, "▱");
+
+  if (basement && basement.completed) {
+    const storage = document.createElement("div");
+    storage.className = "tower-effect-callout";
+    storage.innerHTML =
+      "<strong>Basement storage</strong><span>Applicable stored resources hold at least " +
+      formatTrainingNumber(getTowerStorageConfig().basementMinimumCapacity) +
+      " each.</span>";
+    container.appendChild(storage);
+  } else {
+    appendTowerProjectControls(container, "towerBasement");
+  }
+}
+
+function renderTowerHeartDetail(container) {
+  const foundation = getProjectState("towerFoundation");
+  const basement = getProjectState("towerBasement");
+  let activeProjectId = null;
+  let status = "Buried foundation";
+  let description = "The old foundation and its dormant Heart wait beneath the camp.";
+
+  if (foundation && foundation.unlocked && !foundation.completed) {
+    activeProjectId = "towerFoundation";
+    status = getTowerStateLabel(getTowerConstructionState(activeProjectId));
+    description = getProjectDefinition(activeProjectId).description;
+  } else if (foundation && foundation.completed) {
+    status = "Awakened";
+    description = "The restored Tower Heart anchors the structure and carries commands through its elemental control network.";
+  }
+
+  appendTowerDetailHeading(container, "Tower Heart", status, description, "◆");
+
+  if (activeProjectId) appendTowerProjectControls(container, activeProjectId);
+
+  if (foundation && foundation.completed && isBoundEarthElementalTowerUnlocked()) {
+    container.appendChild(createBoundEarthElementalTowerPanel());
+    const elemental = getBoundEarthElementalState();
+    if (elemental.capabilities.equipmentUnlocked && !isTowerRoomCompleted("workshop")) {
+      container.appendChild(createElementalCapabilityCraftingPanel("equipment"));
+    }
+    if (elemental.capabilities.attunementUnlocked && !isTowerRoomCompleted("alchemyRoom")) {
+      container.appendChild(createElementalCapabilityCraftingPanel("attunement"));
+    }
+  }
 }
 
 function getProjectMaterialStatusText(projectName, level) {
@@ -5809,8 +7329,10 @@ function recordImbueExperience(amount) {
 
   const progress = getImbueProgressState();
   const oldLevel = progress.level || 0;
+  const towerMultiplier = getTowerRoomEffectValue("imbueExperienceMultiplier", 1);
+  const experienceGain = roundResourceAmount(amount * towerMultiplier);
 
-  progress.xp = roundResourceAmount((progress.xp || 0) + amount);
+  progress.xp = roundResourceAmount((progress.xp || 0) + experienceGain);
   progress.level = getSpellLevelFromXp("imbue", progress.xp);
 
   if (progress.level > oldLevel) {

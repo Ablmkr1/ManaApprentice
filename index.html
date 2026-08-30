@@ -72,6 +72,10 @@
           <div class="combat-meter" aria-label="Enemy health"><div id="combatEnemyHealthFill" class="combat-meter-fill"></div></div>
           <p id="combatWardText" class="combat-ward"></p>
           <p id="combatAttackTimer" class="combat-timer"></p>
+          <section id="combatConsumables" class="combat-consumables" style="display: none" aria-label="Combat consumables">
+            <span class="combat-consumables-label">Tonics</span>
+            <div id="combatConsumablesList" class="combat-consumables-list"></div>
+          </section>
           <button id="manaBoltBtn" class="action-btn combat-spell-btn" type="button">
             <div id="manaBoltProgressFill" class="progressFill"></div>
             <span>Cast Mana Bolt</span>
@@ -253,6 +257,8 @@
                   <div id="stoneAmount" class="resource-pill" style="display: none"></div>
                    <div id="oreAmount" class="resource-pill" style="display: none"></div>
                    <div id="earthElementalCoreAmount" class="resource-pill" style="display: none"></div>
+                  <div id="runedLeatherAmount" class="resource-pill" style="display: none"></div>
+                  <div id="naturalEssenceAmount" class="resource-pill" style="display: none"></div>
                   <div id="ironAmount" class="resource-pill" style="display: none"></div>
                   <div id="nailsAmount" class="resource-pill" style="display: none"></div>
                   <div id="herbAmount" class="resource-pill" style="display: none"></div>
@@ -393,26 +399,8 @@
               </div>
 
               <div id="locationContent" style="display: none">
-                <div id="locationDescription"></div>
-                <section id="locationContextualActions" class="contextual-actions" style="display: none">
-                  <h3>Local actions</h3>
-                </section>
-                <section id="locationSpellActions" class="contextual-actions contextual-spell-actions" style="display: none">
-                  <h3>Available magic</h3>
-                </section>
-                <div id="towerNodePanel" style="display: none"></div>
-                <div id="dungeonSection" class="dungeon-section" style="display: none">
-                  <h3 id="dungeonTitle"></h3>
-                  <div id="dungeonMap" class="dungeon-map" role="group" aria-label="Dungeon map"></div>
-                  <div id="dungeonRoomText" class="dungeon-room-text"></div>
-                  <div id="dungeonActions" class="dungeon-actions"></div>
-                </div>
-                <div id="locationStorageSection" class="camp-resources-section" style="display: none">
-                  <h3>Stored Here</h3>
-                  <div id="locationStorageList" class="camp-resource-strip"></div>
-                </div>
-                <div id="trapSitesList" class="trap-sites-list" style="display: none"></div>
-
+                <section id="locationPrimaryActions" class="location-primary-actions" aria-label="Location actions">
+                  <h3>Actions</h3>
                 <button class="action-btn" data-action="exploreLocation" style="display: none">
                   <div class="progressFill"></div>
                   <div class="metaProgressFill"></div>
@@ -462,6 +450,31 @@
                 <button class="action-btn" data-action="investigateNorthernDisturbance" style="display: none">
                   <div class="progressFill"></div>
                   <span>Investigate the Tremors</span>
+                </button>
+
+                <button class="action-btn" data-action="challengeEarthElemental" style="display: none">
+                  <div class="progressFill"></div>
+                  <span>Challenge Earth Elemental</span>
+                </button>
+
+                <button class="action-btn" data-action="investigateEasternDisturbance" style="display: none">
+                  <div class="progressFill"></div>
+                  <span>Investigate the Eastern Disturbance</span>
+                </button>
+
+                <button class="action-btn" data-action="challengeThornfang" style="display: none">
+                  <div class="progressFill"></div>
+                  <span>Challenge Thornfang</span>
+                </button>
+
+                <button class="action-btn" data-action="investigateSouthernDisturbance" style="display: none">
+                  <div class="progressFill"></div>
+                  <span>Investigate the Southern Disturbance</span>
+                </button>
+
+                <button class="action-btn" data-action="challengeBlightedBriar" style="display: none">
+                  <div class="progressFill"></div>
+                  <span>Challenge Blighted Briar</span>
                 </button>
 
                 <button class="action-btn" data-action="trackGame" style="display: none">
@@ -523,10 +536,32 @@
                   <div class="progressFill"></div>
                   <span>Leave Ruin</span>
                 </button>
-              </div>
+                </section>
 
-              <div id="expeditionLocationObjectActionsSlot">
-                <div id="locationObjectActions" class="location-object-actions"></div>
+                <div id="expeditionLocationObjectActionsSlot">
+                  <div id="locationObjectActions" class="location-object-actions"></div>
+                </div>
+
+                <section id="locationContextualActions" class="contextual-actions" style="display: none">
+                  <h3>Local actions</h3>
+                </section>
+                <section id="locationSpellActions" class="contextual-actions contextual-spell-actions" style="display: none">
+                  <h3>Available magic</h3>
+                </section>
+
+                <div id="dungeonSection" class="dungeon-section" style="display: none">
+                  <h3 id="dungeonTitle"></h3>
+                  <div id="dungeonMap" class="dungeon-map" role="group" aria-label="Dungeon map"></div>
+                  <div id="dungeonRoomText" class="dungeon-room-text"></div>
+                  <div id="dungeonActions" class="dungeon-actions"></div>
+                </div>
+                <div id="towerNodePanel" style="display: none"></div>
+                <div id="locationStorageSection" class="camp-resources-section" style="display: none">
+                  <h3>Stored Here</h3>
+                  <div id="locationStorageList" class="camp-resource-strip"></div>
+                </div>
+                <div id="trapSitesList" class="trap-sites-list" style="display: none"></div>
+                <div id="locationDescription" class="location-description"></div>
               </div>
 
               <div id="regionalMapSection" class="regional-map-section" style="display: none">
@@ -612,10 +647,14 @@
             <section id="towerPanel" class="context-section" style="display: none">
               <h2>Tower</h2>
 
-              <div id="towerStatusPanel" class="workflow-summary-panel"></div>
+              <div class="tower-workspace">
+                <section class="tower-cross-section-panel" aria-label="Interactive Tower illustration">
+                  <div id="towerStructure" class="tower-cross-section"></div>
+                </section>
 
-              <div id="projectPanel" class="work-panel project-panel">
-                <div id="projectList" class="project-list"></div>
+                <aside id="projectPanel" class="work-panel project-panel tower-detail-panel" aria-label="Selected Tower space details">
+                  <div id="projectList" class="project-list tower-detail-content"></div>
+                </aside>
               </div>
             </section>
           </div>

@@ -18,7 +18,13 @@ const gameDefinitions = {
   manaSenseDefinitions,
   automationDefinitions,
   projectDefinitions,
+  towerStorageConfig,
+  towerFloorDefinitions,
+  towerRoomDefinitions,
   towerNodeDefinitions,
+  elementalAutomationConfig,
+  elementalHarnessDefinitions,
+  elementalWorkerAttunementDefinitions,
   attunementDefinitions,
   imbueDefinitions,
   arcaneForceDefinitions,
@@ -175,12 +181,52 @@ function getProjectDefinition(projectName) {
   return getProjectDefinitions()[projectName];
 }
 
+function getTowerStorageConfig() {
+  return gameDefinitions.towerStorageConfig;
+}
+
+function getTowerFloorDefinitions() {
+  return gameDefinitions.towerFloorDefinitions;
+}
+
+function getTowerFloorDefinition(floorId) {
+  return getTowerFloorDefinitions()[floorId];
+}
+
+function getTowerRoomDefinitions() {
+  return gameDefinitions.towerRoomDefinitions;
+}
+
+function getTowerRoomDefinition(roomId) {
+  return getTowerRoomDefinitions()[roomId];
+}
+
 function getTowerNodeDefinitions() {
   return gameDefinitions.towerNodeDefinitions;
 }
 
 function getTowerNodeDefinition(nodeName) {
   return getTowerNodeDefinitions()[nodeName];
+}
+
+function getElementalAutomationConfig() {
+  return gameDefinitions.elementalAutomationConfig;
+}
+
+function getElementalHarnessDefinitions() {
+  return gameDefinitions.elementalHarnessDefinitions;
+}
+
+function getElementalHarnessDefinition(harnessName) {
+  return getElementalHarnessDefinitions()[harnessName];
+}
+
+function getElementalWorkerAttunementDefinitions() {
+  return gameDefinitions.elementalWorkerAttunementDefinitions;
+}
+
+function getElementalWorkerAttunementDefinition(attunementName) {
+  return getElementalWorkerAttunementDefinitions()[attunementName];
 }
 
 function getAttunementDefinitions() {

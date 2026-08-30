@@ -336,7 +336,7 @@ const expeditionLocations = {
       discovered: "A still grove waits deep in the eastern forest. Something magical moves here.",
       explored: "The grove is quiet, but the glass-antler stag returns when you wait and watch.",
     },
-    availableActions: [],
+    availableActions: ["investigateEasternDisturbance", "challengeThornfang"],
     explorableObjects: {
       observeGlassAntlerStag: {
         label: "Observe Glass-Antler Stag",
@@ -486,7 +486,7 @@ const expeditionLocations = {
       discovered: "A narrow mine cuts into the ridge. The stone is rich with ore, but too hard for bare hands.",
       explored: "Iron veins run through the mine wall. With the right pick, ore can be mined here reliably.",
     },
-    availableActions: ["mineOre", "investigateNorthernDisturbance"],
+    availableActions: ["mineOre", "investigateNorthernDisturbance", "challengeEarthElemental"],
   },
 
   wildHerbPatch: {
@@ -593,7 +593,7 @@ const expeditionLocations = {
       discovered: "Old cultivated fields lie buried beneath the overgrowth. The plants here seem less wild than unsupervised.",
       explored: "Glimmerleaf grows in the abandoned rows. It is rare, but careful gathering can preserve it.",
     },
-    availableActions: ["gatherGlimmerleaf"],
+    availableActions: ["gatherGlimmerleaf", "investigateSouthernDisturbance", "challengeBlightedBriar"],
   },
 
   roadsideRuin: {
@@ -2284,6 +2284,266 @@ const researchDefinitions = {
   },
 };
 
+// The tower expansion is configured independently from its project state so
+// later floors and room specializations can be added without changing the
+// construction or rendering code.
+const towerStorageConfig = {
+  basementMinimumCapacity: 1000,
+  applicableResources: [
+    "food",
+    "wood",
+    "fuel",
+    "imbuedWood",
+    "fiber",
+    "pelt",
+    "stone",
+    "leather",
+    "ore",
+    "iron",
+    "earthElementalCore",
+    "runedLeather",
+    "naturalEssence",
+    "nails",
+    "herb",
+    "glimmerleaf",
+    "staminaTonicBase",
+    "manaTonicBase",
+    "concentratedTonicBase",
+    "concentratedManaTonicBase",
+    "manaCrystal",
+    "chargedCrystal",
+  ],
+};
+
+const towerFloorDefinitions = {
+  floor1: {
+    id: "floor1",
+    name: "Floor 1",
+    subtitle: "Living / Apprentice Floor",
+    number: 1,
+    icon: "Ⅰ",
+    description: "The Tower's first inhabited level, set aside for recovery, study, and practical work.",
+    projectId: "towerFloor1",
+    prerequisites: {
+      projectsCompleted: ["towerBasement"],
+    },
+    construction: {
+      actionLabel: "Raise Floor 1",
+      workRequired: 1200,
+      workYield: 34,
+      materials: { stone: 450, wood: 250, iron: 80, nails: 250 },
+    },
+    rooms: ["bedroom", "library", "workshop"],
+  },
+  floor2: {
+    id: "floor2",
+    name: "Floor 2",
+    subtitle: "Arcane Work Floor",
+    number: 2,
+    icon: "Ⅱ",
+    description: "A reinforced upper level designed for heat, reagents, and sustained magical work.",
+    projectId: "towerFloor2",
+    prerequisites: {
+      projectsCompleted: ["towerFloor1"],
+      roomsCompleted: ["bedroom", "library", "workshop"],
+    },
+    construction: {
+      actionLabel: "Raise Floor 2",
+      workRequired: 1600,
+      workYield: 38,
+      materials: { stone: 650, wood: 300, iron: 140, nails: 350, chargedCrystal: 8 },
+    },
+    rooms: ["alchemyRoom", "forge", "enchantingStudy"],
+  },
+};
+
+const towerRoomDefinitions = {
+  bedroom: {
+    id: "bedroom",
+    name: "Bedroom",
+    floor: "floor1",
+    icon: "☾",
+    description: "A quiet private room where real walls and a proper bed make recovery easier.",
+    projectId: "towerRoomBedroom",
+    prerequisites: { projectsCompleted: ["towerFloor1"] },
+    construction: {
+      actionLabel: "Finish Bedroom",
+      workRequired: 420,
+      workYield: 30,
+      materials: { wood: 160, fiber: 100, leather: 30, nails: 60 },
+    },
+    baselineEffect: {
+      type: "restEnergyMultiplier",
+      value: 1.2,
+      label: "+20% Energy restored while resting",
+    },
+    specializationOptions: [],
+  },
+  library: {
+    id: "library",
+    name: "Library",
+    floor: "floor1",
+    icon: "▤",
+    description: "Shelves, a broad desk, and controlled light support focused research and magical learning.",
+    projectId: "towerRoomLibrary",
+    prerequisites: { projectsCompleted: ["towerFloor1"] },
+    construction: {
+      actionLabel: "Finish Library",
+      workRequired: 480,
+      workYield: 30,
+      materials: { wood: 180, leather: 40, manaCrystal: 8, nails: 80 },
+    },
+    baselineEffect: {
+      type: "researchDurationMultiplier",
+      value: 0.9,
+      label: "Research completes 10% faster",
+    },
+    specializationOptions: [],
+  },
+  workshop: {
+    id: "workshop",
+    name: "Workshop",
+    floor: "floor1",
+    icon: "⚒",
+    description: "A fitted workroom keeps tools, patterns, and materials close at hand for practical crafting.",
+    projectId: "towerRoomWorkshop",
+    prerequisites: { projectsCompleted: ["towerFloor1"] },
+    construction: {
+      actionLabel: "Finish Workshop",
+      workRequired: 520,
+      workYield: 32,
+      materials: { wood: 200, iron: 60, nails: 120, manaCrystal: 4 },
+    },
+    baselineEffect: {
+      type: "craftDurationMultiplier",
+      value: 0.9,
+      label: "Non-research crafting completes 10% faster",
+    },
+    specializationOptions: [],
+  },
+  alchemyRoom: {
+    id: "alchemyRoom",
+    name: "Alchemy Room",
+    floor: "floor2",
+    icon: "⚗",
+    description: "Drying racks and stable benches let you identify and preserve more from every herb harvest.",
+    projectId: "towerRoomAlchemyRoom",
+    prerequisites: { projectsCompleted: ["towerFloor2"] },
+    construction: {
+      actionLabel: "Finish Alchemy Room",
+      workRequired: 620,
+      workYield: 34,
+      materials: { wood: 180, stone: 120, iron: 40, herb: 80, glimmerleaf: 20, manaCrystal: 6 },
+    },
+    baselineEffect: {
+      type: "herbGatherFlat",
+      value: 1,
+      label: "+1 Herb from herb gathering",
+    },
+    specializationOptions: [],
+  },
+  forge: {
+    id: "forge",
+    name: "Forge",
+    floor: "floor2",
+    icon: "♨",
+    description: "A stone-lined forge and lifting gear make structural ironwork faster and more exact.",
+    projectId: "towerRoomForge",
+    prerequisites: { projectsCompleted: ["towerFloor2"] },
+    construction: {
+      actionLabel: "Finish Forge",
+      workRequired: 760,
+      workYield: 36,
+      materials: { stone: 250, iron: 150, wood: 100, nails: 120, chargedCrystal: 6 },
+    },
+    baselineEffect: {
+      type: "towerConstructionWorkMultiplier",
+      value: 1.1,
+      label: "+10% work on Tower construction",
+    },
+    specializationOptions: [],
+  },
+  enchantingStudy: {
+    id: "enchantingStudy",
+    name: "Enchanting Study",
+    floor: "floor2",
+    icon: "✦",
+    description: "Inscribed work surfaces give Imbue a stable place to settle into tools and materials.",
+    projectId: "towerRoomEnchantingStudy",
+    prerequisites: { projectsCompleted: ["towerFloor2"] },
+    construction: {
+      actionLabel: "Finish Enchanting Study",
+      workRequired: 720,
+      workYield: 35,
+      materials: { wood: 180, stone: 100, iron: 40, manaCrystal: 20, chargedCrystal: 12, imbuedWood: 50 },
+    },
+    baselineEffect: {
+      type: "imbueExperienceMultiplier",
+      value: 1.2,
+      label: "+20% Imbue experience",
+    },
+    specializationOptions: [],
+  },
+};
+
+function createTowerExpansionProjectDefinitions() {
+  const projects = {};
+
+  Object.values(towerFloorDefinitions).forEach(function (floor) {
+    projects[floor.projectId] = createTowerEntityProjectDefinition(floor, "floor");
+  });
+
+  Object.values(towerRoomDefinitions).forEach(function (room) {
+    projects[room.projectId] = createTowerEntityProjectDefinition(room, "room");
+  });
+
+  return projects;
+}
+
+function createTowerEntityProjectDefinition(entity, entityType) {
+  const construction = entity.construction;
+  const completionSubject = entityType === "floor" ? entity.name : "The " + entity.name;
+
+  return {
+    label: entity.name,
+    towerPhaseTitle: "Tower - " + entity.name,
+    visualType: entityType,
+    towerEntityType: entityType,
+    towerEntityId: entity.id,
+    actionLabel: construction.actionLabel,
+    completedLabel: entity.name + " Complete",
+    workCost: { energy: 20 },
+    arcaneForceWorkCost: { mana: 10 },
+    arcaneForceWorkMultiplier: 3,
+    workDuration: 3,
+    description: entity.description,
+    completedDescription:
+      entityType === "floor"
+        ? entity.description + " Its three room spaces are ready for construction."
+        : entity.description + " " + entity.baselineEffect.label + ".",
+    completedStory:
+      completionSubject +
+      (entityType === "floor"
+        ? " settles onto the Tower's rising structure. Three new room spaces stand ready."
+        : " is complete and begins contributing to life in the Tower."),
+    visualStages: [
+      { title: "Unbuilt", description: entity.description, aria: entity.name + " is not yet built." },
+      { title: "Complete", description: entity.description, aria: entity.name + " is complete." },
+    ],
+    levels: [
+      {
+        name: construction.actionLabel,
+        actionLabel: construction.actionLabel,
+        workYield: construction.workYield,
+        workRequired: construction.workRequired,
+        materials: construction.materials,
+        description: entity.description,
+        completionStory: completionSubject + " takes its finished shape within the growing Tower.",
+      },
+    ],
+  };
+}
+
 const projectDefinitions = {
   towerFoundation: {
     label: "Tower Foundation",
@@ -2540,6 +2800,7 @@ const projectDefinitions = {
       },
     ],
   },
+  ...createTowerExpansionProjectDefinitions(),
 };
 
 const towerNodeDefinitions = {
@@ -2584,6 +2845,131 @@ const towerNodeDefinitions = {
       "The ground answers the Heart with a faint pressure. A node can be raised here, but it needs a stone body, iron binding, charged crystals, and imbuement.",
     completeDescription:
       "A small Tower Heart glows over the repaired northern node. Its path back to camp is stable enough to jump.",
+  },
+  east: {
+    label: "Eastern Tower Node",
+    locationName: "huntersCabin",
+    regionId: "east",
+    destinationLabel: "Eastern Node",
+    materials: { stone: 30, iron: 8, chargedCrystal: 4 },
+    imbueRequired: 60,
+    imbueCost: { mana: 10 },
+    imbueYield: 10,
+    imbueDuration: 3,
+    jumpCost: { mana: 10 },
+    threadSenseRequired: 0,
+    automationOnBuild: true,
+    incompleteTitle: "Dormant Eastern Node",
+    completeTitle: "Eastern Node Online",
+    incompleteDescription: "The cabin's foundation hides a distant anchor. Stone, iron, charged crystals, and imbuement can bind it to the Heart.",
+    completeDescription: "The Eastern Node carries the Heart's commands into the deepwood. Equipped Earth Elementals can now work here.",
+    activationStory: "Runed Leather reveals a dormant anchor beneath the Hunter's Cabin. The Eastern Node can now be rebuilt.",
+    builtStory: "The Eastern Node locks into the Heart's rhythm. Its connection reaches the hunting grounds without weakening the Tower's control.",
+    builtJournal: "easternTowerNodeBuilt",
+  },
+  south: {
+    label: "Southern Tower Node",
+    locationName: "alchemistsHut",
+    regionId: "south",
+    destinationLabel: "Southern Node",
+    materials: { stone: 25, iron: 5, chargedCrystal: 6 },
+    imbueRequired: 60,
+    imbueCost: { mana: 10 },
+    imbueYield: 10,
+    imbueDuration: 3,
+    jumpCost: { mana: 10 },
+    threadSenseRequired: 0,
+    automationOnBuild: true,
+    incompleteTitle: "Overgrown Southern Node",
+    completeTitle: "Southern Node Online",
+    incompleteDescription: "An old anchor sleeps beneath the hut's herb-drying floor. Stone, iron, charged crystals, and imbuement can reconnect it.",
+    completeDescription: "The Southern Node carries precise instructions into the overgrowth. Properly equipped and attuned Earth Elementals can now work here.",
+    activationStory: "Natural Essence makes the old bindings beneath the Alchemist's Hut perceptible. The Southern Node can now be rebuilt.",
+    builtStory: "The Southern Node opens to the Heart. The connection is steady enough to carry both tools and delicate sensory instructions.",
+    builtJournal: "southernTowerNodeBuilt",
+  },
+};
+
+// Elemental automation is deliberately configured apart from the assignment
+// state. Future Tower Heart upgrades and regional nodes can extend this table
+// without changing the workforce rules.
+const elementalAutomationConfig = {
+  towerHeart: {
+    startingElementalControlCapacity: 5,
+  },
+  earth: {
+    coreDropQuantity: 1,
+    towerConstructionWorkPerSecond: 1,
+  },
+  nodes: {
+    north: {
+      elementalCapacity: 3,
+      jobs: {
+        stone: {
+          label: "Gather Stone",
+          resource: "stone",
+          cycleDuration: 90,
+          batchSize: 5,
+          optionalEquipment: "quarryHarness",
+        },
+        iron: {
+          label: "Gather Iron",
+          resource: "iron",
+          cycleDuration: 120,
+          batchSize: 2,
+          optionalEquipment: "quarryHarness",
+        },
+      },
+    },
+    east: {
+      elementalCapacity: 2,
+      jobs: {
+        leather: {
+          label: "Recover Leather",
+          resource: "leather",
+          cycleDuration: 120,
+          batchSize: 1,
+          requiredEquipment: "gatherersHarness",
+        },
+      },
+    },
+    south: {
+      elementalCapacity: 2,
+      jobs: {
+        herbs: {
+          label: "Gather Herbs",
+          resource: "herb",
+          cycleDuration: 90,
+          batchSize: 4,
+          requiredEquipment: "gatherersHarness",
+          requiredAttunement: "herbalAttunement",
+        },
+      },
+    },
+  },
+};
+
+const elementalHarnessDefinitions = {
+  quarryHarness: {
+    label: "Quarry/Mining Harness",
+    recipe: { leather: 4, fiber: 8, runedLeather: 1, iron: 2 },
+    effect: { productionMultiplier: 1.5 },
+    effectText: "+50% Stone or Iron output for one assigned elemental",
+  },
+  gatherersHarness: {
+    label: "Gatherer's Harness",
+    recipe: { leather: 3, fiber: 12, runedLeather: 2, iron: 1 },
+    effect: {},
+    effectText: "Enables one elemental to collect delicate or mobile regional resources",
+  },
+};
+
+const elementalWorkerAttunementDefinitions = {
+  herbalAttunement: {
+    label: "Herbal Attunement",
+    recipe: { naturalEssence: 2, herb: 20, glimmerleaf: 4, mana: 10 },
+    effect: {},
+    effectText: "Enables one elemental to recognize and harvest useful herbs",
   },
 };
 
@@ -2899,7 +3285,7 @@ const campUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      getResource("wood").maxValue = 500;
+      getResource("wood").maxValue = Math.max(getResource("wood").maxValue, 500);
       updateResource("wood");
       unlockAutomation("lumberMill");
       updateCampResourcesSectionVisibility();
@@ -2925,7 +3311,7 @@ const campUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      getResource("food").maxValue = 500;
+      getResource("food").maxValue = Math.max(getResource("food").maxValue, 500);
       updateResource("food");
       unlockAutomation("foragingLure");
       updateCampResourcesSectionVisibility();
@@ -4385,6 +4771,17 @@ const arcaneForceDefinitions = {
 };
 
 const goalDefinitions = {
+  investigateRegionalDisturbances: {
+    title: "Extend the Regional Network",
+    text: "The established Northern Node has exposed disturbances to the east and south. Pursue either route first.",
+    items: [
+      { label: "Investigate the Northern Disturbance", isComplete: function () { return !!gameState.northernDisturbance && gameState.northernDisturbance.resolved; } },
+      { label: "Investigate the Eastern Disturbance", isComplete: function () { return !!gameState.regionalProgress && !!gameState.regionalProgress.east && gameState.regionalProgress.east.disturbanceResolved; } },
+      { label: "Activate the Eastern Node", isComplete: function () { const node = getTowerNodeState("east"); return !!node && node.built; } },
+      { label: "Investigate the Southern Disturbance", isComplete: function () { return !!gameState.regionalProgress && !!gameState.regionalProgress.south && gameState.regionalProgress.south.disturbanceResolved; } },
+      { label: "Activate the Southern Node", isComplete: function () { const node = getTowerNodeState("south"); return !!node && node.built; } },
+    ],
+  },
   investigateNorthernDisturbance: {
     title: "Investigate the Northern Disturbance",
     text: "A tremor answered the northern node. Travel north and learn what has changed around the Iron Mine.",
@@ -4659,6 +5056,30 @@ const journalDefinitions = {
   advancedRecallUnlocked: {
     title: "Advanced Recall",
     text: "Repeated Mana Sense at the northern node revealed the thread tying it to the Tower Heart. You can now send carried supplies home while standing at the node.",
+  },
+  easternDisturbanceDiscovered: {
+    title: "Eastern Disturbance",
+    text: "A fast, predatory mana signature circles the Quiet Grove. Its altered hide may hold a binding that ordinary leather cannot.",
+  },
+  southernDisturbanceDiscovered: {
+    title: "Southern Disturbance",
+    text: "A dense living pattern has taken root in the Overgrown Fields. It carries instinct and magical information rather than an elemental core.",
+  },
+  elementalHarnessesLearned: {
+    title: "Elemental Harnesses",
+    text: "Runed Leather can hold flexible magical bindings. Harnesses can give crude Earth Elementals the physical configuration needed for specialized work.",
+  },
+  elementalAttunementsLearned: {
+    title: "Elemental Attunements",
+    text: "Natural Essence can add limited perception to an elemental binding. Equipment supplies the body; attunement supplies the understanding.",
+  },
+  easternTowerNodeBuilt: {
+    title: "Eastern Node Online",
+    text: "The Hunter's Cabin anchor now carries the Tower Heart's commands into the deepwood.",
+  },
+  southernTowerNodeBuilt: {
+    title: "Southern Node Online",
+    text: "The Alchemist's Hut anchor now carries tools and sensory instructions into the overgrowth.",
   },
   personalWardRemembered: {
     title: "Personal Ward",

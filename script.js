@@ -23,7 +23,9 @@ const DEV_RESOURCE_BASE_MAX_VALUES = {
   leather: 100,
   ore: 100,
   iron: 100,
-  earthElementalCore: 1,
+  earthElementalCore: 100,
+  runedLeather: 100,
+  naturalEssence: 100,
   nails: 100,
   herb: 100,
   glimmerleaf: 50,
@@ -213,6 +215,8 @@ const DEV_TIER_RESOURCE_NAMES = {
     "ore",
     "iron",
     "nails",
+    "runedLeather",
+    "naturalEssence",
     "herb",
     "glimmerleaf",
     "staminaTonic",
@@ -238,6 +242,7 @@ window.onload = function () {
   hookActionCompletions();
   ensureSkillsState();
   ensureProjectsState();
+  ensureElementalState();
   recalculateCharacterStats();
   recalculateCampEffects();
   recalculateToolEffects();
@@ -539,6 +544,16 @@ function resetDevTierProgressFlags() {
     resolved: false,
     popupShown: false,
   };
+
+  gameState.regionalProgress = {
+    unlocked: false,
+    east: { disturbanceTriggered: false, disturbanceResolved: false, capabilityDiscovered: false },
+    south: { disturbanceTriggered: false, disturbanceResolved: false, capabilityDiscovered: false },
+  };
+
+  gameState.elementals = {
+    earth: getDefaultBoundEarthElementalState(),
+  };
 }
 
 function resetDevTierResources() {
@@ -711,6 +726,8 @@ function resetDevTierMagic() {
 
 function resetDevTierProjectState() {
   ensureProjectsState();
+  ensureTowerStructureState();
+  gameState.tower.selectedId = "heart";
 
   const definitions = getProjectDefinitions();
 
@@ -1320,6 +1337,7 @@ function gameTick() {
   }
 
   processAutomation(deltaSeconds);
+  processBoundEarthElementalAutomation(deltaSeconds);
   processActivityTick();
   processCombatTick();
 }

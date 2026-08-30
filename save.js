@@ -1,5 +1,5 @@
 const SAVE_KEY = "manaApprenticeSaveV1";
-const SAVE_VERSION = 24;
+const SAVE_VERSION = 27;
 let saveSuppressed = false;
 
 function createSaveData() {
@@ -316,6 +316,18 @@ function migrateSaveData(saveData) {
     migrateV23SaveDataToV24(normalizedSaveData);
   }
 
+  if (version <= 24) {
+    migrateV24SaveDataToV25(normalizedSaveData);
+  }
+
+  if (version <= 25) {
+    migrateV25SaveDataToV26(normalizedSaveData);
+  }
+
+  if (version <= 26) {
+    migrateV26SaveDataToV27(normalizedSaveData);
+  }
+
   normalizedSaveData.version = SAVE_VERSION;
 
   return normalizedSaveData;
@@ -330,7 +342,10 @@ function normalizeSaveData(saveData) {
   saveData.gameState.expedition.carriedItems = ensureObject(saveData.gameState.expedition.carriedItems);
   saveData.gameState.skills = ensureObject(saveData.gameState.skills);
   saveData.gameState.projects = ensureObject(saveData.gameState.projects);
+  saveData.gameState.tower = ensureObject(saveData.gameState.tower);
   saveData.gameState.towerNodes = ensureObject(saveData.gameState.towerNodes);
+  saveData.gameState.elementals = ensureObject(saveData.gameState.elementals);
+  saveData.gameState.regionalProgress = ensureObject(saveData.gameState.regionalProgress);
   saveData.gameState.magic = ensureObject(saveData.gameState.magic);
   saveData.gameState.systemUnlocks = ensureObject(saveData.gameState.systemUnlocks);
   saveData.gameState.magic.sensedReveals = ensureObject(saveData.gameState.magic.sensedReveals);
@@ -373,6 +388,44 @@ function normalizeSaveData(saveData) {
   }
 
   return saveData;
+}
+
+function migrateV25SaveDataToV26(saveData) {
+  const savedGameState = ensureObject(saveData.gameState);
+  const savedProjects = ensureObject(savedGameState.projects);
+  const tower = ensureObject(savedGameState.tower);
+
+  tower.selectedId = typeof tower.selectedId === "string" ? tower.selectedId : "heart";
+
+  Object.values(getTowerFloorDefinitions())
+    .concat(Object.values(getTowerRoomDefinitions()))
+    .forEach(function (entity) {
+      if (!savedProjects[entity.projectId] || typeof savedProjects[entity.projectId] !== "object") {
+        savedProjects[entity.projectId] = {
+          unlocked: false,
+          completed: false,
+          level: 0,
+          work: 0,
+          deposits: {},
+        };
+      }
+    });
+
+  savedGameState.tower = tower;
+  savedGameState.projects = savedProjects;
+  saveData.gameState = savedGameState;
+}
+
+function migrateV26SaveDataToV27(saveData) {
+  const savedGameState = ensureObject(saveData.gameState);
+  const regionalProgress = ensureObject(savedGameState.regionalProgress);
+  regionalProgress.unlocked = !!regionalProgress.unlocked;
+  regionalProgress.east = ensureObject(regionalProgress.east);
+  regionalProgress.south = ensureObject(regionalProgress.south);
+  savedGameState.regionalProgress = regionalProgress;
+  savedGameState.elementals = ensureObject(savedGameState.elementals);
+  saveData.gameState = savedGameState;
+  saveData.resources = ensureObject(saveData.resources);
 }
 
 function migrateV6SaveDataToV7(saveData) {
@@ -705,6 +758,20 @@ function migrateV23SaveDataToV24(saveData) {
     seen,
   };
   saveData.gameState = savedGameState;
+}
+
+function migrateV24SaveDataToV25(saveData) {
+  const savedGameState = ensureObject(saveData.gameState);
+  const savedResources = ensureObject(saveData.resources);
+  const savedCore = ensureObject(savedResources.earthElementalCore);
+
+  savedGameState.elementals = ensureObject(savedGameState.elementals);
+  // Version 24 introduced the Core as a one-slot story item. Repeat combat
+  // requires it to retain additional drops after existing saves are loaded.
+  savedCore.maxValue = Math.max(100, Number.isFinite(savedCore.maxValue) ? savedCore.maxValue : 0);
+  savedResources.earthElementalCore = savedCore;
+  saveData.gameState = savedGameState;
+  saveData.resources = savedResources;
 }
 
 function normalizeSavedTowerNodes(savedTowerNodes, towerCompleted = false) {
@@ -1110,11 +1177,32 @@ function applyGameStateSaveData(savedGameState) {
     seen: structuredClone(ensureObject(savedSystemUnlocks.seen)),
   };
 
+  const savedTower = ensureObject(savedGameState.tower);
+  gameState.tower = {
+    selectedId: typeof savedTower.selectedId === "string" ? savedTower.selectedId : "heart",
+    lastAutoSelectedProject: typeof savedTower.lastAutoSelectedProject === "string" ? savedTower.lastAutoSelectedProject : "",
+  };
+
   const savedDisturbance = ensureObject(savedGameState.northernDisturbance);
   gameState.northernDisturbance = {
     triggered: !!savedDisturbance.triggered,
     resolved: !!savedDisturbance.resolved,
     popupShown: !!savedDisturbance.popupShown,
+  };
+
+  const savedRegionalProgress = ensureObject(savedGameState.regionalProgress);
+  gameState.regionalProgress = {
+    unlocked: !!savedRegionalProgress.unlocked,
+    east: {
+      disturbanceTriggered: !!ensureObject(savedRegionalProgress.east).disturbanceTriggered,
+      disturbanceResolved: !!ensureObject(savedRegionalProgress.east).disturbanceResolved,
+      capabilityDiscovered: !!ensureObject(savedRegionalProgress.east).capabilityDiscovered,
+    },
+    south: {
+      disturbanceTriggered: !!ensureObject(savedRegionalProgress.south).disturbanceTriggered,
+      disturbanceResolved: !!ensureObject(savedRegionalProgress.south).disturbanceResolved,
+      capabilityDiscovered: !!ensureObject(savedRegionalProgress.south).capabilityDiscovered,
+    },
   };
 
   applySavedFields(gameState.exploration, savedGameState.exploration, ["currentStage", "count"]);
@@ -1232,9 +1320,14 @@ function applyGameStateSaveData(savedGameState) {
 
   applyProjectSaveData(savedGameState.projects);
   applyTowerNodeSaveData(savedGameState.towerNodes);
+  gameState.elementals = structuredClone(ensureObject(savedGameState.elementals));
+  ensureElementalState();
 
   if (typeof repairNorthernDisturbanceFromNorthNode === "function") {
     repairNorthernDisturbanceFromNorthNode();
+  }
+  if (typeof repairRegionalProgressionFromNorthNode === "function") {
+    repairRegionalProgressionFromNorthNode();
   }
 
   resetActivity();
@@ -1450,7 +1543,10 @@ function loadGame() {
   applyAutomationSaveData(saveData.automation);
   ensureSkillsState();
   ensureProjectsState();
+  ensureTowerStructureState();
+  syncTowerStructureUnlocks(false);
   ensureTowerNodesState();
+  ensureElementalState();
   repairPersonalWardUnlockFromProject(false);
   repairTowerNodeActivationFromHeart(false);
   if (typeof checkRank2SkillUnlocks === "function") {
@@ -1458,6 +1554,7 @@ function loadGame() {
   }
   recalculateCharacterStats();
   recalculateCampEffects();
+  applyBasementStorageUpgrade();
   recalculateToolEffects();
   checkResearchDiscoveries();
   refreshGameUIAfterLoad();

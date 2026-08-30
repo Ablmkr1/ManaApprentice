@@ -58,6 +58,28 @@ function hookActionCompletions() {
     }
   };
 
+  getAction("challengeEarthElemental").onComplete = function () {
+    if (typeof startRepeatNorthernEarthElementalCombat === "function") {
+      startRepeatNorthernEarthElementalCombat();
+    }
+  };
+
+  getAction("investigateEasternDisturbance").onComplete = function () {
+    if (typeof startRegionalDisturbanceCombat === "function") startRegionalDisturbanceCombat("east");
+  };
+
+  getAction("challengeThornfang").onComplete = function () {
+    if (typeof startRepeatRegionalCombat === "function") startRepeatRegionalCombat("east");
+  };
+
+  getAction("investigateSouthernDisturbance").onComplete = function () {
+    if (typeof startRegionalDisturbanceCombat === "function") startRegionalDisturbanceCombat("south");
+  };
+
+  getAction("challengeBlightedBriar").onComplete = function () {
+    if (typeof startRepeatRegionalCombat === "function") startRepeatRegionalCombat("south");
+  };
+
   getAction("gatherFiber").onComplete = function () {
     const fiberCarried = addCarriedItemUpToCapacity("fiber", getGatherResourceYield("fiber"));
 
@@ -113,8 +135,7 @@ function hookActionCompletions() {
   };
 
   getAction("packTrap").onComplete = function () {
-    if (!addCarriedItem("trap", 1)) {
-      addResource("trap", 1);
+    if (packExpeditionItem("packTrap", 1, { prepaidAmount: 1 }) <= 0) {
       addStoryEntry("Your pack is too full to carry the trap.");
     }
   };
@@ -272,15 +293,11 @@ function hookActionCompletions() {
   };
 
   getAction("packFood").onComplete = function () {
-    if (!addCarriedItem("food", 1)) {
-      addResource("food", 1);
-    }
+    packExpeditionItem("packFood", 1, { prepaidAmount: 1 });
   };
 
   getAction("packPelt").onComplete = function () {
-    if (!addCarriedItem("pelt", 1)) {
-      addResource("pelt", 1);
-    }
+    packExpeditionItem("packPelt", 1, { prepaidAmount: 1 });
   };
 
   getAction("storePelt").onComplete = function () {
@@ -312,27 +329,19 @@ function hookActionCompletions() {
   };
 
   getAction("packWood").onComplete = function () {
-    if (!addCarriedItem("wood", 1)) {
-      addResource("wood", 1);
-    }
+    packExpeditionItem("packWood", 1, { prepaidAmount: 1 });
   };
 
   getAction("packStone").onComplete = function () {
-    if (!addCarriedItem("stone", 1)) {
-      addResource("stone", 1);
-    }
+    packExpeditionItem("packStone", 1, { prepaidAmount: 1 });
   };
 
   getAction("packIron").onComplete = function () {
-    if (!addCarriedItem("iron", 1)) {
-      addResource("iron", 1);
-    }
+    packExpeditionItem("packIron", 1, { prepaidAmount: 1 });
   };
 
   getAction("packImbuedWood").onComplete = function () {
-    if (!addCarriedItem("imbuedWood", 1)) {
-      addResource("imbuedWood", 1);
-    }
+    packExpeditionItem("packImbuedWood", 1, { prepaidAmount: 1 });
   };
 
   getAction("storeWood").onComplete = function () {
@@ -354,9 +363,7 @@ function hookActionCompletions() {
   };
 
   getAction("packOre").onComplete = function () {
-    if (!addCarriedItem("ore", 1)) {
-      addResource("ore", 1);
-    }
+    packExpeditionItem("packOre", 1, { prepaidAmount: 1 });
   };
 
   getAction("storeOre").onComplete = function () {
@@ -515,39 +522,29 @@ function hookActionCompletions() {
   };
 
   getAction("packHerb").onComplete = function () {
-    const herb = getResource("herb");
-    const amountToTry = Math.min(5, herb.value);
-    const amountPacked = addCarriedItemUpToCapacity("herb", amountToTry);
+    const amountPacked = packExpeditionItem("packHerb", 5);
 
     if (amountPacked <= 0) {
       addStoryEntry("Your pack is too full to carry more herbs.");
       return;
     }
 
-    herb.value -= amountPacked;
-    updateResource("herb");
     addStoryEntry("You pack " + amountPacked + " herbs.");
   };
 
   getAction("packGlimmerleaf").onComplete = function () {
-    const glimmerleaf = getResource("glimmerleaf");
-    const amountToTry = Math.min(5, glimmerleaf.value);
-    const amountPacked = addCarriedItemUpToCapacity("glimmerleaf", amountToTry);
+    const amountPacked = packExpeditionItem("packGlimmerleaf", 5);
 
     if (amountPacked <= 0) {
       addStoryEntry("Your pack is too full to carry more glimmerleaf.");
       return;
     }
 
-    glimmerleaf.value = roundResourceAmount(glimmerleaf.value - amountPacked);
-    updateResource("glimmerleaf");
     addStoryEntry("You pack " + amountPacked + " glimmerleaf.");
   };
 
   getAction("packChargedCrystal").onComplete = function () {
-    if (!addCarriedItem("chargedCrystal", 1)) {
-      addResource("chargedCrystal", 1);
-    }
+    packExpeditionItem("packChargedCrystal", 1, { prepaidAmount: 1 });
   };
 
   getAction("enterDungeon").onComplete = function () {

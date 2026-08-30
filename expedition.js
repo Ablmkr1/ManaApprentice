@@ -172,6 +172,23 @@ function isLocationActionAvailable(actionName, locationName, location) {
     return canInvestigateNorthernDisturbance();
   }
 
+  if (actionName === "challengeEarthElemental") {
+    return canChallengeNorthernEarthElemental();
+  }
+
+  if (actionName === "investigateEasternDisturbance") return canInvestigateRegionalDisturbance("east");
+  if (actionName === "challengeThornfang") return canChallengeRegionalEnemy("east");
+  if (actionName === "investigateSouthernDisturbance") return canInvestigateRegionalDisturbance("south");
+  if (actionName === "challengeBlightedBriar") return canChallengeRegionalEnemy("south");
+
+  if (actionName === "scoutTrapSite") {
+    return !!getFirstHiddenTrapSite(locationName);
+  }
+
+  if (actionName === "setTrap") {
+    return hasOpenTrapSite(locationName);
+  }
+
   if (actionName === "gatherStone" && locationName === "creepyCave") {
     return getLocationLooseStoneRemaining(location) > 0;
   }
@@ -190,6 +207,45 @@ function canInvestigateNorthernDisturbance() {
     !!disturbance &&
     disturbance.triggered &&
     !disturbance.resolved &&
+    !(typeof isCombatActive === "function" && isCombatActive())
+  );
+}
+
+function canChallengeNorthernEarthElemental() {
+  const northNode = typeof getTowerNodeState === "function" ? getTowerNodeState("north") : null;
+  const disturbance = gameState.northernDisturbance;
+
+  return (
+    gameState.expedition.currentLocation === "ironMine" &&
+    !!northNode &&
+    northNode.advancedRecallUnlocked &&
+    !!disturbance &&
+    disturbance.resolved &&
+    !(typeof isCombatActive === "function" && isCombatActive())
+  );
+}
+
+function getRegionalDisturbanceLocation(regionId) {
+  return regionId === "east" ? "quietGrove" : regionId === "south" ? "overgrownFields" : null;
+}
+
+function canInvestigateRegionalDisturbance(regionId) {
+  const progress = typeof getRegionalProgressState === "function" ? getRegionalProgressState(regionId) : null;
+  return (
+    !!progress &&
+    progress.disturbanceTriggered &&
+    !progress.disturbanceResolved &&
+    gameState.expedition.currentLocation === getRegionalDisturbanceLocation(regionId) &&
+    !(typeof isCombatActive === "function" && isCombatActive())
+  );
+}
+
+function canChallengeRegionalEnemy(regionId) {
+  const progress = typeof getRegionalProgressState === "function" ? getRegionalProgressState(regionId) : null;
+  return (
+    !!progress &&
+    progress.disturbanceResolved &&
+    gameState.expedition.currentLocation === getRegionalDisturbanceLocation(regionId) &&
     !(typeof isCombatActive === "function" && isCombatActive())
   );
 }
@@ -340,7 +396,7 @@ function addCarriedItem(itemName, amount) {
 function addCarriedItemUpToCapacity(itemName, amount) {
   const itemWeight = getCarriedItemWeight(itemName);
   const availableSpace = getEffectiveCarryCapacity() - getCarriedTotal();
-  const amountToCarry = Math.min(amount, Math.floor(availableSpace / itemWeight));
+  const amountToCarry = Math.min(amount, Math.floor((availableSpace + RESOURCE_AFFORDABILITY_EPSILON) / itemWeight));
 
   if (amountToCarry <= 0) return 0;
 
@@ -354,6 +410,82 @@ function addCarriedItemUpToCapacity(itemName, amount) {
   refreshExpeditionUI();
 
   return amountToCarry;
+}
+
+const BATCH_PACKING_ITEMS = {
+  packFood: { itemName: "food" },
+  packTrap: { itemName: "trap" },
+  packPelt: { itemName: "pelt" },
+  packOre: { itemName: "ore" },
+  packWood: { itemName: "wood" },
+  packStone: { itemName: "stone" },
+  packIron: { itemName: "iron" },
+  packImbuedWood: { itemName: "imbuedWood" },
+  packHerb: { itemName: "herb" },
+  packGlimmerleaf: { itemName: "glimmerleaf" },
+  packChargedCrystal: { itemName: "chargedCrystal" },
+};
+
+function getBatchPackingActionNames() {
+  return Object.keys(BATCH_PACKING_ITEMS);
+}
+
+function getBatchPackingItemName(actionName) {
+  return BATCH_PACKING_ITEMS[actionName] ? BATCH_PACKING_ITEMS[actionName].itemName : null;
+}
+
+function canUseBatchPackingAction(actionName) {
+  const definition = BATCH_PACKING_ITEMS[actionName];
+  const action = typeof getAction === "function" ? getAction(actionName) : null;
+  const expedition = gameState.expedition;
+
+  if (!definition || !action || !action.unlocked || !expedition.active || expedition.currentLocation || expedition.distance > 0) return false;
+  if (isActivityActive() || (typeof isCombatActive === "function" && isCombatActive())) return false;
+
+  const resource = getResource(definition.itemName);
+  return !!resource && resource.value > 0 && addCarriedItemUpToCapacityPreview(definition.itemName, 1) > 0;
+}
+
+function addCarriedItemUpToCapacityPreview(itemName, amount) {
+  const itemWeight = getCarriedItemWeight(itemName);
+  const availableSpace = getEffectiveCarryCapacity() - getCarriedTotal();
+  return Math.max(0, Math.min(amount, Math.floor((availableSpace + RESOURCE_AFFORDABILITY_EPSILON) / itemWeight)));
+}
+
+function packExpeditionItem(actionName, requestedAmount, options = {}) {
+  const definition = BATCH_PACKING_ITEMS[actionName];
+  if (!definition) return 0;
+
+  const resource = getResource(definition.itemName);
+  const requested = Math.max(0, Math.floor(Number(requestedAmount) || 0));
+  const prepaid = Math.max(0, Math.min(requested, Math.floor(Number(options.prepaidAmount) || 0)));
+
+  if (!resource || requested <= 0) return 0;
+
+  const available = Math.max(0, Math.floor(resource.value + RESOURCE_AFFORDABILITY_EPSILON)) + prepaid;
+  const amountToTry = Math.min(requested, available);
+  const amountPacked = addCarriedItemUpToCapacity(definition.itemName, amountToTry);
+  const resourceSpent = Math.max(0, amountPacked - prepaid);
+  const refund = Math.max(0, prepaid - amountPacked);
+
+  if (resourceSpent > 0) {
+    resource.value = roundResourceAmount(Math.max(0, resource.value - resourceSpent));
+    updateResource(definition.itemName);
+  }
+
+  if (refund > 0) addResource(definition.itemName, refund);
+
+  if (amountPacked > 0) {
+    setPackingActionsAvailable(true);
+    updateAllActionButtons();
+  }
+
+  return amountPacked;
+}
+
+function packExpeditionAmount(actionName, amount) {
+  if (!canUseBatchPackingAction(actionName)) return 0;
+  return packExpeditionItem(actionName, amount);
 }
 
 function removeCarriedItem(itemName, amount) {
@@ -495,6 +627,24 @@ function getCarriedSummary() {
   if (parts.length === 0) return "empty";
 
   return parts.join(", ");
+}
+
+function getPackedExpeditionSummaryParts() {
+  const expedition = gameState.expedition;
+  const parts = [];
+
+  for (let itemName in expedition.carriedItems) {
+    if (itemName === "water") continue;
+
+    const amount = expedition.carriedItems[itemName];
+    if (!(amount > 0)) continue;
+
+    const resource = getResource(itemName);
+    const label = resource ? resource.label : itemName;
+    parts.push(label + " " + formatCarryAmount(amount));
+  }
+
+  return parts;
 }
 
 // Cargo Helpers
@@ -1840,10 +1990,12 @@ function renderExpeditionWorkflowPanel() {
   if (!ui.expeditionWorkflowPanel) return;
 
   const expedition = gameState.expedition;
+  const packedParts = getPackedExpeditionSummaryParts();
+  const packCapacity = formatCarryAmount(getCarriedTotal()) + " / " + formatCarryAmount(getEffectiveCarryCapacity());
   const meta = [
     {
       label: "Pack",
-      value: formatCarryAmount(getCarriedTotal()) + " / " + formatCarryAmount(getEffectiveCarryCapacity()),
+      value: packCapacity + (packedParts.length > 0 ? " · " + packedParts.join(" · ") : " · Empty"),
     },
     {
       label: "Water",
@@ -1880,11 +2032,6 @@ function renderExpeditionWorkflowPanel() {
       status = "Preparing";
       body = "Pack supplies, then start travel when you are ready.";
     }
-
-    meta.push({
-      label: "Distance",
-      value: formatTrainingNumber(expedition.distance || 0) + " / " + formatTrainingNumber(expedition.targetDistance || getSelectedTravelDistance()),
-    });
   } else if (gameState.phase === "expedition") {
     const regionId = getSelectedTravelRegionId();
     const region = getRegionDefinition(regionId);

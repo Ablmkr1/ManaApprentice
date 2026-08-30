@@ -70,6 +70,8 @@ function hookDomToUI() {
   ui.combatEnemyHealthFill = document.getElementById("combatEnemyHealthFill");
   ui.combatWardText = document.getElementById("combatWardText");
   ui.combatAttackTimer = document.getElementById("combatAttackTimer");
+  ui.combatConsumables = document.getElementById("combatConsumables");
+  ui.combatConsumablesList = document.getElementById("combatConsumablesList");
   ui.manaBoltBtn = document.getElementById("manaBoltBtn");
   ui.manaBoltProgressFill = document.getElementById("manaBoltProgressFill");
   ui.combatRecallBtn = document.getElementById("combatRecallBtn");
@@ -114,6 +116,8 @@ function hookDomToUI() {
   ui.oreAmount = document.getElementById("oreAmount");
   ui.ironAmount = document.getElementById("ironAmount");
   ui.earthElementalCoreAmount = document.getElementById("earthElementalCoreAmount");
+  ui.runedLeatherAmount = document.getElementById("runedLeatherAmount");
+  ui.naturalEssenceAmount = document.getElementById("naturalEssenceAmount");
   ui.herbAmount = document.getElementById("herbAmount");
   ui.glimmerleafAmount = document.getElementById("glimmerleafAmount");
   ui.staminaTonicBaseAmount = document.getElementById("staminaTonicBaseAmount");
@@ -132,6 +136,7 @@ function hookDomToUI() {
   ui.dungeonRoomText = document.getElementById("dungeonRoomText");
   ui.locationContent = document.getElementById("locationContent");
   ui.locationDescription = document.getElementById("locationDescription");
+  ui.locationPrimaryActions = document.getElementById("locationPrimaryActions");
   ui.campContextualActions = document.getElementById("campContextualActions");
   ui.locationContextualActions = document.getElementById("locationContextualActions");
   ui.locationSpellActions = document.getElementById("locationSpellActions");
@@ -171,6 +176,7 @@ function hookDomToUI() {
   ui.automationList = document.getElementById("automationList");
   ui.projectPanel = document.getElementById("projectPanel");
   ui.projectList = document.getElementById("projectList");
+  ui.towerStructure = document.getElementById("towerStructure");
   ui.recallAwakenedPopup = document.getElementById("recallAwakenedPopup");
   ui.recallAwakenedContinueBtn = document.getElementById("recallAwakenedContinueBtn");
   ui.mainViewTabs = document.getElementById("mainViewTabs");
@@ -523,7 +529,9 @@ function enhancePopupSemantics() {
     dialog.setAttribute("role", "dialog");
     dialog.setAttribute("aria-modal", "true");
     dialog.setAttribute("aria-labelledby", heading.id);
-    popup.setAttribute("aria-hidden", isPopupVisible(popup) ? "false" : "true");
+    const visible = isPopupVisible(popup);
+    popup.setAttribute("aria-hidden", visible ? "false" : "true");
+    popup.toggleAttribute("inert", !visible);
 
     if (popup.id === "advancedRecallPopup") {
       dialog.dataset.escapeClose = "true";
@@ -572,6 +580,7 @@ function syncPopupModalState(popup) {
   const visible = isPopupVisible(popup);
 
   if (visible) {
+    popup.removeAttribute("inert");
     popup.setAttribute("aria-hidden", "false");
     if (activeUiModal === dialog) return;
     if (activeUiModal === ui.settingsDrawer) closeSettingsDrawer();
@@ -593,9 +602,26 @@ function syncPopupModalState(popup) {
     restoreUiModalFocus();
   }
 
-  // A focused descendant must be moved out before the popup is hidden from
-  // assistive technology. Otherwise browsers reject the aria-hidden update.
+  moveFocusOutsidePopup(popup);
+  popup.setAttribute("inert", "");
   popup.setAttribute("aria-hidden", "true");
+}
+
+function moveFocusOutsidePopup(popup) {
+  if (!popup || !popup.contains(document.activeElement)) return;
+
+  const fallback = document.querySelector(".main-view-tab.active") || ui.settingsToggleBtn || ui.appShell;
+
+  if (fallback && !popup.contains(fallback) && typeof fallback.focus === "function") {
+    const hadTabindex = fallback.hasAttribute("tabindex");
+    if (!hadTabindex) fallback.setAttribute("tabindex", "-1");
+    fallback.focus({ preventScroll: true });
+    if (!hadTabindex) fallback.removeAttribute("tabindex");
+  }
+
+  if (popup.contains(document.activeElement) && typeof document.activeElement.blur === "function") {
+    document.activeElement.blur();
+  }
 }
 
 function handleGlobalUiKeydown(event) {
@@ -763,6 +789,8 @@ function hookUIMaps() {
     ore: ui.oreAmount,
     iron: ui.ironAmount,
     earthElementalCore: ui.earthElementalCoreAmount,
+    runedLeather: ui.runedLeatherAmount,
+    naturalEssence: ui.naturalEssenceAmount,
     herb: ui.herbAmount,
     glimmerleaf: ui.glimmerleafAmount,
     staminaTonicBase: ui.staminaTonicBaseAmount,
@@ -1620,6 +1648,8 @@ function updateAllActionButtons() {
     updateActionButton(actionName);
   }
 
+  updateLocationPrimaryActionsVisibility();
+
   if (typeof updateProjectButtons === "function") {
     updateProjectButtons();
   }
@@ -1640,6 +1670,15 @@ function updateAllActionButtons() {
   updatePrimaryActionEmphasis();
   updateShellContext();
   updateCampWorkVisibility();
+}
+
+function updateLocationPrimaryActionsVisibility() {
+  if (!ui.locationPrimaryActions) return;
+
+  const hasVisibleAction = Array.from(ui.locationPrimaryActions.querySelectorAll(".action-btn")).some(function (button) {
+    return button.style.display !== "none";
+  });
+  ui.locationPrimaryActions.style.display = hasVisibleAction ? "grid" : "none";
 }
 
 //UI Unlock Resource and Panels
@@ -1948,6 +1987,7 @@ function updateActionButton(actionName) {
   if (!action.unlocked) {
     action.button.disabled = true;
     applyUiActionState(action.button, { state: "locked", reason: "Not yet discovered" }, actionName);
+    syncPackingControlGroupState(actionName);
     return;
   }
 
@@ -1958,6 +1998,7 @@ function updateActionButton(actionName) {
 
   action.button.disabled = !action.unlocked || (!isCurrentActivity && isActivityActive()) || !canUseAction(actionName);
   applyUiActionState(action.button, getUiActionAvailability(actionName), actionName);
+  syncPackingControlGroupState(actionName);
 }
 
 function getUiActionAvailability(actionName) {
@@ -2079,6 +2120,11 @@ function getUiActionContextReason(actionName) {
     "enterDungeon",
     "leaveDungeon",
     "investigateNorthernDisturbance",
+    "challengeEarthElemental",
+    "investigateEasternDisturbance",
+    "challengeThornfang",
+    "investigateSouthernDisturbance",
+    "challengeBlightedBriar",
   ];
 
   if (campActions.includes(actionName)) return "Available at Camp";
@@ -2269,6 +2315,26 @@ function isActionContextAvailable(actionName) {
     return typeof canInvestigateNorthernDisturbance === "function" && canInvestigateNorthernDisturbance();
   }
 
+  if (actionName === "challengeEarthElemental") {
+    return typeof canChallengeNorthernEarthElemental === "function" && canChallengeNorthernEarthElemental();
+  }
+
+  if (actionName === "investigateEasternDisturbance") {
+    return typeof canInvestigateRegionalDisturbance === "function" && canInvestigateRegionalDisturbance("east");
+  }
+
+  if (actionName === "challengeThornfang") {
+    return typeof canChallengeRegionalEnemy === "function" && canChallengeRegionalEnemy("east");
+  }
+
+  if (actionName === "investigateSouthernDisturbance") {
+    return typeof canInvestigateRegionalDisturbance === "function" && canInvestigateRegionalDisturbance("south");
+  }
+
+  if (actionName === "challengeBlightedBriar") {
+    return typeof canChallengeRegionalEnemy === "function" && canChallengeRegionalEnemy("south");
+  }
+
   if (actionName === "storeHerb") {
     const location = getExpeditionLocation(locationName);
     return !!location && !!location.storage && location.storage.herb !== undefined && gameState.expedition.carriedItems.herb > 0;
@@ -2404,7 +2470,55 @@ function hookActionButtonsToUI(onActionClick) {
       onActionClick(actionName);
     });
   });
+  enhancePackingControls();
   updateReturnToCampButtonLabel();
+}
+
+function enhancePackingControls() {
+  if (typeof getBatchPackingActionNames !== "function") return;
+
+  getBatchPackingActionNames().forEach(function (actionName) {
+    const action = getAction(actionName);
+    const button = action && action.button;
+
+    if (!button || button.closest(".packing-control-group")) return;
+
+    const group = document.createElement("div");
+    group.className = "packing-control-group";
+    button.parentElement.insertBefore(group, button);
+    group.appendChild(button);
+
+    [5, 10].forEach(function (amount) {
+      const batchButton = document.createElement("button");
+      batchButton.type = "button";
+      batchButton.className = "packing-batch-btn";
+      batchButton.dataset.packAction = actionName;
+      batchButton.dataset.packAmount = String(amount);
+      batchButton.textContent = "+" + amount;
+      const item = getResource(getBatchPackingItemName(actionName));
+      batchButton.setAttribute("aria-label", "Pack up to " + amount + " " + (item ? item.label : "items"));
+      batchButton.addEventListener("click", function () {
+        packExpeditionAmount(actionName, amount);
+      });
+      group.appendChild(batchButton);
+    });
+
+    syncPackingControlGroupState(actionName);
+  });
+}
+
+function syncPackingControlGroupState(actionName) {
+  const action = typeof getAction === "function" ? getAction(actionName) : null;
+  const button = action && action.button;
+  const group = button && button.closest(".packing-control-group");
+
+  if (!group) return;
+
+  group.style.display = button.style.display === "none" ? "none" : "grid";
+  const usable = typeof canUseBatchPackingAction === "function" && canUseBatchPackingAction(actionName);
+  group.querySelectorAll(".packing-batch-btn").forEach(function (batchButton) {
+    batchButton.disabled = !usable;
+  });
 }
 
 function updateExpeditionLoadoutVisibility() {
