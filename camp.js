@@ -72,6 +72,50 @@ const SPELL_PROGRESS_DEFINITIONS = {
   },
 };
 
+// Rank II deliberately has its own progression data: Rank I remains the
+// spell-mastery track above, while this track represents a persistent build.
+const ATTUNEMENT_RANK_TWO_PROGRESSION = [
+  { level: 0, threshold: 0, bonusPercent: 0 },
+  { level: 1, threshold: 50, bonusPercent: 10 },
+  { level: 2, threshold: 100, bonusPercent: 20 },
+  { level: 3, threshold: 150, bonusPercent: 30 },
+  { level: 4, threshold: 200, bonusPercent: 55 },
+  { level: 5, threshold: 250, bonusPercent: 65, breakthrough: "harmonicStability" },
+  { level: 6, threshold: 300, bonusPercent: 90 },
+  { level: 7, threshold: 350, bonusPercent: 100 },
+  { level: 8, threshold: 400, bonusPercent: 125 },
+  { level: 9, threshold: 450, bonusPercent: 150 },
+  { level: 10, threshold: 500, bonusPercent: 200, breakthrough: "harmonicAttunement" },
+];
+
+const ATTUNEMENT_RESONANCE_DEFINITIONS = {
+  clarity: { label: "Clarity", required: ["manaConduit", "focusedMind"], effects: { manaCyclingXpMultiplier: 1.1 } },
+  arcaneBulwark: { label: "Arcane Bulwark", required: ["hardenedWard", "manaConduit"], effects: { wardRestoreMultiplier: 1.1 } },
+  earthworker: { label: "Earthworker", required: ["packCapacity", "earthResonance"], effects: { manualStoneFlat: 1, manualIronFlat: 1 } },
+};
+
+const ATTUNEMENT_BREAKTHROUGH_DEFINITIONS = {
+  persistentResonance: {
+    label: "Persistent Resonance",
+    flavor: "You have learned to shape mana around yourself, but the patterns remain fragile. The restored Node reveals something deeper: an attunement does not need to be continually recreated. Properly anchored, it can become part of your magical state.",
+    requiredMana: 50,
+  },
+  harmonicStability: { label: "Harmonic Stability", requiredMana: 100 },
+  harmonicAttunement: { label: "Harmonic Attunement", requiredMana: 200 },
+};
+
+const ARCANE_FORCE_RANK_TWO_CONFIG = {
+  breakthroughManaRequired: 50,
+  powerBasePercent: 100,
+  powerPerLevelPercent: 20,
+  efficiencyUnlockLevel: 7,
+  manaCostMultiplier: 0.8,
+  castingSpeedMultiplier: 1.25,
+  progression: Array.from({ length: 11 }, function (_, level) {
+    return { level: level, threshold: level * 50 };
+  }),
+};
+
 const WARD_RANK_1_PROGRESSION = [
   { maxWard: 10, restoreEfficiency: 1 },
   { maxWard: 15, restoreEfficiency: 1.5 },
@@ -82,6 +126,61 @@ const WARD_RANK_1_PROGRESSION = [
 ];
 let openSpellMenuName = null;
 let selectedEquipmentDetailId = null;
+
+// Visual-only asset registry. Keep item IDs and their saved state independent
+// from filenames so artwork can be swapped without affecting progression.
+const EQUIPMENT_ICON_ASSETS = {
+  crudeSatchel: "assets/icons/icon-satchel-crude.png",
+  crudeBackpack: "assets/icons/icon-backpack-crude.png",
+  patchedLeatherBackpack: "assets/icons/icon-backpack-patched.png",
+  repairedLeatherBackpack: "assets/icons/icon-backpack.png",
+  scratchyShirt: "assets/icons/icon-shirt-linen.png",
+  leatherShirt: "assets/icons/icon-shirt-leather.png",
+  scratchyPants: "assets/icons/icon-trousers-wool.png",
+  leatherPants: "assets/icons/icon-trousers-leather.png",
+  foragingBasket: "assets/icons/icon-basket-foraging.png",
+  waterskin: "assets/icons/icon-waterskin.png",
+  reinforcedWaterskin: "assets/icons/icon-waterskin-reinforced.png",
+  smellyShoes: "assets/icons/icon-shoes-crude.png",
+  travelBoots: "assets/icons/icon-boots-travel.png",
+  simpleTonicBelt: "assets/icons/icon-belt-tonic-simple.png",
+  tonicBelt: "assets/icons/icon-belt-tonic-double.png",
+  reinforcedTonicBelt: "assets/icons/icon-belt-tonic-reinforced.png",
+  stoneKnife: "assets/icons/icon-knife-stone.png",
+  ironKnife: "assets/icons/icon-knife-iron.png",
+  steelKnife: "assets/icons/icon-knife-steel.png",
+  stoneAxe: "assets/icons/icon-axe-stone.png",
+  ironAxe: "assets/icons/icon-axe-iron.png",
+  steelAxe: "assets/icons/icon-axe-steel.png",
+  crudeIronPick: "assets/icons/icon-pick-iron.png",
+  steelPick: "assets/icons/icon-pick-steel.png",
+  torch: "assets/icons/icon-torch.png",
+  ironStaff: "assets/icons/icon-staff-iron.png",
+  steelStaff: "assets/icons/icon-staff-steel.png",
+};
+
+function getEquipmentIconAsset(item) {
+  if (!item) return null;
+  if (item.iconAsset) return item.iconAsset;
+  if (item.imbueRingId) return "assets/icons/icon-ring-mana.png";
+  return EQUIPMENT_ICON_ASSETS[getGearUpgradeIdByDefinition(item)] || null;
+}
+
+function createEquipmentIconImage(item) {
+  const image = document.createElement("img");
+  const label = item.displayName || item.label || "Equipment";
+  const asset = getEquipmentIconAsset(item);
+
+  image.className = "equipment-item-icon";
+  image.src = asset || "assets/icons/icon-spare.png";
+  image.alt = "";
+  image.setAttribute("aria-hidden", "true");
+  image.dataset.iconFallback = item.icon || "";
+  image.addEventListener("error", function () {
+    image.replaceWith(document.createTextNode(image.dataset.iconFallback || "?"));
+  }, { once: true });
+  return image;
+}
 
 function applyUnlock(unlock) {
   if (!unlock || !unlock.type || !unlock.id) {
@@ -185,11 +284,18 @@ function getWardRankProgression() {
 }
 
 function getWardMaximum() {
-  return getWardRankProgression().maxWard;
+  const attunementBonus = typeof getActiveAttunementEffectTotal === "function" ? getActiveAttunementEffectTotal("maxWardFlat") : 0;
+  const permanentBonus = typeof getEquippedPermanentImbueEffectTotal === "function" ? getEquippedPermanentImbueEffectTotal("maxWardFlat") : 0;
+  return roundResourceAmount(getWardRankProgression().maxWard + attunementBonus + permanentBonus);
 }
 
 function getWardRestoreEfficiency() {
-  return getWardRankProgression().restoreEfficiency;
+  const base = getWardRankProgression().restoreEfficiency;
+  const resonanceMultiplier = typeof hasActiveAttunementResonance === "function" && hasActiveAttunementResonance("arcaneBulwark") ? 1.1 : 1;
+  const permanentMultiplier = typeof getEquippedPermanentImbueEffectMultiplier === "function"
+    ? getEquippedPermanentImbueEffectMultiplier("wardRestoreMultiplier")
+    : 1;
+  return base * resonanceMultiplier * permanentMultiplier;
 }
 
 function formatWardRestoreEfficiency() {
@@ -485,6 +591,7 @@ function getDefaultTowerNodeState(nodeName) {
     threadSenseProgress: 0,
     threadSensed: false,
     advancedRecallUnlocked: false,
+    permanentImbued: false,
   };
 }
 
@@ -535,6 +642,7 @@ function normalizeTowerNodeState(nodeName) {
   const threadSenseRequired = definition.threadSenseRequired || 0;
   state.threadSensed = !!state.threadSensed || (threadSenseRequired > 0 && state.threadSenseProgress >= threadSenseRequired);
   state.advancedRecallUnlocked = !!state.advancedRecallUnlocked || state.threadSensed;
+  state.permanentImbued = !!state.permanentImbued;
 
   if (!state.deposits || typeof state.deposits !== "object" || Array.isArray(state.deposits)) {
     state.deposits = {};
@@ -553,6 +661,7 @@ function normalizeTowerNodeState(nodeName) {
 // records. This keeps identical workers simple while still allowing every
 // assignment to be moved or released independently.
 let lastBoundEarthAutomationUiSignature = "";
+let boundEarthElementalCraftingOpen = false;
 
 function getDefaultBoundEarthElementalState() {
   const config = getElementalAutomationConfig();
@@ -711,7 +820,9 @@ function getBoundEarthElementalAvailableCount() {
 }
 
 function getTowerHeartElementalControlCapacity() {
-  return getElementalAutomationConfig().towerHeart.startingElementalControlCapacity;
+  return typeof ensureImbueRankTwoState === "function"
+    ? ensureImbueRankTwoState().controlCapacity
+    : getElementalAutomationConfig().towerHeart.startingElementalControlCapacity;
 }
 
 function getBoundEarthElementalNodeCapacity(nodeName) {
@@ -1520,12 +1631,14 @@ function updateCampUpgradeUI(upgradeName) {
   }
 }
 
-function ensureCraftingButton(buttonId) {
+function ensureCraftingButton(buttonId, craftingCategory) {
   let button = document.getElementById(buttonId);
 
   if (button) return button;
 
-  const craftingActions = document.querySelector("#craftingPanel .crafting-actions");
+  const craftingActions = craftingCategory === "steelworking"
+    ? document.getElementById("steelworkingActions")
+    : document.querySelector("#craftingPanel > .crafting-actions");
 
   if (!craftingActions) return null;
 
@@ -1545,7 +1658,7 @@ function hookGearUpgradesToUI() {
   for (let upgradeName in gearUpgradeDefinitions) {
     const upgrade = getGearUpgrade(upgradeName);
 
-    upgrade.button = ensureCraftingButton(upgradeName + "Btn");
+    upgrade.button = ensureCraftingButton(upgradeName + "Btn", upgrade.craftingCategory);
     upgrade.display = document.getElementById(upgradeName);
 
     if (upgrade.button) {
@@ -1585,7 +1698,7 @@ function getActiveCraftContext(craft) {
   if (isCampEquipmentCraftContextAvailable(craft)) {
     return {
       mode: "campEquipment",
-      cost: craft.campCost || craft.cost || {},
+      cost: getImbueAdjustedCraftCost(craft, craft.campCost || craft.cost || {}),
       storageCost: null,
       produces: craft.campProduces || craft.produces || null,
       storageProduces: null,
@@ -1603,8 +1716,8 @@ function getActiveCraftContext(craft) {
 
   return {
     mode: requiredLocation === "camp" ? "camp" : "location",
-    cost: craft.cost || {},
-    storageCost: craft.storageCost || null,
+    cost: getImbueAdjustedCraftCost(craft, craft.cost || {}),
+    storageCost: craft.storageCost ? getImbueAdjustedCraftCost(craft, craft.storageCost) : null,
     produces: craft.produces || null,
     storageProduces: craft.storageProduces || null,
     producesConsumable: craft.producesConsumable || null,
@@ -1635,6 +1748,10 @@ function getBasicCraftButtonCost(craft, craftType, craftId) {
 
   if (resourceCost) costs.push(resourceCost);
   if (storageCost) costs.push(storageCost);
+  if (craft.requiredGear) {
+    const requiredGear = getGearUpgrade(craft.requiredGear);
+    costs.unshift((requiredGear && (requiredGear.displayName || requiredGear.label)) || craft.requiredGear);
+  }
 
   return costs.join(", ");
 }
@@ -1702,9 +1819,12 @@ function formatFilteredCost(cost, shouldIncludeResource) {
 
 function setCampActionsAvailable(available) {
   if (available) {
+    const fuelStructureBuilt = hasPurchasedCampUpgrade("campAlchemyStation") || hasPurchasedCampUpgrade("campSmelter");
+
     if (gameState.discoveredDeadfall) {
       unlockAction("gatherWood");
-      unlockAction("addWoodToFuel");
+      if (fuelStructureBuilt) unlockAction("addWoodToFuel");
+      else lockAction("addWoodToFuel");
     } else {
       lockAction("addWoodToFuel");
     }
@@ -1713,7 +1833,7 @@ function setCampActionsAvailable(available) {
     const imbuedWoodVisible = imbuedWood && imbuedWood.display && imbuedWood.display.style.display !== "none";
     const imbueSpell = getSpell("imbue");
 
-    if ((imbuedWood && imbuedWood.value > 0) || imbuedWoodVisible || (imbueSpell && imbueSpell.unlocked)) {
+    if (fuelStructureBuilt && ((imbuedWood && imbuedWood.value > 0) || imbuedWoodVisible || (imbueSpell && imbueSpell.unlocked))) {
       unlockAction("addImbuedWoodToFuel");
     } else {
       lockAction("addImbuedWoodToFuel");
@@ -1981,9 +2101,9 @@ function renderContextualCraftingSpellActions() {
     if (!spell || !spell.unlocked) return;
 
     for (let targetName in definitions) {
-      if (!isProductionSpellTargetAvailable(spellName, targetName)) continue;
-
       const definition = getProductionSpellDefinition(spellName, targetName);
+      const visiblePermanentImbue = spellName === "imbue" && definition && definition.permanentImbue && isImbueRankTwoTargetVisible(targetName);
+      if (!isProductionSpellTargetAvailable(spellName, targetName) && !visiblePermanentImbue && !(spellName === "imbue" && definition && definition.toolCharge && isCampCraftingContext())) continue;
       const targetContext = getProductionSpellTargetContext(spellName, targetName);
       const context = {
         type: "productionSpell",
@@ -1991,6 +2111,11 @@ function renderContextualCraftingSpellActions() {
         targetId: targetName,
         mode: targetContext ? targetContext.mode : null,
       };
+      if (spellName === "imbue" && definition.toolCharge) {
+        container.appendChild(createImbueToolOption(definition, context));
+        hasActions = true;
+        continue;
+      }
       const button = document.createElement("button");
       button.type = "button";
       button.className = "attunement-target-btn";
@@ -2104,7 +2229,12 @@ function createPaperDollItemButton(item) {
   button.className = "paper-doll-item slot-" + item.slot + (item.iconVariant ? " icon-" + item.iconVariant : "");
   button.setAttribute("aria-label", (item.displayName || item.label) + ": " + getEquipmentEffectText(item));
   button.title = item.displayName || item.label;
-  button.textContent = item.icon || "✦";
+  button.appendChild(createEquipmentIconImage(item));
+  const gearId = getGearUpgradeIdByDefinition(item);
+  const isPermanentlyImbued = !!item.imbueRingId ||
+    (item.slot === "pack" && ensureImbueRankTwoState().backpackImbued) ||
+    (!!gearId && !!ensureImbueRankTwoState().equipmentEnchantments[gearId]);
+  button.classList.toggle("is-imbued", isPermanentlyImbued);
   button.classList.toggle("is-selected", item === selectedEquipmentDetailId);
   button.addEventListener("click", function () {
     selectedEquipmentDetailId = item;
@@ -2123,7 +2253,7 @@ function createToolItemButton(item) {
 
   const icon = document.createElement("span");
   icon.className = "tool-item-icon";
-  icon.textContent = item.icon || "✦";
+  icon.appendChild(createEquipmentIconImage(item));
   const effect = document.createElement("span");
   effect.className = "tool-item-effect";
   effect.textContent = getEquipmentEffectText(item);
@@ -2138,7 +2268,29 @@ function createToolItemButton(item) {
 function updateEquipmentDetail(availableItems) {
   if (!ui.equipmentDetail) return;
   const item = selectedEquipmentDetailId && availableItems.indexOf(selectedEquipmentDetailId) !== -1 ? selectedEquipmentDetailId : availableItems[0];
-  ui.equipmentDetail.textContent = item ? (item.displayName || item.label) + "  " + getEquipmentEffectText(item) : "";
+  ui.equipmentDetail.innerHTML = "";
+  if (!item) return;
+
+  const summary = document.createElement("div");
+  summary.textContent = (item.displayName || item.label) + "  " + getEquipmentEffectText(item);
+  ui.equipmentDetail.appendChild(summary);
+
+  if (item.slot === "ring") {
+    const choices = document.createElement("div");
+    choices.className = "ring-choice-row";
+    getCraftedImbueRingDefinitions().forEach(function (ring) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "ring-choice-btn";
+      const ringIcon = createEquipmentIconImage(ring);
+      ringIcon.classList.add("ring-choice-icon");
+      button.append(ringIcon, document.createTextNode(ring.label));
+      button.disabled = ensureImbueRankTwoState().equippedRing === ring.imbueRingId;
+      button.addEventListener("click", function () { equipImbueRing(ring.imbueRingId); });
+      choices.appendChild(button);
+    });
+    ui.equipmentDetail.appendChild(choices);
+  }
 }
 
 function getEquipmentEffectText(item) {
@@ -2154,8 +2306,28 @@ function getEquipmentEffectText(item) {
   if (effects.cuttingYieldFlat !== undefined) parts.push("Fiber +" + effects.cuttingYieldFlat);
   if (effects.huntRewardFlat !== undefined) parts.push("Pelts +" + effects.huntRewardFlat);
   if (effects.choppingYieldFlat !== undefined) parts.push("Wood +" + effects.choppingYieldFlat);
-  if (effects.miningYieldBase !== undefined) parts.push("Ore " + effects.miningYieldBase);
+  if (effects.miningYieldBase !== undefined) parts.push("Stone " + effects.miningYieldBase, "Iron " + effects.miningYieldBase);
+  if (effects.combatCastSpeedMultiplier !== undefined) {
+    parts.push("Combat Cast Speed +" + Math.round((effects.combatCastSpeedMultiplier - 1) * 100) + "%");
+  }
+  if (effects.combatManaCostMultiplier !== undefined) {
+    parts.push("Combat Mana Cost -" + Math.round((1 - effects.combatManaCostMultiplier) * 100) + "%");
+  }
   if (effects.darkExploration) parts.push("Dark places");
+  if (effects.maxManaFlat !== undefined) parts.push("Max Mana +" + effects.maxManaFlat);
+  if (effects.maxWardFlat !== undefined) parts.push("Max Ward +" + effects.maxWardFlat);
+  if (item.slot === "pack" && ensureImbueRankTwoState().backpackImbued) {
+    parts.push("Imbued Pack +" + getImbuedBackpackCapacityBonus());
+  }
+  const gearId = getGearUpgradeIdByDefinition(item);
+  const enchantmentId = gearId ? ensureImbueRankTwoState().equipmentEnchantments[gearId] : null;
+  const enchantment = enchantmentId ? getImbueRankTwoConfig().equipmentEnchantments[enchantmentId] : null;
+  if (enchantment) parts.push("Imbued: " + enchantment.label);
+  if (item.equipmentType === "tool" && ["knife", "axe", "pick"].includes(item.slot)) {
+    const charges = getImbueToolCharges(item.slot);
+    parts.push("Mana Charge " + charges + " / " + getImbueToolMaxCharges());
+    if (charges > 0) parts.push("Gathering Speed +50%");
+  }
   return parts.join(" · ");
 }
 
@@ -2954,7 +3126,7 @@ function repairSpellUnlocksFromFlags() {
   }
 }
 
-function getPurchasedEquipmentSlots(equipmentType) {
+function getPurchasedEquipmentSlots(equipmentType, includeRankTwo = true) {
   const gearDefinitions = getGearUpgradeDefinitions();
   const slots = {};
 
@@ -2974,6 +3146,15 @@ function getPurchasedEquipmentSlots(equipmentType) {
     if ((gear.slotRank || 0) > (slots[gear.slot].current.slotRank || 0)) {
       slots[gear.slot].current = gear;
     }
+  }
+
+  if (equipmentType === "gear" && includeRankTwo && getImbueRank() >= 2) {
+    const ring = getEquippedImbueRingDefinition() || emptyImbueRingSlot;
+    slots.ring = {
+      label: "Ring",
+      order: ring.slotOrder,
+      current: ring,
+    };
   }
 
   return Object.values(slots).sort(function (a, b) {
@@ -3025,6 +3206,12 @@ function completeGearUpgrade(upgradeName) {
   const upgrade = getGearUpgrade(upgradeName);
 
   if (!upgrade || !upgrade.unlocked || upgrade.purchased) return;
+
+  if (upgrade.requiredGear) {
+    const requiredGear = getGearUpgrade(upgrade.requiredGear);
+    if (!requiredGear || !requiredGear.purchased) return;
+    requiredGear.purchased = false;
+  }
 
   upgrade.purchased = true;
   upgrade.unlocked = false;
@@ -3184,7 +3371,8 @@ function isCraftAvailable(craftType, craftId) {
   }
 
   if (craftType === "gearUpgrade") {
-    return craft.unlocked && !craft.purchased;
+    const requiredGear = craft.requiredGear ? getGearUpgrade(craft.requiredGear) : null;
+    return craft.unlocked && !craft.purchased && (!craft.requiredGear || !!requiredGear?.purchased);
   }
 
   if (craftType === "resourceCraft") {
@@ -3278,7 +3466,7 @@ function hookResourceCraftsToUI() {
   for (let craftName in crafts) {
     const craft = getResourceCraft(craftName);
 
-    craft.button = ensureCraftingButton(craftName + "CraftBtn");
+    craft.button = ensureCraftingButton(craftName + "CraftBtn", craft.craftingCategory);
 
     if (craft.button) {
       prepareCraftButton(craft.button);
@@ -3303,6 +3491,19 @@ function updateResourceCraftUI(craftName) {
   const context = getActiveCraftContext(craft);
 
   if (!craft || !craft.button) return;
+
+  if (craftName === "leather") {
+    const atLocation = context && context.mode === "location";
+    const target = atLocation
+      ? document.getElementById("locationPrimaryActions")
+      : document.querySelector("#craftingPanel > .crafting-actions");
+
+    if (target && craft.button.parentElement !== target) {
+      const takeLeatherButton = atLocation ? target.querySelector('[data-action="takeLeather"]') : null;
+      if (takeLeatherButton) takeLeatherButton.after(craft.button);
+      else target.appendChild(craft.button);
+    }
+  }
 
   craft.button.style.display = context && isResourceCraftUnlockedForContext(craft, context) ? "grid" : "none";
   updateCraftButtonLabel("resourceCraft", craftName);
@@ -3372,6 +3573,7 @@ function updateCraftingUIForCurrentContext() {
 
   updateCraftingButtons();
   updateCraftingSectionVisibility();
+  updateSteelworkingSectionVisibility();
   updateWorkTabsVisibility();
   renderContextualCraftingSpellActions();
 
@@ -3435,6 +3637,15 @@ function addStorageProduces(produces) {
 
 function isResearchSpotPurchased() {
   return hasPurchasedCampUpgrade("researchSpot");
+}
+
+function updateSteelworkingSectionVisibility() {
+  if (typeof document === "undefined" || typeof document.getElementById !== "function") return;
+  const section = document.getElementById("steelworkingSection");
+  if (!section) return;
+  section.style.display = isCampCraftingContext() && typeof isSteelworkingUnlocked === "function" && isSteelworkingUnlocked()
+    ? "grid"
+    : "none";
 }
 
 function isCampWorkContextAvailable() {
@@ -3586,7 +3797,7 @@ function getProjectLevelWorkYield(projectName, mode) {
 
   if (isProjectArcaneForceWorkMode(projectName, mode)) {
     const multiplier = Number.isFinite(definition.arcaneForceWorkMultiplier) ? definition.arcaneForceWorkMultiplier : 3;
-    return roundResourceAmount(baseYield * multiplier * roomWorkMultiplier);
+    return roundResourceAmount(baseYield * multiplier * roomWorkMultiplier * getArcaneForcePowerMultiplier());
   }
 
   return roundResourceAmount(baseYield * roomWorkMultiplier);
@@ -3603,7 +3814,7 @@ function getProjectLevelWorkCost(projectName, mode = PROJECT_WORK_MODE_ENERGY) {
   }
 
   if (isProjectArcaneForceWorkMode(projectName, mode)) {
-    return definition.arcaneForceWorkCost || { mana: 10 };
+    return getArcaneForceModifiedCost(definition.arcaneForceWorkCost || { mana: 10 });
   }
 
   return definition.workCost || {};
@@ -3665,10 +3876,11 @@ function getProjectWorkCost(projectName, mode = PROJECT_WORK_MODE_ENERGY) {
   return getProjectLevelWorkCost(projectName, mode);
 }
 
-function getProjectWorkDuration(projectName) {
+function getProjectWorkDuration(projectName, mode = PROJECT_WORK_MODE_ENERGY) {
   const definition = getProjectDefinition(projectName);
 
-  return definition ? definition.workDuration || 1 : 1;
+  const duration = definition ? definition.workDuration || 1 : 1;
+  return isProjectArcaneForceWorkMode(projectName, mode) ? getArcaneForceCastDuration(duration) : duration;
 }
 
 function getProjectWorkRemaining(projectName) {
@@ -3723,7 +3935,7 @@ function startProjectWork(projectName, mode = PROJECT_WORK_MODE_ENERGY) {
     kind: "projectWork",
     id: projectName,
     mode: normalizedMode,
-    duration: getProjectWorkDuration(projectName),
+    duration: getProjectWorkDuration(projectName, normalizedMode),
   })) {
     refundCost(cost);
     return;
@@ -4016,8 +4228,9 @@ function getTowerNodeImbueButton(nodeName) {
 
 function getTowerNodeJumpCost(nodeName) {
   const definition = getTowerNodeDefinition(nodeName);
+  const state = getTowerNodeState(nodeName);
 
-  return { ...((definition && definition.jumpCost) || {}) };
+  return state && state.permanentImbued ? {} : { ...((definition && definition.jumpCost) || {}) };
 }
 
 function getBuiltTowerNodeForLocation(locationName) {
@@ -4477,6 +4690,12 @@ function createTowerNodePanel(nodeName, definition, state) {
 
   details.appendChild(heading);
   details.appendChild(description);
+  if (state.built) {
+    const imbueStatus = document.createElement("p");
+    imbueStatus.className = "node-imbue-status";
+    imbueStatus.textContent = state.permanentImbued ? "Imbued Node · Travel cost: 0 Mana" : "Node not permanently imbued · Travel cost: 10 Mana";
+    details.appendChild(imbueStatus);
+  }
   detailPanel.appendChild(details);
 
   if (!state.built) {
@@ -4675,6 +4894,10 @@ function createBoundEarthElementalCraftingDropdown() {
   const elemental = getBoundEarthElementalState();
   const details = document.createElement("details");
   details.className = "elemental-crafting-dropdown";
+  details.open = boundEarthElementalCraftingOpen;
+  details.addEventListener("toggle", function () {
+    boundEarthElementalCraftingOpen = details.open;
+  });
 
   const summary = document.createElement("summary");
   summary.textContent = "Elemental Crafting";
@@ -4711,10 +4934,29 @@ function createBoundEarthElementalTowerPanel() {
   title.textContent = "Tower Heart";
   panel.appendChild(title);
 
-  const summary = document.createElement("p");
-  summary.className = "elemental-controlled-count";
-  summary.textContent = "Controlled: " + getBoundEarthElementalActiveCount() + " / " + getTowerHeartElementalControlCapacity();
-  panel.appendChild(summary);
+  const controlledRow = document.createElement("div");
+  controlledRow.className = "elemental-controlled-row";
+  const controlledLabel = document.createElement("span");
+  controlledLabel.className = "elemental-controlled-label";
+  controlledLabel.textContent = "Controlled";
+  const controlledControls = document.createElement("div");
+  controlledControls.className = "elemental-compact-controls";
+  const towerDestination = { type: "tower" };
+  const controlledCount = getBoundEarthElementalActiveCount();
+  const controlledValue = document.createElement("span");
+  controlledValue.className = "elemental-compact-count";
+  controlledValue.textContent = String(controlledCount);
+  controlledValue.setAttribute("aria-label", controlledCount + " elementals currently controlled");
+  controlledControls.append(
+    createBoundEarthElementalAssignmentAdjustButton(-1, towerDestination, "Tower construction"),
+    controlledValue,
+    createBoundEarthElementalAssignmentAdjustButton(1, towerDestination, "Tower construction")
+  );
+  const controlledCapacity = document.createElement("span");
+  controlledCapacity.className = "elemental-controlled-capacity";
+  controlledCapacity.textContent = "/ " + getTowerHeartElementalControlCapacity();
+  controlledRow.append(controlledLabel, controlledControls, controlledCapacity);
+  panel.appendChild(controlledRow);
 
   if (isBoundEarthElementalNodeUnlocked("north")) {
     panel.appendChild(createCompactBoundEarthElementalNodePanel("north"));
@@ -7341,11 +7583,33 @@ function getAttunementLevel() {
   return getAttunementProgressState().level || 0;
 }
 
+function getAttunementRank() {
+  const attunements = gameState.magic && gameState.magic.attunements;
+  return attunements && attunements.rank >= 2 ? 2 : 1;
+}
+
+function getAttunementRankTwoLevel() {
+  const attunements = gameState.magic && gameState.magic.attunements;
+  return attunements ? Math.max(0, Math.floor(Number(attunements.rankTwoLevel) || 0)) : 0;
+}
+
+function getAttunementRankTwoProgression(level = getAttunementRankTwoLevel()) {
+  return ATTUNEMENT_RANK_TWO_PROGRESSION[Math.max(0, Math.min(level, ATTUNEMENT_RANK_TWO_PROGRESSION.length - 1))];
+}
+
+function getAttunementRankTwoBonusPercent() {
+  return getAttunementRank() >= 2 ? getAttunementRankTwoProgression().bonusPercent : 0;
+}
+
 function getAttunementBonusMultiplier() {
-  return 1 + getAttunementLevel() * 0.2;
+  return 1 + getAttunementLevel() * 0.2 + getAttunementRankTwoBonusPercent() / 100;
 }
 
 function getAttunementCapacityFromLevel() {
+  const rankTwoLevel = getAttunementRankTwoLevel();
+  if (rankTwoLevel >= 8) return 6;
+  if (rankTwoLevel >= 5) return 5;
+  if (rankTwoLevel >= 2) return 4;
   const level = getAttunementLevel();
 
   if (level >= 4) return 3;
@@ -7366,8 +7630,24 @@ function getAttunementLevelRewardText(level) {
   return rewardText;
 }
 
+function getAttunementRankTwoRewardText(level = getAttunementRankTwoLevel()) {
+  const progression = getAttunementRankTwoProgression(level);
+  const rewards = {
+    0: "Persistent Attunements and mana-spent experience",
+    1: "Hardened Ward, Mana Conduit, and Focused Mind",
+    2: "Fourth attunement slot",
+    5: "Fifth attunement slot after Harmonic Stability",
+    7: "Attunement Resonances",
+    8: "Sixth attunement slot",
+    9: "Earth Resonance",
+    10: "Two active Resonances and Rank II mastery",
+  };
+  return "+" + progression.bonusPercent + "% Rank II effectiveness" + (rewards[level] ? "; " + rewards[level] : "");
+}
+
 function recordAttunementExperience(amount) {
   if (!Number.isFinite(amount) || amount <= 0) return;
+  if (getAttunementRank() >= 2) return;
 
   const progress = getAttunementProgressState();
   const oldLevel = progress.level || 0;
@@ -7387,6 +7667,445 @@ function getArcaneForceProgressState() {
   return getSpellProgressState("arcaneForce");
 }
 
+function hasPersistentResonancePrerequisites() {
+  const northNode = typeof getTowerNodeState === "function" ? getTowerNodeState("north") : null;
+  const manaCycling = typeof getSkillState === "function" ? getSkillState("manaCycling") : null;
+  return getAttunementLevel() >= 5 && !!northNode?.built && typeof isHeartRestoredForRankTwoSkills === "function" && isHeartRestoredForRankTwoSkills() && !!manaCycling && manaCycling.rank >= RANK_TWO_SKILL_RANK && getActiveAttunements().length >= 3;
+}
+
+function getAttunementBreakthroughProgress(key) {
+  const state = getAttunementState();
+  if (!state.breakthroughs || typeof state.breakthroughs !== "object") state.breakthroughs = {};
+  if (!Number.isFinite(state.breakthroughs[key])) state.breakthroughs[key] = 0;
+  return state.breakthroughs[key];
+}
+
+function addAttunementBreakthroughProgress(key, amount) {
+  const state = getAttunementState();
+  state.breakthroughs[key] = roundResourceAmount(getAttunementBreakthroughProgress(key) + amount);
+  return state.breakthroughs[key];
+}
+
+function promoteAttunementToRankTwo() {
+  const state = getAttunementState();
+  if (state.rank >= 2) return false;
+  state.rank = 2;
+  state.rankTwoLevel = 0;
+  state.rankTwoXp = 0;
+  state.persistentResonanceCompleted = true;
+  addStoryEntry("Persistent Resonance completes. Your active attunements anchor themselves to your magical state.");
+  recalculateCharacterStats();
+  updateEquipmentSlotUI();
+  return true;
+}
+
+function canAdvanceAttunementRankTwo(level) {
+  const state = getAttunementState();
+  const progression = getAttunementRankTwoProgression(level);
+  if (!progression || state.rankTwoXp < progression.threshold) return false;
+  if (progression.breakthrough === "harmonicStability") return getAttunementBreakthroughProgress("harmonicStability") >= 100;
+  if (progression.breakthrough === "harmonicAttunement") return getAttunementBreakthroughProgress("harmonicAttunement") >= 200;
+  return true;
+}
+
+function advanceAttunementRankTwo() {
+  const state = getAttunementState();
+  while (state.rankTwoLevel < 10 && canAdvanceAttunementRankTwo(state.rankTwoLevel + 1)) {
+    state.rankTwoLevel += 1;
+    addStoryEntry("Your resonance deepens. " + getAttunementRankTwoRewardText(state.rankTwoLevel) + ".");
+  }
+  state.rankTwoComplete = state.rankTwoLevel >= 10;
+  recalculateCharacterStats();
+  updateEquipmentSlotUI();
+}
+
+function recordAttunementManaSpent(amount) {
+  if (!Number.isFinite(amount) || amount <= 0) return;
+  const state = getAttunementState();
+  const activeCount = state.active.length;
+  if (state.rank < 2) {
+    if (hasPersistentResonancePrerequisites()) {
+      addAttunementBreakthroughProgress("persistentResonance", amount);
+      if (getAttunementBreakthroughProgress("persistentResonance") >= ATTUNEMENT_BREAKTHROUGH_DEFINITIONS.persistentResonance.requiredMana) promoteAttunementToRankTwo();
+    }
+    return;
+  }
+  if (activeCount <= 0) return;
+  state.rankTwoXp = roundResourceAmount((state.rankTwoXp || 0) + amount);
+  if (state.rankTwoLevel >= 4 && activeCount >= 4) addAttunementBreakthroughProgress("harmonicStability", amount);
+  if (state.rankTwoLevel >= 9 && activeCount >= 6 && getActiveAttunementResonances().length > 0 && getBuiltTowerNodeCount() >= 2) addAttunementBreakthroughProgress("harmonicAttunement", amount);
+  advanceAttunementRankTwo();
+  updateEquipmentSlotUI();
+}
+
+const imbueRingEquipmentCache = {};
+const emptyImbueRingSlot = {
+  label: "Empty Ring Slot",
+  displayName: "Empty Ring Slot",
+  equipmentType: "gear",
+  slot: "ring",
+  slotLabel: "Ring",
+  slotOrder: 6,
+  icon: "○",
+  iconAsset: "assets/icons/icon-spare.png",
+  effects: {},
+  emptyImbueRingSlot: true,
+};
+
+function ensureImbueRankTwoState() {
+  if (!gameState.magic || typeof gameState.magic !== "object") gameState.magic = {};
+  const wasMissing = !gameState.magic.imbuement || typeof gameState.magic.imbuement !== "object" || Array.isArray(gameState.magic.imbuement);
+
+  if (wasMissing) gameState.magic.imbuement = {};
+
+  const state = gameState.magic.imbuement;
+  const config = getImbueRankTwoConfig();
+  const maxStage = Object.keys(config.controlMatrix).length;
+  state.rank = state.rank >= 2 ? 2 : 1;
+  state.rankTwoLevel = Math.max(0, Math.min(10, Math.floor(Number(state.rankTwoLevel) || 0)));
+  state.rankTwoXp = Math.max(0, Number(state.rankTwoXp) || 0);
+  state.breakthroughs = state.breakthroughs && typeof state.breakthroughs === "object" && !Array.isArray(state.breakthroughs) ? state.breakthroughs : {};
+  state.breakthroughs.permanentBinding = Math.max(0, Number(state.breakthroughs.permanentBinding) || 0);
+  state.permanentBindingCompleted = !!state.permanentBindingCompleted || state.rank >= 2;
+  state.rankTwoComplete = !!state.rankTwoComplete || state.rankTwoLevel >= 10;
+  state.craftedRings = state.craftedRings && typeof state.craftedRings === "object" && !Array.isArray(state.craftedRings) ? state.craftedRings : {};
+  state.equipmentEnchantments = state.equipmentEnchantments && typeof state.equipmentEnchantments === "object" && !Array.isArray(state.equipmentEnchantments) ? state.equipmentEnchantments : {};
+  state.backpackImbued = !!state.backpackImbued;
+  state.furnaceTier = Math.max(0, Math.min(2, Math.floor(Number(state.furnaceTier) || 0)));
+  state.alchemyTier = Math.max(0, Math.min(2, Math.floor(Number(state.alchemyTier) || 0)));
+  state.controlMatrixStage = Math.max(0, Math.min(maxStage, Math.floor(Number(state.controlMatrixStage) || 0)));
+
+  if (!Number.isFinite(state.controlCapacity) || state.controlCapacity <= 0) {
+    const legacyCapacity = [
+      gameState.tower && gameState.tower.elementalControlCapacity,
+      gameState.tower && gameState.tower.controlCapacity,
+      gameState.elementals && gameState.elementals.earth && gameState.elementals.earth.controlCapacity,
+    ].find(function (value) { return Number.isFinite(value) && value > 0; });
+    const stageDefinition = config.controlMatrix[state.controlMatrixStage];
+    state.controlCapacity = legacyCapacity || (stageDefinition ? stageDefinition.capacity : getElementalAutomationConfig().towerHeart.startingElementalControlCapacity);
+  }
+
+  state.controlCapacity = Math.max(1, Math.floor(state.controlCapacity));
+  Object.keys(config.rings).forEach(function (ringId) {
+    state.craftedRings[ringId] = !!state.craftedRings[ringId];
+  });
+
+  if (!state.equippedRing || !state.craftedRings[state.equippedRing] || !config.rings[state.equippedRing]) {
+    state.equippedRing = Object.keys(config.rings).find(function (ringId) { return state.craftedRings[ringId]; }) || null;
+  }
+
+  return state;
+}
+
+function getImbueRank() {
+  return ensureImbueRankTwoState().rank;
+}
+
+function getImbueRankTwoLevel() {
+  return ensureImbueRankTwoState().rankTwoLevel;
+}
+
+function getImbueRankTwoProgression(level = getImbueRankTwoLevel()) {
+  const progression = getImbueRankTwoConfig().progression;
+  const normalizedLevel = Math.floor(Number(level) || 0);
+  return normalizedLevel >= 0 && normalizedLevel < progression.length ? progression[normalizedLevel] : null;
+}
+
+function getImbuePermanentBindingProgress() {
+  return ensureImbueRankTwoState().breakthroughs.permanentBinding || 0;
+}
+
+function hasPermanentBindingPrerequisites() {
+  const northNode = typeof getTowerNodeState === "function" ? getTowerNodeState("north") : null;
+  const heartRestored = typeof isHeartRestoredForRankTwoSkills === "function"
+    ? isHeartRestoredForRankTwoSkills()
+    : !!getProjectState("towerFoundation")?.completed;
+  return getImbueLevel() >= 5 && !!northNode?.built && heartRestored;
+}
+
+function promoteImbueToRankTwo() {
+  const state = ensureImbueRankTwoState();
+  if (state.rank >= 2) return false;
+  state.rank = 2;
+  state.rankTwoLevel = 0;
+  state.rankTwoXp = 0;
+  state.permanentBindingCompleted = true;
+  addStoryEntry("Permanent Binding settles into place. Imbue can now anchor lasting enchantments and magical infrastructure.");
+  recalculateCharacterStats();
+  updateEquipmentSlotUI();
+  trySaveGame();
+  return true;
+}
+
+function canAdvanceImbueRankTwo(level) {
+  const state = ensureImbueRankTwoState();
+  const progression = getImbueRankTwoProgression(level);
+  return !!progression && state.rank >= 2 && state.rankTwoXp >= progression.threshold;
+}
+
+function advanceImbueRankTwo() {
+  const state = ensureImbueRankTwoState();
+  while (state.rankTwoLevel < 10 && canAdvanceImbueRankTwo(state.rankTwoLevel + 1)) {
+    state.rankTwoLevel += 1;
+    addStoryEntry("Your permanent binding deepens. " + getImbueRankTwoRewardText(state.rankTwoLevel) + ".");
+  }
+  state.rankTwoComplete = state.rankTwoLevel >= 10;
+}
+
+function getImbueRankTwoRewardText(level = getImbueRankTwoLevel()) {
+  const rewards = {
+    0: "Permanent Binding and Ring of Mana",
+    1: "Imbued Backpack",
+    2: "Ring of Warding",
+    3: "Emberbound Furnace and Imbued Alchemy",
+    4: "Permanent equipment enchantments",
+    5: "Expanded Control Matrix I",
+    6: "Greater Ringcraft and Expanded Control Matrix II",
+    7: "Node Imbuement and Expanded Control Matrix III",
+    8: "Arcane Workshop and Expanded Control Matrix IV",
+    9: "Regional Imbuement and Expanded Control Matrix V",
+    10: "Master Control Matrix",
+  };
+  return rewards[Math.max(0, Math.min(10, Math.floor(Number(level) || 0)))];
+}
+
+function getImbueRankTwoProgressPercent() {
+  const state = ensureImbueRankTwoState();
+  const level = state.rankTwoLevel;
+  if (level >= 10) return 1;
+  const current = getImbueRankTwoProgression(level).threshold;
+  const next = getImbueRankTwoProgression(level + 1).threshold;
+  return next > current ? Math.min(1, Math.max(0, (state.rankTwoXp - current) / (next - current))) : 1;
+}
+
+function getImbueRingDefinition(ringId) {
+  const definition = getImbueRankTwoConfig().rings[ringId];
+  if (!definition) return null;
+  if (!imbueRingEquipmentCache[ringId]) {
+    imbueRingEquipmentCache[ringId] = {
+      ...definition,
+      imbueRingId: ringId,
+      equipmentType: "gear",
+      slot: "ring",
+      slotLabel: "Ring",
+      slotOrder: 6,
+      icon: definition.icon || "💍",
+      iconAsset: definition.iconAsset || "assets/icons/icon-ring-mana.png",
+    };
+  }
+  return imbueRingEquipmentCache[ringId];
+}
+
+function getCraftedImbueRingDefinitions() {
+  const state = ensureImbueRankTwoState();
+  return Object.keys(getImbueRankTwoConfig().rings)
+    .filter(function (ringId) { return state.craftedRings[ringId]; })
+    .map(getImbueRingDefinition);
+}
+
+function getEquippedImbueRingDefinition() {
+  const state = ensureImbueRankTwoState();
+  return state.equippedRing ? getImbueRingDefinition(state.equippedRing) : null;
+}
+
+function equipImbueRing(ringId) {
+  const state = ensureImbueRankTwoState();
+  if (!state.craftedRings[ringId] || !getImbueRankTwoConfig().rings[ringId]) return false;
+  state.equippedRing = ringId;
+  selectedEquipmentDetailId = getImbueRingDefinition(ringId);
+  recalculateCharacterStats();
+  updateEquipmentSlotUI();
+  trySaveGame();
+  return true;
+}
+
+function getGearUpgradeIdByDefinition(item) {
+  const definitions = getGearUpgradeDefinitions();
+  for (let gearId in definitions) {
+    if (definitions[gearId] === item) return gearId;
+  }
+  return null;
+}
+
+function getEquippedImbueEnchantmentEntries() {
+  const state = ensureImbueRankTwoState();
+  const definitions = getImbueRankTwoConfig().equipmentEnchantments;
+  return getPurchasedEquipmentSlots("gear", false)
+    .map(function (slot) {
+      const gearId = getGearUpgradeIdByDefinition(slot.current);
+      const enchantmentId = gearId ? state.equipmentEnchantments[gearId] : null;
+      return enchantmentId && definitions[enchantmentId] ? { gearId, enchantmentId, definition: definitions[enchantmentId] } : null;
+    })
+    .filter(Boolean);
+}
+
+function getEquippedPermanentImbueEffectTotal(effectName) {
+  const ring = getEquippedImbueRingDefinition();
+  let total = ring && ring.effects && Number.isFinite(ring.effects[effectName]) ? ring.effects[effectName] : 0;
+  getEquippedImbueEnchantmentEntries().forEach(function (entry) {
+    const value = entry.definition.effects && entry.definition.effects[effectName];
+    if (Number.isFinite(value)) total += value;
+  });
+  return roundResourceAmount(total);
+}
+
+function getEquippedPermanentImbueEffectMultiplier(effectName) {
+  let multiplier = 1;
+  const ring = getEquippedImbueRingDefinition();
+  if (ring && ring.effects && Number.isFinite(ring.effects[effectName])) multiplier *= ring.effects[effectName];
+  getEquippedImbueEnchantmentEntries().forEach(function (entry) {
+    const value = entry.definition.effects && entry.definition.effects[effectName];
+    if (Number.isFinite(value)) multiplier *= value;
+  });
+  return multiplier;
+}
+
+function getImbuedBackpackCapacityBonus() {
+  return ensureImbueRankTwoState().backpackImbued ? getImbueRankTwoConfig().bonuses.backpackCapacity : 0;
+}
+
+function getImbueWorkshopTier(system) {
+  const state = ensureImbueRankTwoState();
+  return system === "furnace" ? state.furnaceTier : system === "alchemy" ? state.alchemyTier : 0;
+}
+
+function getImbueWorkshopFuelCost(system, baseFuel) {
+  const amount = Math.max(0, Number(baseFuel) || 0);
+  const tier = getImbueWorkshopTier(system);
+  if (tier >= 2) return 0;
+  if (tier >= 1) return roundResourceAmount(amount * (1 - getImbueRankTwoConfig().bonuses.workshopFuelReduction));
+  return amount;
+}
+
+function adjustImbueWorkshopFuelCost(system, cost) {
+  const adjusted = { ...((cost && typeof cost === "object") ? cost : {}) };
+  if (Number.isFinite(adjusted.fuel)) {
+    adjusted.fuel = getImbueWorkshopFuelCost(system, adjusted.fuel);
+    if (adjusted.fuel <= 0) delete adjusted.fuel;
+  }
+  return adjusted;
+}
+
+function getImbueAdjustedCraftCost(craft, cost) {
+  return craft && craft.imbueInfrastructure ? adjustImbueWorkshopFuelCost(craft.imbueInfrastructure, cost) : { ...((cost && typeof cost === "object") ? cost : {}) };
+}
+
+function isImbueRankTwoTargetComplete(action) {
+  const state = ensureImbueRankTwoState();
+  if (!action) return true;
+  if (action.type === "component") return false;
+  if (action.type === "ring") return !!state.craftedRings[action.id];
+  if (action.type === "backpack") return state.backpackImbued;
+  if (action.type === "workshop") return getImbueWorkshopTier(action.system) >= action.tier;
+  if (action.type === "matrix") return state.controlMatrixStage >= action.stage;
+  if (action.type === "node") return !!getTowerNodeState(action.node)?.permanentImbued;
+  if (action.type === "equipment") {
+    const item = getPurchasedEquipmentForSlot("gear", action.slot, false);
+    const gearId = item ? getGearUpgradeIdByDefinition(item) : null;
+    return !!gearId && !!state.equipmentEnchantments[gearId];
+  }
+  return false;
+}
+
+function isImbueRankTwoTargetUnlocked(targetName) {
+  const definition = getImbueDefinition(targetName);
+  if (!definition || !definition.permanentImbue) return false;
+  return getImbueRank() >= (definition.requiredImbueRank || 2) && getImbueRankTwoLevel() >= (definition.requiredRankTwoLevel || 0);
+}
+
+function isImbueRankTwoTargetVisible(targetName) {
+  const definition = getImbueDefinition(targetName);
+  if (!definition || !definition.permanentImbue || !isCampCraftingContext() || !isImbueRankTwoTargetUnlocked(targetName)) return false;
+  if (definition.permanentAction && definition.permanentAction.type === "matrix" && definition.permanentAction.stage !== ensureImbueRankTwoState().controlMatrixStage + 1) return false;
+  return !isImbueRankTwoTargetComplete(definition.permanentAction);
+}
+
+function canApplyImbueRankTwoTarget(action) {
+  const state = ensureImbueRankTwoState();
+  if (!action || state.rank < 2 || isImbueRankTwoTargetComplete(action)) return false;
+  if (action.type === "component") return true;
+  if (action.type === "ring") return !action.prerequisite || !!state.craftedRings[action.prerequisite];
+  if (action.type === "backpack") return !!getPurchasedEquipmentForSlot("gear", "pack", false);
+  if (action.type === "workshop") {
+    if (action.tier > 1 && getImbueWorkshopTier(action.system) !== action.tier - 1) return false;
+    return action.system === "furnace" ? hasPurchasedCampUpgrade("campSmelter") : hasPurchasedCampUpgrade("campAlchemyStation");
+  }
+  if (action.type === "matrix") return !!getProjectState("towerFoundation")?.completed && state.controlMatrixStage === action.stage - 1;
+  if (action.type === "node") return !!getTowerNodeState(action.node)?.built;
+  if (action.type === "equipment") {
+    const item = getPurchasedEquipmentForSlot("gear", action.slot, false);
+    const enchantment = getImbueRankTwoConfig().equipmentEnchantments[action.id];
+    if (!item || !enchantment) return false;
+    if (enchantment.region && !getTowerNodeState(enchantment.region)?.built) return false;
+    const gearId = getGearUpgradeIdByDefinition(item);
+    return !!gearId && !state.equipmentEnchantments[gearId];
+  }
+  return false;
+}
+
+function getImbueRankTwoPrerequisiteText(action) {
+  if (!action) return "";
+  if (action.type === "ring" && action.prerequisite) return getImbueRankTwoConfig().rings[action.prerequisite].label + " owned";
+  if (action.type === "backpack") return "an equipped Pack";
+  if (action.type === "workshop") {
+    const station = action.system === "furnace" ? "Camp Smelter" : "Camp Alchemy Station";
+    return action.tier > 1 ? station + " and the Level 3 imbuement" : station;
+  }
+  if (action.type === "matrix") return action.stage > 1 ? "Control Matrix stage " + (action.stage - 1) : "restored Tower Heart";
+  if (action.type === "node") return "activated " + action.node + " Node";
+  if (action.type === "equipment") {
+    const enchantment = getImbueRankTwoConfig().equipmentEnchantments[action.id];
+    return "unenchanted equipped " + action.slot + " gear" + (enchantment && enchantment.region ? " and the " + enchantment.region + " Node" : "");
+  }
+  return "";
+}
+
+function completeImbueRankTwoTarget(action) {
+  if (!canApplyImbueRankTwoTarget(action)) return false;
+  const state = ensureImbueRankTwoState();
+  let story = "The permanent binding settles into place.";
+
+  if (action.type === "component") {
+    story = "Arcane pressure closes the iron into a clean ring blank, ready to hold a permanent pattern.";
+  } else if (action.type === "ring") {
+    state.craftedRings[action.id] = true;
+    state.equippedRing = action.id;
+    story = "The " + getImbueRingDefinition(action.id).label + " closes around a stable pattern and settles into your single Ring slot.";
+  } else if (action.type === "backpack") {
+    state.backpackImbued = true;
+    story = "The Backpack's seams accept a permanent spatial pattern, increasing its capacity without changing the pack itself.";
+  } else if (action.type === "workshop") {
+    if (action.system === "furnace") state.furnaceTier = action.tier;
+    else state.alchemyTier = action.tier;
+    story = action.tier >= 2
+      ? "The " + action.system + " takes on a self-sustaining arcane heat and no longer needs fuel."
+      : "A permanent ember-pattern settles through the " + action.system + ", cutting its fuel use in half.";
+  } else if (action.type === "matrix") {
+    const matrix = getImbueRankTwoConfig().controlMatrix[action.stage];
+    state.controlMatrixStage = action.stage;
+    state.controlCapacity = Math.max(state.controlCapacity, matrix.capacity);
+    story = matrix.label + " locks into the Tower Heart. Its control capacity is now " + state.controlCapacity + ".";
+    normalizeBoundEarthElementalAssignments();
+  } else if (action.type === "node") {
+    getTowerNodeState(action.node).permanentImbued = true;
+    story = "The " + getTowerNodeDefinition(action.node).label + " now carries travel without drawing Mana.";
+  } else if (action.type === "equipment") {
+    const item = getPurchasedEquipmentForSlot("gear", action.slot, false);
+    const gearId = getGearUpgradeIdByDefinition(item);
+    state.equipmentEnchantments[gearId] = action.id;
+    story = getImbueRankTwoConfig().equipmentEnchantments[action.id].label + " settles permanently into " + (item.displayName || item.label) + ".";
+  }
+
+  addStoryEntry(story);
+  recalculateCharacterStats();
+  refreshExpeditionUI();
+  refreshBoundEarthElementalUI();
+  updateEquipmentSlotUI();
+  updateAllActionButtons();
+  trySaveGame();
+  return true;
+}
+
 function getImbueProgressState() {
   return getSpellProgressState("imbue");
 }
@@ -7399,6 +8118,64 @@ function getImbueCapacity() {
   const capacities = [2, 5, 8, 12, 16, 20];
 
   return capacities[Math.max(0, Math.min(getImbueLevel(), capacities.length - 1))];
+}
+
+function ensureImbueToolChargeState() {
+  if (!gameState.magic || typeof gameState.magic !== "object") gameState.magic = {};
+  if (!gameState.magic.toolCharges || typeof gameState.magic.toolCharges !== "object") gameState.magic.toolCharges = {};
+  ["knife", "axe", "pick"].forEach(function (tool) {
+    const value = Number(gameState.magic.toolCharges[tool]);
+    gameState.magic.toolCharges[tool] = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+  });
+  return gameState.magic.toolCharges;
+}
+
+function getImbueToolMaxCharges() {
+  return getImbueCapacity() * IMBUE_TOOL_CHARGES_PER_MANA;
+}
+
+function getImbueToolCharges(tool) {
+  return ensureImbueToolChargeState()[tool] || 0;
+}
+
+function getImbueToolRemainingCapacity(tool) {
+  return Math.max(0, getImbueToolMaxCharges() - getImbueToolCharges(tool));
+}
+
+function hasImbueToolCharge(tool) {
+  return getImbueToolCharges(tool) > 0;
+}
+
+function consumeImbueToolCharge(tool) {
+  const charges = ensureImbueToolChargeState();
+  if (!charges[tool]) return false;
+  charges[tool] -= 1;
+  if (charges[tool] === 0) addStoryEntry("Your " + ({ knife: "Knife", axe: "Axe", pick: "Pick" }[tool] || tool) + "'s imbued charge has faded.");
+  updateEquipmentSlotUI();
+  trySaveGame();
+  return true;
+}
+
+function getImbueToolForAction(actionName) {
+  return ({ gatherFiber: "knife", gatherWood: "axe", mineStone: "pick", mineIron: "pick" })[actionName] || null;
+}
+
+const imbueToolManaSelections = { knife: 1, axe: 1, pick: 1 };
+
+function getImbueToolSelectedMana(tool) {
+  const maxMana = Math.min(getImbueCapacity(), Math.floor(getImbueToolRemainingCapacity(tool) / IMBUE_TOOL_CHARGES_PER_MANA));
+  if (maxMana <= 0) return 0;
+  const selected = Math.floor(Number(imbueToolManaSelections[tool]) || 1);
+  return Math.max(1, Math.min(selected, maxMana));
+}
+
+function setImbueToolSelectedMana(tool, value) {
+  imbueToolManaSelections[tool] = getImbueToolSelectedManaForValue(tool, value);
+}
+
+function getImbueToolSelectedManaForValue(tool, value) {
+  const maxMana = Math.min(getImbueCapacity(), Math.floor(getImbueToolRemainingCapacity(tool) / IMBUE_TOOL_CHARGES_PER_MANA));
+  return maxMana > 0 ? Math.max(1, Math.min(Math.floor(value) || 1, maxMana)) : 0;
 }
 
 function getImbueLevelRewardText(level) {
@@ -7417,6 +8194,16 @@ function getImbueLevelRewardText(level) {
 function recordImbueExperience(amount) {
   if (!Number.isFinite(amount) || amount <= 0) return;
 
+  const imbuement = ensureImbueRankTwoState();
+
+  if (imbuement.rank >= 2) {
+    imbuement.rankTwoXp = roundResourceAmount(imbuement.rankTwoXp + amount);
+    advanceImbueRankTwo();
+    recalculateCharacterStats();
+    updateEquipmentSlotUI();
+    return;
+  }
+
   const progress = getImbueProgressState();
   const oldLevel = progress.level || 0;
   const towerMultiplier = getTowerRoomEffectValue("imbueExperienceMultiplier", 1);
@@ -7429,11 +8216,193 @@ function recordImbueExperience(amount) {
     addStoryEntry("Imbue holds more of the pattern. " + getImbueLevelRewardText(progress.level) + ".");
   }
 
+  if (progress.level >= 5 && hasPermanentBindingPrerequisites()) {
+    imbuement.breakthroughs.permanentBinding = roundResourceAmount(getImbuePermanentBindingProgress() + amount);
+    if (imbuement.breakthroughs.permanentBinding >= getImbueRankTwoConfig().permanentBindingManaRequired) {
+      promoteImbueToRankTwo();
+    }
+  }
+
   updateEquipmentSlotUI();
 }
 
 function getArcaneForceLevel() {
   return getArcaneForceProgressState().level || 0;
+}
+
+function ensureArcaneForceRankTwoState() {
+  if (!gameState.magic || typeof gameState.magic !== "object") gameState.magic = {};
+  if (!gameState.magic.arcaneForce || typeof gameState.magic.arcaneForce !== "object" || Array.isArray(gameState.magic.arcaneForce)) {
+    gameState.magic.arcaneForce = {};
+  }
+
+  const state = gameState.magic.arcaneForce;
+  state.rank = state.rank >= 2 ? 2 : 1;
+  state.rankTwoLevel = Math.max(0, Math.min(10, Math.floor(Number(state.rankTwoLevel) || 0)));
+  state.rankTwoXp = Math.max(0, Number(state.rankTwoXp) || 0);
+  state.breakthroughs = state.breakthroughs && typeof state.breakthroughs === "object" && !Array.isArray(state.breakthroughs)
+    ? state.breakthroughs
+    : {};
+  state.breakthroughs.forceAmplification = Math.max(0, Number(state.breakthroughs.forceAmplification) || 0);
+  state.forceAmplificationCompleted = !!state.forceAmplificationCompleted || state.rank >= 2;
+  state.rankTwoComplete = !!state.rankTwoComplete || state.rankTwoLevel >= 10;
+  return state;
+}
+
+function getArcaneForceRank() {
+  return ensureArcaneForceRankTwoState().rank;
+}
+
+function getArcaneForceRankTwoLevel() {
+  return ensureArcaneForceRankTwoState().rankTwoLevel;
+}
+
+function getArcaneForceRankTwoProgression(level = getArcaneForceRankTwoLevel()) {
+  const normalizedLevel = Math.max(0, Math.min(10, Math.floor(Number(level) || 0)));
+  return ARCANE_FORCE_RANK_TWO_CONFIG.progression[normalizedLevel];
+}
+
+function getArcaneForcePowerPercent(level = getArcaneForceRankTwoLevel()) {
+  if (getArcaneForceRank() < 2) return 100;
+  const normalizedLevel = Math.max(0, Math.min(10, Math.floor(Number(level) || 0)));
+  return Math.max(100, Math.min(300, ARCANE_FORCE_RANK_TWO_CONFIG.powerBasePercent + normalizedLevel * ARCANE_FORCE_RANK_TWO_CONFIG.powerPerLevelPercent));
+}
+
+function getArcaneForcePowerMultiplier(level = getArcaneForceRankTwoLevel()) {
+  return getArcaneForcePowerPercent(level) / 100;
+}
+
+function scaleArcaneForceAmount(amount) {
+  return Math.round((Number(amount) || 0) * getArcaneForcePowerMultiplier());
+}
+
+function scaleArcaneForceDamage(damage) {
+  return scaleArcaneForceAmount(damage);
+}
+
+function isSteelworkingUnlocked() {
+  return getArcaneForceRank() >= 2 && getArcaneForceRankTwoLevel() >= 3;
+}
+
+function syncIronStaffUnlockFromCombatHistory() {
+  const ironStaff = getGearUpgrade("ironStaff");
+  if (!ironStaff || ironStaff.purchased || ironStaff.unlocked || Math.max(0, Number(gameState.combatVictories) || 0) < 1) return false;
+  unlockGearUpgrade("ironStaff");
+  return true;
+}
+
+function syncSteelworkingUnlocks() {
+  if (!isSteelworkingUnlocked()) {
+    updateSteelworkingSectionVisibility();
+    return false;
+  }
+
+  unlockResourceCraft("steel");
+  ["steelKnife", "steelAxe", "steelPick", "steelStaff"].forEach(function (upgradeName) {
+    unlockGearUpgrade(upgradeName);
+  });
+  updateSteelworkingSectionVisibility();
+  return true;
+}
+
+function getActiveCombatStaff() {
+  return getPurchasedEquipmentForSlot("tool", "staff");
+}
+
+function getCombatStaffManaCostMultiplier() {
+  const staff = getActiveCombatStaff();
+  const multiplier = staff && staff.effects ? Number(staff.effects.combatManaCostMultiplier) : 1;
+  return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
+}
+
+function getCombatStaffCastSpeedMultiplier() {
+  const staff = getActiveCombatStaff();
+  const multiplier = staff && staff.effects ? Number(staff.effects.combatCastSpeedMultiplier) : 1;
+  return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
+}
+
+function hasArcaneEfficiency() {
+  return getArcaneForceRank() >= 2 && getArcaneForceRankTwoLevel() >= ARCANE_FORCE_RANK_TWO_CONFIG.efficiencyUnlockLevel;
+}
+
+function getArcaneForceManaCost(baseManaCost) {
+  const amount = Math.max(0, Number(baseManaCost) || 0);
+  return roundResourceAmount(amount * (hasArcaneEfficiency() ? ARCANE_FORCE_RANK_TWO_CONFIG.manaCostMultiplier : 1));
+}
+
+function getArcaneForceModifiedCost(baseCost) {
+  const cost = baseCost && typeof baseCost === "object" ? { ...baseCost } : {};
+  if (Number.isFinite(cost.mana)) cost.mana = getArcaneForceManaCost(cost.mana);
+  return cost;
+}
+
+function getArcaneForceCastDuration(baseDuration) {
+  const duration = Math.max(0, Number(baseDuration) || 0);
+  return hasArcaneEfficiency() && duration > 0
+    ? roundResourceAmount(duration / ARCANE_FORCE_RANK_TWO_CONFIG.castingSpeedMultiplier)
+    : duration;
+}
+
+function hasArcaneForceRankTwoPrerequisites() {
+  const northNode = typeof getTowerNodeState === "function" ? getTowerNodeState("north") : null;
+  const heartRestored = typeof isHeartRestoredForRankTwoSkills === "function"
+    ? isHeartRestoredForRankTwoSkills()
+    : !!getProjectState("towerFoundation")?.completed;
+  return getArcaneForceLevel() >= 5 && !!northNode?.built && heartRestored;
+}
+
+function getArcaneForceBreakthroughProgress() {
+  return ensureArcaneForceRankTwoState().breakthroughs.forceAmplification || 0;
+}
+
+function promoteArcaneForceToRankTwo() {
+  const state = ensureArcaneForceRankTwoState();
+  if (state.rank >= 2) return false;
+  state.rank = 2;
+  state.rankTwoLevel = 0;
+  state.rankTwoXp = 0;
+  state.forceAmplificationCompleted = true;
+  addStoryEntry("Force Amplification settles into place. Arcane Force now grows stronger with every refined level.");
+  updateEquipmentSlotUI();
+  trySaveGame();
+  return true;
+}
+
+function canAdvanceArcaneForceRankTwo(level) {
+  const state = ensureArcaneForceRankTwoState();
+  const progression = getArcaneForceRankTwoProgression(level);
+  return !!progression && state.rank >= 2 && state.rankTwoXp >= progression.threshold;
+}
+
+function getArcaneForceRankTwoRewardText(level = getArcaneForceRankTwoLevel()) {
+  const normalizedLevel = Math.max(0, Math.min(10, Math.floor(Number(level) || 0)));
+  const specials = {
+    0: "Force Power unlocked",
+    3: "Steelworking",
+    5: "Mana Missile",
+    7: "Arcane Efficiency",
+    10: "Mana Lance and Rank II mastery",
+  };
+  return getArcaneForcePowerPercent(normalizedLevel) + "% Force Power" + (specials[normalizedLevel] ? "; " + specials[normalizedLevel] : "");
+}
+
+function advanceArcaneForceRankTwo() {
+  const state = ensureArcaneForceRankTwoState();
+  while (state.rankTwoLevel < 10 && canAdvanceArcaneForceRankTwo(state.rankTwoLevel + 1)) {
+    state.rankTwoLevel += 1;
+    addStoryEntry("Your Arcane Force intensifies. " + getArcaneForceRankTwoRewardText(state.rankTwoLevel) + ".");
+  }
+  state.rankTwoComplete = state.rankTwoLevel >= 10;
+  syncSteelworkingUnlocks();
+  updateEquipmentSlotUI();
+}
+
+function getArcaneForceRankTwoProgressPercent() {
+  const state = ensureArcaneForceRankTwoState();
+  if (state.rankTwoLevel >= 10) return 1;
+  const current = getArcaneForceRankTwoProgression(state.rankTwoLevel).threshold;
+  const next = getArcaneForceRankTwoProgression(state.rankTwoLevel + 1).threshold;
+  return next > current ? Math.min(1, Math.max(0, (state.rankTwoXp - current) / (next - current))) : 1;
 }
 
 function getWardLevelRewardText(level) {
@@ -7456,21 +8425,52 @@ function recordWardExperience(amount) {
   }
 }
 
-function getArcaneForceLevelRewardText(level) {
-  const rewards = [
-    "Shape Nails",
-    "Shape tool parts",
-    "Force-open dungeon doors",
-    "Bulk harvest herbs and glimmerleaf",
-    "Detonate ore nodes",
-    "Rank 2 research ready, story gated",
-  ];
+const ARCANE_FORCE_RANK_1_PROGRESSION = [
+  {
+    name: "Basic Iron Shaping",
+    description: "Shape nails and crude iron pick heads with directed pressure.",
+  },
+  {
+    name: "Precision Shaping",
+    description: "Shape more precise iron tool parts, including knife blades and axe heads.",
+  },
+  {
+    name: "Force Manipulation",
+    description: "Physically manipulate mechanisms, braces, shutters, valves, locks, and similar environmental objects.",
+  },
+  {
+    name: "Area Force",
+    description: "Apply Arcane Force across a broader area to Force Harvest herbs and glimmerleaf.",
+  },
+  {
+    name: "Destructive Force",
+    description: "Concentrate Arcane Force strongly enough to fracture material and Detonate Ore Nodes.",
+  },
+  {
+    name: "Mana Bolt",
+    description: "Unlock Mana Bolt; Arcane Force Rank II research is ready when its story requirement is met.",
+  },
+];
 
-  return rewards[Math.max(0, Math.min(level, rewards.length - 1))];
+function getArcaneForceLevelProgression(level) {
+  return ARCANE_FORCE_RANK_1_PROGRESSION[Math.max(0, Math.min(level, ARCANE_FORCE_RANK_1_PROGRESSION.length - 1))];
+}
+
+function getArcaneForceLevelRewardText(level) {
+  const progression = getArcaneForceLevelProgression(level);
+  return progression.name + " — " + progression.description;
 }
 
 function recordArcaneForceExperience(amount) {
   if (!Number.isFinite(amount) || amount <= 0) return;
+
+  const forceState = ensureArcaneForceRankTwoState();
+
+  if (forceState.rank >= 2) {
+    forceState.rankTwoXp = roundResourceAmount(forceState.rankTwoXp + amount);
+    advanceArcaneForceRankTwo();
+    return;
+  }
 
   const progress = getArcaneForceProgressState();
   const oldLevel = progress.level || 0;
@@ -7480,6 +8480,13 @@ function recordArcaneForceExperience(amount) {
 
   if (progress.level > oldLevel) {
     addStoryEntry("Arcane Force answers with more precision. " + getArcaneForceLevelRewardText(progress.level) + ".");
+  }
+
+  if (progress.level >= 5 && hasArcaneForceRankTwoPrerequisites()) {
+    forceState.breakthroughs.forceAmplification = roundResourceAmount(getArcaneForceBreakthroughProgress() + amount);
+    if (forceState.breakthroughs.forceAmplification >= ARCANE_FORCE_RANK_TWO_CONFIG.breakthroughManaRequired) {
+      promoteArcaneForceToRankTwo();
+    }
   }
 
   updateEquipmentSlotUI();
@@ -7518,12 +8525,22 @@ function getAttunementState() {
     gameState.magic.attunements = {
       capacity: 1,
       active: [],
+      rank: 1,
+      rankTwoLevel: 0,
+      rankTwoXp: 0,
+      breakthroughs: {},
     };
   }
 
   if (!Array.isArray(gameState.magic.attunements.active)) {
     gameState.magic.attunements.active = [];
   }
+
+  const attunements = gameState.magic.attunements;
+  attunements.rank = attunements.rank >= 2 ? 2 : 1;
+  attunements.rankTwoLevel = Math.max(0, Math.min(10, Math.floor(Number(attunements.rankTwoLevel) || 0)));
+  attunements.rankTwoXp = Math.max(0, Number(attunements.rankTwoXp) || 0);
+  if (!attunements.breakthroughs || typeof attunements.breakthroughs !== "object") attunements.breakthroughs = {};
 
   gameState.magic.attunements.active = gameState.magic.attunements.active.filter(function (entry) {
     return entry && entry.id && !!getAttunementDefinition(entry.id);
@@ -7565,8 +8582,28 @@ function getAttunementScaledEffectValue(attunementName, definition, effectName) 
     return getReinforcedBodyMaxEnergyBonus();
   }
 
+  if (definition && definition.energyRelated) {
+    return (effects[effectName] || 0) * (1 + getAttunementLevel() * 0.2);
+  }
+
   return (effects[effectName] || 0) * getAttunementBonusMultiplier();
 }
+
+function getBuiltTowerNodeCount() {
+  if (typeof getTowerNodeDefinitions !== "function") return 0;
+  return Object.keys(getTowerNodeDefinitions()).filter(function (nodeName) { return !!getTowerNodeState(nodeName)?.built; }).length;
+}
+
+function getActiveAttunementResonances() {
+  if (getAttunementRankTwoLevel() < 7) return [];
+  const active = getActiveAttunements().map(function (entry) { return entry.id; });
+  const limit = getAttunementRankTwoLevel() >= 10 ? 2 : 1;
+  return Object.keys(ATTUNEMENT_RESONANCE_DEFINITIONS).filter(function (id) {
+    return ATTUNEMENT_RESONANCE_DEFINITIONS[id].required.every(function (attunement) { return active.includes(attunement); });
+  }).slice(0, limit);
+}
+
+function hasActiveAttunementResonance(id) { return getActiveAttunementResonances().includes(id); }
 
 function getAttunementTargetDescription(attunementName, definition, options = {}) {
   const effects = definition ? definition.effects || {} : {};
@@ -7585,6 +8622,13 @@ function getAttunementTargetDescription(attunementName, definition, options = {}
   if (effects.maxEnergyFlat) {
     parts.push("+" + formatAttunementEffectNumber(getAttunementScaledEffectValue(attunementName, definition, "maxEnergyFlat")) + " max energy");
   }
+
+  if (effects.maxWardFlat) parts.push("+" + formatAttunementEffectNumber(getAttunementScaledEffectValue(attunementName, definition, "maxWardFlat")) + " maximum Ward");
+  if (effects.manaPerSecond) parts.push("+" + formatAttunementEffectNumber(getAttunementScaledEffectValue(attunementName, definition, "manaPerSecond")) + " mana/sec");
+  if (effects.maxFocusFlat) parts.push("+" + formatAttunementEffectNumber(getAttunementScaledEffectValue(attunementName, definition, "maxFocusFlat")) + " Focus");
+  if (effects.manualStoneFlat) parts.push("+" + formatAttunementEffectNumber(getAttunementScaledEffectValue(attunementName, definition, "manualStoneFlat")) + " manual Stone");
+  if (effects.manualIronFlat) parts.push("+" + formatAttunementEffectNumber(getAttunementScaledEffectValue(attunementName, definition, "manualIronFlat")) + " manual Iron");
+  if (effects.earthDamageBonus) parts.push("+" + formatAttunementEffectPercent(getAttunementScaledEffectValue(attunementName, definition, "earthDamageBonus")) + " Earth damage");
 
   if (effects.huntSuccessChancePerLevel) {
     const chanceBonus = getAttunementLevel() * effects.huntSuccessChancePerLevel;
@@ -7619,6 +8663,18 @@ function clearActiveAttunements() {
   getAttunementState().active = [];
   recalculateCharacterStats();
   updateEquipmentSlotUI();
+}
+
+function removeActiveAttunement(attunementName) {
+  const state = getAttunementState();
+  const index = state.active.findIndex(function (entry) { return entry.id === attunementName; });
+  if (index < 0) return false;
+  const definition = getAttunementDefinition(attunementName);
+  state.active.splice(index, 1);
+  recalculateCharacterStats();
+  addStoryEntry("You release " + (definition ? definition.label : attunementName) + ".");
+  updateEquipmentSlotUI();
+  return true;
 }
 
 function hideSpellTargetMenu() {
@@ -7694,15 +8750,42 @@ function renderAttunementTargetMenu(menuEl) {
 
   menuEl.appendChild(createAttunementExperienceEntry());
 
+  const active = getActiveAttunements();
+  if (active.length) {
+    const activePanel = document.createElement("div");
+    activePanel.className = "training-detail";
+    activePanel.textContent = "Active Attunements — select one to release it:";
+    menuEl.appendChild(activePanel);
+    active.forEach(function (entry) {
+      const definition = getAttunementDefinition(entry.id);
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "attunement-target-btn";
+      button.textContent = "Release " + (definition ? definition.label : entry.id);
+      button.addEventListener("click", function () { removeActiveAttunement(entry.id); });
+      menuEl.appendChild(button);
+    });
+  }
+
   const definitions = getAttunementDefinitions();
   let hasTargets = renderContextualSpellCastOption("attunement", menuEl);
 
   for (let attunementName in definitions) {
-    if (!isAttunementTargetAvailable(attunementName)) continue;
+    const definition = getAttunementDefinition(attunementName);
+    if (!isAttunementTargetAvailable(attunementName)) {
+      if (definition && definition.requiredRankTwoLevel && getAttunementRankTwoLevel() < definition.requiredRankTwoLevel) {
+        const locked = document.createElement("button");
+        locked.type = "button";
+        locked.className = "attunement-target-btn";
+        locked.disabled = true;
+        locked.textContent = definition.label + " — Locked (Rank II Level " + definition.requiredRankTwoLevel + ")";
+        menuEl.appendChild(locked);
+      }
+      continue;
+    }
 
     hasTargets = true;
 
-    const definition = getAttunementDefinition(attunementName);
     const context = {
       type: "attunement",
       attunementId: attunementName,
@@ -7762,11 +8845,11 @@ function renderProductionSpellTargetMenu(spellName, menuEl) {
   let hasTargets = renderContextualSpellCastOption(spellName, menuEl);
 
   for (let targetName in definitions) {
-    if (!isProductionSpellTargetAvailable(spellName, targetName)) continue;
+    const definition = getProductionSpellDefinition(spellName, targetName);
+    const visiblePermanentImbue = spellName === "imbue" && definition && definition.permanentImbue && isImbueRankTwoTargetVisible(targetName);
+    if (!isProductionSpellTargetAvailable(spellName, targetName) && !visiblePermanentImbue && !(spellName === "imbue" && definition && definition.toolCharge && isCampCraftingContext())) continue;
 
     hasTargets = true;
-
-    const definition = getProductionSpellDefinition(spellName, targetName);
     const targetContext = getProductionSpellTargetContext(spellName, targetName);
     const context = {
       type: "productionSpell",
@@ -7774,6 +8857,10 @@ function renderProductionSpellTargetMenu(spellName, menuEl) {
       targetId: targetName,
       mode: targetContext ? targetContext.mode : null,
     };
+    if (spellName === "imbue" && definition.toolCharge) {
+      menuEl.appendChild(createImbueToolOption(definition, context));
+      continue;
+    }
     const button = document.createElement("button");
     button.type = "button";
     button.className = "attunement-target-btn";
@@ -7794,6 +8881,47 @@ function renderProductionSpellTargetMenu(spellName, menuEl) {
   if (!hasTargets) {
     menuEl.appendChild(createSpellMenuMessage("No available targets."));
   }
+}
+
+function createImbueToolOption(definition, context) {
+  const tool = definition.toolCharge;
+  const selectedMana = getImbueToolSelectedMana(tool);
+  const maxMana = Math.min(getImbueCapacity(), Math.floor(getImbueToolRemainingCapacity(tool) / IMBUE_TOOL_CHARGES_PER_MANA));
+  const card = document.createElement("div");
+  card.className = "attunement-target-btn imbue-tool-option";
+  const label = document.createElement("strong");
+  label.textContent = definition.label;
+  const charge = document.createElement("span");
+  charge.className = "attunement-target-description";
+  charge.textContent = "Charge: " + getImbueToolCharges(tool) + " / " + getImbueToolMaxCharges();
+  const controls = document.createElement("div");
+  controls.className = "imbue-tool-mana-controls";
+  const decrement = document.createElement("button");
+  decrement.type = "button";
+  decrement.textContent = "−";
+  decrement.disabled = selectedMana <= 1;
+  decrement.addEventListener("click", function () { setImbueToolSelectedMana(tool, selectedMana - 1); updateEquipmentSlotUI(); });
+  const mana = document.createElement("span");
+  mana.textContent = "Mana: " + selectedMana;
+  const increment = document.createElement("button");
+  increment.type = "button";
+  increment.textContent = "+";
+  increment.disabled = selectedMana >= maxMana;
+  increment.addEventListener("click", function () { setImbueToolSelectedMana(tool, selectedMana + 1); updateEquipmentSlotUI(); });
+  controls.append(decrement, mana, increment);
+  const details = document.createElement("span");
+  details.className = "attunement-target-details";
+  details.textContent = maxMana > 0
+    ? "Adds " + (selectedMana * IMBUE_TOOL_CHARGES_PER_MANA) + " gathering charges · Charged gathering: +50% speed"
+    : "Fully charged · Charged gathering: +50% speed";
+  const cast = document.createElement("button");
+  cast.type = "button";
+  cast.className = "imbue-tool-cast-btn";
+  cast.textContent = "Imbue";
+  cast.disabled = !canApplyProductionSpellTarget("imbue", context.targetId);
+  cast.addEventListener("click", function () { castTargetedSpell("imbue", context); });
+  card.append(label, charge, controls, details, cast);
+  return card;
 }
 
 function renderBasicSpellTargetMenu(spellName, menuEl) {
@@ -8070,6 +9198,9 @@ function createManaSenseExperienceEntry() {
 function createAttunementExperienceEntry() {
   const progress = getAttunementProgressState();
   const definition = getSpellProgressDefinition("attunement");
+  const rank = getAttunementRank();
+  const rankTwoLevel = getAttunementRankTwoLevel();
+  const attunementState = getAttunementState();
   const thresholds = definition.thresholds;
   const maxLevel = definition.maxLevel;
   const nextThreshold = thresholds[progress.level] || null;
@@ -8081,10 +9212,10 @@ function createAttunementExperienceEntry() {
   header.className = "training-entry-header";
 
   const title = document.createElement("strong");
-  title.textContent = "Attunement - Level " + progress.level;
+  title.textContent = rank >= 2 ? "Attunement Rank II - Level " + rankTwoLevel : "Attunement Rank I - Level " + progress.level;
 
   const capacity = document.createElement("span");
-  capacity.textContent = formatAttunementMultiplier() + " bonus";
+  capacity.textContent = "+" + Math.round((getAttunementBonusMultiplier() - 1) * 100) + "% effectiveness";
 
   header.appendChild(title);
   header.appendChild(capacity);
@@ -8098,7 +9229,10 @@ function createAttunementExperienceEntry() {
   const progressText = document.createElement("div");
   progressText.className = "training-progress-text";
 
-  if (progress.level >= maxLevel || nextThreshold === null) {
+  if (rank >= 2) {
+    const next = getAttunementRankTwoProgression(rankTwoLevel + 1);
+    progressText.textContent = next ? "Attuned mana spent: " + formatTrainingNumber(attunementState.rankTwoXp || 0) + " / " + formatTrainingNumber(next.threshold) : "Attuned mana spent: complete";
+  } else if (progress.level >= maxLevel || nextThreshold === null) {
     progressText.textContent = "Mana spent: complete";
   } else {
     progressText.textContent = "Mana spent: " + formatTrainingNumber(progress.xp) + " / " + formatTrainingNumber(nextThreshold);
@@ -8111,7 +9245,7 @@ function createAttunementExperienceEntry() {
 
   const progressFill = document.createElement("div");
   progressFill.className = "training-progress-fill";
-  progressFill.style.width = getSpellProgressPercent("attunement") * 100 + "%";
+  progressFill.style.width = (rank >= 2 ? getAttunementRankTwoProgressPercent() : getSpellProgressPercent("attunement")) * 100 + "%";
 
   progressTrack.appendChild(progressFill);
   entry.appendChild(progressTrack);
@@ -8119,8 +9253,12 @@ function createAttunementExperienceEntry() {
   const detail = document.createElement("div");
   detail.className = "training-detail";
 
-  if (progress.level >= maxLevel || nextThreshold === null) {
-    detail.textContent = getAttunementLevelRewardText(progress.level) + ". Rank 2 research ready, story gated.";
+  if (rank >= 2) {
+    detail.textContent = "Current: " + getAttunementRankTwoRewardText(rankTwoLevel) + (rankTwoLevel < 10 ? ". Next: " + getAttunementRankTwoRewardText(rankTwoLevel + 1) + "." : ".");
+    if (rankTwoLevel === 4) detail.textContent += " Harmonic Stability: " + formatTrainingNumber(getAttunementBreakthroughProgress("harmonicStability")) + " / 100 mana with four active.";
+    if (rankTwoLevel === 9) detail.textContent += " Harmonic Attunement: " + formatTrainingNumber(getAttunementBreakthroughProgress("harmonicAttunement")) + " / 200 mana with six active, a Resonance, and two Nodes.";
+  } else if (progress.level >= maxLevel || nextThreshold === null) {
+    detail.textContent = getAttunementLevelRewardText(progress.level) + ". Persistent Resonance: " + formatTrainingNumber(getAttunementBreakthroughProgress("persistentResonance")) + " / " + ATTUNEMENT_BREAKTHROUGH_DEFINITIONS.persistentResonance.requiredMana + " mana while maintaining three active attunements.";
   } else {
     detail.textContent =
       "Current: " + getAttunementLevelRewardText(progress.level) + ". Next: " + getAttunementLevelRewardText(progress.level + 1) + ".";
@@ -8131,9 +9269,21 @@ function createAttunementExperienceEntry() {
   return entry;
 }
 
+function getAttunementRankTwoProgressPercent() {
+  const state = getAttunementState();
+  const level = getAttunementRankTwoLevel();
+  if (level >= 10) return 1;
+  const current = getAttunementRankTwoProgression(level).threshold;
+  const next = getAttunementRankTwoProgression(level + 1).threshold;
+  return next > current ? Math.min(1, Math.max(0, ((state.rankTwoXp || 0) - current) / (next - current))) : 1;
+}
+
 function createImbueExperienceEntry() {
   const progress = getImbueProgressState();
   const definition = getSpellProgressDefinition("imbue");
+  const imbuement = ensureImbueRankTwoState();
+  const rankTwo = imbuement.rank >= 2;
+  const rankTwoLevel = imbuement.rankTwoLevel;
   const thresholds = definition.thresholds;
   const maxLevel = definition.maxLevel;
   const nextThreshold = thresholds[progress.level] || null;
@@ -8145,10 +9295,12 @@ function createImbueExperienceEntry() {
   header.className = "training-entry-header";
 
   const title = document.createElement("strong");
-  title.textContent = "Imbue - Level " + progress.level;
+  title.textContent = rankTwo ? "Imbue Rank II - Level " + rankTwoLevel : "Imbue Rank I - Level " + progress.level;
 
   const capacity = document.createElement("span");
-  capacity.textContent = getImbueCapacity() + " mana capacity";
+  capacity.textContent = rankTwo
+    ? "Heart control " + getTowerHeartElementalControlCapacity()
+    : getImbueCapacity() + " mana capacity";
 
   header.appendChild(title);
   header.appendChild(capacity);
@@ -8157,7 +9309,12 @@ function createImbueExperienceEntry() {
   const progressText = document.createElement("div");
   progressText.className = "training-progress-text";
 
-  if (progress.level >= maxLevel || nextThreshold === null) {
+  if (rankTwo) {
+    const next = getImbueRankTwoProgression(rankTwoLevel + 1);
+    progressText.textContent = next
+      ? "Imbued mana spent: " + formatTrainingNumber(imbuement.rankTwoXp) + " / " + formatTrainingNumber(next.threshold)
+      : "Imbued mana spent: complete";
+  } else if (progress.level >= maxLevel || nextThreshold === null) {
     progressText.textContent = "Mana spent: complete";
   } else {
     progressText.textContent = "Mana spent: " + formatTrainingNumber(progress.xp) + " / " + formatTrainingNumber(nextThreshold);
@@ -8170,7 +9327,7 @@ function createImbueExperienceEntry() {
 
   const progressFill = document.createElement("div");
   progressFill.className = "training-progress-fill";
-  progressFill.style.width = getSpellProgressPercent("imbue") * 100 + "%";
+  progressFill.style.width = (rankTwo ? getImbueRankTwoProgressPercent() : getSpellProgressPercent("imbue")) * 100 + "%";
 
   progressTrack.appendChild(progressFill);
   entry.appendChild(progressTrack);
@@ -8178,8 +9335,17 @@ function createImbueExperienceEntry() {
   const detail = document.createElement("div");
   detail.className = "training-detail";
 
-  if (progress.level >= maxLevel || nextThreshold === null) {
-    detail.textContent = "Current: " + getImbueLevelRewardText(progress.level) + ". Rank 2 research ready, story gated.";
+  if (rankTwo) {
+    const furnaceText = imbuement.furnaceTier >= 2 ? "fuel-free Furnace" : imbuement.furnaceTier >= 1 ? "half-fuel Furnace" : "standard Furnace";
+    const alchemyText = imbuement.alchemyTier >= 2 ? "fuel-free Alchemy" : imbuement.alchemyTier >= 1 ? "half-fuel Alchemy" : "standard Alchemy";
+    detail.textContent = "Current: " + getImbueRankTwoRewardText(rankTwoLevel) +
+      (rankTwoLevel < 10 ? ". Next: " + getImbueRankTwoRewardText(rankTwoLevel + 1) : "") +
+      ". Workshop: " + furnaceText + ", " + alchemyText + ". Control Matrix stage " + imbuement.controlMatrixStage + ".";
+  } else if (progress.level >= maxLevel || nextThreshold === null) {
+    const required = getImbueRankTwoConfig().permanentBindingManaRequired;
+    detail.textContent = hasPermanentBindingPrerequisites()
+      ? "Permanent Binding: " + formatTrainingNumber(getImbuePermanentBindingProgress()) + " / " + required + " mana spent imbuing."
+      : "Current: " + getImbueLevelRewardText(progress.level) + ". Restore the Tower Heart and an activated Northern Node to begin Permanent Binding.";
   } else {
     detail.textContent = "Current: " + getImbueLevelRewardText(progress.level) + ". Next: " + getImbueLevelRewardText(progress.level + 1) + ".";
   }
@@ -8192,6 +9358,9 @@ function createImbueExperienceEntry() {
 function createArcaneForceExperienceEntry() {
   const progress = getArcaneForceProgressState();
   const definition = getSpellProgressDefinition("arcaneForce");
+  const forceState = ensureArcaneForceRankTwoState();
+  const rankTwo = forceState.rank >= 2;
+  const rankTwoLevel = forceState.rankTwoLevel;
   const thresholds = definition.thresholds;
   const maxLevel = definition.maxLevel;
   const nextThreshold = thresholds[progress.level] || null;
@@ -8203,10 +9372,10 @@ function createArcaneForceExperienceEntry() {
   header.className = "training-entry-header";
 
   const title = document.createElement("strong");
-  title.textContent = "Arcane Force - Level " + progress.level;
+  title.textContent = rankTwo ? "Arcane Force Rank II - Level " + rankTwoLevel : "Arcane Force Rank I - Level " + progress.level;
 
   const capacity = document.createElement("span");
-  capacity.textContent = getArcaneForceLevelRewardText(progress.level);
+  capacity.textContent = rankTwo ? getArcaneForcePowerPercent() + "% Force Power" : getArcaneForceLevelProgression(progress.level).name;
 
   header.appendChild(title);
   header.appendChild(capacity);
@@ -8215,7 +9384,12 @@ function createArcaneForceExperienceEntry() {
   const progressText = document.createElement("div");
   progressText.className = "training-progress-text";
 
-  if (progress.level >= maxLevel || nextThreshold === null) {
+  if (rankTwo) {
+    const next = rankTwoLevel < 10 ? getArcaneForceRankTwoProgression(rankTwoLevel + 1) : null;
+    progressText.textContent = next
+      ? "Mana spent: " + formatTrainingNumber(forceState.rankTwoXp) + " / " + formatTrainingNumber(next.threshold)
+      : "Mana spent: complete";
+  } else if (progress.level >= maxLevel || nextThreshold === null) {
     progressText.textContent = "Mana spent: complete";
   } else {
     progressText.textContent = "Mana spent: " + formatTrainingNumber(progress.xp) + " / " + formatTrainingNumber(nextThreshold);
@@ -8228,7 +9402,7 @@ function createArcaneForceExperienceEntry() {
 
   const progressFill = document.createElement("div");
   progressFill.className = "training-progress-fill";
-  progressFill.style.width = getSpellProgressPercent("arcaneForce") * 100 + "%";
+  progressFill.style.width = (rankTwo ? getArcaneForceRankTwoProgressPercent() : getSpellProgressPercent("arcaneForce")) * 100 + "%";
 
   progressTrack.appendChild(progressFill);
   entry.appendChild(progressTrack);
@@ -8236,8 +9410,16 @@ function createArcaneForceExperienceEntry() {
   const detail = document.createElement("div");
   detail.className = "training-detail";
 
-  if (progress.level >= maxLevel || nextThreshold === null) {
-    detail.textContent = "Current: " + getArcaneForceLevelRewardText(progress.level) + ".";
+  if (rankTwo) {
+    detail.textContent = "Current: " + getArcaneForceRankTwoRewardText(rankTwoLevel) +
+      (rankTwoLevel < 10 ? ". Next: " + getArcaneForceRankTwoRewardText(rankTwoLevel + 1) + "." : ".") +
+      " Milestones: L3 Steelworking · L5 Mana Missile · L7 Arcane Efficiency · L10 Mana Lance.";
+  } else if (progress.level >= maxLevel || nextThreshold === null) {
+    const ready = hasArcaneForceRankTwoPrerequisites();
+    detail.textContent = "Current: " + getArcaneForceLevelRewardText(progress.level) + ". " +
+      (ready
+        ? "Force Amplification: " + formatTrainingNumber(getArcaneForceBreakthroughProgress()) + " / " + ARCANE_FORCE_RANK_TWO_CONFIG.breakthroughManaRequired + " mana spent through Arcane Force."
+        : "Restore the Tower Heart and activate the Northern Node to begin the Rank II Force Amplification breakthrough.");
   } else {
     detail.textContent =
       "Current: " + getArcaneForceLevelRewardText(progress.level) + ". Next: " + getArcaneForceLevelRewardText(progress.level + 1) + ".";
@@ -8343,7 +9525,10 @@ function getAttunementActiveSummaryText() {
     })
     .filter(Boolean);
 
-  return "Active: " + (names.length ? names.join(", ") : "None") + " (" + state.active.length + "/" + state.capacity + " slots)";
+  const persistence = getAttunementRank() >= 2 ? "persistent" : "clears on Camp return";
+  const resonances = getActiveAttunementResonances();
+  const resonanceText = resonances.length ? "; Resonance: " + resonances.map(function (id) { return ATTUNEMENT_RESONANCE_DEFINITIONS[id].label; }).join(", ") : "";
+  return "Active: " + (names.length ? names.join(", ") : "None") + " (" + state.active.length + "/" + state.capacity + " slots; " + persistence + ")" + resonanceText;
 }
 
 function renderAttunementPips(boxEl) {
@@ -8366,8 +9551,8 @@ function renderAttunementPips(boxEl) {
   boxEl.appendChild(pipRow);
 }
 
-function getPurchasedEquipmentForSlot(equipmentType, slotName) {
-  const slots = getPurchasedEquipmentSlots(equipmentType);
+function getPurchasedEquipmentForSlot(equipmentType, slotName, includeRankTwo = true) {
+  const slots = getPurchasedEquipmentSlots(equipmentType, includeRankTwo);
 
   for (let i = 0; i < slots.length; i++) {
     if (slots[i].current && slots[i].current.slot === slotName) {
@@ -8383,6 +9568,9 @@ function isAttunementTargetAvailable(attunementName) {
 
   if (!definition) return false;
   if (definition.requiredAttunementLevel && getAttunementLevel() < definition.requiredAttunementLevel) return false;
+  if (definition.requiredAttunementRank && getAttunementRank() < definition.requiredAttunementRank) return false;
+  if (definition.requiredRankTwoLevel && getAttunementRankTwoLevel() < definition.requiredRankTwoLevel) return false;
+  if (definition.requiredNode && (!getTowerNodeState(definition.requiredNode) || !getTowerNodeState(definition.requiredNode).built)) return false;
   if (hasActiveAttunement(attunementName)) return false;
 
   return true;
@@ -8408,19 +9596,50 @@ function getProductionSpellTargetContext(spellName, targetName, requestedContext
 
   if (!definition) return null;
 
+  if (spellName === "imbue" && definition.toolCharge) {
+    if (!isCampCraftingContext()) return null;
+    const mana = getImbueToolSelectedMana(definition.toolCharge);
+    return finalizeProductionSpellTargetContext(spellName, definition, { mode: "camp", cost: { mana: mana }, storageCost: null, carriedCost: null, produces: null, storageProduces: null, producesConsumable: null, carriedProduces: null });
+  }
+
   if (requestedContext && requestedContext.mode === "campEquipment") {
-    return getCampEquipmentProductionSpellTargetContext(definition);
+    return finalizeProductionSpellTargetContext(spellName, definition, getCampEquipmentProductionSpellTargetContext(definition));
   }
 
   if (requestedContext && requestedContext.mode === "location") {
-    return getLocationProductionSpellTargetContext(definition);
+    return finalizeProductionSpellTargetContext(spellName, definition, getLocationProductionSpellTargetContext(definition));
   }
 
   if (requestedContext && (requestedContext.mode === "camp" || requestedContext.mode === "field")) {
-    return getLocationProductionSpellTargetContext(definition, requestedContext);
+    return finalizeProductionSpellTargetContext(spellName, definition, getLocationProductionSpellTargetContext(definition, requestedContext));
   }
 
-  return getCampEquipmentProductionSpellTargetContext(definition) || getLocationProductionSpellTargetContext(definition);
+  return finalizeProductionSpellTargetContext(
+    spellName,
+    definition,
+    getCampEquipmentProductionSpellTargetContext(definition) || getLocationProductionSpellTargetContext(definition)
+  );
+}
+
+function finalizeProductionSpellTargetContext(spellName, definition, targetContext) {
+  if (!targetContext || spellName !== "arcaneForce") return targetContext;
+  const finalized = { ...targetContext, cost: getArcaneForceModifiedCost(targetContext.cost) };
+
+  if (definition && definition.forcePowerYield && targetContext.carriedProduces) {
+    finalized.carriedProduces = {
+      ...targetContext.carriedProduces,
+      amount: scaleArcaneForceAmount(targetContext.carriedProduces.amount),
+    };
+  }
+
+  if (definition && definition.forcePowerYield && targetContext.produces) {
+    finalized.produces = {
+      ...targetContext.produces,
+      amount: scaleArcaneForceAmount(targetContext.produces.amount),
+    };
+  }
+
+  return finalized;
 }
 
 function getCampEquipmentProductionSpellTargetContext(definition) {
@@ -8498,7 +9717,7 @@ function getSpellCastCost(spellName, context) {
     const interaction = getLocationObjectSpellInteraction(object, context.spellName);
 
     if (interaction && interaction.cost) {
-      return interaction.cost;
+      return context.spellName === "arcaneForce" ? getArcaneForceModifiedCost(interaction.cost) : interaction.cost;
     }
   }
 
@@ -8507,7 +9726,7 @@ function getSpellCastCost(spellName, context) {
     const interaction = getDungeonNodeSpellInteraction(node, context.spellName);
 
     if (interaction && interaction.cost) {
-      return interaction.cost;
+      return context.spellName === "arcaneForce" ? getArcaneForceModifiedCost(interaction.cost) : interaction.cost;
     }
   }
 
@@ -8521,7 +9740,8 @@ function getSpellCastCost(spellName, context) {
 
   const spell = getSpell(spellName);
 
-  return spell ? spell.cost || {} : {};
+  const cost = spell ? spell.cost || {} : {};
+  return spellName === "arcaneForce" ? getArcaneForceModifiedCost(cost) : cost;
 }
 
 function getSpellCastDuration(spellName, context) {
@@ -8532,7 +9752,7 @@ function getSpellCastDuration(spellName, context) {
     const interaction = getLocationObjectSpellInteraction(object, context.spellName);
 
     if (interaction && Number.isFinite(interaction.duration)) {
-      return interaction.duration;
+      return context.spellName === "arcaneForce" ? getArcaneForceCastDuration(interaction.duration) : interaction.duration;
     }
   }
 
@@ -8541,7 +9761,7 @@ function getSpellCastDuration(spellName, context) {
     const interaction = getDungeonNodeSpellInteraction(node, context.spellName);
 
     if (interaction && Number.isFinite(interaction.duration)) {
-      return interaction.duration;
+      return context.spellName === "arcaneForce" ? getArcaneForceCastDuration(interaction.duration) : interaction.duration;
     }
   }
 
@@ -8549,7 +9769,7 @@ function getSpellCastDuration(spellName, context) {
     const definition = getProductionSpellDefinition(spellName, context.targetId);
 
     if (definition && Number.isFinite(definition.duration)) {
-      return definition.duration;
+      return spellName === "arcaneForce" ? getArcaneForceCastDuration(definition.duration) : definition.duration;
     }
   }
 
@@ -8561,7 +9781,8 @@ function getSpellCastDuration(spellName, context) {
     }
   }
 
-  return spell ? spell.duration || 0 : 0;
+  const duration = spell ? spell.duration || 0 : 0;
+  return spellName === "arcaneForce" ? getArcaneForceCastDuration(duration) : duration;
 }
 
 function formatSpellDuration(duration) {
@@ -8586,11 +9807,16 @@ function formatSpellOptionDetails(spellName, definition, context) {
   const storageCost = targetContext ? targetContext.storageCost : definition ? definition.storageCost : null;
   const carriedCost = targetContext ? targetContext.carriedCost : null;
 
-  return [
+  const details = [
     "Mana: " + getSpellOptionManaCost(cost),
     "Time: " + formatSpellDuration(getSpellCastDuration(spellName, context)),
     "Materials: " + getSpellOptionMaterialCost(cost, storageCost, carriedCost),
-  ].join(" | ");
+  ];
+  if (spellName === "imbue" && definition && definition.permanentImbue) {
+    const prerequisite = getImbueRankTwoPrerequisiteText(definition.permanentAction);
+    if (prerequisite) details.push("Requires: " + prerequisite);
+  }
+  return details.join(" | ");
 }
 
 function appendProductionSpellOptionContent(button, spellName, definition, context, includeDescription) {
@@ -8637,6 +9863,11 @@ function getProductionSpellOptionLabel(spellName, definition) {
 }
 
 function formatProductionSpellOptionDetails(spellName, definition, context) {
+  if (spellName === "imbue" && definition && definition.toolCharge) {
+    const tool = definition.toolCharge;
+    const mana = getImbueToolSelectedMana(tool);
+    return "Charge: " + getImbueToolCharges(tool) + " / " + getImbueToolMaxCharges() + " · Mana: " + mana + " · Adds " + (mana * IMBUE_TOOL_CHARGES_PER_MANA) + " gathering charges · Charged gathering: +50% speed";
+  }
   const consumable = getProductionSpellConsumable(definition);
 
   if (spellName !== "imbue" || !consumable) {
@@ -8774,6 +10005,9 @@ function isProductionSpellTargetAvailable(spellName, targetName, requestedContex
 
   if (spellName === "arcaneForce" && getArcaneForceLevel() < (definition.requiredForceLevel || 0)) return false;
   if (spellName === "imbue" && getSpellOptionManaCost(targetContext.cost) > getImbueCapacity()) return false;
+  if (spellName === "imbue" && definition.toolCharge && getImbueToolSelectedMana(definition.toolCharge) <= 0) return false;
+  if (spellName === "imbue" && definition.requiredImbueRank && getImbueRank() < definition.requiredImbueRank) return false;
+  if (spellName === "imbue" && definition.requiredRankTwoLevel !== undefined && getImbueRankTwoLevel() < definition.requiredRankTwoLevel) return false;
 
   if (!areProductionSpellTargetRequirementsMet(definition.requires)) return false;
 
@@ -9027,6 +10261,18 @@ function applyProductionSpellTarget(spellName, targetName, requestedContext) {
   if (!definition) return false;
   if (!targetContext) return false;
   if (!isProductionSpellTargetAvailable(spellName, targetName, requestedContext)) return false;
+
+  if (spellName === "imbue" && definition.toolCharge) {
+    const tool = definition.toolCharge;
+    const mana = getImbueToolSelectedMana(tool);
+    const addedCharges = mana * IMBUE_TOOL_CHARGES_PER_MANA;
+    if (mana <= 0 || addedCharges > getImbueToolRemainingCapacity(tool)) return false;
+    ensureImbueToolChargeState()[tool] += addedCharges;
+    addStoryEntry("Mana settles into your " + ({ knife: "Knife", axe: "Axe", pick: "Iron Pick" }[tool] || tool) + ", adding " + addedCharges + " gathering charges.");
+    trySaveGame();
+    updateEquipmentSlotUI();
+    return true;
+  }
   if (!spendStorageCost(targetContext.storageCost)) return false;
   if (targetContext.carriedCost && !spendCarriedCost(targetContext.carriedCost)) return false;
 

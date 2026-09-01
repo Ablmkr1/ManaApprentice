@@ -488,7 +488,8 @@ function recordManaCyclingManaSpent(amount) {
 
   if ((skill.level || 0) >= maxLevel) return;
 
-  skill.manaXp = roundResourceAmount((skill.manaXp || 0) + amount);
+  const attunedMultiplier = typeof hasActiveAttunementResonance === "function" && hasActiveAttunementResonance("clarity") ? 1.1 : 1;
+  skill.manaXp = roundResourceAmount((skill.manaXp || 0) + amount * attunedMultiplier);
 
   while (!skill.breakthroughReady) {
     const nextLevelDefinition = getNextManaCyclingLevelDefinition(skill);
@@ -799,8 +800,13 @@ function recalculateCharacterStats() {
   const temporaryEnergyMaxBonus = getActiveMaxEnergyAttunementBonus();
 
   setResourceMaxValue("energy", roundResourceAmount(cappedEnergyMax + temporaryEnergyMaxBonus));
-  setResourceMaxValue("focus", getSkillCapacity("concentration"));
-  setResourceMaxValue("mana", getSkillCapacity("manaCycling"));
+  const temporaryFocusMaxBonus = typeof getActiveAttunementEffectTotal === "function" ? getActiveAttunementEffectTotal("maxFocusFlat") : 0;
+  setResourceMaxValue("focus", roundResourceAmount(getSkillCapacity("concentration") + temporaryFocusMaxBonus));
+  const permanentManaBonus = typeof getEquippedPermanentImbueEffectTotal === "function" ? getEquippedPermanentImbueEffectTotal("maxManaFlat") : 0;
+  setResourceMaxValue("mana", roundResourceAmount(getSkillCapacity("manaCycling") + permanentManaBonus));
+  const mana = getResource("mana");
+  if (mana) mana.perSecond = typeof getActiveAttunementEffectTotal === "function" ? getActiveAttunementEffectTotal("manaPerSecond") : 0;
+  syncWardResourceState();
   syncSpellUpgradeEffects();
   updateTrainingUI();
 }
@@ -962,6 +968,12 @@ function getMineOreAmount() {
   return getMiningYieldBase();
 }
 
+function getMineResourceAmount(resourceName) {
+  const effectName = resourceName === "stone" ? "manualStoneFlat" : resourceName === "iron" ? "manualIronFlat" : null;
+  const resourceBonus = effectName && typeof getActiveAttunementEffectTotal === "function" ? getActiveAttunementEffectTotal(effectName) : 0;
+  return getMineOreAmount() + resourceBonus;
+}
+
 function recalculateToolEffects() {
   for (let resourceName in BASE_TOOL_GATHER_YIELDS) {
     const resource = getResource(resourceName);
@@ -1074,7 +1086,11 @@ function getLocationObjectCost(object) {
 }
 
 function getTravelEnergyMultiplier() {
-  return getEquipmentEffectValue("gear", "legs", "travelEnergyMultiplier", 1);
+  const gearMultiplier = getEquipmentEffectValue("gear", "legs", "travelEnergyMultiplier", 1);
+  const permanentMultiplier = typeof getEquippedPermanentImbueEffectMultiplier === "function"
+    ? getEquippedPermanentImbueEffectMultiplier("travelEnergyMultiplier")
+    : 1;
+  return gearMultiplier * permanentMultiplier;
 }
 
 function formatTrainingNumber(value) {

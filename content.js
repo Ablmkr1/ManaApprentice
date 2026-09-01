@@ -486,7 +486,7 @@ const expeditionLocations = {
       discovered: "A narrow mine cuts into the ridge. The stone is rich with ore, but too hard for bare hands.",
       explored: "Iron veins run through the mine wall. With the right pick, ore can be mined here reliably.",
     },
-    availableActions: ["mineOre", "investigateNorthernDisturbance", "challengeEarthElemental"],
+    availableActions: ["mineStone", "mineIron", "investigateNorthernDisturbance", "challengeEarthElemental"],
   },
 
   wildHerbPatch: {
@@ -3464,6 +3464,26 @@ const campUpgrades = {
   },
 };
 
+// Centralized first-pass Steelworking balance. These recipes intentionally stay
+// simple so a later metallurgy pass can tune them without touching craft logic.
+const STEELWORKING_CONFIG = {
+  steel: {
+    duration: 6,
+    cost: { iron: 3, energy: 12 },
+    amount: 1,
+  },
+  ironStaff: {
+    duration: 12,
+    cost: { iron: 4, wood: 3, energy: 25 },
+  },
+  upgrades: {
+    steelKnife: { duration: 18, cost: { steel: 2, energy: 30 }, requiredGear: "ironKnife" },
+    steelAxe: { duration: 18, cost: { steel: 3, energy: 40 }, requiredGear: "ironAxe" },
+    steelPick: { duration: 18, cost: { steel: 3, energy: 40 }, requiredGear: "crudeIronPick" },
+    steelStaff: { duration: 20, cost: { steel: 4, energy: 50 }, requiredGear: "ironStaff" },
+  },
+};
+
 //Player Gear System
 const gearUpgrades = {
   crudeSatchel: {
@@ -3822,6 +3842,31 @@ const gearUpgrades = {
     },
   },
 
+  steelKnife: {
+    label: "Steel Knife (+3 Fiber, +3 Hunt Pelts)",
+    duration: STEELWORKING_CONFIG.upgrades.steelKnife.duration,
+    displayName: "Steel Knife",
+    equipmentType: "tool",
+    slot: "knife",
+    slotLabel: "Knife",
+    slotOrder: 1,
+    slotRank: 3,
+    icon: "🔪",
+    iconVariant: "steel",
+    craftingCategory: "steelworking",
+    effects: { cuttingYieldFlat: 3, huntRewardFlat: 3 },
+    cost: STEELWORKING_CONFIG.upgrades.steelKnife.cost,
+    requiredGear: STEELWORKING_CONFIG.upgrades.steelKnife.requiredGear,
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      recalculateToolEffects();
+      refreshExpeditionUI();
+    },
+  },
+
   stoneAxe: {
     label: "Stone Axe (+1 Wood)",
     displayName: "Stone Axe",
@@ -3870,6 +3915,31 @@ const gearUpgrades = {
       ironAxeHead: 1,
       energy: 40,
     },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      recalculateToolEffects();
+      refreshExpeditionUI();
+    },
+  },
+
+  steelAxe: {
+    label: "Steel Axe (+3 Wood)",
+    displayName: "Steel Axe",
+    equipmentType: "tool",
+    slot: "axe",
+    slotLabel: "Axe",
+    slotOrder: 2,
+    slotRank: 3,
+    icon: "🪓",
+    iconVariant: "steel",
+    craftingCategory: "steelworking",
+    effects: { choppingYieldFlat: 3 },
+    duration: STEELWORKING_CONFIG.upgrades.steelAxe.duration,
+    cost: STEELWORKING_CONFIG.upgrades.steelAxe.cost,
+    requiredGear: STEELWORKING_CONFIG.upgrades.steelAxe.requiredGear,
     unlocked: false,
     purchased: false,
     button: null,
@@ -4004,6 +4074,77 @@ const gearUpgrades = {
     onComplete() {
       recalculateToolEffects();
       refreshExpeditionUI();
+    },
+  },
+
+  steelPick: {
+    label: "Steel Pick (Mine 3 Ore)",
+    displayName: "Steel Pick",
+    equipmentType: "tool",
+    slot: "pick",
+    slotLabel: "Pick",
+    slotOrder: 3,
+    slotRank: 2,
+    icon: "⛏️",
+    iconVariant: "steel",
+    craftingCategory: "steelworking",
+    effects: { miningYieldBase: 3 },
+    duration: STEELWORKING_CONFIG.upgrades.steelPick.duration,
+    cost: STEELWORKING_CONFIG.upgrades.steelPick.cost,
+    requiredGear: STEELWORKING_CONFIG.upgrades.steelPick.requiredGear,
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      recalculateToolEffects();
+      refreshExpeditionUI();
+    },
+  },
+
+  ironStaff: {
+    label: "Iron Staff (Combat Cast Speed +15%, Combat Mana Cost -10%)",
+    displayName: "Iron Staff",
+    equipmentType: "tool",
+    slot: "staff",
+    slotLabel: "Staff",
+    slotOrder: 4,
+    slotRank: 1,
+    icon: "🪄",
+    iconVariant: "iron",
+    effects: { combatCastSpeedMultiplier: 1.15, combatManaCostMultiplier: 0.9 },
+    duration: STEELWORKING_CONFIG.ironStaff.duration,
+    cost: STEELWORKING_CONFIG.ironStaff.cost,
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      updateEquipmentSlotUI();
+    },
+  },
+
+  steelStaff: {
+    label: "Steel Staff (Combat Cast Speed +30%, Combat Mana Cost -20%)",
+    displayName: "Steel Staff",
+    equipmentType: "tool",
+    slot: "staff",
+    slotLabel: "Staff",
+    slotOrder: 4,
+    slotRank: 2,
+    icon: "🔱",
+    iconVariant: "steel",
+    craftingCategory: "steelworking",
+    effects: { combatCastSpeedMultiplier: 1.3, combatManaCostMultiplier: 0.8 },
+    duration: STEELWORKING_CONFIG.upgrades.steelStaff.duration,
+    cost: STEELWORKING_CONFIG.upgrades.steelStaff.cost,
+    requiredGear: STEELWORKING_CONFIG.upgrades.steelStaff.requiredGear,
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      updateEquipmentSlotUI();
     },
   },
 
@@ -4182,6 +4323,7 @@ const resourceCrafts = {
 
   iron: {
     label: "Smelt Iron",
+    imbueInfrastructure: "furnace",
     requiredLocation: "minersCamp",
     campUpgradeRequired: "campSmelter",
     duration: 4,
@@ -4208,8 +4350,22 @@ const resourceCrafts = {
     button: null,
   },
 
+  steel: {
+    label: "Refine Steel",
+    craftingCategory: "steelworking",
+    duration: STEELWORKING_CONFIG.steel.duration,
+    cost: STEELWORKING_CONFIG.steel.cost,
+    produces: {
+      resource: "steel",
+      amount: STEELWORKING_CONFIG.steel.amount,
+    },
+    unlocked: false,
+    button: null,
+  },
+
   staminaTonic: {
     label: "Brew Stamina Tonic Base",
+    imbueInfrastructure: "alchemy",
     requiredLocation: "alchemistsHut",
     campUpgradeRequired: "campAlchemyStation",
     duration: 4,
@@ -4238,6 +4394,7 @@ const resourceCrafts = {
 
   manaTonicBase: {
     label: "Brew Mana Tonic Base",
+    imbueInfrastructure: "alchemy",
     requiredLocation: "alchemistsHut",
     campUpgradeRequired: "campAlchemyStation",
     duration: 4,
@@ -4418,10 +4575,331 @@ const attunementDefinitions = {
     effects: {
       maxEnergyFlat: 12.5,
     },
+    energyRelated: true,
+  },
+
+  hardenedWard: {
+    label: "Hardened Ward",
+    description: "+10 maximum Ward",
+    requiredAttunementRank: 2,
+    requiredRankTwoLevel: 1,
+    cost: { mana: 8 },
+    effects: { maxWardFlat: 10 },
+  },
+
+  manaConduit: {
+    label: "Mana Conduit",
+    description: "+0.1 mana per second",
+    requiredAttunementRank: 2,
+    requiredRankTwoLevel: 1,
+    cost: { mana: 8 },
+    effects: { manaPerSecond: 0.1 },
+  },
+
+  focusedMind: {
+    label: "Focused Mind",
+    description: "Improves maximum Focus",
+    requiredAttunementRank: 2,
+    requiredRankTwoLevel: 1,
+    cost: { mana: 8 },
+    effects: { maxFocusFlat: 2.38 },
+  },
+
+  earthResonance: {
+    label: "Earth Resonance",
+    description: "+1 manual Stone and Iron; +10% damage against Earth-aligned enemies",
+    requiredAttunementRank: 2,
+    requiredRankTwoLevel: 9,
+    requiredNode: "north",
+    cost: { mana: 10 },
+    effects: { manualStoneFlat: 1, manualIronFlat: 1, earthDamageBonus: 0.04 },
   },
 };
 
+// All Rank II Imbue tuning lives here. Permanent bindings use the existing
+// targeted Imbue workflow, while their durable state is stored on the player.
+const imbueRankTwoConfig = {
+  progression: [
+    { level: 0, threshold: 0 },
+    { level: 1, threshold: 50 },
+    { level: 2, threshold: 100 },
+    { level: 3, threshold: 150 },
+    { level: 4, threshold: 200 },
+    { level: 5, threshold: 250 },
+    { level: 6, threshold: 300 },
+    { level: 7, threshold: 350 },
+    { level: 8, threshold: 400 },
+    { level: 9, threshold: 450 },
+    { level: 10, threshold: 500 },
+  ],
+  permanentBindingManaRequired: 50,
+  bonuses: {
+    ringOfMana: 10,
+    ringOfWarding: 10,
+    greaterRingOfMana: 25,
+    greaterRingOfWarding: 25,
+    backpackCapacity: 15,
+    workshopFuelReduction: 0.5,
+  },
+  rings: {
+    ringOfMana: {
+      label: "Ring of Mana",
+      icon: "💠",
+      iconAsset: "assets/icons/icon-ring-mana.png",
+      effects: { get maxManaFlat() { return imbueRankTwoConfig.bonuses.ringOfMana; } },
+    },
+    ringOfWarding: {
+      label: "Ring of Warding",
+      icon: "🛡️",
+      iconAsset: "assets/icons/icon-ring-warding.png",
+      effects: { get maxWardFlat() { return imbueRankTwoConfig.bonuses.ringOfWarding; } },
+    },
+    greaterRingOfMana: {
+      label: "Greater Ring of Mana",
+      icon: "🔷",
+      iconAsset: "assets/icons/icon-ring-mana-greater.png",
+      effects: { get maxManaFlat() { return imbueRankTwoConfig.bonuses.greaterRingOfMana; } },
+    },
+    greaterRingOfWarding: {
+      label: "Greater Ring of Warding",
+      icon: "🔰",
+      iconAsset: "assets/icons/icon-ring-warding-greater.png",
+      effects: { get maxWardFlat() { return imbueRankTwoConfig.bonuses.greaterRingOfWarding; } },
+    },
+  },
+  recipes: {
+    ironRing: { cost: { iron: 2, energy: 10, mana: 1 } },
+    ringOfMana: { cost: { ironRing: 1, manaCrystal: 2, mana: 10 } },
+    backpack: { cost: { leather: 5, fiber: 15, manaCrystal: 2, mana: 15 } },
+    ringOfWarding: { cost: { ironRing: 1, manaCrystal: 3, stone: 10, mana: 12 } },
+    emberboundFurnace: { cost: { stone: 40, iron: 15, manaCrystal: 4, mana: 20 } },
+    imbuedAlchemy: { cost: { herb: 30, glimmerleaf: 8, manaCrystal: 4, mana: 20 } },
+    greaterRingOfMana: { cost: { ironRing: 1, manaCrystal: 5, chargedCrystal: 2, mana: 20 } },
+    greaterRingOfWarding: { cost: { ironRing: 1, manaCrystal: 4, earthElementalCore: 1, stone: 20, mana: 20 } },
+    arcaneFurnace: { cost: { stone: 120, iron: 50, manaCrystal: 10, earthElementalCore: 1, mana: 20 } },
+    arcaneAlchemy: { cost: { herb: 100, glimmerleaf: 20, naturalEssence: 2, manaCrystal: 10, mana: 20 } },
+  },
+  equipmentEnchantments: {
+    swiftstep: {
+      label: "Swiftstep Binding",
+      requiredLevel: 4,
+      slot: "feet",
+      effects: { travelDistanceFlat: 0.5 },
+      cost: { leather: 4, fiber: 12, manaCrystal: 2, mana: 15 },
+      description: "Permanently add +50% travel distance to the equipped boots.",
+    },
+    reservoirWeave: {
+      label: "Reservoir Weave",
+      requiredLevel: 4,
+      slot: "chest",
+      effects: { maxManaFlat: 10 },
+      cost: { leather: 4, fiber: 12, manaCrystal: 3, mana: 15 },
+      description: "Permanently add 10 maximum Mana to the equipped chest gear.",
+    },
+    restoringWeave: {
+      label: "Restoring Weave",
+      requiredLevel: 4,
+      slot: "legs",
+      effects: { wardRestoreMultiplier: 1.2 },
+      cost: { leather: 4, herb: 20, manaCrystal: 2, mana: 15 },
+      description: "Permanently improve Ward restoration by 20% while the enchanted leg gear is equipped.",
+    },
+    stoneward: {
+      label: "Northern Stoneward",
+      requiredLevel: 9,
+      slot: "chest",
+      region: "north",
+      effects: { maxWardFlat: 20 },
+      cost: { stone: 80, iron: 25, earthElementalCore: 2, manaCrystal: 5, mana: 20 },
+      description: "Bind northern stone and core-patterns into chest gear for +20 maximum Ward.",
+    },
+    verdantRenewal: {
+      label: "Southern Verdant Renewal",
+      requiredLevel: 9,
+      slot: "legs",
+      region: "south",
+      effects: { wardRestoreMultiplier: 1.5 },
+      cost: { herb: 80, glimmerleaf: 10, naturalEssence: 3, manaCrystal: 4, mana: 20 },
+      description: "Bind natural essence into leg gear for 50% stronger Ward restoration.",
+    },
+    trailweave: {
+      label: "Eastern Trailweave",
+      requiredLevel: 9,
+      slot: "feet",
+      region: "east",
+      effects: { travelDistanceFlat: 1, travelEnergyMultiplier: 0.9 },
+      cost: { leather: 15, fiber: 40, runedLeather: 3, manaCrystal: 4, mana: 20 },
+      description: "Bind eastern materials into boots for +100% travel distance and 10% less travel Energy.",
+    },
+  },
+  nodeImbuement: {
+    cost: { stone: 60, iron: 20, manaCrystal: 4, mana: 20 },
+  },
+  controlMatrix: {
+    1: { label: "Expanded Control Matrix I", requiredLevel: 5, capacity: 6, cost: { stone: 150, iron: 40, manaCrystal: 6, mana: 20 } },
+    2: { label: "Expanded Control Matrix II", requiredLevel: 6, capacity: 7, cost: { stone: 220, iron: 70, manaCrystal: 8, earthElementalCore: 1, mana: 20 } },
+    3: { label: "Expanded Control Matrix III", requiredLevel: 7, capacity: 8, cost: { stone: 300, iron: 100, manaCrystal: 10, earthElementalCore: 2, mana: 20 } },
+    4: { label: "Expanded Control Matrix IV", requiredLevel: 8, capacity: 9, cost: { stone: 400, iron: 140, manaCrystal: 12, earthElementalCore: 2, naturalEssence: 1, mana: 20 } },
+    5: { label: "Expanded Control Matrix V", requiredLevel: 9, capacity: 10, cost: { stone: 500, iron: 180, manaCrystal: 15, earthElementalCore: 3, naturalEssence: 2, runedLeather: 2, mana: 20 } },
+    6: { label: "Master Control Matrix", requiredLevel: 10, capacity: 12, cost: { stone: 700, iron: 250, manaCrystal: 20, earthElementalCore: 5, naturalEssence: 4, runedLeather: 4, leather: 20, fiber: 50, mana: 20 } },
+  },
+};
+
+function createImbueRankTwoTargetDefinition(label, description, requiredLevel, cost, permanentAction, options = {}) {
+  return {
+    label,
+    description,
+    requiredLocation: "camp",
+    duration: options.duration || 3,
+    cost,
+    produces: options.produces || null,
+    permanentImbue: true,
+    requiredImbueRank: 2,
+    requiredRankTwoLevel: requiredLevel,
+    permanentAction,
+    canApply: function () {
+      return typeof canApplyImbueRankTwoTarget === "function" && canApplyImbueRankTwoTarget(permanentAction);
+    },
+    apply: function () {
+      if (typeof completeImbueRankTwoTarget === "function") completeImbueRankTwoTarget(permanentAction);
+    },
+  };
+}
+
+function createImbueRankTwoTargetDefinitions() {
+  const config = imbueRankTwoConfig;
+  const targets = {
+    rankTwoIronRing: createImbueRankTwoTargetDefinition(
+      "Shape Iron Ring",
+      "Shape a basic iron ring component for permanent ringcraft.",
+      0,
+      config.recipes.ironRing.cost,
+      { type: "component", id: "ironRing" },
+      { duration: 2, produces: { resource: "ironRing", amount: 1 } }
+    ),
+    rankTwoRingOfMana: createImbueRankTwoTargetDefinition(
+      "Ring of Mana",
+      "Permanently increase maximum Mana while this ring occupies the single Ring slot.",
+      0,
+      config.recipes.ringOfMana.cost,
+      { type: "ring", id: "ringOfMana" }
+    ),
+    rankTwoBackpack: createImbueRankTwoTargetDefinition(
+      "Imbue Backpack",
+      "Permanently add " + config.bonuses.backpackCapacity + " capacity to the existing Pack slot.",
+      1,
+      config.recipes.backpack.cost,
+      { type: "backpack" }
+    ),
+    rankTwoRingOfWarding: createImbueRankTwoTargetDefinition(
+      "Ring of Warding",
+      "Permanently increase maximum Ward while this ring occupies the single Ring slot.",
+      2,
+      config.recipes.ringOfWarding.cost,
+      { type: "ring", id: "ringOfWarding" }
+    ),
+    rankTwoEmberboundFurnace: createImbueRankTwoTargetDefinition(
+      "Emberbound Furnace",
+      "Permanently reduce Furnace fuel use by 50%.",
+      3,
+      config.recipes.emberboundFurnace.cost,
+      { type: "workshop", system: "furnace", tier: 1 }
+    ),
+    rankTwoImbuedAlchemy: createImbueRankTwoTargetDefinition(
+      "Imbued Alchemy",
+      "Permanently reduce Alchemy fuel use by 50%.",
+      3,
+      config.recipes.imbuedAlchemy.cost,
+      { type: "workshop", system: "alchemy", tier: 1 }
+    ),
+  };
+
+  Object.keys(config.equipmentEnchantments).forEach(function (enchantmentId) {
+    const enchantment = config.equipmentEnchantments[enchantmentId];
+    targets["rankTwoEnchant_" + enchantmentId] = createImbueRankTwoTargetDefinition(
+      enchantment.label,
+      enchantment.description,
+      enchantment.requiredLevel,
+      enchantment.cost,
+      { type: "equipment", id: enchantmentId, slot: enchantment.slot }
+    );
+  });
+
+  Object.keys(config.controlMatrix).forEach(function (stageKey) {
+    const stage = Number(stageKey);
+    const matrix = config.controlMatrix[stage];
+    targets["rankTwoMatrix_" + stage] = createImbueRankTwoTargetDefinition(
+      matrix.label,
+      "Upgrade Tower Heart control capacity to " + matrix.capacity + ". Requires the previous matrix stage.",
+      matrix.requiredLevel,
+      matrix.cost,
+      { type: "matrix", stage }
+    );
+  });
+
+  targets.rankTwoGreaterRingOfMana = createImbueRankTwoTargetDefinition(
+    "Greater Ring of Mana",
+    "Upgrade ringcraft from an owned Ring of Mana for a stronger maximum Mana bonus.",
+    6,
+    config.recipes.greaterRingOfMana.cost,
+    { type: "ring", id: "greaterRingOfMana", prerequisite: "ringOfMana" }
+  );
+  targets.rankTwoGreaterRingOfWarding = createImbueRankTwoTargetDefinition(
+    "Greater Ring of Warding",
+    "Upgrade ringcraft from an owned Ring of Warding for a stronger maximum Ward bonus.",
+    6,
+    config.recipes.greaterRingOfWarding.cost,
+    { type: "ring", id: "greaterRingOfWarding", prerequisite: "ringOfWarding" }
+  );
+
+  ["north", "east", "south"].forEach(function (nodeName) {
+    const nodeLabel = nodeName.charAt(0).toUpperCase() + nodeName.slice(1);
+    targets["rankTwoNode_" + nodeName] = createImbueRankTwoTargetDefinition(
+      "Imbue " + nodeLabel + " Node",
+      "Permanently remove the 10 Mana jump cost for this activated regional Node only.",
+      7,
+      config.nodeImbuement.cost,
+      { type: "node", node: nodeName }
+    );
+  });
+
+  targets.rankTwoArcaneFurnace = createImbueRankTwoTargetDefinition(
+    "Arcane Furnace",
+    "Upgrade the Emberbound Furnace so Furnace recipes require no fuel.",
+    8,
+    config.recipes.arcaneFurnace.cost,
+    { type: "workshop", system: "furnace", tier: 2 }
+  );
+  targets.rankTwoArcaneAlchemy = createImbueRankTwoTargetDefinition(
+    "Arcane Alchemy",
+    "Upgrade Imbued Alchemy so Alchemy recipes require no fuel.",
+    8,
+    config.recipes.arcaneAlchemy.cost,
+    { type: "workshop", system: "alchemy", tier: 2 }
+  );
+
+  return targets;
+}
+
 const imbueDefinitions = {
+  imbueKnife: {
+    label: "Imbue Knife",
+    description: "Store mana in your knife to speed up Fiber gathering.",
+    requiredLocation: "camp",
+    toolCharge: "knife",
+  },
+  imbueAxe: {
+    label: "Imbue Axe",
+    description: "Store mana in your axe to speed up Wood gathering.",
+    requiredLocation: "camp",
+    toolCharge: "axe",
+  },
+  imbuePick: {
+    label: "Imbue Iron Pick",
+    description: "Store mana in your pick to speed up Stone and Iron mining.",
+    requiredLocation: "camp",
+    toolCharge: "pick",
+  },
   huntingLure: {
     label: "Imbue Hunting Lure",
     description: "Bind mana into a small food lure that can skip tracking at a hunt location.",
@@ -4626,6 +5104,7 @@ const imbueDefinitions = {
     },
     story: "Four crystals answer the same pattern at once, each holding a clean, steady charge.",
   },
+  ...createImbueRankTwoTargetDefinitions(),
 };
 
 const arcaneForceDefinitions = {
@@ -4731,6 +5210,7 @@ const arcaneForceDefinitions = {
       resource: "herb",
       amount: 25,
     },
+    forcePowerYield: true,
     story: "Arcane Force combs the patch in one careful sweep, snapping useful stems free without bruising them.",
     partialStory: "Arcane Force shakes loose more herbs than you can carry.",
   },
@@ -4748,6 +5228,7 @@ const arcaneForceDefinitions = {
       resource: "glimmerleaf",
       amount: 10,
     },
+    forcePowerYield: true,
     story: "A careful pulse of Force lifts silver-veined leaves from the rows before the surrounding growth can tear them.",
     partialStory: "The field yields more glimmerleaf than your pack can hold.",
   },
@@ -4765,6 +5246,7 @@ const arcaneForceDefinitions = {
       resource: "ore",
       amount: 10,
     },
+    forcePowerYield: true,
     story: "Force blooms inside the vein with a dull crack, dropping heavy chunks of ore at your feet.",
     partialStory: "The burst frees more ore than you can carry.",
   },

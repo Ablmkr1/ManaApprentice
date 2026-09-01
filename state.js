@@ -1,6 +1,9 @@
 // Mana Control is intentionally dormant. Set this back to true to reactivate
 // the saved mana control progression, training entry, and spell bonuses.
 const MANA_CONTROL_SYSTEM_ENABLED = false;
+// Central balance point for the temporary gathering-speed benefit of tool Imbue.
+const IMBUE_TOOL_SPEED_MULTIPLIER = 1.5;
+const IMBUE_TOOL_CHARGES_PER_MANA = 5;
 
 const resources = {
   energy: {
@@ -173,6 +176,28 @@ const resources = {
     maxValue: 100,
     perClick: 0,
     perSecond: 0,
+    display: null,
+    perClickDisplay: null,
+    perSecondDisplay: null,
+  },
+  steel: {
+    label: "Steel",
+    value: 0,
+    maxValue: 100,
+    perClick: 0,
+    perSecond: 0,
+    hidden: true,
+    display: null,
+    perClickDisplay: null,
+    perSecondDisplay: null,
+  },
+  ironRing: {
+    label: "Iron Ring",
+    value: 0,
+    maxValue: 20,
+    perClick: 0,
+    perSecond: 0,
+    hidden: true,
     display: null,
     perClickDisplay: null,
     perSecondDisplay: null,
@@ -897,15 +922,31 @@ const actions = {
     onComplete: function () {},
   },
 
-  mineOre: {
-    label: "Mine Ore",
+  mineStone: {
+    label: "Mine Stone",
     duration: 5,
     cost: {
       energy: 6,
     },
     unlocked: false,
     running: false,
-    auto: { carriedItem: "ore" },
+    auto: { carriedItem: "stone" },
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+
+  mineIron: {
+    label: "Mine Iron",
+    duration: 5,
+    cost: {
+      energy: 6,
+    },
+    unlocked: false,
+    running: false,
+    auto: { carriedItem: "iron" },
     button: null,
     progressBar: null,
     metaProgressBar: null,
@@ -1217,27 +1258,27 @@ const skillDefinitions = {
         rank: 1,
         levels: [
           { level: 0, threshold: 0, capacity: 3 },
-          { level: 1, threshold: 10, capacity: 5, breakthrough: true },
-          { level: 2, threshold: 25, capacity: 8, breakthrough: true },
-          { level: 3, threshold: 50, capacity: 11, breakthrough: true },
-          { level: 4, threshold: 90, capacity: 15, breakthrough: true },
-          { level: 5, threshold: 150, capacity: 20, breakthrough: true },
+          { level: 1, threshold: 5, capacity: 5, breakthrough: true },
+          { level: 2, threshold: 15, capacity: 8, breakthrough: true },
+          { level: 3, threshold: 25, capacity: 11, breakthrough: true },
+          { level: 4, threshold: 35, capacity: 15, breakthrough: true },
+          { level: 5, threshold: 50, capacity: 20, breakthrough: true },
         ],
       },
       {
         rank: 2,
         levels: [
-          { level: 0, threshold: 150, capacity: 20 },
-          { level: 1, threshold: 250, capacity: 25 },
-          { level: 2, threshold: 375, capacity: 30 },
-          { level: 3, threshold: 525, capacity: 36 },
-          { level: 4, threshold: 700, capacity: 42 },
-          { level: 5, threshold: 900, capacity: 50, breakthrough: true },
-          { level: 6, threshold: 1150, capacity: 58 },
-          { level: 7, threshold: 1450, capacity: 67 },
-          { level: 8, threshold: 1800, capacity: 77 },
-          { level: 9, threshold: 2200, capacity: 88 },
-          { level: 10, threshold: 2700, capacity: 100, breakthrough: true },
+          { level: 0, threshold: 100, capacity: 20 },
+          { level: 1, threshold: 125, capacity: 25 },
+          { level: 2, threshold: 150, capacity: 30 },
+          { level: 3, threshold: 175, capacity: 36 },
+          { level: 4, threshold: 200, capacity: 42 },
+          { level: 5, threshold: 250, capacity: 50, breakthrough: true },
+          { level: 6, threshold: 300, capacity: 58 },
+          { level: 7, threshold: 350, capacity: 67 },
+          { level: 8, threshold: 400, capacity: 77 },
+          { level: 9, threshold: 450, capacity: 88 },
+          { level: 10, threshold: 500, capacity: 100, breakthrough: true },
         ],
       },
     ],
@@ -1265,16 +1306,16 @@ const skillDefinitions = {
         rank: 2,
         levels: [
           { level: 0, threshold: 0, capacity: 50, manaRestore: 1, energyCost: 5 },
-          { level: 1, threshold: 8, capacity: 55, manaRestore: 1, energyCost: 4 },
-          { level: 2, threshold: 20, capacity: 60, manaRestore: 1, energyCost: 4 },
-          { level: 3, threshold: 38, capacity: 65, manaRestore: 2, energyCost: 3 },
-          { level: 4, threshold: 62, capacity: 70, manaRestore: 2, energyCost: 3 },
-          { level: 5, threshold: 95, capacity: 75, manaRestore: 2, energyCost: 2 },
-          { level: 6, threshold: 140, capacity: 80, manaRestore: 2, energyCost: 2 },
-          { level: 7, threshold: 200, capacity: 83, manaRestore: 2, energyCost: 1 },
-          { level: 8, threshold: 275, capacity: 86, manaRestore: 3, energyCost: 1 },
-          { level: 9, threshold: 370, capacity: 88, manaRestore: 3, energyCost: 1 },
-          { level: 10, threshold: 500, capacity: 90, manaRestore: 3, energyCost: 1 },
+          { level: 1, threshold: 8, capacity: 55, manaRestore: 2, energyCost: 4 },
+          { level: 2, threshold: 20, capacity: 60, manaRestore: 2, energyCost: 4 },
+          { level: 3, threshold: 38, capacity: 65, manaRestore: 3, energyCost: 3 },
+          { level: 4, threshold: 62, capacity: 70, manaRestore: 3, energyCost: 3 },
+          { level: 5, threshold: 95, capacity: 75, manaRestore: 3, energyCost: 2 },
+          { level: 6, threshold: 140, capacity: 80, manaRestore: 4, energyCost: 2 },
+          { level: 7, threshold: 200, capacity: 83, manaRestore: 4, energyCost: 1 },
+          { level: 8, threshold: 275, capacity: 86, manaRestore: 4, energyCost: 1 },
+          { level: 9, threshold: 370, capacity: 88, manaRestore: 4, energyCost: 1 },
+          { level: 10, threshold: 500, capacity: 90, manaRestore: 5, energyCost: 1 },
         ],
       },
     ],
@@ -1420,6 +1461,7 @@ const gameState = {
   },
   personalWardUnlocked: false,
   personalWardPopupShown: false,
+  combatVictories: 0,
   northernDisturbance: {
     triggered: false,
     resolved: false,
@@ -1441,6 +1483,11 @@ const gameState = {
 
   magic: {
     sensedReveals: {},
+    toolCharges: {
+      knife: 0,
+      axe: 0,
+      pick: 0,
+    },
     spellProgress: {
       manaSense: {
         xp: 0,
@@ -1471,6 +1518,36 @@ const gameState = {
     attunements: {
       capacity: 1,
       active: [],
+      rank: 1,
+      rankTwoLevel: 0,
+      rankTwoXp: 0,
+      breakthroughs: {},
+      persistentResonanceCompleted: false,
+      rankTwoComplete: false,
+    },
+    imbuement: {
+      rank: 1,
+      rankTwoLevel: 0,
+      rankTwoXp: 0,
+      breakthroughs: {},
+      permanentBindingCompleted: false,
+      rankTwoComplete: false,
+      craftedRings: {},
+      equippedRing: null,
+      backpackImbued: false,
+      equipmentEnchantments: {},
+      furnaceTier: 0,
+      alchemyTier: 0,
+      controlMatrixStage: 0,
+      controlCapacity: 5,
+    },
+    arcaneForce: {
+      rank: 1,
+      rankTwoLevel: 0,
+      rankTwoXp: 0,
+      breakthroughs: {},
+      forceAmplificationCompleted: false,
+      rankTwoComplete: false,
     },
   },
 
@@ -1553,6 +1630,7 @@ const gameState = {
       threadSenseProgress: 0,
       threadSensed: false,
       advancedRecallUnlocked: false,
+      permanentImbued: false,
     },
     east: {
       activated: false,
@@ -1563,6 +1641,7 @@ const gameState = {
       threadSenseProgress: 0,
       threadSensed: false,
       advancedRecallUnlocked: false,
+      permanentImbued: false,
     },
     south: {
       activated: false,
@@ -1573,6 +1652,7 @@ const gameState = {
       threadSenseProgress: 0,
       threadSensed: false,
       advancedRecallUnlocked: false,
+      permanentImbued: false,
     },
   },
 

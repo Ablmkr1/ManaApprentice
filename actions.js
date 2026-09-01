@@ -96,13 +96,14 @@ function hookActionCompletions() {
       return;
     }
 
-    if (!addCarriedItem("stone", 1)) {
+    const stoneAmount = 1 + (typeof getActiveAttunementEffectTotal === "function" ? getActiveAttunementEffectTotal("manualStoneFlat") : 0);
+    if (!addCarriedItem("stone", stoneAmount)) {
       addStoryEntry("The stones are too heavy to carry more.");
       return;
     }
 
     if (gameState.expedition.currentLocation === "creepyCave") {
-      const remaining = spendCurrentLocationLooseStone(1);
+      const remaining = spendCurrentLocationLooseStone(stoneAmount);
 
       if (remaining <= 0) {
         addStoryEntry("The last loose stones around the cave mouth are gone. You will need to gather more from the foothills.");
@@ -384,21 +385,32 @@ function hookActionCompletions() {
     const location = getExpeditionLocation(gameState.expedition.currentLocation);
 
     if (!location || !location.storage || location.storage.iron <= 0) return;
-    if (!addCarriedItem("iron", 1)) return;
+    const ironAmount = Math.min(location.storage.iron, 1 + (typeof getActiveAttunementEffectTotal === "function" ? getActiveAttunementEffectTotal("manualIronFlat") : 0));
+    if (!addCarriedItem("iron", ironAmount)) return;
 
-    location.storage.iron--;
-    addStoryEntry("You pack a bar of iron.");
+    location.storage.iron = Math.max(0, location.storage.iron - ironAmount);
+    addStoryEntry("You pack iron.");
     updateLocationActions();
     updatePlacePanel();
   };
 
-  getAction("mineOre").onComplete = function () {
-    const oreAmount = getMineOreAmount();
+  getAction("mineStone").onComplete = function () {
+    const stoneAmount = getMineResourceAmount("stone");
 
-    if (addCarriedItem("ore", oreAmount)) {
-      addStoryEntry("You break ore from the mine wall.");
+    if (addCarriedItem("stone", stoneAmount)) {
+      addStoryEntry("You break stone from the mine wall.");
     } else {
-      addStoryEntry("The ore is too heavy to carry more.");
+      addStoryEntry("The stone is too heavy to carry more.");
+    }
+  };
+
+  getAction("mineIron").onComplete = function () {
+    const ironAmount = getMineResourceAmount("iron");
+
+    if (addCarriedItem("iron", ironAmount)) {
+      addStoryEntry("You mine iron from the vein.");
+    } else {
+      addStoryEntry("The iron is too heavy to carry more.");
     }
   };
 
@@ -446,11 +458,12 @@ function hookActionCompletions() {
       addStoryEntry("You reduce two tonic bases into a stronger, concentrated base.");
     } else if (context.mode === "location") {
       const storage = context.storage;
+      const fuelCost = typeof getImbueWorkshopFuelCost === "function" ? getImbueWorkshopFuelCost("alchemy", 5) : 5;
 
-      if (!storage || storage.staminaTonicBase < 2 || (storage.fuel || 0) < 5) return;
+      if (!storage || storage.staminaTonicBase < 2 || (storage.fuel || 0) < fuelCost) return;
 
       storage.staminaTonicBase -= 2;
-      storage.fuel -= 5;
+      storage.fuel -= fuelCost;
       storage.concentratedTonicBase = (storage.concentratedTonicBase || 0) + 1;
       unlockResource("concentratedTonicBase");
       addStoryEntry("You reduce two stored tonic bases into one stronger base at the alchemist's bench.");
@@ -473,11 +486,12 @@ function hookActionCompletions() {
       addStoryEntry("You reduce two mana tonic bases into a stronger, concentrated mana base.");
     } else if (context.mode === "location") {
       const storage = context.storage;
+      const fuelCost = typeof getImbueWorkshopFuelCost === "function" ? getImbueWorkshopFuelCost("alchemy", 5) : 5;
 
-      if (!storage || storage.manaTonicBase < 2 || (storage.fuel || 0) < 5) return;
+      if (!storage || storage.manaTonicBase < 2 || (storage.fuel || 0) < fuelCost) return;
 
       storage.manaTonicBase -= 2;
-      storage.fuel -= 5;
+      storage.fuel -= fuelCost;
       storage.concentratedManaTonicBase = (storage.concentratedManaTonicBase || 0) + 1;
       unlockResource("concentratedManaTonicBase");
       addStoryEntry("You reduce two stored mana tonic bases into one stronger mana base at the alchemist's bench.");
@@ -611,10 +625,8 @@ function getConcentrateTonicBaseActionCost() {
   const context = getConcentrateTonicBaseActionContext();
 
   if (context && context.mode === "camp") {
-    return {
-      staminaTonicBase: 2,
-      fuel: 5,
-    };
+    const fuel = typeof getImbueWorkshopFuelCost === "function" ? getImbueWorkshopFuelCost("alchemy", 5) : 5;
+    return { staminaTonicBase: 2, ...(fuel > 0 ? { fuel } : {}) };
   }
 
   return {};
@@ -624,10 +636,8 @@ function getConcentrateManaTonicBaseActionCost() {
   const context = getConcentrateManaTonicBaseActionContext();
 
   if (context && context.mode === "camp") {
-    return {
-      manaTonicBase: 2,
-      fuel: 5,
-    };
+    const fuel = typeof getImbueWorkshopFuelCost === "function" ? getImbueWorkshopFuelCost("alchemy", 5) : 5;
+    return { manaTonicBase: 2, ...(fuel > 0 ? { fuel } : {}) };
   }
 
   return {};
@@ -645,8 +655,9 @@ function canUseConcentrateTonicBaseAction() {
 
   const storage = context.storage;
   const currentOutput = storage.concentratedTonicBase || 0;
+  const fuelCost = typeof getImbueWorkshopFuelCost === "function" ? getImbueWorkshopFuelCost("alchemy", 5) : 5;
 
-  return storage.staminaTonicBase >= 2 && (storage.fuel || 0) >= 5 && currentOutput < output.maxValue;
+  return storage.staminaTonicBase >= 2 && (storage.fuel || 0) >= fuelCost && currentOutput < output.maxValue;
 }
 
 function canUseConcentrateManaTonicBaseAction() {
@@ -657,14 +668,16 @@ function canUseConcentrateManaTonicBaseAction() {
 
   if (context.mode === "camp") {
     const input = getResource("manaTonicBase");
+    const fuelCost = typeof getImbueWorkshopFuelCost === "function" ? getImbueWorkshopFuelCost("alchemy", 5) : 5;
 
-    return !!input && input.value >= 2 && getResource("fuel").value >= 5 && output.value < output.maxValue;
+    return !!input && input.value >= 2 && getResource("fuel").value >= fuelCost && output.value < output.maxValue;
   }
 
   const storage = context.storage;
   const currentOutput = storage.concentratedManaTonicBase || 0;
+  const fuelCost = typeof getImbueWorkshopFuelCost === "function" ? getImbueWorkshopFuelCost("alchemy", 5) : 5;
 
-  return storage.manaTonicBase >= 2 && (storage.fuel || 0) >= 5 && currentOutput < output.maxValue;
+  return storage.manaTonicBase >= 2 && (storage.fuel || 0) >= fuelCost && currentOutput < output.maxValue;
 }
 
 // Get Explore Function
@@ -750,8 +763,12 @@ function shouldStopAutoAction(actionName) {
 }
 
 function getAutoActionCarryAmount(actionName) {
-  if (actionName === "mineOre") {
-    return getMineOreAmount();
+  if (actionName === "mineStone") {
+    return getMineResourceAmount("stone");
+  }
+
+  if (actionName === "mineIron") {
+    return getMineResourceAmount("iron");
   }
 
   if (actionName === "gatherFiber") {
@@ -913,6 +930,15 @@ function startActionExecution(actionName) {
 }
 
 function getActionActivityContext(actionName, actionCost) {
+  const imbueTool = typeof getImbueToolForAction === "function" ? getImbueToolForAction(actionName) : null;
+
+  if (imbueTool) {
+    return {
+      imbueTool: imbueTool,
+      imbueCharged: typeof hasImbueToolCharge === "function" && hasImbueToolCharge(imbueTool),
+    };
+  }
+
   if (actionName === "exploreLocation") {
     return { locationName: gameState.expedition.currentLocation };
   }
@@ -1000,7 +1026,9 @@ function getActivityDuration(activityRequest) {
 
   if (activityRequest.kind === "action") {
     const action = getAction(activityRequest.id);
-    return action ? getActionDuration(activityRequest.id) : 0;
+    const duration = action ? getActionDuration(activityRequest.id) : 0;
+    const tool = activityRequest.context && activityRequest.context.imbueTool;
+    return tool && activityRequest.context.imbueCharged ? duration / IMBUE_TOOL_SPEED_MULTIPLIER : duration;
   }
 
   if (activityRequest.kind === "craft") {
@@ -1360,6 +1388,11 @@ function completeActivity() {
 
       if (action.onComplete) {
         action.onComplete(completedActionContext);
+      }
+
+      if (completedActionContext && completedActionContext.imbueCharged && completedActionContext.imbueTool &&
+        typeof consumeImbueToolCharge === "function") {
+        consumeImbueToolCharge(completedActionContext.imbueTool);
       }
 
       showCompletionFeedback({

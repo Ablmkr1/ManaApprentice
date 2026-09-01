@@ -2,6 +2,7 @@ const COMBAT_CONFIG = {
   enemies: {
     minorEarthElemental: {
       label: "Minor Earth Elemental",
+      earthAligned: true,
       maxHealth: 20,
       attackIntervalSeconds: 2,
       attackDamage: { min: 2, max: 3 },
@@ -46,6 +47,25 @@ const COMBAT_CONFIG = {
       manaCost: 10,
       castTimeSeconds: 1,
       damage: { min: 8, max: 12 },
+      hits: 1,
+    },
+    manaMissile: {
+      label: "Mana Missile",
+      manaCost: 12,
+      castTimeSeconds: 1.25,
+      damage: { min: 3, max: 4 },
+      hits: 3,
+      requiredRank: 2,
+      requiredRankTwoLevel: 5,
+    },
+    manaLance: {
+      label: "Mana Lance",
+      manaCost: 20,
+      castTimeSeconds: 1.75,
+      damage: { min: 18, max: 24 },
+      hits: 1,
+      requiredRank: 2,
+      requiredRankTwoLevel: 10,
     },
   },
 };
@@ -59,6 +79,43 @@ function getCombatEnemy() {
   return gameState.combat.enemyId ? COMBAT_CONFIG.enemies[gameState.combat.enemyId] : null;
 }
 
+function isManaBoltUnlocked() {
+  return typeof getArcaneForceLevel === "function" && getArcaneForceLevel() >= 5;
+}
+
+function isManaMissileUnlocked() {
+  return typeof getArcaneForceRank === "function" && getArcaneForceRank() >= 2 &&
+    typeof getArcaneForceRankTwoLevel === "function" && getArcaneForceRankTwoLevel() >= 5;
+}
+
+function isManaLanceUnlocked() {
+  return typeof getArcaneForceRank === "function" && getArcaneForceRank() >= 2 &&
+    typeof getArcaneForceRankTwoLevel === "function" && getArcaneForceRankTwoLevel() >= 10;
+}
+
+function isArcaneCombatTechniqueUnlocked(techniqueId) {
+  if (techniqueId === "manaBolt") return isManaBoltUnlocked();
+  if (techniqueId === "manaMissile") return isManaMissileUnlocked();
+  if (techniqueId === "manaLance") return isManaLanceUnlocked();
+  return false;
+}
+
+function getArcaneCombatManaCost(techniqueId) {
+  const spell = COMBAT_CONFIG.spells[techniqueId];
+  if (!spell) return 0;
+  const arcaneCost = typeof getArcaneForceManaCost === "function" ? getArcaneForceManaCost(spell.manaCost) : spell.manaCost;
+  const staffMultiplier = typeof getCombatStaffManaCostMultiplier === "function" ? getCombatStaffManaCostMultiplier() : 1;
+  return spell.manaCost > 0 ? Math.max(1, roundResourceAmount(arcaneCost * staffMultiplier)) : 0;
+}
+
+function getArcaneCombatCastTime(techniqueId) {
+  const spell = COMBAT_CONFIG.spells[techniqueId];
+  if (!spell) return 0;
+  const arcaneDuration = typeof getArcaneForceCastDuration === "function" ? getArcaneForceCastDuration(spell.castTimeSeconds) : spell.castTimeSeconds;
+  const staffSpeed = typeof getCombatStaffCastSpeedMultiplier === "function" ? getCombatStaffCastSpeedMultiplier() : 1;
+  return roundResourceAmount(arcaneDuration / staffSpeed);
+}
+
 function hookCombatUI() {
   if (ui.testCombatBtn) {
     ui.testCombatBtn.addEventListener("click", startTestCombat);
@@ -66,6 +123,14 @@ function hookCombatUI() {
 
   if (ui.manaBoltBtn) {
     ui.manaBoltBtn.addEventListener("click", startManaBoltCast);
+  }
+
+  if (ui.manaMissileBtn) {
+    ui.manaMissileBtn.addEventListener("click", startManaMissileCast);
+  }
+
+  if (ui.manaLanceBtn) {
+    ui.manaLanceBtn.addEventListener("click", startManaLanceCast);
   }
 
   if (ui.combatRecallBtn) {
@@ -181,48 +246,94 @@ function startRepeatRegionalCombat(regionId) {
 }
 
 function canStartManaBoltCast() {
-  const spell = COMBAT_CONFIG.spells.manaBolt;
-
-  return (
-    isCombatActive() &&
-    gameState.combat.enemyHealth > 0 &&
-    !gameState.combat.cast &&
-    getResource("mana").value + RESOURCE_AFFORDABILITY_EPSILON >= spell.manaCost
-  );
+  return canStartArcaneCombatCast("manaBolt");
 }
 
 function startManaBoltCast() {
-  if (!canStartManaBoltCast()) return false;
+  return startArcaneCombatCast("manaBolt");
+}
 
-  const spell = COMBAT_CONFIG.spells.manaBolt;
+function spendManaBoltProgress(now) {
+  spendArcaneCombatCastProgress(now);
+}
+
+function canStartManaMissileCast() {
+  return canStartArcaneCombatCast("manaMissile");
+}
+
+function startManaMissileCast() {
+  return startArcaneCombatCast("manaMissile");
+}
+
+function canStartManaLanceCast() {
+  return canStartArcaneCombatCast("manaLance");
+}
+
+function startManaLanceCast() {
+  return startArcaneCombatCast("manaLance");
+}
+
+function canStartArcaneCombatCast(techniqueId) {
+  const spell = COMBAT_CONFIG.spells[techniqueId];
+  if (!spell) return false;
+  return (
+    isArcaneCombatTechniqueUnlocked(techniqueId) &&
+    isCombatActive() &&
+    gameState.combat.enemyHealth > 0 &&
+    !gameState.combat.cast &&
+    getResource("mana").value + RESOURCE_AFFORDABILITY_EPSILON >= getArcaneCombatManaCost(techniqueId)
+  );
+}
+
+function startArcaneCombatCast(techniqueId) {
+  if (!canStartArcaneCombatCast(techniqueId)) return false;
+  const spell = COMBAT_CONFIG.spells[techniqueId];
   const now = getGameTime();
-
   gameState.combat.cast = {
+    techniqueId: techniqueId,
     startTime: now,
-    endTime: now + spell.castTimeSeconds * 1000,
+    endTime: now + getArcaneCombatCastTime(techniqueId) * 1000,
+    manaCost: getArcaneCombatManaCost(techniqueId),
     manaSpent: 0,
   };
-  gameState.combat.resultMessage = "Gathering mana for Mana Bolt…";
+  gameState.combat.resultMessage = "Gathering mana for " + spell.label + "…";
   renderCombatUI();
   return true;
 }
 
-function spendManaBoltProgress(now) {
+function spendArcaneCombatCastProgress(now) {
   const cast = gameState.combat.cast;
-  const spell = COMBAT_CONFIG.spells.manaBolt;
-
   if (!cast) return;
+  const techniqueId = cast.techniqueId || "manaBolt";
+  const spell = COMBAT_CONFIG.spells[techniqueId];
+
+  if (!spell || !isArcaneCombatTechniqueUnlocked(techniqueId)) {
+    gameState.combat.cast = null;
+    gameState.combat.resultMessage = spell ? spell.label + " is not unlocked." : "That Arcane Force technique is unavailable.";
+    return;
+  }
 
   const elapsed = Math.max(0, now - cast.startTime);
-  const targetSpent = roundResourceAmount(Math.min(1, elapsed / (spell.castTimeSeconds * 1000)) * spell.manaCost);
+  const castDuration = Math.max(1, cast.endTime - cast.startTime);
+  const manaCost = Number.isFinite(cast.manaCost) ? cast.manaCost : getArcaneCombatManaCost(techniqueId);
+  const targetSpent = roundResourceAmount(Math.min(1, elapsed / castDuration) * manaCost);
   const amountToSpend = roundResourceAmount(targetSpent - cast.manaSpent);
 
   if (amountToSpend <= 0) return;
 
   // A cast only begins with the full cost available. Combat blocks other mana
   // actions while it is active, so this reaches exactly the configured total.
-  spendCost({ mana: amountToSpend });
+  if (!spendCost({ mana: amountToSpend })) return;
+
   cast.manaSpent = targetSpent;
+
+  if (typeof recordSpellProgressExperience === "function") {
+    recordSpellProgressExperience("arcaneForce", amountToSpend);
+  }
+
+  if (typeof recordManaControl === "function") {
+    recordManaControl(amountToSpend, spell.label);
+  }
 }
 
 function processCombatTick() {
@@ -233,10 +344,10 @@ function processCombatTick() {
 
   // Resolve the player's completed cast before a same-tick enemy attack.
   if (cast) {
-    spendManaBoltProgress(now);
+    spendArcaneCombatCastProgress(now);
 
     if (now >= cast.endTime) {
-      completeManaBoltCast();
+      completeArcaneCombatCast();
     }
   }
 
@@ -304,18 +415,61 @@ function resolveEnemyCombatAbility(enemy) {
 }
 
 function completeManaBoltCast() {
-  const spell = COMBAT_CONFIG.spells.manaBolt;
+  return completeArcaneCombatCast("manaBolt");
+}
 
+function completeManaMissileCast() {
+  return completeArcaneCombatCast("manaMissile");
+}
+
+function completeManaLanceCast() {
+  return completeArcaneCombatCast("manaLance");
+}
+
+function completeArcaneCombatCast(expectedTechniqueId) {
   if (!isCombatActive() || !gameState.combat.cast) return;
+  const cast = gameState.combat.cast;
+  const techniqueId = cast.techniqueId || expectedTechniqueId || "manaBolt";
+  const spell = COMBAT_CONFIG.spells[techniqueId];
+
+  if (!spell || (expectedTechniqueId && techniqueId !== expectedTechniqueId) || !isArcaneCombatTechniqueUnlocked(techniqueId)) {
+    gameState.combat.cast = null;
+    gameState.combat.resultMessage = spell ? spell.label + " is not unlocked." : "That Arcane Force technique is unavailable.";
+    return;
+  }
+
+  const manaCost = Number.isFinite(cast.manaCost) ? cast.manaCost : getArcaneCombatManaCost(techniqueId);
+  if ((cast.manaSpent || 0) + RESOURCE_AFFORDABILITY_EPSILON < manaCost) {
+    gameState.combat.cast = null;
+    gameState.combat.resultMessage = spell.label + " breaks before the full mana cost is gathered.";
+    return;
+  }
 
   gameState.combat.cast = null;
-  const damage = rollCombatRange(spell.damage);
-  gameState.combat.enemyHealth = Math.max(0, gameState.combat.enemyHealth - damage);
-  gameState.combat.resultMessage = "Mana Bolt hits for " + damage + " damage.";
+  const enemy = getCombatEnemy();
+  const hitDamages = [];
+  const hitCount = Math.max(1, Math.floor(spell.hits) || 1);
+
+  for (let hit = 0; hit < hitCount; hit++) {
+    let damage = rollCombatRange(spell.damage);
+    damage = typeof scaleArcaneForceDamage === "function" ? scaleArcaneForceDamage(damage) : damage;
+    if (enemy && enemy.earthAligned && typeof getActiveAttunementEffectTotal === "function") {
+      damage = Math.round(damage * (1 + getActiveAttunementEffectTotal("earthDamageBonus")));
+    }
+    hitDamages.push(damage);
+  }
+
+  const totalDamage = hitDamages.reduce(function (sum, damage) { return sum + damage; }, 0);
+  gameState.combat.enemyHealth = Math.max(0, gameState.combat.enemyHealth - totalDamage);
+  gameState.combat.resultMessage = hitCount > 1
+    ? spell.label + " strikes " + hitCount + " times for " + hitDamages.join(", ") + " damage (" + totalDamage + " total)."
+    : spell.label + " hits for " + totalDamage + " damage.";
 
   if (gameState.combat.enemyHealth <= 0) {
     resolveCombatVictory();
   }
+
+  return totalDamage;
 }
 
 function rollCombatRange(range) {
@@ -327,6 +481,11 @@ function resolveCombatVictory() {
 
   gameState.combat.cast = null;
   gameState.combat.resolved = true;
+  gameState.combatVictories = Math.max(0, Math.floor(Number(gameState.combatVictories) || 0)) + 1;
+  if (typeof syncIronStaffUnlockFromCombatHistory === "function") {
+    const unlockedStaff = syncIronStaffUnlockFromCombatHistory();
+    if (unlockedStaff) addStoryEntry("Victory teaches you what bare-handed spellwork lacks. You can now craft an Iron Staff for combat casting.");
+  }
 
   if (!gameState.combat.rewardGranted) {
     const reward = gameState.combat.reward || {};
@@ -473,9 +632,9 @@ function renderCombatUI() {
 
   const cast = combat.cast;
   const castProgress = cast ? Math.min(1, Math.max(0, (getGameTime() - cast.startTime) / (cast.endTime - cast.startTime))) : 0;
-  ui.manaBoltProgressFill.style.width = castProgress * 100 + "%";
-  ui.manaBoltBtn.disabled = !canStartManaBoltCast();
-  ui.manaBoltBtn.style.display = combat.resolved ? "none" : "block";
+  renderArcaneCombatTechnique("manaBolt", ui.manaBoltBtn, ui.manaBoltProgressFill, canStartManaBoltCast, isManaBoltUnlocked, cast, castProgress, combat.resolved);
+  renderArcaneCombatTechnique("manaMissile", ui.manaMissileBtn, ui.manaMissileProgressFill, canStartManaMissileCast, isManaMissileUnlocked, cast, castProgress, combat.resolved);
+  renderArcaneCombatTechnique("manaLance", ui.manaLanceBtn, ui.manaLanceProgressFill, canStartManaLanceCast, isManaLanceUnlocked, cast, castProgress, combat.resolved);
   ui.combatRecallBtn.style.display = isCombatActive() ? "block" : "none";
   ui.combatRecallBtn.disabled = !isCombatActive();
   ui.closeCombatBtn.style.display = combat.resolved ? "inline-block" : "none";
@@ -496,6 +655,23 @@ function renderCombatUI() {
   }
 
   safeSetText(ui.combatStatus, combat.resultMessage);
+}
+
+function renderArcaneCombatTechnique(techniqueId, button, progressFill, canStart, isUnlocked, cast, castProgress, resolved) {
+  if (!button) return;
+  const activeTechnique = cast && (cast.techniqueId || "manaBolt") === techniqueId;
+  if (progressFill) progressFill.style.width = (activeTechnique ? castProgress : 0) * 100 + "%";
+  button.disabled = !canStart();
+  button.style.display = !resolved && isUnlocked() ? "block" : "none";
+
+  if (typeof button.querySelector === "function") {
+    const details = button.querySelector("small");
+    const spell = COMBAT_CONFIG.spells[techniqueId];
+    if (details && spell) {
+      const hitText = spell.hits > 1 ? spell.hits + " × " + spell.damage.min + "–" + spell.damage.max : spell.damage.min + "–" + spell.damage.max;
+      details.textContent = getArcaneCombatManaCost(techniqueId) + " Mana · " + hitText + " base damage · " + getArcaneCombatCastTime(techniqueId) + " sec";
+    }
+  }
 }
 
 function renderCombatConsumables() {

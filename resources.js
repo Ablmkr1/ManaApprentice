@@ -1,4 +1,5 @@
-const RESOURCE_AMOUNT_PRECISION = 100;
+// Passive effects such as Mana Conduit can add fractional mana every tick.
+const RESOURCE_AMOUNT_PRECISION = 1000000;
 const RESOURCE_AFFORDABILITY_EPSILON = 0.000001;
 
 function roundResourceAmount(value) {
@@ -64,6 +65,10 @@ function spendCost(cost) {
 
     if (resourceName === "mana" && typeof recordManaCyclingManaSpent === "function") {
       recordManaCyclingManaSpent(costAmount);
+    }
+
+    if (resourceName === "mana" && typeof recordAttunementManaSpent === "function") {
+      recordAttunementManaSpent(costAmount);
     }
   }
 

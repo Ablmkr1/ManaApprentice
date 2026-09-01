@@ -81,6 +81,16 @@
             <span>Cast Mana Bolt</span>
             <small>10 Mana · 8–12 damage · 1 sec</small>
           </button>
+          <button id="manaMissileBtn" class="action-btn combat-spell-btn" type="button" style="display: none">
+            <div id="manaMissileProgressFill" class="progressFill"></div>
+            <span>Cast Mana Missile</span>
+            <small>12 Mana · 3 × 3–4 damage · 1.25 sec</small>
+          </button>
+          <button id="manaLanceBtn" class="action-btn combat-spell-btn" type="button" style="display: none">
+            <div id="manaLanceProgressFill" class="progressFill"></div>
+            <span>Cast Mana Lance</span>
+            <small>20 Mana · 18–24 damage · 1.75 sec</small>
+          </button>
           <button id="combatRecallBtn" class="action-btn combat-recall-btn" type="button">Recall to Camp</button>
           <p id="combatStatus" class="combat-status"></p>
           <button id="closeCombatBtn" type="button" style="display: none">Close Encounter</button>
@@ -223,6 +233,11 @@
                     <button id="ironCraftBtn" style="display: none"></button>
                     <button id="staminaTonicCraftBtn" style="display: none"></button>
                   </div>
+
+                  <section id="steelworkingSection" class="steelworking-section" style="display: none" aria-labelledby="steelworkingHeading">
+                    <h4 id="steelworkingHeading">Steelworking</h4>
+                    <div id="steelworkingActions" class="crafting-actions steelworking-actions"></div>
+                  </section>
                 </div>
 
                 <div id="researchPanel" class="work-panel research-panel" style="display: none">
@@ -260,6 +275,8 @@
                   <div id="runedLeatherAmount" class="resource-pill" style="display: none"></div>
                   <div id="naturalEssenceAmount" class="resource-pill" style="display: none"></div>
                   <div id="ironAmount" class="resource-pill" style="display: none"></div>
+                  <div id="steelAmount" class="resource-pill" style="display: none"></div>
+                  <div id="ironRingAmount" class="resource-pill" style="display: none"></div>
                   <div id="nailsAmount" class="resource-pill" style="display: none"></div>
                   <div id="herbAmount" class="resource-pill" style="display: none"></div>
                   <div id="glimmerleafAmount" class="resource-pill" style="display: none"></div>
@@ -442,9 +459,14 @@
                   <span>Gather Stone</span>
                 </button>
 
-                <button class="action-btn" data-action="mineOre" style="display: none">
+                <button class="action-btn" data-action="mineStone" style="display: none">
                   <div class="progressFill"></div>
-                  <span>Mine Ore</span>
+                  <span>Mine Stone</span>
+                </button>
+
+                <button class="action-btn" data-action="mineIron" style="display: none">
+                  <div class="progressFill"></div>
+                  <span>Mine Iron</span>
                 </button>
 
                 <button class="action-btn" data-action="investigateNorthernDisturbance" style="display: none">
@@ -885,18 +907,18 @@
       </div>
     </div>
 
-    <script src="state.js?v=20260830"></script>
+    <script src="state.js?v=20260831-arcane-force-r2"></script>
     <script src="expeditionData.js?v=20260830"></script>
-    <script src="content.js?v=20260830"></script>
-    <script src="definitions.js?v=20260830"></script>
-    <script src="ui.js?v=20260830"></script>
-    <script src="resources.js?v=20260830"></script>
-    <script src="skills.js?v=20260830"></script>
-    <script src="camp.js?v=20260830"></script>
-    <script src="expedition.js?v=20260830"></script>
-    <script src="actions.js?v=20260830"></script>
-    <script src="combat.js?v=20260830"></script>
-    <script src="save.js?v=20260830"></script>
-    <script src="script.js?v=20260830"></script>
+    <script src="content.js?v=20260831-arcane-force-r2"></script>
+    <script src="definitions.js?v=20260831-imbue2"></script>
+    <script src="ui.js?v=20260831-arcane-force-r2"></script>
+    <script src="resources.js?v=20260831-imbue2"></script>
+    <script src="skills.js?v=20260831-imbue2"></script>
+    <script src="camp.js?v=20260831-arcane-force-r2"></script>
+    <script src="expedition.js?v=20260831-imbue2"></script>
+    <script src="actions.js?v=20260831-imbue2"></script>
+    <script src="combat.js?v=20260831-arcane-force-r2"></script>
+    <script src="save.js?v=20260831-arcane-force-r2"></script>
+    <script src="script.js?v=20260831-imbue2"></script>
   </body>
 </html>

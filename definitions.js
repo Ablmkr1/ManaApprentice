@@ -27,6 +27,7 @@ const gameDefinitions = {
   elementalWorkerAttunementDefinitions,
   attunementDefinitions,
   imbueDefinitions,
+  imbueRankTwoConfig,
   arcaneForceDefinitions,
 };
 
@@ -243,6 +244,10 @@ function getImbueDefinitions() {
 
 function getImbueDefinition(imbueName) {
   return getImbueDefinitions()[imbueName];
+}
+
+function getImbueRankTwoConfig() {
+  return gameDefinitions.imbueRankTwoConfig;
 }
 
 function getArcaneForceDefinitions() {

@@ -2169,27 +2169,12 @@ button:disabled {
 .paper-doll-item.slot-pack { top: 43px; left: 22px; }
 .paper-doll-item.slot-water { top: 43px; right: 22px; }
 .paper-doll-item.slot-belt { top: 106px; right: 31px; }
+.paper-doll-item.slot-ring { top: 106px; left: 31px; }
 
-.paper-doll-item.icon-patched::after,
-.paper-doll-item.icon-reinforced::after,
-.paper-doll-item.icon-iron::after {
-  position: absolute;
-  right: -2px;
-  bottom: -2px;
-  display: grid;
-  place-items: center;
-  width: 15px;
-  height: 15px;
-  border: 1px solid #806a49;
-  border-radius: 50%;
-  color: #fff9eb;
-  font-size: 9px;
-  line-height: 1;
+.paper-doll-item.is-imbued {
+  border-color: #7560a8;
+  box-shadow: 0 0 0 2px rgba(117, 96, 168, 0.22), 0 0 10px rgba(90, 124, 204, 0.28);
 }
-
-.paper-doll-item.icon-patched::after { content: "✣"; background: #8b6745; }
-.paper-doll-item.icon-reinforced::after { content: "◆"; background: #607581; }
-.paper-doll-item.icon-iron::after { content: "◆"; background: #6b7780; }
 
 .paper-doll-item:hover,
 .tool-icon-item:hover,
@@ -2225,7 +2210,39 @@ button:disabled {
   gap: 2px;
 }
 
-.tool-item-icon { font-size: 22px; line-height: 1; }
+.tool-icon-item.icon-iron {
+  border-color: #7d8990;
+  background: linear-gradient(145deg, #f3f5f5, #c6cdd0);
+}
+
+.tool-icon-item.icon-steel {
+  border-color: #526e7a;
+  background: linear-gradient(145deg, #f8fbfc, #aebfc6);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.65), 0 1px 3px rgba(40, 64, 75, 0.25);
+}
+
+.tool-item-icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.equipment-item-icon {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  image-rendering: auto;
+}
+
+.paper-doll-item > .equipment-item-icon {
+  width: 32px;
+  height: 32px;
+}
 .tool-item-effect { font-size: 10px; line-height: 1.12; text-align: center; }
 
 .equipment-detail {
@@ -2238,7 +2255,44 @@ button:disabled {
   font-size: 12px;
   font-weight: 700;
   line-height: 16px;
-  overflow: hidden;
+  overflow: visible;
+}
+
+.ring-choice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+
+.ring-choice-btn {
+  min-height: 28px;
+  padding: 4px 7px;
+  border: 1px solid #bca77e;
+  border-radius: 5px;
+  background: #fff9eb;
+  color: #4e3d29;
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.ring-choice-icon {
+  width: 18px;
+  height: 18px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.ring-choice-btn:disabled {
+  border-color: #7560a8;
+  background: #eee7fa;
+  cursor: default;
+}
+
+.node-imbue-status {
+  color: #5a4a82;
+  font-weight: 700;
 }
 
 @media (max-width: 560px) {
@@ -2291,6 +2345,11 @@ button:disabled {
   grid-column: 2;
   grid-row: 1;
 }
+
+.imbue-tool-option { display: grid; gap: 6px; text-align: left; }
+.imbue-tool-mana-controls { display: inline-flex; align-items: center; gap: 8px; }
+.imbue-tool-mana-controls button, .imbue-tool-cast-btn { min-height: 30px; padding: 3px 10px; }
+.imbue-tool-cast-btn { justify-self: start; }
 
 .automation-crystal-btn {
   grid-column: 2;
@@ -3061,6 +3120,21 @@ summary:focus-visible,
 
 .crafting-actions {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.steelworking-section {
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #8f9ca3;
+  border-radius: 8px;
+  background: linear-gradient(145deg, rgba(226, 232, 234, 0.72), rgba(190, 202, 207, 0.42));
+}
+
+.steelworking-section > h4 {
+  margin: 0;
+  color: #34474f;
+  font-family: var(--font-display);
+  font-size: 15px;
 }
 
 .crafting-actions.crafting-actions button {
@@ -4139,27 +4213,52 @@ button:disabled,
 
 .tower-detail-content .elemental-tower-panel {
   margin-top: 2px;
-  padding: 12px;
+  padding: 9px 10px;
   border: 1px solid rgba(87, 71, 45, 0.18);
   background: rgba(255, 255, 255, 0.34);
 }
 
+.elemental-tower-panel {
+  gap: 4px;
+}
+
+.elemental-tower-panel h3,
 .tower-detail-content .elemental-tower-panel h3 {
+  margin: 0;
   font-size: 16px;
+  line-height: 1.15;
 }
 
 .elemental-tower-panel .elemental-assignment-panel {
-  margin-top: 10px;
-  padding: 10px;
+  margin-top: 2px;
+  padding: 8px;
   border: 1px solid rgba(91, 65, 40, 0.2);
   border-radius: 10px;
   background: rgba(255, 250, 238, 0.55);
 }
 
-.elemental-controlled-count,
+.elemental-controlled-row,
 .elemental-compact-capacity {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+.elemental-controlled-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+}
+
+.elemental-controlled-label {
+  color: #2b241c;
+  font-size: 13px;
+}
+
+.elemental-controlled-capacity {
+  color: #4a3e31;
+  font-size: 13px;
+  white-space: nowrap;
 }
 
 .elemental-compact-panel {
@@ -5094,7 +5193,7 @@ button:disabled,
   .dungeon-actions,
   .location-object-actions,
   .destination-actions,
-  .crafting-actions,
+  .crafting-actions.crafting-actions,
   .contextual-actions {
     grid-template-columns: 1fr;
   }

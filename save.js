@@ -1,5 +1,5 @@
 const SAVE_KEY = "manaApprenticeSaveV1";
-const SAVE_VERSION = 27;
+const SAVE_VERSION = 32;
 let saveSuppressed = false;
 
 function createSaveData() {
@@ -328,6 +328,26 @@ function migrateSaveData(saveData) {
     migrateV26SaveDataToV27(normalizedSaveData);
   }
 
+  if (version <= 27) {
+    migrateV27SaveDataToV28(normalizedSaveData);
+  }
+
+  if (version <= 28) {
+    migrateV28SaveDataToV29(normalizedSaveData);
+  }
+
+  if (version <= 29) {
+    migrateV29SaveDataToV30(normalizedSaveData);
+  }
+
+  if (version <= 30) {
+    migrateV30SaveDataToV31(normalizedSaveData);
+  }
+
+  if (version <= 31) {
+    migrateV31SaveDataToV32(normalizedSaveData);
+  }
+
   normalizedSaveData.version = SAVE_VERSION;
 
   return normalizedSaveData;
@@ -355,6 +375,9 @@ function normalizeSaveData(saveData) {
   saveData.gameState.magic.spellProgress.imbue = normalizeSavedSpellProgress(saveData.gameState.magic.spellProgress.imbue);
   saveData.gameState.magic.spellProgress.arcaneForce = normalizeSavedSpellProgress(saveData.gameState.magic.spellProgress.arcaneForce);
   saveData.gameState.magic.spellProgress.ward = normalizeSavedSpellProgress(saveData.gameState.magic.spellProgress.ward);
+  normalizeSavedImbueToolCharges(saveData.gameState.magic);
+  normalizeSavedImbueRankTwoState(saveData.gameState);
+  normalizeSavedArcaneForceRankTwoState(saveData.gameState);
   saveData.gameState.magic.attunements = ensureObject(saveData.gameState.magic.attunements);
 
   if (!Array.isArray(saveData.gameState.magic.attunements.active)) {
@@ -362,6 +385,12 @@ function normalizeSaveData(saveData) {
   }
 
   saveData.gameState.magic.attunements.active = normalizeSavedActiveAttunements(saveData.gameState.magic.attunements.active);
+  saveData.gameState.magic.attunements.rank = saveData.gameState.magic.attunements.rank >= 2 ? 2 : 1;
+  saveData.gameState.magic.attunements.rankTwoLevel = Math.max(0, Math.min(10, Math.floor(Number(saveData.gameState.magic.attunements.rankTwoLevel) || 0)));
+  saveData.gameState.magic.attunements.rankTwoXp = Math.max(0, Number(saveData.gameState.magic.attunements.rankTwoXp) || 0);
+  saveData.gameState.magic.attunements.breakthroughs = ensureObject(saveData.gameState.magic.attunements.breakthroughs);
+  saveData.gameState.magic.attunements.persistentResonanceCompleted = !!saveData.gameState.magic.attunements.persistentResonanceCompleted;
+  saveData.gameState.magic.attunements.rankTwoComplete = !!saveData.gameState.magic.attunements.rankTwoComplete;
 
   if (!Number.isFinite(saveData.gameState.magic.attunements.capacity) || saveData.gameState.magic.attunements.capacity <= 0) {
     saveData.gameState.magic.attunements.capacity = 1;
@@ -376,6 +405,7 @@ function normalizeSaveData(saveData) {
   saveData.actions = ensureObject(saveData.actions);
   saveData.campUpgrades = ensureObject(saveData.campUpgrades);
   saveData.gearUpgrades = ensureObject(saveData.gearUpgrades);
+  normalizeSavedCombatProgress(saveData);
   saveData.spells = ensureObject(saveData.spells);
   saveData.resourceCrafts = ensureObject(saveData.resourceCrafts);
   saveData.expeditionLocations = ensureObject(saveData.expeditionLocations);
@@ -388,6 +418,95 @@ function normalizeSaveData(saveData) {
   }
 
   return saveData;
+}
+
+function normalizeSavedImbueToolCharges(magic) {
+  magic.toolCharges = ensureObject(magic.toolCharges);
+  ["knife", "axe", "pick"].forEach(function (tool) {
+    const charge = Number(magic.toolCharges[tool]);
+    magic.toolCharges[tool] = Number.isFinite(charge) ? Math.max(0, Math.floor(charge)) : 0;
+  });
+}
+
+function normalizeSavedImbueRankTwoState(savedGameState) {
+  savedGameState.magic = ensureObject(savedGameState.magic);
+  const state = ensureObject(savedGameState.magic.imbuement);
+  const config = getImbueRankTwoConfig();
+  const maxStage = Object.keys(config.controlMatrix).length;
+  state.rank = state.rank >= 2 ? 2 : 1;
+  state.rankTwoLevel = Math.max(0, Math.min(10, Math.floor(Number(state.rankTwoLevel) || 0)));
+  state.rankTwoXp = Math.max(0, Number(state.rankTwoXp) || 0);
+  state.breakthroughs = ensureObject(state.breakthroughs);
+  state.breakthroughs.permanentBinding = Math.max(0, Number(state.breakthroughs.permanentBinding) || 0);
+  state.permanentBindingCompleted = !!state.permanentBindingCompleted || state.rank >= 2;
+  state.rankTwoComplete = !!state.rankTwoComplete || state.rankTwoLevel >= 10;
+  state.craftedRings = ensureObject(state.craftedRings);
+  Object.keys(config.rings).forEach(function (ringId) {
+    state.craftedRings[ringId] = !!state.craftedRings[ringId];
+  });
+  state.equippedRing = typeof state.equippedRing === "string" && state.craftedRings[state.equippedRing] && config.rings[state.equippedRing]
+    ? state.equippedRing
+    : Object.keys(config.rings).find(function (ringId) { return state.craftedRings[ringId]; }) || null;
+  state.backpackImbued = !!state.backpackImbued;
+  state.equipmentEnchantments = ensureObject(state.equipmentEnchantments);
+  state.furnaceTier = Math.max(0, Math.min(2, Math.floor(Number(state.furnaceTier) || 0)));
+  state.alchemyTier = Math.max(0, Math.min(2, Math.floor(Number(state.alchemyTier) || 0)));
+  state.controlMatrixStage = Math.max(0, Math.min(maxStage, Math.floor(Number(state.controlMatrixStage) || 0)));
+
+  if (!Number.isFinite(state.controlCapacity) || state.controlCapacity <= 0) {
+    const savedTower = ensureObject(savedGameState.tower);
+    const savedEarth = ensureObject(ensureObject(savedGameState.elementals).earth);
+    const legacyCapacity = [savedTower.elementalControlCapacity, savedTower.controlCapacity, savedEarth.controlCapacity]
+      .find(function (value) { return Number.isFinite(value) && value > 0; });
+    const matrix = config.controlMatrix[state.controlMatrixStage];
+    state.controlCapacity = legacyCapacity || (matrix ? matrix.capacity : getElementalAutomationConfig().towerHeart.startingElementalControlCapacity);
+  }
+
+  state.controlCapacity = Math.max(1, Math.floor(state.controlCapacity));
+  savedGameState.magic.imbuement = state;
+}
+
+function normalizeSavedArcaneForceRankTwoState(savedGameState) {
+  savedGameState.magic = ensureObject(savedGameState.magic);
+  const state = ensureObject(savedGameState.magic.arcaneForce);
+  state.rank = state.rank >= 2 ? 2 : 1;
+  state.rankTwoLevel = Math.max(0, Math.min(10, Math.floor(Number(state.rankTwoLevel) || 0)));
+  state.rankTwoXp = Math.max(0, Number(state.rankTwoXp) || 0);
+  state.breakthroughs = ensureObject(state.breakthroughs);
+  state.breakthroughs.forceAmplification = Math.max(0, Number(state.breakthroughs.forceAmplification) || 0);
+  state.forceAmplificationCompleted = !!state.forceAmplificationCompleted || state.rank >= 2;
+  state.rankTwoComplete = !!state.rankTwoComplete || state.rankTwoLevel >= 10;
+  savedGameState.magic.arcaneForce = state;
+}
+
+function normalizeSavedCombatProgress(saveData) {
+  const savedGameState = ensureObject(saveData.gameState);
+  const northernVictory = !!ensureObject(savedGameState.northernDisturbance).resolved;
+  const regional = ensureObject(savedGameState.regionalProgress);
+  const regionalVictory = !!ensureObject(regional.east).disturbanceResolved || !!ensureObject(regional.south).disturbanceResolved;
+  const savedGear = ensureObject(saveData.gearUpgrades);
+  const staffVictory = !!ensureObject(savedGear.ironStaff).purchased || !!ensureObject(savedGear.steelStaff).purchased;
+  const explicitVictories = Math.max(0, Math.floor(Number(savedGameState.combatVictories) || 0));
+  savedGameState.combatVictories = Math.max(explicitVictories, northernVictory || regionalVictory || staffVictory ? 1 : 0);
+  saveData.gameState = savedGameState;
+}
+
+function migrateV31SaveDataToV32(saveData) {
+  normalizeSavedCombatProgress(saveData);
+}
+
+function migrateV30SaveDataToV31(saveData) {
+  normalizeSavedArcaneForceRankTwoState(saveData.gameState);
+}
+
+function migrateV29SaveDataToV30(saveData) {
+  normalizeSavedImbueRankTwoState(saveData.gameState);
+  saveData.gameState.towerNodes = normalizeSavedTowerNodes(saveData.gameState.towerNodes, !!ensureObject(ensureObject(saveData.gameState).projects).towerFoundation?.completed);
+}
+
+function migrateV28SaveDataToV29(saveData) {
+  saveData.gameState.magic = ensureObject(saveData.gameState.magic);
+  normalizeSavedImbueToolCharges(saveData.gameState.magic);
 }
 
 function migrateV25SaveDataToV26(saveData) {
@@ -426,6 +545,20 @@ function migrateV26SaveDataToV27(saveData) {
   savedGameState.elementals = ensureObject(savedGameState.elementals);
   saveData.gameState = savedGameState;
   saveData.resources = ensureObject(saveData.resources);
+}
+
+function migrateV27SaveDataToV28(saveData) {
+  const savedGameState = ensureObject(saveData.gameState);
+  savedGameState.magic = ensureObject(savedGameState.magic);
+  const attunements = ensureObject(savedGameState.magic.attunements);
+  attunements.rank = 1;
+  attunements.rankTwoLevel = 0;
+  attunements.rankTwoXp = 0;
+  attunements.breakthroughs = {};
+  attunements.persistentResonanceCompleted = false;
+  attunements.rankTwoComplete = false;
+  savedGameState.magic.attunements = attunements;
+  saveData.gameState = savedGameState;
 }
 
 function migrateV6SaveDataToV7(saveData) {
@@ -809,6 +942,7 @@ function normalizeSavedTowerNodes(savedTowerNodes, towerCompleted = false) {
       threadSenseProgress: normalizedThreadSenseProgress,
       threadSensed: threadSensed || (threadSenseRequired > 0 && normalizedThreadSenseProgress >= threadSenseRequired),
       advancedRecallUnlocked: !!savedNode.advancedRecallUnlocked || threadSensed,
+      permanentImbued: !!savedNode.permanentImbued,
     };
   }
 
@@ -1101,6 +1235,7 @@ function applyTowerNodeSaveData(savedTowerNodes) {
       "threadSenseProgress",
       "threadSensed",
       "advancedRecallUnlocked",
+      "permanentImbued",
     ]);
     state.deposits = structuredClone(ensureObject(savedNode.deposits));
     normalizeTowerNodeState(nodeName);
@@ -1166,6 +1301,7 @@ function applyGameStateSaveData(savedGameState) {
     "towerBasementCompleted",
     "personalWardUnlocked",
     "personalWardPopupShown",
+    "combatVictories",
     "destination",
     "hasCamp",
   ]);
@@ -1210,12 +1346,22 @@ function applyGameStateSaveData(savedGameState) {
   if (savedGameState.magic) {
     gameState.magic.sensedReveals = structuredClone(ensureObject(savedGameState.magic.sensedReveals));
     gameState.magic.spellProgress = structuredClone(ensureObject(savedGameState.magic.spellProgress));
+    gameState.magic.toolCharges = structuredClone(ensureObject(savedGameState.magic.toolCharges));
+    normalizeSavedImbueToolCharges(gameState.magic);
+    gameState.magic.imbuement = structuredClone(ensureObject(savedGameState.magic.imbuement));
+    gameState.magic.arcaneForce = structuredClone(ensureObject(savedGameState.magic.arcaneForce));
 
     const savedAttunements = ensureObject(savedGameState.magic.attunements);
 
     gameState.magic.attunements = {
       capacity: Number.isFinite(savedAttunements.capacity) && savedAttunements.capacity > 0 ? savedAttunements.capacity : 1,
       active: Array.isArray(savedAttunements.active) ? structuredClone(savedAttunements.active) : [],
+      rank: savedAttunements.rank >= 2 ? 2 : 1,
+      rankTwoLevel: Math.max(0, Math.min(10, Math.floor(Number(savedAttunements.rankTwoLevel) || 0))),
+      rankTwoXp: Math.max(0, Number(savedAttunements.rankTwoXp) || 0),
+      breakthroughs: structuredClone(ensureObject(savedAttunements.breakthroughs)),
+      persistentResonanceCompleted: !!savedAttunements.persistentResonanceCompleted,
+      rankTwoComplete: !!savedAttunements.rankTwoComplete,
     };
   }
 
@@ -1322,6 +1468,8 @@ function applyGameStateSaveData(savedGameState) {
   applyTowerNodeSaveData(savedGameState.towerNodes);
   gameState.elementals = structuredClone(ensureObject(savedGameState.elementals));
   ensureElementalState();
+  ensureImbueRankTwoState();
+  ensureArcaneForceRankTwoState();
 
   if (typeof repairNorthernDisturbanceFromNorthNode === "function") {
     repairNorthernDisturbanceFromNorthNode();
@@ -1536,6 +1684,8 @@ function loadGame() {
   repairSpellUnlocksFromFlags();
   repairExpeditionTonicSlots();
   applyUpgradeSaveData(getResourceCraftDefinitions(), saveData.resourceCrafts, ["unlocked"], updateResourceCraftUI);
+  syncIronStaffUnlockFromCombatHistory();
+  syncSteelworkingUnlocks();
   applyExpeditionLocationSaveData(saveData.expeditionLocations);
   applyDungeonSaveData(saveData.dungeons);
   applyResearchSaveData(saveData.research);

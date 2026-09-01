@@ -74,6 +74,10 @@ function hookDomToUI() {
   ui.combatConsumablesList = document.getElementById("combatConsumablesList");
   ui.manaBoltBtn = document.getElementById("manaBoltBtn");
   ui.manaBoltProgressFill = document.getElementById("manaBoltProgressFill");
+  ui.manaMissileBtn = document.getElementById("manaMissileBtn");
+  ui.manaMissileProgressFill = document.getElementById("manaMissileProgressFill");
+  ui.manaLanceBtn = document.getElementById("manaLanceBtn");
+  ui.manaLanceProgressFill = document.getElementById("manaLanceProgressFill");
   ui.combatRecallBtn = document.getElementById("combatRecallBtn");
   ui.combatStatus = document.getElementById("combatStatus");
   ui.closeCombatBtn = document.getElementById("closeCombatBtn");
@@ -115,6 +119,8 @@ function hookDomToUI() {
   ui.locationStorageList = document.getElementById("locationStorageList");
   ui.oreAmount = document.getElementById("oreAmount");
   ui.ironAmount = document.getElementById("ironAmount");
+  ui.steelAmount = document.getElementById("steelAmount");
+  ui.ironRingAmount = document.getElementById("ironRingAmount");
   ui.earthElementalCoreAmount = document.getElementById("earthElementalCoreAmount");
   ui.runedLeatherAmount = document.getElementById("runedLeatherAmount");
   ui.naturalEssenceAmount = document.getElementById("naturalEssenceAmount");
@@ -788,6 +794,8 @@ function hookUIMaps() {
     leather: ui.leatherAmount,
     ore: ui.oreAmount,
     iron: ui.ironAmount,
+    steel: ui.steelAmount,
+    ironRing: ui.ironRingAmount,
     earthElementalCore: ui.earthElementalCoreAmount,
     runedLeather: ui.runedLeatherAmount,
     naturalEssence: ui.naturalEssenceAmount,
@@ -1717,6 +1725,8 @@ function updateCampResourcesSectionVisibility() {
     "leather",
     "ore",
     "iron",
+    "steel",
+    "ironRing",
     "earthElementalCore",
     "herb",
     "glimmerleaf",
@@ -1760,7 +1770,7 @@ function unlockPanel(panelName) {
 function updateInventorySummary() {
   if (!ui.inventorySummary) return;
 
-  const resourceNames = ["food", "water", "wood", "stone", "iron", "leather", "herb", "manaCrystal", "chargedCrystal"];
+  const resourceNames = ["food", "water", "wood", "stone", "iron", "steel", "leather", "herb", "manaCrystal", "chargedCrystal"];
   const visibleResources = resourceNames.filter(function (resourceName) {
     const resource = getResource(resourceName);
     return resource && resource.display && resource.display.style.display !== "none";
@@ -2106,7 +2116,8 @@ function getUiActionContextReason(actionName) {
     "setTrap",
     "checkTrap",
     "gatherStone",
-    "mineOre",
+    "mineStone",
+    "mineIron",
     "trackGame",
     "useHuntingLure",
     "huntGame",
@@ -2307,7 +2318,7 @@ function isActionContextAvailable(actionName) {
     return !!location && !!location.storage && location.storage.iron > 0 && hasCarrySpace("iron", 1);
   }
 
-  if (actionName === "mineOre") {
+  if (actionName === "mineStone" || actionName === "mineIron") {
     return locationName === "ironMine" && hasPurchasedGear("crudeIronPick");
   }
 

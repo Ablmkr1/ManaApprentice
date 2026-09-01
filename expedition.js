@@ -375,7 +375,8 @@ function hasCarrySpace(itemName, amount) {
 }
 
 function getEffectiveCarryCapacity() {
-  return gameState.expedition.carryCapacity + getActiveAttunementEffectTotal("carryCapacityFlat");
+  const backpackBonus = typeof getImbuedBackpackCapacityBonus === "function" ? getImbuedBackpackCapacityBonus() : 0;
+  return gameState.expedition.carryCapacity + backpackBonus + getActiveAttunementEffectTotal("carryCapacityFlat");
 }
 
 function addCarriedItem(itemName, amount) {
@@ -692,6 +693,10 @@ function resolveExpeditionStep() {
 
   step.distance += getEquipmentEffectValue("gear", "feet", "travelDistanceFlat", 0);
 
+  if (typeof getEquippedPermanentImbueEffectTotal === "function") {
+    step.distance += getEquippedPermanentImbueEffectTotal("travelDistanceFlat");
+  }
+
   step.distance += getActiveAttunementEffectTotal("travelDistanceFlat");
 
   step.distance *= getRouteTravelDistanceMultiplier();
@@ -834,7 +839,7 @@ function endExpedition(reason) {
 
   expedition.active = false;
 
-  clearActiveAttunements();
+  if (typeof getAttunementRank !== "function" || getAttunementRank() < 2) clearActiveAttunements();
 
   transferCarriedItemsToCamp();
   applyPendingConditioningAtCamp();
