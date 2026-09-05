@@ -924,9 +924,9 @@ const actions = {
 
   mineStone: {
     label: "Mine Stone",
-    duration: 5,
+    duration: 1,
     cost: {
-      energy: 6,
+      energy: 1,
     },
     unlocked: false,
     running: false,

@@ -104,10 +104,53 @@ const tests = `
   }
   assert(getArcaneForcePowerPercent() === 300, "Rank II Level 10 has exactly 300% Force Power");
 
+  const basicNails = getArcaneForceDefinition("nails");
+  const bulkNails = getArcaneForceDefinition("nailsBulk");
+  getSpell("arcaneForce").unlocked = true;
+  gameState.expedition.currentLocation = null;
+  getResource("mana").maxValue = 200;
+  getResource("mana").value = 200;
+  getResource("iron").value = 20;
+  getResource("nails").value = 0;
+  setRankTwoLevel(1);
+  assert(isProductionSpellTargetAvailable("arcaneForce", "nails"), "The existing 10-nail action remains available below Rank II Level 2");
+  assert(!isProductionSpellTargetAvailable("arcaneForce", "nailsBulk"), "Shape 50 Nails remains hidden below Rank II Level 2");
   setRankTwoLevel(2);
-  assert(!isSteelworkingUnlocked(), "Steelworking remains locked below Rank II Level 3");
+  assert(isProductionSpellTargetAvailable("arcaneForce", "nailsBulk"), "Shape 50 Nails unlocks at Rank II Level 2");
+  assert(basicNails.cost.mana === 4 && basicNails.cost.iron === 1 && basicNails.produces.amount === 10, "The existing 10-nail recipe remains unchanged");
+  assert(bulkNails.cost.mana === basicNails.cost.mana * 3, "Shape 50 Nails costs exactly three times the basic recipe's mana");
+  assert(bulkNails.cost.iron === basicNails.cost.iron * 5, "Shape 50 Nails scales the basic recipe's iron cost to five batches");
+  assert(bulkNails.produces.amount === 50, "Shape 50 Nails produces exactly 50 nails");
+
+  getResource("mana").value = bulkNails.cost.mana - 1;
+  assert(!canApplyProductionSpellTarget("arcaneForce", "nailsBulk"), "Shape 50 Nails cannot cast without sufficient mana");
+  getResource("mana").value = 100;
+  getResource("iron").value = bulkNails.cost.iron - 1;
+  assert(!canApplyProductionSpellTarget("arcaneForce", "nailsBulk"), "Shape 50 Nails cannot cast without sufficient iron");
+
+  getResource("iron").value = bulkNails.cost.iron;
+  const bulkXpStart = ensureArcaneForceRankTwoState().rankTwoXp;
+  castTargetedSpell("arcaneForce", { type: "productionSpell", spellName: "arcaneForce", targetId: "nailsBulk", mode: "camp" });
+  assert(isActivityActive(), "Shape 50 Nails uses the shared timed spell activity");
+  assert(getResource("mana").value === 100 - bulkNails.cost.mana && getResource("iron").value === 0, "Shape 50 Nails spends exactly 12 mana and 5 iron");
+  const bulkContext = gameState.activity.context;
+  resetActivity();
+  completeSpellCast("arcaneForce", bulkContext);
+  assert(getResource("nails").value === 50, "Completing Shape 50 Nails awards exactly 50 nails");
+  assert(ensureArcaneForceRankTwoState().rankTwoXp - bulkXpStart === bulkNails.cost.mana, "Shape 50 Nails grants Arcane Force XP from the mana actually spent");
+
+  getResource("nails").value = getResource("nails").maxValue - 49;
+  getResource("iron").value = bulkNails.cost.iron;
+  assert(!isProductionSpellTargetAvailable("arcaneForce", "nailsBulk"), "Shape 50 Nails respects nail inventory limits");
+  setRankTwoLevel(7);
+  const efficientBasicNailsCost = getProductionSpellTargetContext("arcaneForce", "nails").cost.mana;
+  const efficientBulkNailsCost = getProductionSpellTargetContext("arcaneForce", "nailsBulk").cost.mana;
+  assert(efficientBulkNailsCost === roundResourceAmount(efficientBasicNailsCost * 3), "Shape 50 Nails remains exactly three times the basic mana cost after Arcane Efficiency");
+
+  setRankTwoLevel(2);
+  assert(!isSteelworkingUnlocked(), "Arcane Force Rank II does not directly unlock Steelworking");
   setRankTwoLevel(3);
-  assert(isSteelworkingUnlocked(), "Steelworking is exposed as a derived unlock at Rank II Level 3");
+  assert(!isSteelworkingUnlocked(), "Rank II Level 3 no longer bypasses Forge construction and Steelworking research");
 
   gameState.expedition.currentLocation = "wildHerbPatch";
   setRankTwoLevel(0);
@@ -184,6 +227,15 @@ const tests = `
   migrated.magic.arcaneForce = { rank: 2, rankTwoLevel: 7, rankTwoXp: 350 };
   normalizeSavedArcaneForceRankTwoState(migrated);
   assert(migrated.magic.arcaneForce.rankTwoLevel === 7, "Save normalization preserves existing Rank II level state for derived unlocks");
+  assert(!("bulkShapingUnlocked" in migrated.magic.arcaneForce), "Bulk Shaping availability requires no saved-game unlock flag");
+  const loadedBulkSave = { magic: { spellProgress: { arcaneForce: { level: 5, xp: 150 } }, arcaneForce: { rank: 2, rankTwoLevel: 2, rankTwoXp: 100 } } };
+  normalizeSavedArcaneForceRankTwoState(loadedBulkSave);
+  gameState.magic.arcaneForce = loadedBulkSave.magic.arcaneForce;
+  gameState.expedition.currentLocation = null;
+  getResource("mana").value = 100;
+  getResource("iron").value = bulkNails.cost.iron;
+  getResource("nails").value = 0;
+  assert(isProductionSpellTargetAvailable("arcaneForce", "nailsBulk"), "A loaded Rank II Level 2 save derives Bulk Shaping availability automatically");
 
   console.log(JSON.stringify({ passed: results.length, results }, null, 2));
 })();

@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Unified Tower Visual Preview</title>
+    <link rel="stylesheet" href="../style.css" />
+    <link rel="stylesheet" href="../tower-visual-system.css" />
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 18px; background: #d8c9ad; }
+      .preview-shell { width: min(1080px, 100%); margin: auto; }
+      .preview-controls { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+      .preview-controls label { font-weight: 800; }
+      .preview-controls select { min-height: 42px; padding: 7px 10px; }
+      .preview-grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(250px, .75fr); gap: 14px; }
+      .tower-cross-section-panel, .preview-detail { overflow: hidden; border: 1px solid #9f8c6f; border-radius: 10px; background: #f5eddd; }
+      .tower-cross-section { min-height: 0; padding-top: 44px; }
+      .preview-detail { padding: 18px; }
+      .elemental-tower-panel { margin-top: 18px; padding: 12px; border: 1px solid #75a9b3; border-radius: 8px; background: #e9f5f3; }
+      @media (max-width: 720px) { body { padding: 8px; } .preview-grid { grid-template-columns: 1fr; } .preview-detail { display: none; } }
+    </style>
+  </head>
+  <body>
+    <main class="preview-shell">
+      <div class="preview-controls">
+        <label for="towerPreset">Tower state</label>
+        <select id="towerPreset">
+          <option value="buried">1. Foundation buried</option>
+          <option value="excavated">2. Excavation shored</option>
+          <option value="heart">3. Tower Heart restored</option>
+          <option value="basementBuild">4. Basement under construction</option>
+          <option value="basementComplete">5. Basement complete</option>
+          <option value="floor1Build">6. Floor 1 under construction</option>
+          <option value="floor1Rooms">7. Floor 1 room fit-out</option>
+          <option value="floor2Build">8. Floor 2 under construction</option>
+          <option value="complete" selected>9. Complete two-floor tower</option>
+        </select>
+      </div>
+      <div class="preview-grid">
+        <section class="tower-cross-section-panel" aria-label="Interactive Tower illustration">
+          <div id="towerStructure" class="tower-cross-section has-building"></div>
+        </section>
+        <aside class="preview-detail">
+          <h2 id="selectionTitle">Tower Heart</h2>
+          <p>Use this isolated fixture to verify every live SVG state and interaction without changing a save.</p>
+          <section class="elemental-tower-panel" tabindex="-1">
+            <h3>Bound Earth Elemental control</h3>
+            <button type="button">First usable control</button>
+          </section>
+        </aside>
+      </div>
+    </main>
+
+    <script>
+      var gameState = { tower: { selectedId: "heart" } };
+      var projects = {};
+      var floors = {
+        floor1: { id: "floor1", name: "Floor 1", subtitle: "Living / Practical Floor", number: 1, projectId: "towerFloor1", rooms: ["bedroom", "forge", "workshop"] },
+        floor2: { id: "floor2", name: "Floor 2", subtitle: "Arcane Work Floor", number: 2, projectId: "towerFloor2", rooms: ["alchemyRoom", "library", "enchantingStudy"] }
+      };
+      var rooms = {
+        bedroom: { id: "bedroom", name: "Bedroom", projectId: "towerRoomBedroom" },
+        library: { id: "library", name: "Library", projectId: "towerRoomLibrary" },
+        workshop: { id: "workshop", name: "Workshop", projectId: "towerRoomWorkshop" },
+        alchemyRoom: { id: "alchemyRoom", name: "Alchemy Room", projectId: "towerRoomAlchemyRoom" },
+        forge: { id: "forge", name: "Forge", projectId: "towerRoomForge" },
+        enchantingStudy: { id: "enchantingStudy", name: "Enchanting Study", projectId: "towerRoomEnchantingStudy" }
+      };
+      var definitions = {
+        towerFoundation: { visualStages: Array(6).fill({}) },
+        towerBasement: { visualStages: Array(6).fill({}) },
+        towerFloor1: { visualStages: Array(2).fill({}) },
+        towerFloor2: { visualStages: Array(2).fill({}) }
+      };
+      Object.values(rooms).forEach(function (room) { definitions[room.projectId] = { visualStages: Array(2).fill({}) }; });
+
+      function state(unlocked, completed, level, progress) { return { unlocked: unlocked, completed: completed, level: level || 0, visualProgress: progress || 0, work: progress ? 1 : 0, deposits: {} }; }
+      function getProjectState(id) { return projects[id] || null; }
+      function getProjectDefinition(id) { return definitions[id] || null; }
+      function getTowerFloorDefinitions() { return floors; }
+      function getTowerRoomDefinition(id) { return rooms[id] || null; }
+      function getTowerProjectStageIndex(definition, value) { return value.completed ? definition.visualStages.length - 1 : value.level || 0; }
+      function getTowerProjectVisualProgress(id) { return (projects[id] && projects[id].visualProgress) || 0; }
+      function getTowerConstructionState(id) { var value = projects[id]; return !value || !value.unlocked ? "locked" : value.completed ? "completed" : value.visualProgress > 0 ? "under-construction" : "available"; }
+      function getTowerStateLabel(value) { return value === "completed" ? "Complete" : value === "under-construction" ? "Under construction" : value === "available" ? "Ready to build" : "Locked"; }
+      function isTowerSelectionVisible(id) { var entity = id === "heart" ? projects.towerFoundation : id === "basement" ? projects.towerBasement : id.indexOf("floor:") === 0 ? projects[floors[id.slice(6)].projectId] : id.indexOf("room:") === 0 ? projects[rooms[id.slice(5)].projectId] : null; return !!entity && (entity.unlocked || entity.completed); }
+      function isBoundEarthElementalTowerUnlocked() { return !!projects.towerFoundation && projects.towerFoundation.completed; }
+      function selectTowerEntity(id) { gameState.tower.selectedId = id; render(); document.getElementById("selectionTitle").textContent = id; }
+      function makeTowerSvgZone(group, id, label, stateName) {
+        group.classList.add("tower-illustration-zone", "is-" + stateName);
+        group.dataset.towerSelect = id;
+        group.setAttribute("role", "button");
+        group.setAttribute("tabindex", "0");
+        group.setAttribute("aria-label", label + ". " + getTowerStateLabel(stateName) + ".");
+        group.setAttribute("aria-pressed", String(gameState.tower.selectedId === id));
+        if (gameState.tower.selectedId === id) group.classList.add("is-selected");
+        function activate(event) { event.stopPropagation(); selectTowerEntity(id); }
+        group.addEventListener("click", activate);
+        group.addEventListener("keydown", function (event) { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); activate(event); } });
+        return group;
+      }
+
+      var presets = {
+        buried: function () { projects = { towerFoundation: state(true, false, 0, 0) }; },
+        excavated: function () { projects = { towerFoundation: state(true, false, 3, .45) }; },
+        heart: function () { projects = { towerFoundation: state(true, true, 5, 1) }; },
+        basementBuild: function () { projects = { towerFoundation: state(true, true, 5, 1), towerBasement: state(true, false, 2, .55) }; },
+        basementComplete: function () { projects = { towerFoundation: state(true, true, 5, 1), towerBasement: state(true, true, 5, 1) }; },
+        floor1Build: function () { projects = { towerFoundation: state(true, true, 5, 1), towerBasement: state(true, true, 5, 1), towerFloor1: state(true, false, 0, .58) }; },
+        floor1Rooms: function () { projects = { towerFoundation: state(true, true, 5, 1), towerBasement: state(true, true, 5, 1), towerFloor1: state(true, true, 1, 1), towerRoomBedroom: state(true, true, 1, 1), towerRoomForge: state(true, false, 0, .63), towerRoomWorkshop: state(true, false, 0, 0) }; },
+        floor2Build: function () { projects = { towerFoundation: state(true, true, 5, 1), towerBasement: state(true, true, 5, 1), towerFloor1: state(true, true, 1, 1), towerRoomBedroom: state(true, true, 1, 1), towerRoomForge: state(true, true, 1, 1), towerRoomWorkshop: state(true, true, 1, 1), towerFloor2: state(true, false, 0, .47) }; },
+        complete: function () { projects = { towerFoundation: state(true, true, 5, 1), towerBasement: state(true, true, 5, 1), towerFloor1: state(true, true, 1, 1), towerRoomBedroom: state(true, true, 1, 1), towerRoomLibrary: state(true, true, 1, 1), towerRoomWorkshop: state(true, true, 1, 1), towerFloor2: state(true, true, 1, 1), towerRoomAlchemyRoom: state(true, true, 1, 1), towerRoomForge: state(true, true, 1, 1), towerRoomEnchantingStudy: state(true, true, 1, 1) }; }
+      };
+    </script>
+    <script src="../tower-visual-system.js"></script>
+    <script>
+      function render() { var host = document.getElementById("towerStructure"); host.innerHTML = ""; host.appendChild(createUnifiedTowerVisual()); }
+      function applyPreset() { presets[document.getElementById("towerPreset").value](); gameState.tower.selectedId = "heart"; render(); }
+      document.body.dataset.golemEvents = "0";
+      document.addEventListener("mana-tower:golem-control", function () { document.body.dataset.golemEvents = String(Number(document.body.dataset.golemEvents) + 1); });
+      document.getElementById("towerPreset").addEventListener("change", applyPreset);
+      presets.complete();
+      render();
+    </script>
+  </body>
+</html>

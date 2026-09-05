@@ -1679,13 +1679,13 @@ function loadGame() {
   applyResourceSaveData(saveData.resources);
   applyActionSaveData(saveData.actions);
   applyUpgradeSaveData(getCampUpgradeDefinitions(), saveData.campUpgrades, ["unlocked", "purchased"], updateCampUpgradeUI);
+  syncHomeStructureUnlocks();
   applyUpgradeSaveData(getGearUpgradeDefinitions(), saveData.gearUpgrades, ["unlocked", "purchased"], updateGearUpgradeUI);
   applyUpgradeSaveData(getSpellDefinitions(), saveData.spells, ["unlocked"]);
   repairSpellUnlocksFromFlags();
   repairExpeditionTonicSlots();
   applyUpgradeSaveData(getResourceCraftDefinitions(), saveData.resourceCrafts, ["unlocked"], updateResourceCraftUI);
   syncIronStaffUnlockFromCombatHistory();
-  syncSteelworkingUnlocks();
   applyExpeditionLocationSaveData(saveData.expeditionLocations);
   applyDungeonSaveData(saveData.dungeons);
   applyResearchSaveData(saveData.research);
@@ -1695,6 +1695,8 @@ function loadGame() {
   ensureProjectsState();
   ensureTowerStructureState();
   syncTowerStructureUnlocks(false);
+  repairLegacySteelworkingResearch();
+  syncSteelworkingUnlocks();
   ensureTowerNodesState();
   ensureElementalState();
   repairPersonalWardUnlockFromProject(false);

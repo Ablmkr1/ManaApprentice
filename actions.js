@@ -1415,6 +1415,7 @@ function completeActivity() {
   if (activity.kind === "craft") {
     const craftType = activity.type;
     const craftId = activity.id;
+    const craftContext = activity.context;
     const button = getActivityButton(activity);
 
     if (button) {
@@ -1430,7 +1431,7 @@ function completeActivity() {
     }
 
     if (craftType === "resourceCraft") {
-      completeResourceCraft(craftId);
+      completeResourceCraft(craftId, craftContext);
     }
 
     if (craftType === "research") {
@@ -1441,6 +1442,10 @@ function completeActivity() {
 
     resetActivity();
     checkResearchDiscoveries();
+
+    if (craftContext && craftContext.mode === "towerRoom" && typeof renderTowerDetailPanel === "function") {
+      renderTowerDetailPanel();
+    }
 
     if (shouldContinueCrafting(craftType, craftId)) {
       startCrafting(craftType, craftId);

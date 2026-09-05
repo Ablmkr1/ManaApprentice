@@ -123,6 +123,7 @@ const DEV_T4_RESEARCH = [
 ];
 
 const DEV_T3_CAMP_UPGRADES = [
+  "workbench",
   "smallFire",
   "crudeLeanTo",
   "lessCrudeShelter",
@@ -306,6 +307,7 @@ window.onload = function () {
   hookDevTierControls();
   hookCombatUI();
   hookWorkTabs();
+  if (typeof hookHomeUI === "function") hookHomeUI();
   hookMainViewTabs();
   hookJournalViewTabs();
 
@@ -1272,6 +1274,7 @@ function finalizeDevTierJump(tier) {
   recalculateCampEffects();
   recalculateToolEffects();
   repairExpeditionTonicSlots();
+  syncHomeStructureUnlocks();
   fillDevTierResources(tier);
   setCampActionsAvailable(gameState.phase === "clearing" || gameState.phase === "expedition");
   setPackingActionsAvailable(false);

@@ -1,0 +1,376 @@
+/* Unified, state-driven Tower cutaway. Loaded after style.css so the legacy
+   renderer remains an immediate rollback path. */
+.tower-unified-stage {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: #efe6d2;
+}
+
+.tower-unified-visual {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  max-height: none;
+  margin: 0 auto;
+  overflow: visible;
+  background: #f2ead9;
+  touch-action: manipulation;
+}
+
+.tower-unified-stage[data-tower-phase="foundation"] .tower-unified-visual { min-height: 410px; }
+.tower-unified-stage[data-tower-phase="heart-basement"] .tower-unified-visual { min-height: 500px; }
+.tower-unified-stage[data-tower-phase="floor1"] .tower-unified-visual,
+.tower-unified-stage[data-tower-phase="floor2"] .tower-unified-visual { min-height: 0; }
+
+.tower-unified-sky { pointer-events: none; }
+.tower-unified-distant {
+  fill: rgba(126, 121, 102, 0.08);
+  pointer-events: none;
+}
+
+.tower-unified-haze {
+  fill: none;
+  stroke: rgba(113, 108, 91, 0.08);
+  stroke-linecap: round;
+  stroke-width: 9;
+  pointer-events: none;
+}
+
+.tower-unified-ground-line {
+  fill: none;
+  stroke: #72593c;
+  stroke-width: 4;
+  pointer-events: none;
+}
+
+.tower-unified-roots {
+  fill: none;
+  stroke: rgba(111, 82, 49, 0.5);
+  stroke-linecap: round;
+  stroke-width: 3;
+  pointer-events: none;
+}
+
+.tower-unified-excavation {
+  fill: #ece4d5;
+  stroke: none;
+  pointer-events: none;
+}
+
+.tower-unified-cut-edge {
+  fill: none;
+  stroke: #6f5941;
+  stroke-width: 4;
+  pointer-events: none;
+}
+
+.tower-unified-buried-trace {
+  fill: rgba(97, 91, 80, 0.13);
+  stroke: rgba(86, 82, 74, 0.38);
+  stroke-dasharray: 10 7;
+  stroke-width: 3;
+  pointer-events: none;
+}
+
+.tower-unified-buried-mana {
+  fill: none;
+  stroke: #d8f9fb;
+  stroke-linecap: round;
+  stroke-width: 3;
+  filter: drop-shadow(0 0 4px rgba(87, 199, 216, 0.48));
+  pointer-events: none;
+}
+
+.tower-unified-buried-stones {
+  fill: none;
+  stroke: rgba(84, 81, 75, 0.45);
+  stroke-linecap: round;
+  stroke-width: 6;
+  pointer-events: none;
+}
+
+.tower-unified-shoring,
+.tower-unified-scaffold {
+  fill: none;
+  stroke: #80562f;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 8;
+  pointer-events: none;
+}
+
+.tower-unified-scaffold { stroke-width: 7; }
+
+.tower-unified-foundation-slab,
+.tower-unified-basement-shell,
+.tower-unified-floor-shell {
+  stroke: #3e3a36;
+  stroke-linejoin: round;
+  stroke-width: 4;
+  pointer-events: none;
+}
+
+.tower-unified-foundation-seam,
+.tower-unified-stone-lines {
+  fill: none;
+  stroke: rgba(43, 40, 37, 0.33);
+  stroke-width: 2;
+  pointer-events: none;
+}
+
+.tower-unified-basement-interior,
+.tower-unified-floor-interior {
+  stroke: #37332f;
+  stroke-width: 3;
+  pointer-events: none;
+}
+
+.tower-unified-blueprint-fill {
+  fill: rgba(82, 191, 208, 0.045);
+  stroke: none;
+  pointer-events: none;
+}
+
+.tower-unified-blueprint,
+.tower-unified-room-plan {
+  fill: none;
+  stroke: rgba(79, 189, 207, 0.7);
+  stroke-dasharray: 9 7;
+  stroke-width: 2.5;
+  pointer-events: none;
+}
+
+.tower-unified-blueprint-label,
+.tower-unified-room-plan-label {
+  fill: #4f8790;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  paint-order: stroke;
+  pointer-events: none;
+  stroke: rgba(246, 239, 221, 0.9);
+  stroke-width: 3px;
+}
+
+.tower-unified-plinth {
+  stroke: #44403b;
+  stroke-width: 4;
+}
+
+.tower-unified-plinth-rune,
+.tower-unified-mana-channel,
+.tower-unified-heart-facets,
+.tower-unified-heart-stand {
+  fill: none;
+  stroke: #83e0eb;
+  stroke-linecap: round;
+  stroke-width: 3;
+  pointer-events: none;
+}
+
+.tower-unified-heart-dormant {
+  fill: #5f5b55;
+  stroke: #3e3a36;
+  stroke-width: 5;
+}
+
+.tower-unified-heart-dormant-mark {
+  fill: none;
+  stroke: #8e8a81;
+  stroke-width: 3;
+}
+
+.tower-unified-heart-halo {
+  fill: rgba(122, 223, 235, 0.13);
+  stroke: rgba(178, 244, 249, 0.55);
+  stroke-width: 3;
+}
+
+.tower-unified-heart-ring {
+  fill: rgba(38, 49, 53, 0.86);
+  stroke: #efffff;
+  stroke-width: 5;
+  pointer-events: none;
+}
+
+.tower-unified-heart-ring.inner {
+  fill: none;
+  stroke: #9de9ef;
+  stroke-width: 3;
+}
+
+.tower-unified-heart-core {
+  stroke: #31586b;
+  stroke-width: 3;
+  pointer-events: none;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: towerUnifiedHeart 2.4s ease-in-out infinite;
+}
+
+.tower-unified-mana-channel {
+  stroke-dasharray: 8 7;
+  animation: towerUnifiedChannel 1.7s linear infinite;
+}
+
+.tower-unified-golem-shadow { fill: rgba(23, 22, 20, 0.36); }
+.tower-unified-golem-body { fill: #696c68; stroke: #3e413e; stroke-width: 3; }
+.tower-unified-golem-eye { fill: #9cf1fa; filter: drop-shadow(0 0 3px #70dce9); }
+.tower-unified-golem-rune { fill: none; stroke: #67d7e7; stroke-width: 2.5; }
+
+.tower-unified-cabinet { fill: #694827; stroke: #49321f; stroke-width: 4; }
+.tower-unified-cabinet-panel { fill: #987043; stroke: #60411f; stroke-width: 3; }
+.tower-unified-cabinet-knob { fill: #d4bb7c; }
+.tower-unified-sack { fill: #b6a178; stroke: #756244; stroke-width: 3; }
+
+.tower-unified-floor-cornice,
+.tower-unified-floor-beams {
+  fill: none;
+  stroke: #48433e;
+  stroke-linecap: square;
+  stroke-width: 10;
+  pointer-events: none;
+}
+
+.tower-unified-floor-number-tab { fill: #57524c; stroke: #403c38; stroke-width: 2; }
+.tower-unified-floor-number {
+  fill: #eee4ce;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: 17px;
+  pointer-events: none;
+}
+
+.tower-unified-room-bay {
+  fill: rgba(232, 218, 188, 0.13);
+  stroke: #4c4741;
+  stroke-width: 3;
+}
+
+.tower-unified-room.is-under-construction .tower-unified-room-bay {
+  fill: rgba(190, 170, 133, 0.22);
+}
+
+.tower-unified-room-progress {
+  fill: #577f84;
+  font-size: 9px;
+  font-weight: 900;
+  pointer-events: none;
+}
+
+.tower-unified-room-mana-pin {
+  fill: #8fe3ed;
+  stroke: #3c7680;
+  stroke-width: 2;
+  pointer-events: none;
+}
+
+.tower-unified-plaque { fill: #161410; stroke: #050504; stroke-width: 1; pointer-events: none; }
+.tower-unified-plaque-label {
+  fill: #fff8e8;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: 10px;
+  font-weight: 800;
+  pointer-events: none;
+}
+
+.tower-unified-golem-label { font-size: 8px; }
+
+.tower-unified-furniture,
+.tower-unified-furniture-detail {
+  fill: #6f4c2d;
+  stroke: #5d3f26;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 4;
+  pointer-events: none;
+}
+
+.tower-unified-furniture-detail { fill: none; }
+.tower-unified-linen { fill: #aaa58e; stroke: #5d594e; stroke-width: 2; }
+.tower-unified-pillow { fill: #e8ddc5; stroke: #827964; stroke-width: 2; }
+.tower-unified-window { fill: #36545c; stroke: #2c3f44; stroke-width: 2; }
+.tower-unified-book { stroke: rgba(50, 39, 28, 0.35); stroke-width: 1; }
+.tower-unified-open-book { fill: #eee1bf; stroke: #766448; stroke-width: 2; }
+.tower-unified-chalkboard { fill: #171918; stroke: #5a432e; stroke-width: 5; }
+.tower-unified-chalk { fill: none; stroke: #8da5a3; stroke-linecap: round; stroke-width: 2.5; }
+.tower-unified-gear { fill: #647173; stroke: #343d3f; stroke-width: 3; }
+.tower-unified-room-magic { fill: none; stroke: #5e8d75; stroke-linecap: round; stroke-width: 3; }
+.tower-unified-flask,
+.tower-unified-small-flask { fill: rgba(76, 152, 154, 0.17); stroke: #405f5e; stroke-width: 3; }
+.tower-unified-liquid { fill: #071918; stroke: #56c0bd; stroke-width: 2; }
+.tower-unified-forge { fill: #4a4540; stroke: #35312e; stroke-width: 4; }
+.tower-unified-fire { fill: #e77835; stroke: #9f4624; stroke-width: 2; }
+.tower-unified-enchant-circle { fill: rgba(115, 105, 198, 0.08); stroke: #766ed1; stroke-dasharray: 7 5; stroke-width: 3; }
+.tower-unified-enchant-runes { fill: none; stroke: rgba(118, 110, 209, 0.72); stroke-width: 2; }
+.tower-unified-enchant-crystal { fill: #8bdcec; stroke: #4c85ba; stroke-width: 3; filter: drop-shadow(0 0 4px rgba(89, 201, 221, 0.65)); }
+
+.tower-unified-roof { pointer-events: none; }
+.tower-unified-roof-shadow { fill: #3e3b37; opacity: 0.35; }
+.tower-unified-roof-plane { fill: #57534e; stroke: #403d39; stroke-linejoin: round; stroke-width: 5; }
+.tower-unified-roof-trim { fill: none; stroke: #7d522d; stroke-linecap: round; stroke-linejoin: round; stroke-width: 5; }
+.tower-unified-spire { fill: #a7edf3; stroke: #4b8fa8; stroke-width: 2.5; }
+
+.tower-unified-hit {
+  fill: transparent;
+  pointer-events: all;
+  stroke: transparent;
+  stroke-width: 0;
+}
+
+.tower-unified-focus-ring {
+  fill: none;
+  opacity: 0;
+  pointer-events: none;
+  stroke: rgba(91, 211, 226, 0.92);
+  stroke-width: 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.tower-unified-visual .tower-illustration-zone {
+  cursor: pointer;
+  outline: none;
+  transition: filter var(--motion-fast, 150ms ease), opacity var(--motion-fast, 150ms ease);
+}
+
+.tower-unified-visual .tower-illustration-zone:hover,
+.tower-unified-visual .tower-illustration-zone:focus-visible,
+.tower-unified-visual .tower-illustration-zone.is-selected {
+  filter: brightness(1.045) drop-shadow(0 0 6px rgba(82, 190, 207, 0.42));
+}
+
+.tower-unified-visual .tower-illustration-zone:hover > .tower-unified-focus-ring,
+.tower-unified-visual .tower-illustration-zone:focus-visible > .tower-unified-focus-ring {
+  opacity: 0.82;
+}
+
+@keyframes towerUnifiedHeart {
+  0%, 100% { opacity: 0.9; transform: scale(0.985); }
+  50% { opacity: 1; transform: scale(1.035); }
+}
+
+@keyframes towerUnifiedChannel {
+  to { stroke-dashoffset: -30; }
+}
+
+@media (max-width: 760px) {
+  .tower-unified-stage[data-tower-phase="foundation"] .tower-unified-visual,
+  .tower-unified-stage[data-tower-phase="heart-basement"] .tower-unified-visual { min-height: 0; }
+
+  .tower-unified-plaque-label { font-size: 11px; }
+  .tower-unified-golem-label { font-size: 8.5px; }
+  .tower-unified-room-plan-label { font-size: 13px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tower-unified-visual *,
+  .tower-unified-visual *::before,
+  .tower-unified-visual *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+  }
+}

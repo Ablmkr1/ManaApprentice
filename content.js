@@ -2231,6 +2231,39 @@ const researchDefinitions = {
     ],
   },
 
+  steelworking: {
+    label: "Steelworking",
+    duration: 16,
+    deepThought: 8,
+    completed: false,
+    unlocked: false,
+    cost: {
+      energy: 120,
+      focus: 12,
+      ore: 20,
+      manaCrystal: 4,
+    },
+    requires: {
+      towerRoomsCompleted: ["forge"],
+    },
+    startRequires: {
+      arcaneForceRank: 2,
+    },
+    lockedReason: "Requires Arcane Force Rank II.",
+    discoveryStory:
+      "The forge provides the heat, but heat alone isn't enough. With sufficient Arcane Force, you could crush and refine the iron before working it—removing impurities and creating something far stronger.",
+    story:
+      "Heat and directed force drive the impurities from the ore. The Forge can now produce steel for stronger tools and equipment.",
+    unlocks: [
+      { type: "resource", id: "steel" },
+      { type: "resourceCraft", id: "steel" },
+      { type: "gearUpgrade", id: "steelKnife" },
+      { type: "gearUpgrade", id: "steelAxe" },
+      { type: "gearUpgrade", id: "steelPick" },
+      { type: "gearUpgrade", id: "steelStaff" },
+    ],
+  },
+
   attunedMeditation: {
     label: "Attuned Meditation",
     duration: 10,
@@ -2300,6 +2333,7 @@ const towerStorageConfig = {
     "leather",
     "ore",
     "iron",
+    "steel",
     "earthElementalCore",
     "runedLeather",
     "naturalEssence",
@@ -2319,10 +2353,10 @@ const towerFloorDefinitions = {
   floor1: {
     id: "floor1",
     name: "Floor 1",
-    subtitle: "Living / Apprentice Floor",
+    subtitle: "Living / Practical Floor",
     number: 1,
     icon: "Ⅰ",
-    description: "The Tower's first inhabited level, set aside for recovery, study, and practical work.",
+    description: "The Tower's first inhabited level, set aside for recovery, forging, and practical work.",
     projectId: "towerFloor1",
     prerequisites: {
       projectsCompleted: ["towerBasement"],
@@ -2331,9 +2365,9 @@ const towerFloorDefinitions = {
       actionLabel: "Raise Floor 1",
       workRequired: 1200,
       workYield: 34,
-      materials: { stone: 450, wood: 250, iron: 80, nails: 250 },
+      materials: { stone: 450, wood: 250, iron: 80, nails: 100 },
     },
-    rooms: ["bedroom", "library", "workshop"],
+    rooms: ["bedroom", "forge", "workshop"],
   },
   floor2: {
     id: "floor2",
@@ -2341,19 +2375,19 @@ const towerFloorDefinitions = {
     subtitle: "Arcane Work Floor",
     number: 2,
     icon: "Ⅱ",
-    description: "A reinforced upper level designed for heat, reagents, and sustained magical work.",
+    description: "A reinforced upper level designed for research, reagents, and sustained magical work.",
     projectId: "towerFloor2",
     prerequisites: {
       projectsCompleted: ["towerFloor1"],
-      roomsCompleted: ["bedroom", "library", "workshop"],
+      roomsCompleted: ["bedroom", "forge", "workshop"],
     },
     construction: {
       actionLabel: "Raise Floor 2",
       workRequired: 1600,
       workYield: 38,
-      materials: { stone: 650, wood: 300, iron: 140, nails: 350, chargedCrystal: 8 },
+      materials: { stone: 650, wood: 300, iron: 140, nails: 100, chargedCrystal: 8 },
     },
-    rooms: ["alchemyRoom", "forge", "enchantingStudy"],
+    rooms: ["alchemyRoom", "library", "enchantingStudy"],
   },
 };
 
@@ -2382,11 +2416,11 @@ const towerRoomDefinitions = {
   library: {
     id: "library",
     name: "Library",
-    floor: "floor1",
+    floor: "floor2",
     icon: "▤",
     description: "Shelves, a broad desk, and controlled light support focused research and magical learning.",
     projectId: "towerRoomLibrary",
-    prerequisites: { projectsCompleted: ["towerFloor1"] },
+    prerequisites: { projectsCompleted: ["towerFloor2"] },
     construction: {
       actionLabel: "Finish Library",
       workRequired: 480,
@@ -2412,7 +2446,7 @@ const towerRoomDefinitions = {
       actionLabel: "Finish Workshop",
       workRequired: 520,
       workYield: 32,
-      materials: { wood: 200, iron: 60, nails: 120, manaCrystal: 4 },
+      materials: { wood: 200, iron: 60, nails: 100, manaCrystal: 4 },
     },
     baselineEffect: {
       type: "craftDurationMultiplier",
@@ -2445,11 +2479,11 @@ const towerRoomDefinitions = {
   forge: {
     id: "forge",
     name: "Forge",
-    floor: "floor2",
+    floor: "floor1",
     icon: "♨",
-    description: "A stone-lined forge and lifting gear make structural ironwork faster and more exact.",
+    description: "A stone-lined forge and lifting gear support structural ironwork and, with the right research, steel production.",
     projectId: "towerRoomForge",
-    prerequisites: { projectsCompleted: ["towerFloor2"] },
+    prerequisites: { projectsCompleted: ["towerFloor1"] },
     construction: {
       actionLabel: "Finish Forge",
       workRequired: 760,
@@ -2953,8 +2987,8 @@ const elementalHarnessDefinitions = {
   quarryHarness: {
     label: "Quarry/Mining Harness",
     recipe: { leather: 4, fiber: 8, runedLeather: 1, iron: 2 },
-    effect: { productionMultiplier: 1.5 },
-    effectText: "+50% Stone or Iron output for one assigned elemental",
+    effect: { productionMultiplier: 2 },
+    effectText: "Double Stone or Iron output for one assigned elemental",
   },
   gatherersHarness: {
     label: "Gatherer's Harness",
@@ -2993,6 +3027,28 @@ const explorationStages = {
 
 // Camp Upgrade Definitions
 const campUpgrades = {
+  workbench: {
+    label: "Rough Workbench (Permanent Camp Work Surface)",
+    displayName: "Rough Workbench",
+    campSlot: "workbench",
+    campSlotLabel: "Crafting",
+    campSlotOrder: 4,
+    campSlotRank: 1,
+    duration: 6,
+    cost: {
+      wood: 25,
+      stone: 5,
+      energy: 20,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      updateCraftingSectionVisibility();
+      updateWorkTabsVisibility();
+    },
+  },
   smallFire: {
     label: "Small Fire (Rest/Recover 10% Faster)",
     displayName: "Small Fire",
@@ -3468,9 +3524,10 @@ const campUpgrades = {
 // simple so a later metallurgy pass can tune them without touching craft logic.
 const STEELWORKING_CONFIG = {
   steel: {
-    duration: 6,
-    cost: { iron: 3, energy: 12 },
+    duration: 5,
+    cost: { ore: 2, mana: 10 },
     amount: 1,
+    batches: [1, 5, 10],
   },
   ironStaff: {
     duration: 12,
@@ -4351,8 +4408,9 @@ const resourceCrafts = {
   },
 
   steel: {
-    label: "Refine Steel",
+    label: "Create Steel",
     craftingCategory: "steelworking",
+    requiredTowerRoom: "forge",
     duration: STEELWORKING_CONFIG.steel.duration,
     cost: STEELWORKING_CONFIG.steel.cost,
     produces: {
@@ -5107,22 +5165,42 @@ const imbueDefinitions = {
   ...createImbueRankTwoTargetDefinitions(),
 };
 
+const nailShapingDefinition = {
+  label: "Shape Nails",
+  description: "Use directed pressure to shape one iron into ten nails.",
+  requiredLocation: "camp",
+  requiredForceLevel: 0,
+  duration: 2,
+  cost: {
+    mana: 4,
+    iron: 1,
+  },
+  produces: {
+    resource: "nails",
+    amount: 10,
+  },
+  story: "You press the iron through a narrow force pattern until it draws into a neat row of nails.",
+};
+
 const arcaneForceDefinitions = {
-  nails: {
-    label: "Shape Nails",
-    description: "Use directed pressure to shape one iron into ten nails.",
-    requiredLocation: "camp",
-    requiredForceLevel: 0,
-    duration: 2,
+  nails: nailShapingDefinition,
+
+  nailsBulk: {
+    ...nailShapingDefinition,
+    label: "Shape 50 Nails",
+    description: "Bulk Shaping produces 50 Nails from five iron with improved mana efficiency.",
+    requiredForceRank: 2,
+    requiredRankTwoLevel: 2,
     cost: {
-      mana: 4,
-      iron: 1,
+      ...nailShapingDefinition.cost,
+      mana: nailShapingDefinition.cost.mana * 3,
+      iron: nailShapingDefinition.cost.iron * 5,
     },
     produces: {
-      resource: "nails",
-      amount: 10,
+      ...nailShapingDefinition.produces,
+      amount: nailShapingDefinition.produces.amount * 5,
     },
-    story: "You press the iron through a narrow force pattern until it draws into a neat row of nails.",
+    story: "A broader force pattern draws five iron into fifty uniform nails in one efficient cast.",
   },
 
   crudeIronPickHead: {

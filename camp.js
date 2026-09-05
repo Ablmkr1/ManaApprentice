@@ -1178,7 +1178,7 @@ function processBoundEarthElementalAutomation(deltaSeconds) {
   const signature = getBoundEarthElementalAutomationSignature();
   if (delivered || signature !== lastBoundEarthAutomationUiSignature) {
     lastBoundEarthAutomationUiSignature = signature;
-    refreshBoundEarthElementalUI();
+    updateBoundEarthElementalLiveUI();
   }
 }
 
@@ -1240,6 +1240,36 @@ function refreshBoundEarthElementalUI() {
   if (typeof renderTowerStatusPanel === "function") renderTowerStatusPanel();
   if (typeof renderTowerDetailPanel === "function") renderTowerDetailPanel();
   if (typeof updateTowerNodePanel === "function") updateTowerNodePanel();
+}
+
+function updateBoundEarthElementalLiveUI() {
+  if (typeof document === "undefined") return;
+
+  document.querySelectorAll("[data-elemental-node-job]").forEach(function (timer) {
+    const parts = timer.dataset.elementalNodeJob.split(":");
+    const nodeName = parts[0];
+    const jobName = parts[1];
+    const workers = getBoundEarthElementalAssignmentCount({ type: "node", nodeName, jobName });
+    timer.textContent = workers > 0
+      ? "Return: " + formatCompactElementalReturn(getBoundEarthElementalCycle(nodeName, jobName).remaining)
+      : "—";
+  });
+
+  document.querySelectorAll("[data-project-work-progress]").forEach(function (meter) {
+    const projectName = meter.dataset.projectWorkProgress;
+    const state = getProjectState(projectName);
+    const level = getProjectCurrentLevel(projectName);
+    if (!state || !level) return;
+
+    const current = state.work || 0;
+    const max = level.workRequired || 0;
+    const value = meter.querySelector(".ui-progress-labels strong");
+    const track = meter.querySelector(".ui-progress-track");
+    const fill = meter.querySelector(".ui-progress-fill");
+    if (value) value.textContent = formatTrainingNumber(current) + " / " + formatTrainingNumber(max);
+    if (track) track.setAttribute("aria-valuenow", String(Math.min(Math.max(current, 0), max)));
+    if (fill) fill.style.width = (max > 0 ? Math.min(Math.max(current / max, 0), 1) : 0) * 100 + "%";
+  });
 }
 
 function normalizeProjectState(projectName) {
@@ -1398,7 +1428,7 @@ function completeResearch(researchName, costAlreadyPaid = false) {
   const research = getResearch(researchName);
 
   if (!research || research.completed) return;
-  if (research.blocked) return;
+  if (research.blocked || !areResearchStartRequirementsMet(research)) return;
   if (!research.unlocked) return;
   if (!costAlreadyPaid && !spendCost(getResearchCost(researchName))) return;
 
@@ -1473,6 +1503,22 @@ function isResearchDiscoverable(research) {
     return false;
   }
 
+  if (!hasRequiredResearchTowerRooms(research.requires.towerRoomsCompleted)) {
+    return false;
+  }
+
+  return true;
+}
+
+function hasRequiredResearchTowerRooms(requiredRooms) {
+  if (!requiredRooms) return true;
+  return requiredRooms.every(isTowerRoomCompleted);
+}
+
+function areResearchStartRequirementsMet(research) {
+  if (!research || !research.startRequires) return true;
+  const requirements = research.startRequires;
+  if (requirements.arcaneForceRank && getArcaneForceRank() < requirements.arcaneForceRank) return false;
   return true;
 }
 
@@ -1695,6 +1741,19 @@ function isCampEquipmentCraftContextAvailable(craft) {
 function getActiveCraftContext(craft) {
   if (!craft) return null;
 
+  if (craft.requiredTowerRoom) {
+    if (!isCampCraftingContext() || !isTowerRoomCompleted(craft.requiredTowerRoom)) return null;
+    if (!gameState.tower || gameState.tower.selectedId !== "room:" + craft.requiredTowerRoom) return null;
+    return {
+      mode: "towerRoom",
+      cost: getImbueAdjustedCraftCost(craft, craft.cost || {}),
+      storageCost: null,
+      produces: craft.produces || null,
+      storageProduces: null,
+      producesConsumable: null,
+    };
+  }
+
   if (isCampEquipmentCraftContextAvailable(craft)) {
     return {
       mode: "campEquipment",
@@ -1910,6 +1969,7 @@ function completeCampUpgrade(upgradeName) {
   updateCraftingSectionVisibility();
   updateWorkTabsVisibility();
   updatePlacePanel();
+  if (typeof updateHomeAreaAvailability === "function") updateHomeAreaAvailability();
 
   if (upgradeName === "researchSpot") {
     showWorkPanel("research");
@@ -1978,6 +2038,13 @@ function hasPurchasedCampUpgrade(upgradeName) {
   return !!upgrade && upgrade.purchased;
 }
 
+function syncHomeStructureUnlocks() {
+  if (!gameState.hasCamp) return;
+
+  const workbench = getCampUpgrade("workbench");
+  if (workbench && !workbench.purchased && !workbench.unlocked) unlockCampUpgrade("workbench");
+}
+
 // Check Clearing Complete Phase Helper
 function checkClearingComplete() {
   const hasSmallFire = hasPurchasedCampUpgrade("smallFire");
@@ -1988,6 +2055,7 @@ function checkClearingComplete() {
   if (gameState.phase === "clearing" && hasStream && hasBerryBush && hasSmallFire && hasCrudeLeanTo) {
     setPhase("expedition");
     gameState.hasCamp = true;
+    syncHomeStructureUnlocks();
     recalculateCharacterStats();
     unlockAction("recover");
     setCurrentGoal("exploreOutskirts");
@@ -2016,21 +2084,39 @@ function syncContextualActionPlacement() {
   const meditation = typeof getAction === "function" ? getAction("meditate") : null;
   const meditationButton = meditation && meditation.button;
 
-  if (!meditationButton) return;
+  if (meditationButton) {
+    const atLocation = !!gameState.expedition.currentLocation && isActionContextAvailable("meditate");
+    const atCamp = !gameState.expedition.active && !gameState.expedition.currentLocation && isActionContextAvailable("meditate");
+    const target = atLocation ? ui.locationContextualActions : atCamp ? ui.campContextualActions : ui.magicContextualActions;
 
-  const atLocation = !!gameState.expedition.currentLocation && isActionContextAvailable("meditate");
-  const atCamp = !gameState.expedition.active && !gameState.expedition.currentLocation && isActionContextAvailable("meditate");
-  const target = atLocation ? ui.locationContextualActions : atCamp ? ui.campContextualActions : ui.magicContextualActions;
-
-  if (target && meditationButton.parentElement !== target) {
-    target.appendChild(meditationButton);
+    if (target && meditationButton.parentElement !== target) {
+      target.appendChild(meditationButton);
+    }
   }
 
   [ui.locationContextualActions, ui.campContextualActions].forEach(function (container) {
     if (!container) return;
 
-    const hasAction = container.contains(meditationButton);
+    const hasAction = meditationButton && container.contains(meditationButton);
     container.style.display = hasAction ? "flex" : "none";
+  });
+
+  const craftingActions = typeof document !== "undefined"
+    ? document.querySelector("#craftingPanel > .crafting-actions")
+    : null;
+
+  ["concentrateTonicBase", "concentrateManaTonicBase"].forEach(function (actionName) {
+    const action = typeof getAction === "function" ? getAction(actionName) : null;
+    const button = action && action.button;
+    const atLocation =
+      !!gameState.expedition.currentLocation &&
+      typeof isActionContextAvailable === "function" &&
+      isActionContextAvailable(actionName);
+    const target = atLocation ? ui.locationPrimaryActions : craftingActions;
+
+    if (button && target && button.parentElement !== target) {
+      target.appendChild(button);
+    }
   });
 }
 
@@ -2085,6 +2171,8 @@ function renderContextualCraftingSpellActions() {
 
   if (!container) return;
 
+  syncContextualCraftingSpellPlacement(container);
+
   container.innerHTML = "<h3>Magic for this work</h3>";
 
   if (isActivityActive()) {
@@ -2135,6 +2223,24 @@ function renderContextualCraftingSpellActions() {
     showElement(container, "flex");
   } else {
     hideElement(container);
+  }
+}
+
+// Keep location-bound production spells on the expedition screen. Like the
+// location craft buttons, this moves the existing UI instead of creating a
+// second set of controls, so its state and casting behavior stay identical.
+function syncContextualCraftingSpellPlacement(container) {
+  const atLocation = !!gameState.expedition.currentLocation;
+
+  if (atLocation && ui.locationSpellActions) {
+    if (container.parentElement !== ui.locationSpellActions.parentElement || container.previousElementSibling !== ui.locationSpellActions) {
+      ui.locationSpellActions.after(container);
+    }
+    return;
+  }
+
+  if (ui.magicContextualActions && container.parentElement !== ui.magicContextualActions.parentElement) {
+    ui.magicContextualActions.after(container);
   }
 }
 
@@ -2486,7 +2592,7 @@ function renderMagicWorkflowPanel() {
   if (!ui.magicWorkflowPanel) return;
 
   const unlockedSpells = getUnlockedSpellEntries();
-  const magicActions = ["meditate", "concentrateTonicBase", "concentrateManaTonicBase"].filter(function (actionName) {
+  const magicActions = ["meditate"].filter(function (actionName) {
     const action = getAction(actionName);
 
     return action && action.unlocked && isActionContextAvailable(actionName);
@@ -3172,7 +3278,8 @@ function updateGearUpgradeUI(upgradeName) {
   }
 
   if (upgrade.button) {
-    upgrade.button.style.display = isCraftContextAvailable(upgrade) && upgrade.unlocked && !upgrade.purchased ? "grid" : "none";
+    const progressionAvailable = upgrade.craftingCategory !== "steelworking" || isSteelworkingUnlocked();
+    upgrade.button.style.display = progressionAvailable && isCraftContextAvailable(upgrade) && upgrade.unlocked && !upgrade.purchased ? "grid" : "none";
     if (upgrade.unlocked && !upgrade.purchased) {
       updateCraftButtonLabel("gearUpgrade", upgradeName);
     }
@@ -3372,6 +3479,7 @@ function isCraftAvailable(craftType, craftId) {
 
   if (craftType === "gearUpgrade") {
     const requiredGear = craft.requiredGear ? getGearUpgrade(craft.requiredGear) : null;
+    if (craft.craftingCategory === "steelworking" && !isSteelworkingUnlocked()) return false;
     return craft.unlocked && !craft.purchased && (!craft.requiredGear || !!requiredGear?.purchased);
   }
 
@@ -3382,7 +3490,7 @@ function isCraftAvailable(craftType, craftId) {
   if (craftType === "research") {
     if (!isCampWorkContextAvailable()) return false;
 
-    return craft.unlocked && !craft.completed && !craft.blocked;
+    return craft.unlocked && !craft.completed && !craft.blocked && areResearchStartRequirementsMet(craft);
   }
 
   return false;
@@ -3433,11 +3541,30 @@ function updateCraftButtonsForType(craftType, definitions) {
   }
 }
 
-function completeResourceCraft(craftName) {
+function completeResourceCraft(craftName, completedContext) {
   const craft = getResourceCraft(craftName);
-  const context = getActiveCraftContext(craft);
+  let context = getActiveCraftContext(craft);
+  const quantity = completedContext && completedContext.mode === "towerRoom"
+    ? Math.max(1, Math.floor(Number(completedContext.quantity) || 1))
+    : 1;
+
+  if (!context && craft && craft.requiredTowerRoom && completedContext && completedContext.mode === "towerRoom") {
+    context = {
+      mode: "towerRoom",
+      produces: craft.produces || null,
+      storageProduces: null,
+      producesConsumable: null,
+    };
+  }
 
   if (!craft || !context || (!context.produces && !context.storageProduces && !context.producesConsumable)) return;
+
+  if (quantity > 1 && context.produces) {
+    context = {
+      ...context,
+      produces: { ...context.produces, amount: context.produces.amount * quantity },
+    };
+  }
 
   if (context.storageProduces) {
     addStorageProduces(context.storageProduces);
@@ -3466,6 +3593,11 @@ function hookResourceCraftsToUI() {
   for (let craftName in crafts) {
     const craft = getResourceCraft(craftName);
 
+    if (craft.requiredTowerRoom) {
+      craft.button = null;
+      continue;
+    }
+
     craft.button = ensureCraftingButton(craftName + "CraftBtn", craft.craftingCategory);
 
     if (craft.button) {
@@ -3492,15 +3624,17 @@ function updateResourceCraftUI(craftName) {
 
   if (!craft || !craft.button) return;
 
-  if (craftName === "leather") {
+  if (craft.requiredLocation && craft.requiredLocation !== "camp") {
     const atLocation = context && context.mode === "location";
     const target = atLocation
       ? document.getElementById("locationPrimaryActions")
       : document.querySelector("#craftingPanel > .crafting-actions");
 
     if (target && craft.button.parentElement !== target) {
-      const takeLeatherButton = atLocation ? target.querySelector('[data-action="takeLeather"]') : null;
-      if (takeLeatherButton) takeLeatherButton.after(craft.button);
+      const precedingAction = atLocation
+        ? target.querySelector('[data-action="' + ({ leather: "takeLeather", iron: "takeIron" }[craftName] || "") + '"]')
+        : null;
+      if (precedingAction) precedingAction.after(craft.button);
       else target.appendChild(craft.button);
     }
   }
@@ -3745,11 +3879,11 @@ const TOWER_PROJECT_SEQUENCE = [
   "towerBasement",
   "towerFloor1",
   "towerRoomBedroom",
-  "towerRoomLibrary",
+  "towerRoomForge",
   "towerRoomWorkshop",
   "towerFloor2",
   "towerRoomAlchemyRoom",
-  "towerRoomForge",
+  "towerRoomLibrary",
   "towerRoomEnchantingStudy",
 ];
 
@@ -4805,6 +4939,7 @@ function createCompactBoundEarthElementalAssignmentRow(nodeName, jobName) {
 
   const timer = document.createElement("span");
   timer.className = "elemental-compact-return";
+  timer.dataset.elementalNodeJob = nodeName + ":" + jobName;
   timer.textContent = workers > 0
     ? "Return: " + formatCompactElementalReturn(getBoundEarthElementalCycle(nodeName, jobName).remaining)
     : "—";
@@ -4938,29 +5073,45 @@ function createBoundEarthElementalTowerPanel() {
   controlledRow.className = "elemental-controlled-row";
   const controlledLabel = document.createElement("span");
   controlledLabel.className = "elemental-controlled-label";
-  controlledLabel.textContent = "Controlled";
-  const controlledControls = document.createElement("div");
-  controlledControls.className = "elemental-compact-controls";
-  const towerDestination = { type: "tower" };
-  const controlledCount = getBoundEarthElementalActiveCount();
+  controlledLabel.textContent = "Total Controlled";
   const controlledValue = document.createElement("span");
-  controlledValue.className = "elemental-compact-count";
-  controlledValue.textContent = String(controlledCount);
-  controlledValue.setAttribute("aria-label", controlledCount + " elementals currently controlled");
-  controlledControls.append(
-    createBoundEarthElementalAssignmentAdjustButton(-1, towerDestination, "Tower construction"),
-    controlledValue,
-    createBoundEarthElementalAssignmentAdjustButton(1, towerDestination, "Tower construction")
-  );
-  const controlledCapacity = document.createElement("span");
-  controlledCapacity.className = "elemental-controlled-capacity";
-  controlledCapacity.textContent = "/ " + getTowerHeartElementalControlCapacity();
-  controlledRow.append(controlledLabel, controlledControls, controlledCapacity);
+  controlledValue.className = "elemental-controlled-capacity";
+  const controlledCount = getBoundEarthElementalActiveCount();
+  const controlledCapacity = getTowerHeartElementalControlCapacity();
+  controlledValue.textContent = controlledCount + " / " + controlledCapacity;
+  controlledValue.setAttribute("aria-label", controlledCount + " elementals currently controlled out of " + controlledCapacity);
+  controlledRow.append(controlledLabel, controlledValue);
   panel.appendChild(controlledRow);
 
-  if (isBoundEarthElementalNodeUnlocked("north")) {
-    panel.appendChild(createCompactBoundEarthElementalNodePanel("north"));
-  }
+  const constructionRow = document.createElement("div");
+  constructionRow.className = "elemental-compact-row elemental-construction-row";
+  const constructionLabel = document.createElement("span");
+  constructionLabel.className = "elemental-compact-label";
+  constructionLabel.textContent = "Tower Construction";
+  const constructionControls = document.createElement("div");
+  constructionControls.className = "elemental-compact-controls";
+  const towerDestination = { type: "tower" };
+  const constructionCount = getBoundEarthElementalAssignmentCount(towerDestination);
+  const constructionValue = document.createElement("span");
+  constructionValue.className = "elemental-compact-count";
+  constructionValue.textContent = String(constructionCount);
+  constructionValue.setAttribute("aria-label", constructionCount + " elementals assigned to Tower construction");
+  constructionControls.append(
+    createBoundEarthElementalAssignmentAdjustButton(-1, towerDestination, "Tower construction"),
+    constructionValue,
+    createBoundEarthElementalAssignmentAdjustButton(1, towerDestination, "Tower construction")
+  );
+  const constructionRate = document.createElement("span");
+  constructionRate.className = "elemental-compact-return";
+  constructionRate.textContent = constructionCount > 0 ? "Work: +" + getBoundEarthElementalTowerConstructionRate() + "/s" : "—";
+  constructionRow.append(constructionLabel, constructionControls, constructionRate);
+  panel.appendChild(constructionRow);
+
+  ["north", "east", "south"].forEach(function (nodeName) {
+    if (isBoundEarthElementalNodeUnlocked(nodeName)) {
+      panel.appendChild(createCompactBoundEarthElementalNodePanel(nodeName));
+    }
+  });
 
   panel.appendChild(createBoundEarthElementalCraftingDropdown());
 
@@ -5968,6 +6119,91 @@ function appendTowerDetailHeading(container, titleText, statusText, descriptionT
   container.append(header, description);
 }
 
+function getTowerForgeSteelBatchCost(quantity) {
+  const craft = getResourceCraft("steel");
+  const count = Math.max(1, Math.floor(Number(quantity) || 1));
+  const cost = {};
+  if (!craft) return cost;
+  for (let resourceName in craft.cost) cost[resourceName] = craft.cost[resourceName] * count;
+  return cost;
+}
+
+function getTowerForgeSteelBatchAvailability(quantity) {
+  const craft = getResourceCraft("steel");
+  const count = Math.max(1, Math.floor(Number(quantity) || 1));
+  const steel = getResource("steel");
+  if (!craft || !craft.unlocked || !isSteelworkingUnlocked() || !getActiveCraftContext(craft)) {
+    return { state: "wrong-context", reason: "Steel can only be made in the completed Forge" };
+  }
+  if (isActivityActive()) return { state: "busy", reason: "Another task is in progress" };
+  if (!steel || steel.value + (craft.produces.amount * count) > steel.maxValue) {
+    return { state: "unaffordable", reason: "Not enough Steel storage" };
+  }
+  const cost = getTowerForgeSteelBatchCost(count);
+  if (!canAffordCost(cost)) {
+    return {
+      state: "unaffordable",
+      reason: typeof getUiCostShortfall === "function" ? getUiCostShortfall(cost) || "Insufficient resources" : "Insufficient resources",
+    };
+  }
+  return { state: "ready", reason: "" };
+}
+
+function canStartTowerForgeSteelBatch(quantity) {
+  return getTowerForgeSteelBatchAvailability(quantity).state === "ready";
+}
+
+function startTowerForgeSteelBatch(quantity) {
+  const count = Math.max(1, Math.floor(Number(quantity) || 1));
+  if (!canStartTowerForgeSteelBatch(count)) return false;
+  const cost = getTowerForgeSteelBatchCost(count);
+  if (!spendCost(cost)) return false;
+  if (!startActivity({
+    kind: "craft",
+    type: "resourceCraft",
+    id: "steel",
+    duration: getCraftDuration("resourceCraft", "steel") * count,
+    context: { mode: "towerRoom", roomId: "forge", quantity: count },
+  })) {
+    refundCost(cost);
+    return false;
+  }
+  renderTowerDetailPanel();
+  updateAllResources();
+  updateAllActionButtons();
+  return true;
+}
+
+function createTowerForgeSteelPanel() {
+  const craft = getResourceCraft("steel");
+  const panel = document.createElement("section");
+  panel.className = "tower-stage-details tower-forge-steel-panel";
+  const heading = document.createElement("h4");
+  heading.textContent = "Steel Production";
+  const recipe = document.createElement("p");
+  recipe.textContent = "2 Iron Ore + 10 Mana → 1 Steel";
+  const actions = document.createElement("div");
+  actions.className = "tower-forge-batch-actions";
+
+  (STEELWORKING_CONFIG.steel.batches || [1]).forEach(function (quantity) {
+    const button = createUiActionButton({
+      label: quantity === 1 ? craft.label : "+" + quantity,
+      detail: formatCost(getTowerForgeSteelBatchCost(quantity)) + " → " + quantity + " Steel",
+      progress: false,
+      onClick: function () { startTowerForgeSteelBatch(quantity); },
+    });
+    const availability = getTowerForgeSteelBatchAvailability(quantity);
+    button.disabled = availability.state !== "ready";
+    if (typeof applyUiActionState === "function") {
+      applyUiActionState(button, availability, "tower-forge-steel:" + quantity);
+    }
+    actions.appendChild(button);
+  });
+
+  panel.append(heading, recipe, actions);
+  return panel;
+}
+
 function appendTowerProjectControls(container, projectId) {
   const definition = getProjectDefinition(projectId);
   const state = getProjectState(projectId);
@@ -6047,6 +6283,9 @@ function renderTowerDetailPanel() {
     }
     if (selected.id === "alchemyRoom" && elemental.capabilities.attunementUnlocked) {
       ui.projectList.appendChild(createElementalCapabilityCraftingPanel("attunement"));
+    }
+    if (selected.id === "forge" && isSteelworkingUnlocked()) {
+      ui.projectList.appendChild(createTowerForgeSteelPanel());
     }
   }
 }
@@ -6605,13 +6844,15 @@ function appendTowerBasementBracing(group, wallTop) {
 
 function createProjectWorkProgress(projectName, level, state) {
   if (level) {
-    return createUiProgressMeter({
+    const meter = createUiProgressMeter({
       label: "Work",
       current: state.work || 0,
       max: level.workRequired || 0,
       valueText: formatTrainingNumber(state.work || 0) + " / " + formatTrainingNumber(level.workRequired || 0),
       className: "project-progress-group",
     });
+    meter.dataset.projectWorkProgress = projectName;
+    return meter;
   }
 
   return createUiProgressMeter({
@@ -6948,7 +7189,7 @@ function getVisibleResearchEntries() {
       label: research.label,
       story: research.story || "",
       unlocks: research.unlocks || [],
-      status: research.completed ? "complete" : research.blocked ? "blocked" : "available",
+      status: research.completed ? "complete" : research.blocked || !areResearchStartRequirementsMet(research) ? "blocked" : "available",
       lockedReason: research.lockedReason || "",
       unlockedAt: research.unlockedAt || 0,
     });
@@ -8281,7 +8522,7 @@ function scaleArcaneForceDamage(damage) {
 }
 
 function isSteelworkingUnlocked() {
-  return getArcaneForceRank() >= 2 && getArcaneForceRankTwoLevel() >= 3;
+  return !!getResearch("steelworking")?.completed;
 }
 
 function syncIronStaffUnlockFromCombatHistory() {
@@ -8298,10 +8539,25 @@ function syncSteelworkingUnlocks() {
   }
 
   unlockResourceCraft("steel");
+  unlockResource("steel");
   ["steelKnife", "steelAxe", "steelPick", "steelStaff"].forEach(function (upgradeName) {
     unlockGearUpgrade(upgradeName);
   });
   updateSteelworkingSectionVisibility();
+  return true;
+}
+
+function repairLegacySteelworkingResearch() {
+  const research = getResearch("steelworking");
+  const steelCraft = getResourceCraft("steel");
+  const legacySteelAccess = !!steelCraft?.unlocked || getResource("steel").value > 0 ||
+    ["steelKnife", "steelAxe", "steelPick", "steelStaff"].some(function (upgradeName) {
+      const upgrade = getGearUpgrade(upgradeName);
+      return !!upgrade && (upgrade.unlocked || upgrade.purchased);
+    });
+  if (!research || research.completed || !legacySteelAccess) return false;
+  research.completed = true;
+  research.unlocked = false;
   return true;
 }
 
@@ -8363,6 +8619,7 @@ function promoteArcaneForceToRankTwo() {
   state.rankTwoXp = 0;
   state.forceAmplificationCompleted = true;
   addStoryEntry("Force Amplification settles into place. Arcane Force now grows stronger with every refined level.");
+  if (typeof updateResearchHistoryUI === "function") updateResearchHistoryUI();
   updateEquipmentSlotUI();
   trySaveGame();
   return true;
@@ -8378,7 +8635,7 @@ function getArcaneForceRankTwoRewardText(level = getArcaneForceRankTwoLevel()) {
   const normalizedLevel = Math.max(0, Math.min(10, Math.floor(Number(level) || 0)));
   const specials = {
     0: "Force Power unlocked",
-    3: "Steelworking",
+    2: "Bulk Shaping — Shape 50 nails at once with improved mana efficiency",
     5: "Mana Missile",
     7: "Arcane Efficiency",
     10: "Mana Lance and Rank II mastery",
@@ -8393,7 +8650,6 @@ function advanceArcaneForceRankTwo() {
     addStoryEntry("Your Arcane Force intensifies. " + getArcaneForceRankTwoRewardText(state.rankTwoLevel) + ".");
   }
   state.rankTwoComplete = state.rankTwoLevel >= 10;
-  syncSteelworkingUnlocks();
   updateEquipmentSlotUI();
 }
 
@@ -8773,14 +9029,6 @@ function renderAttunementTargetMenu(menuEl) {
   for (let attunementName in definitions) {
     const definition = getAttunementDefinition(attunementName);
     if (!isAttunementTargetAvailable(attunementName)) {
-      if (definition && definition.requiredRankTwoLevel && getAttunementRankTwoLevel() < definition.requiredRankTwoLevel) {
-        const locked = document.createElement("button");
-        locked.type = "button";
-        locked.className = "attunement-target-btn";
-        locked.disabled = true;
-        locked.textContent = definition.label + " — Locked (Rank II Level " + definition.requiredRankTwoLevel + ")";
-        menuEl.appendChild(locked);
-      }
       continue;
     }
 
@@ -9413,7 +9661,7 @@ function createArcaneForceExperienceEntry() {
   if (rankTwo) {
     detail.textContent = "Current: " + getArcaneForceRankTwoRewardText(rankTwoLevel) +
       (rankTwoLevel < 10 ? ". Next: " + getArcaneForceRankTwoRewardText(rankTwoLevel + 1) + "." : ".") +
-      " Milestones: L3 Steelworking · L5 Mana Missile · L7 Arcane Efficiency · L10 Mana Lance.";
+      " Milestones: L2 Bulk Shaping · L5 Mana Missile · L7 Arcane Efficiency · L10 Mana Lance.";
   } else if (progress.level >= maxLevel || nextThreshold === null) {
     const ready = hasArcaneForceRankTwoPrerequisites();
     detail.textContent = "Current: " + getArcaneForceLevelRewardText(progress.level) + ". " +
@@ -10004,6 +10252,8 @@ function isProductionSpellTargetAvailable(spellName, targetName, requestedContex
   if (!targetContext) return false;
 
   if (spellName === "arcaneForce" && getArcaneForceLevel() < (definition.requiredForceLevel || 0)) return false;
+  if (spellName === "arcaneForce" && definition.requiredForceRank && getArcaneForceRank() < definition.requiredForceRank) return false;
+  if (spellName === "arcaneForce" && definition.requiredRankTwoLevel !== undefined && getArcaneForceRankTwoLevel() < definition.requiredRankTwoLevel) return false;
   if (spellName === "imbue" && getSpellOptionManaCost(targetContext.cost) > getImbueCapacity()) return false;
   if (spellName === "imbue" && definition.toolCharge && getImbueToolSelectedMana(definition.toolCharge) <= 0) return false;
   if (spellName === "imbue" && definition.requiredImbueRank && getImbueRank() < definition.requiredImbueRank) return false;
@@ -10011,7 +10261,7 @@ function isProductionSpellTargetAvailable(spellName, targetName, requestedContex
 
   if (!areProductionSpellTargetRequirementsMet(definition.requires)) return false;
 
-  if (!canAffordProductionSpellMaterialCost(targetContext.cost)) return false;
+  if (!requestedContext?.costPaid && !canAffordProductionSpellMaterialCost(targetContext.cost)) return false;
   if (!canAffordStorageCost(targetContext.storageCost)) return false;
   if (targetContext.carriedCost && !canAffordCarriedCost(targetContext.carriedCost)) return false;
   if (!canReceiveProductionProduces(targetContext.produces)) return false;
@@ -10190,7 +10440,7 @@ function castTargetedSpell(spellName, context) {
     const targetContext = getProductionSpellTargetContext(spellName, context.targetId, context);
     if (!targetContext) return;
 
-    context = { ...context, mode: targetContext.mode };
+    context = { ...context, mode: targetContext.mode, costPaid: true };
     cost = targetContext.cost || {};
   }
 

@@ -2346,10 +2346,34 @@ button:disabled {
   grid-row: 1;
 }
 
-.imbue-tool-option { display: grid; gap: 6px; text-align: left; }
-.imbue-tool-mana-controls { display: inline-flex; align-items: center; gap: 8px; }
-.imbue-tool-mana-controls button, .imbue-tool-cast-btn { min-height: 30px; padding: 3px 10px; }
-.imbue-tool-cast-btn { justify-self: start; }
+.imbue-tool-option {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto auto;
+  gap: 8px 12px;
+  min-height: 0;
+  padding: 12px;
+  text-align: left;
+}
+
+.imbue-tool-option > strong { grid-column: 1; grid-row: 1; }
+.imbue-tool-option > .attunement-target-description { grid-column: 2; grid-row: 1; white-space: nowrap; }
+
+.imbue-tool-mana-controls {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: inline-grid;
+  grid-template-columns: 32px max-content 32px;
+  align-items: center;
+  justify-self: start;
+  gap: 8px;
+}
+
+.imbue-tool-mana-controls button,
+.imbue-tool-cast-btn { min-height: 30px; padding: 3px 10px; }
+
+.imbue-tool-mana-controls button { padding-inline: 0; }
+.imbue-tool-option > .attunement-target-details { grid-column: 1 / -1; grid-row: 3; }
+.imbue-tool-cast-btn { grid-column: 1; grid-row: 4; justify-self: start; }
 
 .automation-crystal-btn {
   grid-column: 2;
@@ -4377,6 +4401,20 @@ button:disabled,
 
 .elemental-capability-row p { margin: 0; }
 
+.tower-forge-steel-panel {
+  gap: 8px;
+}
+
+.tower-forge-steel-panel p {
+  margin: 0;
+}
+
+.tower-forge-batch-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
 @media (max-width: 720px) {
   .elemental-capability-row { grid-template-columns: 1fr; }
 
@@ -4387,6 +4425,10 @@ button:disabled,
 
   .elemental-compact-panel {
     padding: 8px;
+  }
+
+  .tower-forge-batch-actions {
+    grid-template-columns: 1fr;
   }
 }
 

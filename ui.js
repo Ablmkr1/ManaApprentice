@@ -1,7 +1,7 @@
 const ui = {};
 let resourceElements = {};
 let panelElements = {};
-const MAIN_VIEW_NAMES = ["camp", "expedition", "magic", "tower", "journal"];
+const MAIN_VIEW_NAMES = ["home", "camp", "expedition", "magic", "tower", "journal"];
 const UI_VITAL_RESOURCE_NAMES = ["energy", "mana", "focus", "ward"];
 let currentMainView = null;
 let mainViewUserSelected = false;
@@ -719,6 +719,11 @@ function getUiLocationLabel() {
 function getUiViewCopy(viewName) {
   const location = getUiLocationLabel();
   const copies = {
+    home: {
+      eyebrow: "The Clearing",
+      title: "A camp gathered around the buried tower.",
+      description: "Move through the clearing by choosing the station you need.",
+    },
     camp: {
       eyebrow: location,
       title: location === "Unknown Woods" ? "Survive, recover, and find your bearings." : "Prepare, learn, and push outward.",
@@ -1420,6 +1425,10 @@ function updateMainViewTabStates() {
     panel.setAttribute("aria-hidden", String(!isActive));
   });
 
+  if (typeof syncHomeView === "function") {
+    syncHomeView(currentMainView === "home");
+  }
+
   updateShellContext();
   updatePrimaryActionEmphasis();
 }
@@ -1433,6 +1442,7 @@ function getDefaultMainView() {
 }
 
 function isMainViewAvailable(viewName) {
+  if (viewName === "home") return isHomeUnlocked();
   if (viewName === "camp" || viewName === "journal") return true;
 
   if (viewName === "expedition") {
@@ -1450,12 +1460,21 @@ function isMainViewAvailable(viewName) {
   return false;
 }
 
+function isHomeUnlocked() {
+  return gameState.discoveredBerryBush &&
+    gameState.discoveredStream &&
+    gameState.discoveredDeadfall &&
+    typeof hasPurchasedCampUpgrade === "function" &&
+    hasPurchasedCampUpgrade("smallFire") &&
+    hasPurchasedCampUpgrade("crudeLeanTo");
+}
+
 function hasMagicViewContent() {
   if (gameState.magicUnlocked) return true;
   if (typeof hasUnlockedSpell === "function" && hasUnlockedSpell()) return true;
 
   if (typeof getAction === "function") {
-    const magicActionNames = ["meditate", "concentrateTonicBase", "concentrateManaTonicBase"];
+    const magicActionNames = ["meditate"];
 
     for (let i = 0; i < magicActionNames.length; i++) {
       const action = getAction(magicActionNames[i]);
@@ -1468,6 +1487,11 @@ function hasMagicViewContent() {
 }
 
 const MAJOR_SYSTEM_UNLOCKS = {
+  home: {
+    title: "Home Established",
+    description: "The clearing is beginning to feel like a place you can return to.",
+    isAvailable: function () { return isHomeUnlocked(); },
+  },
   expedition: {
     title: "EXPEDITION UNLOCKED",
     description: "Prepare journeys beyond the safety of camp.",
