@@ -360,7 +360,8 @@ function revealSkill(skillName, story) {
   updateTrainingUI();
 }
 
-function unlockManaCyclingForManaAccess() {
+function unlockManaCyclingFromResearch() {
+  if (!getResearch("manaCycling").completed) return;
   revealSkill("manaCycling");
 
   const action = getAction("practiceManaCycling");

@@ -1362,7 +1362,18 @@ const gameState = {
   },
 
   // Combat is intentionally transient: save/load always returns to normal play.
+  brokenWardenDefeated: false,
+  tierFourCompleted: false,
   combat: {
+    conditions: {},
+    intent: null,
+    events: [],
+    eventSequence: 0,
+    pendingHits: [],
+    phase: null,
+    phaseEndTime: null,
+    staggerEndTime: null,
+    shellBreakDamage: 0,
     active: false,
     resolved: false,
     enemyId: null,

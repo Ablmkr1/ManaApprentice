@@ -1,42 +1,58 @@
 const COMBAT_CONFIG = {
   enemies: {
+    brokenWarden: {
+      label: "Broken Warden",
+      regionId: "west",
+      maxHealth: 850,
+      attackIntervalSeconds: 4,
+      attackDamage: 8,
+      shellThreshold: 60,
+      armorMultiplier: 0.25,
+      repairSeconds: 5,
+      sigilCount: 3,
+      exposedSeconds: 12,
+      ability: { id: "crushingBlow", label: "Crushing Blow", initialDelaySeconds: 0,
+        intervalSeconds: 10, windupSeconds: 5, damage: 18 },
+      reward: {},
+    },
     minorEarthElemental: {
       label: "Minor Earth Elemental",
       earthAligned: true,
-      maxHealth: 20,
-      attackIntervalSeconds: 2,
-      attackDamage: { min: 2, max: 3 },
+      maxHealth: 30,
+      attackIntervalSeconds: 2.5,
+      attackDamage: 3,
       reward: { earthElementalCore: elementalAutomationConfig.earth.coreDropQuantity },
     },
     thornfang: {
       label: "Thornfang",
       regionId: "east",
-      maxHealth: 18,
-      attackIntervalSeconds: 1.3,
-      attackDamage: { min: 1, max: 2 },
+      maxHealth: 96,
+      attackIntervalSeconds: 3,
+      attackDamage: 4,
       ability: {
         id: "pounce",
         label: "Pounce",
-        initialDelaySeconds: 1.4,
-        intervalSeconds: 7,
-        windupSeconds: 1.25,
-        damage: { min: 8, max: 10 },
+        initialDelaySeconds: 4,
+        intervalSeconds: 10,
+        windupSeconds: 3,
+        damage: 12,
       },
       reward: { leather: 2, runedLeather: 1 },
     },
     blightedBriar: {
       label: "Blighted Briar",
       regionId: "south",
-      maxHealth: 32,
-      attackIntervalSeconds: 3,
-      attackDamage: { min: 3, max: 4 },
+      maxHealth: 200,
+      attackIntervalSeconds: 4,
+      attackDamage: 6,
       ability: {
         id: "regrowth",
         label: "Regrowth",
-        initialDelaySeconds: 2,
-        intervalSeconds: 8,
-        windupSeconds: 1.5,
-        healing: 7,
+        initialDelaySeconds: 5,
+        intervalSeconds: 14,
+        windupSeconds: 5,
+        healingPerBud: 10,
+        budCount: 3,
       },
       reward: { herb: 4, naturalEssence: 1 },
     },
@@ -45,24 +61,25 @@ const COMBAT_CONFIG = {
     manaBolt: {
       label: "Mana Bolt",
       manaCost: 10,
-      castTimeSeconds: 1,
-      damage: { min: 8, max: 12 },
+      castTimeSeconds: 2,
+      damage: 10,
       hits: 1,
     },
     manaMissile: {
       label: "Mana Missile",
-      manaCost: 12,
-      castTimeSeconds: 1.25,
-      damage: { min: 3, max: 4 },
+      manaCost: 11,
+      castTimeSeconds: 2.4,
+      damage: 8,
+      powerScaling: 0.25, // Quarter of Force Power growth: 8 base -> 12 per hit at cap.
       hits: 3,
       requiredRank: 2,
       requiredRankTwoLevel: 5,
     },
     manaLance: {
       label: "Mana Lance",
-      manaCost: 20,
-      castTimeSeconds: 1.75,
-      damage: { min: 18, max: 24 },
+      manaCost: 16,
+      castTimeSeconds: 3,
+      damage: 24,
       hits: 1,
       requiredRank: 2,
       requiredRankTwoLevel: 10,
@@ -180,6 +197,10 @@ function startCombatEncounter(enemyId, options = {}) {
   gameState.combat.reward = options.reward || null;
   gameState.combat.storyEncounter = !!options.storyEncounter;
   gameState.combat.resultMessage = options.startMessage || "The elemental stirs. Keep your Ward intact.";
+  clearCombatMechanics();
+  gameState.combat.events = [];
+  gameState.combat.eventSequence = 0;
+  if (enemy.shellThreshold) restoreCombatShell(getGameTime());
 
   renderCombatUI();
   return true;
@@ -191,6 +212,23 @@ function startTestCombat() {
   }
 
   return startCombatEncounter("minorEarthElemental", { reward: null });
+}
+
+// Final existing western room; no equipment/spell prerequisite or self-reward gate.
+function canChallengeBrokenWarden() {
+  const dungeon = gameState.expedition.dungeon;
+  return !!dungeon?.active && dungeon.dungeonId === "arcaneArchiveDepths" &&
+    dungeon.nodeId === "deepRepository" && !!getCurrentDungeonNode()?.explored &&
+    !isActivityActive() && !isCombatActive() && !gameState.combat.resolved;
+}
+
+function startBrokenWardenCombat() {
+  if (!canChallengeBrokenWarden()) return false;
+  return startCombatEncounter("brokenWarden", {
+    storyEncounter: !gameState.brokenWardenDefeated,
+    reward: {},
+    startMessage: "The repository's ancient guardian wakes. Break its shell, destroy its repair sigils, and strike the exposed core.",
+  });
 }
 
 function startNorthernDisturbanceCombat() {
@@ -297,6 +335,7 @@ function startArcaneCombatCast(techniqueId) {
     manaSpent: 0,
   };
   gameState.combat.resultMessage = "Gathering mana for " + spell.label + "…";
+  combatEvent("castStarted", now, { techniqueId, endTime: gameState.combat.cast.endTime });
   renderCombatUI();
   return true;
 }
@@ -336,81 +375,196 @@ function spendArcaneCombatCastProgress(now) {
   }
 }
 
+// All scheduled work uses encounter timestamps, so coarse ticks preserve ordering.
+function combatEvent(type, time, data = {}) {
+  const c = gameState.combat;
+  if (!c.events) c.events = [];
+  c.eventSequence = (c.eventSequence || 0) + 1;
+  c.events.push({ id: c.eventSequence, type, time, ...data });
+}
+
+function clearCombatMechanics() {
+  Object.assign(gameState.combat, { conditions: {}, intent: null, ability: null,
+    pendingHits: [], phase: null, phaseEndTime: null, staggerEndTime: null,
+    shellBreakDamage: 0 });
+}
+
+function setCombatIntent(id, label, now, durationSeconds, interruptible) {
+  const intent = { id, label, startTime: now, durationSeconds,
+    resolveTime: now + durationSeconds * 1000, interruptible, missileHits: {} };
+  gameState.combat.intent = intent;
+  gameState.combat.ability = intent; // Compatibility with the existing combat panel.
+  combatEvent("intentStarted", now, { intentId: id, resolveTime: intent.resolveTime });
+}
+
+function restoreCombatShell(now) {
+  const c = gameState.combat;
+  const enemy = getCombatEnemy();
+  c.phase = "armored";
+  c.phaseEndTime = null;
+  c.shellBreakDamage = 0;
+  c.conditions = { armored: { damageMultiplier: enemy.armorMultiplier }, shellBreak: { value: 0, maximum: enemy.shellThreshold } };
+  c.intent = c.ability = null;
+  c.nextAbilityTime = now;
+  combatEvent("shellRestored", now);
+}
+
+function interruptCombatAbility(now) {
+  const c = gameState.combat;
+  if (!c.intent) return;
+  combatEvent("abilityInterrupted", now, { intentId: c.intent.id });
+  delete c.conditions[c.intent.id + "Preparing"];
+  c.intent = c.ability = null;
+  c.nextAttackTime = now + getCombatEnemy().attackIntervalSeconds * 1000;
+}
+
+function dealCombatWardDamage(damage, source, now) {
+  applyWardDamage(damage);
+  combatEvent("wardDamage", now, { source, damage });
+  gameState.combat.resultMessage = getCombatEnemy().label + " uses " + source + " for " + damage + " Ward damage.";
+  if (getResource("ward").value <= 0) resolveCombatDefeat();
+}
+
 function processCombatTick() {
   if (!isCombatActive()) return;
-
+  const c = gameState.combat;
   const now = getGameTime();
-  const cast = gameState.combat.cast;
-
-  // Resolve the player's completed cast before a same-tick enemy attack.
-  if (cast) {
-    spendArcaneCombatCastProgress(now);
-
-    if (now >= cast.endTime) {
-      completeArcaneCombatCast();
-    }
-  }
-
-  if (!isCombatActive()) return;
-
   const enemy = getCombatEnemy();
-
-  if (gameState.combat.ability && now >= gameState.combat.ability.resolveTime) {
-    resolveEnemyCombatAbility(enemy);
-  }
-
-  if (isCombatActive() && enemy.ability && !gameState.combat.ability && now >= gameState.combat.nextAbilityTime) {
-    startEnemyCombatAbility(enemy, now);
-  }
-
-  while (isCombatActive() && now >= gameState.combat.nextAttackTime) {
-    const damage = rollCombatRange(enemy.attackDamage);
-    applyWardDamage(damage);
-    gameState.combat.resultMessage = enemy.label + " strikes your Ward for " + damage + ".";
-    gameState.combat.nextAttackTime += enemy.attackIntervalSeconds * 1000;
-
-    if (getResource("ward").value <= 0) {
-      resolveCombatDefeat();
+  if (!c.conditions) c.conditions = {};
+  if (!c.pendingHits) c.pendingHits = [];
+  while (isCombatActive()) {
+    const times = [c.cast?.endTime, c.pendingHits[0]?.time, c.intent?.resolveTime,
+      c.phaseEndTime, c.staggerEndTime, c.nextAbilityTime, c.nextAttackTime]
+      .filter(Number.isFinite);
+    const time = Math.min(...times);
+    if (time > now) break;
+    const castCompletes = c.cast && c.cast.endTime === time;
+    // Account for mana already committed before an enemy event can end combat.
+    if (c.cast) spendArcaneCombatCastProgress(time);
+    // Player completions/hits win ties with enemy attacks and phase deadlines.
+    if (castCompletes) {
+      completeArcaneCombatCast(undefined, time);
+    } else if (c.pendingHits[0]?.time === time) {
+      resolveCombatSpellHit(c.pendingHits.shift());
+    } else if (c.intent?.resolveTime === time) {
+      resolveEnemyCombatAbility(enemy, time);
+    } else if (c.phaseEndTime === time) {
+      restoreCombatShell(time);
+    } else if (c.staggerEndTime === time) {
+      delete c.conditions.staggered;
+      c.staggerEndTime = null;
+    } else if (c.nextAbilityTime === time) {
+      startEnemyCombatAbility(enemy, time);
+    } else {
+      c.nextAttackTime = time + enemy.attackIntervalSeconds * 1000;
+      // An attack warning replaces normal attacks until the special resolves.
+      if (!c.conditions.staggered && !["pounce", "crushingBlow"].includes(c.intent?.id)) {
+        dealCombatWardDamage(enemy.attackDamage, "basicAttack", time);
+      }
     }
   }
-
+  if (isCombatActive() && c.cast) spendArcaneCombatCastProgress(now);
   renderCombatUI();
 }
 
 function startEnemyCombatAbility(enemy, now) {
-  const ability = enemy && enemy.ability;
-  if (!ability) return;
-
-  gameState.combat.ability = {
-    id: ability.id,
-    label: ability.label,
-    resolveTime: now + ability.windupSeconds * 1000,
-  };
-  gameState.combat.resultMessage = enemy.label + " prepares " + ability.label + "!";
+  const c = gameState.combat;
+  const a = enemy.ability;
+  c.nextAbilityTime = null;
+  if (!a || (enemy.shellThreshold && c.phase !== "armored")) return;
+  c.nextAbilityTime = now + a.intervalSeconds * 1000;
+  if (a.id === "regrowth") {
+    c.conditions.buds = { count: a.budCount };
+    combatEvent("budsCreated", now, { count: a.budCount });
+  }
+  c.conditions[a.id + "Preparing"] = {};
+  setCombatIntent(a.id, a.label, now, a.windupSeconds, a.id !== "regrowth");
+  c.resultMessage = enemy.label + " prepares " + a.label + "!";
 }
 
-function resolveEnemyCombatAbility(enemy) {
-  const activeAbility = gameState.combat.ability;
-  const ability = enemy && enemy.ability;
-  if (!activeAbility || !ability) return;
+function resolveEnemyCombatAbility(enemy, now = getGameTime()) {
+  const c = gameState.combat;
+  const intent = c.intent;
+  if (!intent || !isCombatActive()) return;
+  c.intent = c.ability = null;
+  delete c.conditions[intent.id + "Preparing"];
+  if (intent.id === "repair") {
+    restoreCombatShell(now);
+  } else if (intent.id === "regrowth") {
+    const buds = c.conditions.buds?.count || 0;
+    const healing = Math.min(c.enemyMaxHealth - c.enemyHealth, buds * enemy.ability.healingPerBud);
+    c.enemyHealth += healing;
+    delete c.conditions.buds;
+    combatEvent("healing", now, { healing, survivingBuds: buds });
+    c.resultMessage = "Regrowth restores " + healing + " Health.";
+  } else {
+    c.nextAttackTime = now + enemy.attackIntervalSeconds * 1000;
+    dealCombatWardDamage(enemy.ability.damage, intent.id, now);
+  }
+}
 
-  gameState.combat.ability = null;
-  gameState.combat.nextAbilityTime = getGameTime() + ability.intervalSeconds * 1000;
-  gameState.combat.nextAttackTime = Math.max(gameState.combat.nextAttackTime || 0, getGameTime() + 500);
+function getArcaneCombatDamage(techniqueId) {
+  const spell = COMBAT_CONFIG.spells[techniqueId];
+  const scaled = typeof scaleArcaneForceDamage === "function" ? scaleArcaneForceDamage(spell.damage) : spell.damage;
+  let damage = Math.round(spell.damage + (scaled - spell.damage) * (spell.powerScaling ?? 1));
+  if (getCombatEnemy()?.earthAligned && typeof getActiveAttunementEffectTotal === "function") {
+    damage = Math.round(damage * (1 + getActiveAttunementEffectTotal("earthDamageBonus")));
+  }
+  return damage;
+}
 
-  if (ability.id === "pounce") {
-    const damage = rollCombatRange(ability.damage);
-    applyWardDamage(damage);
-    gameState.combat.resultMessage = enemy.label + " lands Pounce for " + damage + " Ward damage.";
-    if (getResource("ward").value <= 0) resolveCombatDefeat();
+function resolveCombatSpellHit(hit) {
+  if (!isCombatActive()) return;
+  const c = gameState.combat;
+  const enemy = getCombatEnemy();
+  const { techniqueId, time, damage } = hit;
+  if (c.intent?.id === "pounce" && techniqueId === "manaMissile") {
+    const hits = (c.intent.missileHits[hit.castId] || 0) + 1;
+    c.intent.missileHits[hit.castId] = hits;
+    if (hits === 3) {
+      interruptCombatAbility(time);
+      c.conditions.staggered = { endTime: time + 1500 };
+      c.staggerEndTime = time + 1500;
+      combatEvent("staggered", time, { durationSeconds: 1.5 });
+    }
+  }
+  const target = c.conditions.buds?.count > 0 ? "buds" : c.conditions.repairSigils?.count > 0 ? "repairSigils" : null;
+  if (target) {
+    const remaining = --c.conditions[target].count;
+    combatEvent("absorbedHit", time, { ...hit, target, remaining });
+    combatEvent(target === "buds" ? "budDestroyed" : "sigilDestroyed", time, { remaining });
+    c.resultMessage = COMBAT_CONFIG.spells[techniqueId].label + " destroys a " + (target === "buds" ? "Protective Bud" : "Repair Sigil") + "; " + remaining + " remain.";
+    if (!remaining) {
+      delete c.conditions[target];
+      if (target === "repairSigils") {
+        c.intent = c.ability = null;
+        c.phase = "exposed";
+        c.phaseEndTime = time + enemy.exposedSeconds * 1000;
+        c.conditions.coreExposed = { endTime: c.phaseEndTime };
+        combatEvent("coreExposed", time, { endTime: c.phaseEndTime });
+      }
+    }
     return;
   }
-
-  if (ability.id === "regrowth") {
-    const previousHealth = gameState.combat.enemyHealth;
-    gameState.combat.enemyHealth = Math.min(gameState.combat.enemyMaxHealth, previousHealth + ability.healing);
-    const restored = gameState.combat.enemyHealth - previousHealth;
-    gameState.combat.resultMessage = enemy.label + " completes Regrowth and restores " + restored + " Health.";
+  const armored = c.phase === "armored";
+  const healthDamage = damage * (armored ? enemy.armorMultiplier : 1);
+  c.enemyHealth = Math.max(0, c.enemyHealth - healthDamage);
+  combatEvent("hit", time, { ...hit, damage: healthDamage, rawDamage: damage });
+  c.resultMessage = COMBAT_CONFIG.spells[techniqueId].label + " hit " + hit.hitIndex + " deals " + healthDamage + " damage.";
+  if (c.enemyHealth <= 0) { resolveCombatVictory(); return; }
+  if (armored) {
+    c.shellBreakDamage += techniqueId === "manaLance" ? damage : healthDamage;
+    c.conditions.shellBreak.value = c.shellBreakDamage;
+    if (c.shellBreakDamage >= enemy.shellThreshold) {
+      interruptCombatAbility(time);
+      c.phase = "repair";
+      c.conditions = { repairSigils: { count: enemy.sigilCount } };
+      c.nextAbilityTime = null;
+      combatEvent("shellBroken", time, { shellBreakDamage: c.shellBreakDamage });
+      combatEvent("sigilsCreated", time, { count: enemy.sigilCount });
+      setCombatIntent("repair", "Repair Sigils", time, enemy.repairSeconds, true);
+      c.resultMessage = "Shell broken! Destroy the three Repair Sigils.";
+    }
   }
 }
 
@@ -426,59 +580,40 @@ function completeManaLanceCast() {
   return completeArcaneCombatCast("manaLance");
 }
 
-function completeArcaneCombatCast(expectedTechniqueId) {
+function completeArcaneCombatCast(expectedTechniqueId, now = getGameTime()) {
   if (!isCombatActive() || !gameState.combat.cast) return;
-  const cast = gameState.combat.cast;
+  const c = gameState.combat;
+  const cast = c.cast;
   const techniqueId = cast.techniqueId || expectedTechniqueId || "manaBolt";
   const spell = COMBAT_CONFIG.spells[techniqueId];
-
   if (!spell || (expectedTechniqueId && techniqueId !== expectedTechniqueId) || !isArcaneCombatTechniqueUnlocked(techniqueId)) {
-    gameState.combat.cast = null;
-    gameState.combat.resultMessage = spell ? spell.label + " is not unlocked." : "That Arcane Force technique is unavailable.";
+    c.cast = null;
     return;
   }
-
-  const manaCost = Number.isFinite(cast.manaCost) ? cast.manaCost : getArcaneCombatManaCost(techniqueId);
-  if ((cast.manaSpent || 0) + RESOURCE_AFFORDABILITY_EPSILON < manaCost) {
-    gameState.combat.cast = null;
-    gameState.combat.resultMessage = spell.label + " breaks before the full mana cost is gathered.";
+  if (now < cast.endTime) return;
+  const cost = cast.manaCost ?? getArcaneCombatManaCost(techniqueId);
+  if ((cast.manaSpent || 0) + RESOURCE_AFFORDABILITY_EPSILON < cost) {
+    c.cast = null;
+    c.resultMessage = spell.label + " breaks before the full mana cost is gathered.";
     return;
   }
-
-  gameState.combat.cast = null;
-  const enemy = getCombatEnemy();
-  const hitDamages = [];
-  const hitCount = Math.max(1, Math.floor(spell.hits) || 1);
-
-  for (let hit = 0; hit < hitCount; hit++) {
-    let damage = rollCombatRange(spell.damage);
-    damage = typeof scaleArcaneForceDamage === "function" ? scaleArcaneForceDamage(damage) : damage;
-    if (enemy && enemy.earthAligned && typeof getActiveAttunementEffectTotal === "function") {
-      damage = Math.round(damage * (1 + getActiveAttunementEffectTotal("earthDamageBonus")));
-    }
-    hitDamages.push(damage);
+  c.cast = null;
+  const damage = getArcaneCombatDamage(techniqueId);
+  combatEvent("castCompleted", cast.endTime, { techniqueId });
+  const castId = c.eventSequence;
+  if (!c.pendingHits) c.pendingHits = [];
+  for (let i = 0; i < spell.hits; i++) {
+    c.pendingHits.push({ time: cast.endTime + i * 100, techniqueId, castId, hitIndex: i + 1, damage });
   }
-
-  const totalDamage = hitDamages.reduce(function (sum, damage) { return sum + damage; }, 0);
-  gameState.combat.enemyHealth = Math.max(0, gameState.combat.enemyHealth - totalDamage);
-  gameState.combat.resultMessage = hitCount > 1
-    ? spell.label + " strikes " + hitCount + " times for " + hitDamages.join(", ") + " damage (" + totalDamage + " total)."
-    : spell.label + " hits for " + totalDamage + " damage.";
-
-  if (gameState.combat.enemyHealth <= 0) {
-    resolveCombatVictory();
-  }
-
-  return totalDamage;
-}
-
-function rollCombatRange(range) {
-  return Math.floor(Math.random() * (range.max - range.min + 1)) + range.min;
+  c.pendingHits.sort((a, b) => a.time - b.time);
+  return damage * spell.hits;
 }
 
 function resolveCombatVictory() {
   if (!isCombatActive() || gameState.combat.enemyHealth > 0) return;
 
+  clearCombatMechanics();
+  gameState.combat.nextAttackTime = gameState.combat.nextAbilityTime = null;
   gameState.combat.cast = null;
   gameState.combat.resolved = true;
   gameState.combatVictories = Math.max(0, Math.floor(Number(gameState.combatVictories) || 0)) + 1;
@@ -499,7 +634,14 @@ function resolveCombatVictory() {
   }
 
   const enemy = getCombatEnemy();
-  if (gameState.combat.storyEncounter && enemy && enemy.regionId) {
+  if (enemy && enemy.regionId === "west") {
+    if (!gameState.brokenWardenDefeated) {
+      gameState.brokenWardenDefeated = true;
+      gameState.tierFourCompleted = true;
+      addStoryEntry("The Broken Warden falls. Its final memory names the archive's builders as the makers of your Tower: a network built to shelter and teach, now waiting for a new keeper. Your mastery of the four roads completes this chapter.");
+    }
+    gameState.combat.resultMessage = "Victory — Broken Warden defeated. Tier 4 complete: the archive and Tower share the same makers.";
+  } else if (gameState.combat.storyEncounter && enemy && enemy.regionId) {
     if (typeof resolveRegionalDisturbanceVictory === "function") resolveRegionalDisturbanceVictory(enemy.regionId);
     gameState.combat.resultMessage = enemy.regionId === "east"
       ? "Victory — Thornfang falls, leaving leather traced with stable runes."
@@ -534,6 +676,8 @@ function resolveCombatDefeat() {
     getWardState().formed = false;
     getWardState().maintainEnabled = false;
   }
+  clearCombatMechanics();
+  gameState.combat.nextAttackTime = gameState.combat.nextAbilityTime = null;
   gameState.combat.cast = null;
   gameState.combat.resolved = true;
   gameState.combat.resultMessage = "Your Ward broke. The tower connection recalled you to camp.";
@@ -549,6 +693,7 @@ function resolveNorthernDisturbanceVictory() {
   if (!disturbance || disturbance.resolved) return;
 
   disturbance.resolved = true;
+  checkResearchDiscoveries();
   addStoryEntry("The elemental collapses into still stone. At its center, a mana-bearing core remains, shaped with a precision that feels deliberate rather than natural.");
   updateCurrentGoalUI();
   updateLocationActions();
@@ -558,6 +703,8 @@ function resolveNorthernDisturbanceVictory() {
 function endCombatForRecall() {
   if (!isCombatActive()) return;
 
+  clearCombatMechanics();
+  gameState.combat.nextAttackTime = gameState.combat.nextAbilityTime = null;
   gameState.combat.cast = null;
   gameState.combat.resolved = true;
   gameState.combat.resultMessage = "The encounter ended as you recalled to camp.";
@@ -566,6 +713,8 @@ function endCombatForRecall() {
 
 function recallFromCombat() {
   if (!isCombatActive()) return false;
+
+  if (typeof flashCombatRecall === "function") flashCombatRecall();
 
   // Clear combat first so the normal expedition recall path cannot leave the
   // combat screen covering the camp after the player escapes.
@@ -588,6 +737,9 @@ function closeCombatEncounter() {
 }
 
 function resetCombatEncounter() {
+  clearCombatMechanics();
+  gameState.combat.events = [];
+  gameState.combat.eventSequence = 0;
   gameState.combat.active = false;
   gameState.combat.resolved = false;
   gameState.combat.enemyId = null;
@@ -619,7 +771,10 @@ function renderCombatUI() {
     ui.testCombatBtn.disabled = isCombatActive() || combat.resolved;
   }
 
-  if (!visible || !enemy) return;
+  if (!visible || !enemy) {
+    if (typeof renderCombatScene === "function") renderCombatScene();
+    return;
+  }
 
   const healthPercent = combat.enemyMaxHealth > 0 ? (combat.enemyHealth / combat.enemyMaxHealth) * 100 : 0;
   safeSetText(ui.combatEnemyName, enemy.label);
@@ -650,11 +805,18 @@ function renderCombatUI() {
   } else {
     ui.combatAttackTimer.classList.remove("is-warning");
     const attackSeconds = Math.max(0, (combat.nextAttackTime - getGameTime()) / 1000);
-    const abilitySeconds = enemy.ability ? Math.max(0, (combat.nextAbilityTime - getGameTime()) / 1000) : null;
-    safeSetText(ui.combatAttackTimer, "Next attack in " + attackSeconds.toFixed(1) + "s" + (abilitySeconds !== null ? " · " + enemy.ability.label + " in " + abilitySeconds.toFixed(1) + "s" : ""));
+    const abilitySeconds = enemy.ability && Number.isFinite(combat.nextAbilityTime) ? Math.max(0, (combat.nextAbilityTime - getGameTime()) / 1000) : null;
+    const phaseText = combat.phase === "exposed" ? " · Core exposed for " + Math.max(0, (combat.phaseEndTime - getGameTime()) / 1000).toFixed(1) + "s" : "";
+    safeSetText(ui.combatAttackTimer, "Next attack in " + attackSeconds.toFixed(1) + "s" + (abilitySeconds !== null ? " · " + enemy.ability.label + " in " + abilitySeconds.toFixed(1) + "s" : "") + phaseText);
   }
 
-  safeSetText(ui.combatStatus, combat.resultMessage);
+  const conditions = combat.conditions || {};
+  safeSetText(ui.combatStatus, combat.resultMessage +
+    (conditions.shellBreak ? " · Shell: " + conditions.shellBreak.value + "/" + conditions.shellBreak.maximum : "") +
+    (conditions.buds ? " · Buds: " + conditions.buds.count : "") +
+    (conditions.repairSigils ? " · Sigils: " + conditions.repairSigils.count : "") +
+    (conditions.staggered ? " · Staggered" : ""));
+  if (typeof renderCombatScene === "function") renderCombatScene();
 }
 
 function renderArcaneCombatTechnique(techniqueId, button, progressFill, canStart, isUnlocked, cast, castProgress, resolved) {
@@ -668,8 +830,12 @@ function renderArcaneCombatTechnique(techniqueId, button, progressFill, canStart
     const details = button.querySelector("small");
     const spell = COMBAT_CONFIG.spells[techniqueId];
     if (details && spell) {
-      const hitText = spell.hits > 1 ? spell.hits + " × " + spell.damage.min + "–" + spell.damage.max : spell.damage.min + "–" + spell.damage.max;
-      details.textContent = getArcaneCombatManaCost(techniqueId) + " Mana · " + hitText + " base damage · " + getArcaneCombatCastTime(techniqueId) + " sec";
+      const damage = getArcaneCombatDamage(techniqueId);
+      const hitText = spell.hits > 1 ? spell.hits + " × " + damage : String(damage);
+      details.textContent = getArcaneCombatManaCost(techniqueId) + " Mana · " + Number(getArcaneCombatCastTime(techniqueId).toFixed(2)) + "s · " + hitText + " damage";
+      const availability = button.querySelector(".duel-spell-state");
+      if (availability) availability.textContent = activeTechnique ? "Casting…" : cast ? "Cast in progress" :
+        !canStart() && !resolved ? "Needs " + getArcaneCombatManaCost(techniqueId) + " Mana" : "Ready";
     }
   }
 }

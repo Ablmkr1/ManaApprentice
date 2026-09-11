@@ -79,7 +79,7 @@ const tests = `
   getArcaneForceProgressState().level = 5;
   ensureArcaneForceRankTwoState().rank = 1;
   assert(near(getArcaneCombatManaCost("manaBolt"), 9), "Iron Staff reduces combat spell mana cost by exactly 10%");
-  assert(near(getArcaneCombatCastTime("manaBolt"), 0.869565), "Iron Staff increases combat casting speed by exactly 15%");
+  assert(near(getArcaneCombatCastTime("manaBolt"), 1.73913), "Iron Staff increases combat casting speed by exactly 15%");
   assert(getSpellCastDuration("arcaneForce", { type: "productionSpell", spellName: "arcaneForce", targetId: "nails", mode: "camp" }) === 2, "Staff speed does not affect utility spell casting");
   assert(getProductionSpellTargetContext("arcaneForce", "nails", { mode: "camp" }).cost.mana === 4, "Staff mana efficiency does not affect utility spell mana costs");
 
@@ -89,6 +89,8 @@ const tests = `
   getResource("iron").value = 0;
   checkResearchDiscoveries();
   assert(!getResearch("steelworking").unlocked, "Steelworking stays hidden before the Forge is complete");
+  discoverResource("ore");
+  discoverResource("manaCrystal");
   forgeState.completed = true;
   forgeState.unlocked = true;
   checkResearchDiscoveries();
@@ -164,7 +166,7 @@ const tests = `
 
   force.rankTwoLevel = 7;
   assert(near(getArcaneCombatManaCost("manaBolt"), 6.4), "Steel Staff and Arcane Efficiency mana reductions stack once");
-  assert(near(getArcaneCombatCastTime("manaBolt"), 0.615385), "Steel Staff and Arcane Efficiency casting speed stack once");
+  assert(near(getArcaneCombatCastTime("manaBolt"), 1.230769), "Steel Staff and Arcane Efficiency casting speed stack once");
   COMBAT_CONFIG.spells.testMinimum = { manaCost: 1, castTimeSeconds: 1, damage: { min: 1, max: 1 }, hits: 1 };
   assert(getArcaneCombatManaCost("testMinimum") === 1, "Combat spells that normally cost mana preserve the minimum cost of 1");
 

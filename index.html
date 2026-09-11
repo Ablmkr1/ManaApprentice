@@ -6,7 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="tower-visual-system.css?v=20260903-unified-tower-r1" />
-    <link rel="stylesheet" href="home-ui.css?v=20260904-expanded-stations" />
+    <link rel="stylesheet" href="home-ui.css?v=20260907-clearing-layout-r3" />
+    <link rel="stylesheet" href="combat-scene.css?v=20260910" />
   </head>
 
   <body>
@@ -48,54 +49,101 @@
               <p id="shellViewEyebrow" class="view-eyebrow">Unknown woods</p>
             </header>
 
-          <section id="currentGoalSection" class="current-goal-section ui-context-panel main-goal-card">
-            <div class="objective-main">
-              <span class="section-kicker">Current objective</span>
-              <h3 id="currentGoalTitle" class="current-goal-title"></h3>
+          <section id="currentGoalSection" class="current-goal-section ui-context-panel main-goal-card" data-expanded="false">
+            <button id="objectiveDisclosureBtn" class="objective-summary" type="button" aria-controls="currentGoalDetails" aria-expanded="false">
+              <span class="objective-main">
+                <span class="section-kicker">Current objective</span>
+                <span id="currentGoalTitle" class="current-goal-title" role="heading" aria-level="3"></span>
+              </span>
+              <span id="currentGoalProgress" class="objective-progress" hidden></span>
+              <span id="activeTaskCard" class="active-task-card" aria-label="" data-active="false" hidden>
+                <span class="active-task-status"><i aria-hidden="true"></i><span id="activeTaskStatusText">In progress</span></span>
+                <strong id="activeTaskTitle"></strong>
+                <span class="active-task-meter" role="progressbar" aria-label="Active task progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                  <span id="activeTaskProgressFill"></span>
+                </span>
+                <span class="active-task-meta"><span id="activeTaskProgressText">0%</span><span id="activeTaskRemainingText"></span></span>
+              </span>
+              <span class="objective-chevron" aria-hidden="true"></span>
+            </button>
+            <div id="currentGoalDetails" class="objective-details" hidden>
               <div id="currentGoalText" class="current-goal-text"></div>
             </div>
-            <aside id="activeTaskCard" class="active-task-card" aria-label="Activity: ready" data-active="false">
-              <span class="active-task-status"><i aria-hidden="true"></i><span id="activeTaskStatusText">Activity</span></span>
-              <strong id="activeTaskTitle">Ready</strong>
-              <div class="active-task-meter" role="progressbar" aria-label="Active task progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-                <span id="activeTaskProgressFill"></span>
-              </div>
-              <div class="active-task-meta"><span id="activeTaskProgressText">0%</span><span id="activeTaskRemainingText"></span></div>
-            </aside>
           </section>
 
-        <section id="combatPanel" class="combat-panel" style="display: none" aria-live="polite">
-          <div class="combat-panel-heading">
-            <div>
-              <span class="combat-kicker">Encounter</span>
-              <h2 id="combatEnemyName">Minor Earth Elemental</h2>
+        <section id="combatPanel" class="combat-panel" style="display: none" aria-label="Wizard duel">
+          <header class="duel-heading"><span class="combat-kicker">Encounter</span><span id="combatRegion"></span></header>
+          <div id="combatScene" class="combat-scene">
+            <div class="duel-hud">
+              <div class="duel-player-hud">
+                <h2 class="duel-player-name">Apprentice</h2>
+                <p id="combatWardText" class="combat-ward"></p>
+                <div class="duel-meter ward-meter"><div id="combatWardFill"></div></div>
+                <p id="combatManaText"></p>
+                <div class="duel-meter mana-meter"><div id="combatManaFill"></div></div>
+                <span id="combatWardCondition" class="duel-ward-condition"></span>
+              </div>
+              <div class="duel-enemy-hud">
+                <h2 id="combatEnemyName">Minor Earth Elemental</h2>
+                <p id="combatEnemyHealthText"></p>
+                <div class="duel-meter health-meter"><div id="combatEnemyHealthFill" class="combat-meter-fill"></div></div>
+                <div id="combatConditions" class="duel-conditions"></div>
+                <div id="combatIntent" class="duel-intent" hidden>
+                  <strong id="combatIntentLabel"></strong><span id="combatIntentTime"></span>
+                  <div class="duel-meter intent-meter"><div id="combatIntentFill"></div></div>
+                  <small id="combatIntentHint"></small>
+                </div>
+                <p id="combatAttackTimer" class="combat-timer"></p>
+              </div>
             </div>
-            <span id="combatEnemyHealthText"></span>
+            <div class="duel-stage" aria-hidden="true">
+              <div class="duel-scenery"><i></i><i></i><i></i></div>
+              <div id="combatPlayerActor" class="duel-actor duel-wizard">
+                <div class="duel-actor-body">
+                  <svg viewBox="0 0 160 180" focusable="false"><ellipse class="actor-shadow" cx="75" cy="169" rx="48" ry="7"/><path class="wizard-robe" d="M62 55 Q82 45 96 67 L113 162 Q78 177 35 161 L53 92Z"/><path class="wizard-fold" d="M66 81 L57 157 M79 87 L82 164 M90 103 L101 157"/><path class="wizard-hood" d="M52 57 Q52 25 76 16 Q95 27 99 54 L86 66Z"/><path class="wizard-face" d="M73 36 L94 46 85 58 72 55Z"/><path class="wizard-sleeve" d="M86 70 L105 89 126 77 133 88 103 111 79 95Z"/><path class="wizard-belt" d="M51 104 L91 107"/><path class="wizard-staff" d="M127 162 L135 40 125 26 135 13 143 27 135 40"/><circle class="wizard-charge" cx="135" cy="27" r="7"/></svg>
+                </div>
+                <div class="duel-ward"><svg viewBox="0 0 160 180"><path d="M38 20 L53 55 38 70 58 99 44 122 M129 33 L107 69 123 87 109 126 125 155 M77 5 L90 29 79 46"/></svg></div>
+                <span id="combatActorCast" class="duel-actor-caption"></span>
+              </div>
+              <div id="combatEnemyActor" class="duel-actor duel-enemy"><div id="combatEnemyArt" class="duel-actor-body"></div><div id="combatDefenses" class="duel-defenses"></div></div>
+              <div id="combatEffects" class="duel-effects"></div>
+              <span id="combatOutcome" class="duel-outcome"></span>
+            </div>
           </div>
-          <div class="combat-meter" aria-label="Enemy health"><div id="combatEnemyHealthFill" class="combat-meter-fill"></div></div>
-          <p id="combatWardText" class="combat-ward"></p>
-          <p id="combatAttackTimer" class="combat-timer"></p>
-          <section id="combatConsumables" class="combat-consumables" style="display: none" aria-label="Combat consumables">
-            <span class="combat-consumables-label">Tonics</span>
-            <div id="combatConsumablesList" class="combat-consumables-list"></div>
-          </section>
+          <div class="duel-cast" aria-label="Current cast">
+            <span id="combatCastLabel">Ready to cast</span><span id="combatCastTime"></span>
+            <div id="combatCastMeter" class="duel-meter cast-meter" role="progressbar" aria-label="Cast progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="combatCastFill"></div></div>
+          </div>
+          <div class="duel-spells" aria-label="Combat spells">
           <button id="manaBoltBtn" class="action-btn combat-spell-btn" type="button">
-            <div id="manaBoltProgressFill" class="progressFill"></div>
-            <span>Cast Mana Bolt</span>
-            <small>10 Mana · 8–12 damage · 1 sec</small>
+            <span id="manaBoltProgressFill" class="progressFill"></span>
+            <span>Mana Bolt</span><em>Efficient damage</em>
+            <small>10 Mana · 10 damage · 2 sec</small>
+            <span class="duel-spell-state"></span>
           </button>
           <button id="manaMissileBtn" class="action-btn combat-spell-btn" type="button" style="display: none">
-            <div id="manaMissileProgressFill" class="progressFill"></div>
-            <span>Cast Mana Missile</span>
-            <small>12 Mana · 3 × 3–4 damage · 1.25 sec</small>
+            <span id="manaMissileProgressFill" class="progressFill"></span>
+            <span>Mana Missile</span><em>Break defenses</em>
+            <small>11 Mana · 3 × 8 damage · 2.4 sec</small>
+            <span class="duel-spell-state"></span>
           </button>
           <button id="manaLanceBtn" class="action-btn combat-spell-btn" type="button" style="display: none">
-            <div id="manaLanceProgressFill" class="progressFill"></div>
-            <span>Cast Mana Lance</span>
-            <small>20 Mana · 18–24 damage · 1.75 sec</small>
+            <span id="manaLanceProgressFill" class="progressFill"></span>
+            <span>Mana Lance</span><em>Pierce armor</em>
+            <small>16 Mana · 24 damage · 3 sec</small>
+            <span class="duel-spell-state"></span>
           </button>
-          <button id="combatRecallBtn" class="action-btn combat-recall-btn" type="button">Recall to Camp</button>
+          </div>
+          <div class="duel-utilities">
+            <section id="combatConsumables" class="combat-consumables" style="display: none" aria-label="Combat consumables">
+              <span class="combat-consumables-label">Tonics</span>
+              <div id="combatConsumablesList" class="combat-consumables-list"></div>
+            </section>
+            <button id="combatRecallBtn" class="action-btn combat-recall-btn" type="button">Recall to Camp <small>Safe exit</small></button>
+          </div>
           <p id="combatStatus" class="combat-status"></p>
+          <details class="duel-history" open><summary>Recent events</summary><ol id="combatEventLog" aria-label="Recent combat events"></ol></details>
+          <p id="combatAnnouncement" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
           <button id="closeCombatBtn" type="button" style="display: none">Close Encounter</button>
         </section>
 
@@ -104,20 +152,39 @@
             <section id="homeClearing" class="home-clearing" aria-labelledby="homeClearingTitle">
               <header class="home-clearing-heading">
                 <div>
-                  <span class="section-kicker">Home · Clearing exterior</span>
+                  <span id="homeClearingKicker" class="section-kicker">Home · Unknown woods</span>
                   <h2 id="homeClearingTitle">The Clearing</h2>
-                  <p>Choose a place in camp. Its familiar controls will open beside the clearing.</p>
+                  <p id="homeClearingDescription">Catch your breath, then explore the mist-shrouded woods.</p>
                 </div>
-                <button id="homeAreaCloseBtn" class="home-area-close" type="button" aria-label="Close selected camp area" hidden>Return to clearing</button>
               </header>
 
               <div class="home-clearing-layout">
                 <div id="homeScene" class="home-scene" aria-label="Interactive camp clearing">
                   <div class="home-scene-haze" aria-hidden="true"></div>
 
-                  <button class="home-place home-place-tower" type="button" data-home-area="tower" aria-controls="homeAreaPanel" aria-expanded="false">
+                  <button class="home-place home-place-resource home-place-wood" type="button" data-home-area="wood" aria-controls="homeAreaPanel" aria-expanded="false" hidden>
+                    <span class="home-resource-icon" aria-hidden="true"><i></i><i></i><i></i></span>
+                    <span class="home-place-label"><strong>Wood</strong><small>Search the deadfall</small></span>
+                  </button>
+
+                  <button class="home-place home-place-resource home-place-food" type="button" data-home-area="food" aria-controls="homeAreaPanel" aria-expanded="false" hidden>
+                    <span class="home-resource-icon" aria-hidden="true"><i></i><i></i><i></i></span>
+                    <span class="home-place-label"><strong>Food</strong><small>Inspect the brush</small></span>
+                  </button>
+
+                  <button class="home-place home-place-resource home-place-water" type="button" data-home-area="water" aria-controls="homeAreaPanel" aria-expanded="false" hidden>
+                    <span class="home-resource-icon" aria-hidden="true"><i></i><i></i><i></i></span>
+                    <span class="home-place-label"><strong>Stream</strong><small>Follow the water</small></span>
+                  </button>
+
+                  <button class="home-place home-place-tower" type="button" data-home-area="tower" aria-controls="towerView" aria-label="Enter the Tower" hidden disabled>
                     <span id="homeTowerVisual" class="home-tower-visual" aria-hidden="true"></span>
                     <span class="home-place-label"><strong>The Tower</strong><small id="homeTowerStatus">Beyond the camp</small></span>
+                  </button>
+
+                  <button class="home-place home-place-trail" type="button" data-home-area="trail" aria-controls="expeditionView" aria-label="Take the Trail out of the clearing" hidden>
+                    <span class="home-trail-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+                    <span class="home-place-label"><strong>Trail</strong><small>Leave the clearing</small></span>
                   </button>
 
                   <button class="home-place home-place-fire" type="button" data-home-area="campfire" aria-controls="homeAreaPanel" aria-expanded="false">
@@ -127,7 +194,7 @@
 
                   <button class="home-place home-place-workspot" type="button" data-home-area="workspot" aria-controls="homeAreaPanel" aria-expanded="false">
                     <span class="home-place-art" aria-hidden="true"></span>
-                    <span class="home-place-label"><strong>Workspot</strong><small>Improvise and craft</small></span>
+                    <span class="home-place-label"><strong>Work Spot</strong><small>Establish a place to build</small></span>
                   </button>
 
                   <button class="home-place home-place-workbench" type="button" data-home-area="workbench" aria-controls="homeAreaPanel" aria-expanded="false" hidden>
@@ -178,6 +245,7 @@
                       <h3 id="homeAreaTitle"></h3>
                       <p id="homeAreaDescription"></p>
                     </div>
+                    <button id="homeAreaCloseBtn" class="home-area-close" type="button" aria-label="Return to clearing" hidden>Return to clearing</button>
                   </div>
                   <div id="homeAreaContent" class="home-area-content"></div>
                 </aside>
@@ -345,7 +413,7 @@
                   <div class="research-layout">
                     <div id="researchList" class="research-list" aria-label="Research list"></div>
 
-                    <div id="researchDetails" class="research-details" aria-label="Selected research details">
+                    <div id="researchDetails" class="research-details" aria-label="Selected research details" tabindex="-1">
                       <div class="research-empty">Select research to view details.</div>
                     </div>
                   </div>
@@ -831,6 +899,7 @@
               <button class="dev-tier-btn" type="button" data-tier="2">T2</button>
               <button class="dev-tier-btn" type="button" data-tier="3">T3</button>
               <button class="dev-tier-btn" type="button" data-tier="4">T4</button>
+              <button class="dev-tier-btn" type="button" data-tier="4.5">T4.5</button>
             </div>
             <button id="testCombatBtn" type="button">Test combat</button>
             <div class="dev-story-review">
@@ -999,18 +1068,19 @@
 
     <script src="state.js?v=20260831-arcane-force-r2"></script>
     <script src="expeditionData.js?v=20260830"></script>
-    <script src="content.js?v=20260904-home-structures"></script>
+    <script src="content.js?v=20260907-progression-pass1"></script>
     <script src="definitions.js?v=20260831-imbue2"></script>
-    <script src="ui.js?v=20260831-arcane-force-r2"></script>
+    <script src="ui.js?v=20260906-ui-architecture"></script>
     <script src="resources.js?v=20260831-imbue2"></script>
     <script src="skills.js?v=20260831-imbue2"></script>
-    <script src="camp.js?v=20260904-structure-stages"></script>
+    <script src="camp.js?v=20260907-progression-pass1"></script>
     <script src="tower-visual-system.js?v=20260903-unified-tower-r1"></script>
-    <script src="home-ui.js?v=20260904-expanded-stations"></script>
-    <script src="expedition.js?v=20260831-imbue2"></script>
-    <script src="actions.js?v=20260831-imbue2"></script>
+    <script src="home-ui.js?v=20260906-ui-architecture"></script>
+    <script src="expedition.js?v=20260907-progression-pass1"></script>
+    <script src="actions.js?v=20260906-pre-camp"></script>
     <script src="combat.js?v=20260831-arcane-force-r2"></script>
-    <script src="save.js?v=20260904-home-structures"></script>
-    <script src="script.js?v=20260904-home-structures"></script>
+    <script src="combat-scene.js?v=20260910"></script>
+    <script src="save.js?v=20260907-progression-pass1"></script>
+    <script src="script.js?v=20260906-t45-complete"></script>
   </body>
 </html>

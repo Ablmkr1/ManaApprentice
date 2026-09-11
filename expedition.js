@@ -674,7 +674,10 @@ function transferCarriedItemsToCamp() {
 // Immediate rewards for bringing a resource back to camp.
 // Deeper equipment/camp discoveries should live in research.
 const expeditionReturnUnlocks = {
-  stone: [{ type: "campUpgrade", id: "stoneFirePit" }],
+  stone: [
+    { type: "campUpgrade", id: "stoneFirePit" },
+    { type: "campUpgrade", id: "workbench" },
+  ],
 };
 
 function clearCurrentLocationActions() {
@@ -2699,6 +2702,18 @@ function renderDungeonActions(node) {
   if (!ui.dungeonActions) return;
 
   ui.dungeonActions.innerHTML = "";
+
+  if (typeof canChallengeBrokenWarden === "function" && canChallengeBrokenWarden()) {
+    showElement(ui.dungeonActions, "flex");
+    const challenge = createUiActionButton({
+      label: gameState.brokenWardenDefeated ? "Challenge Broken Warden Again" : "Challenge Broken Warden",
+      detail: "Tier 4 capstone · Recall available",
+      dataset: { dungeonAction: "challengeBrokenWarden" },
+    });
+    challenge.addEventListener("click", startBrokenWardenCombat);
+    ui.dungeonActions.appendChild(challenge);
+    return;
+  }
 
   if (!node || !node.search || node.explored) {
     hideElement(ui.dungeonActions);

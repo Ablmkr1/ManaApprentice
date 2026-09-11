@@ -218,6 +218,10 @@ function hookActionCompletions() {
 
     gameState.exploration.count++;
 
+    if (typeof updateHomeAreaAvailability === "function") {
+      updateHomeAreaAvailability();
+    }
+
     const storyIndex = gameState.exploration.count - 1;
 
     if (stage.story[storyIndex]) {

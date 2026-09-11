@@ -3,7 +3,7 @@ let gameClockTime = lastRealTickTime;
 let devGameSpeedMultiplier = 1;
 const DEV_GAME_SPEED_MULTIPLIERS = [1, 5, 10];
 let devTierCheckpoint = null;
-const DEV_TIER_CHECKPOINTS = [1, 2, 3, 4];
+const DEV_TIER_CHECKPOINTS = [1, 2, 3, 4, 4.5];
 
 const DEV_RESOURCE_BASE_MAX_VALUES = {
   energy: 10,
@@ -324,6 +324,7 @@ window.onload = function () {
   });
 
   tryLoadGame();
+  if (typeof enableObjectiveAutoExpansion === "function") enableObjectiveAutoExpansion();
   setInterval(trySaveGame, 5000);
   window.addEventListener("beforeunload", trySaveGame);
 
@@ -459,6 +460,7 @@ function jumpToDevTier(tier) {
   if (tier >= 2) applyDevTier2();
   if (tier >= 3) applyDevTier3();
   if (tier >= 4) applyDevTier4();
+  if (tier >= 4.5) applyDevTier45();
 
   finalizeDevTierJump(tier);
   return true;
@@ -717,9 +719,46 @@ function resetDevTierWorld() {
 
 function resetDevTierMagic() {
   gameState.magic.sensedReveals = {};
+  gameState.magic.toolCharges = { knife: 0, axe: 0, pick: 0 };
+  gameState.magic.spellProgress = {};
+  gameState.magic.ward = {
+    rank: 1,
+    formed: false,
+    maintainEnabled: false,
+  };
   gameState.magic.attunements = {
     capacity: 1,
     active: [],
+    rank: 1,
+    rankTwoLevel: 0,
+    rankTwoXp: 0,
+    breakthroughs: {},
+    persistentResonanceCompleted: false,
+    rankTwoComplete: false,
+  };
+  gameState.magic.imbuement = {
+    rank: 1,
+    rankTwoLevel: 0,
+    rankTwoXp: 0,
+    breakthroughs: {},
+    permanentBindingCompleted: false,
+    rankTwoComplete: false,
+    craftedRings: {},
+    equippedRing: null,
+    backpackImbued: false,
+    equipmentEnchantments: {},
+    furnaceTier: 0,
+    alchemyTier: 0,
+    controlMatrixStage: 0,
+    controlCapacity: 5,
+  };
+  gameState.magic.arcaneForce = {
+    rank: 1,
+    rankTwoLevel: 0,
+    rankTwoXp: 0,
+    breakthroughs: {},
+    forceAmplificationCompleted: false,
+    rankTwoComplete: false,
   };
 
   const spellDefinitions = getSpellDefinitions();
@@ -755,13 +794,7 @@ function resetDevTierTowerNodes() {
   const definitions = getTowerNodeDefinitions();
 
   for (let nodeName in definitions) {
-    const state = getTowerNodeState(nodeName);
-
-    state.activated = false;
-    state.researchUnlocked = false;
-    state.built = false;
-    state.deposits = getDefaultTowerNodeDeposits(nodeName);
-    state.imbueProgress = 0;
+    gameState.towerNodes[nodeName] = getDefaultTowerNodeState(nodeName);
   }
 }
 
@@ -863,6 +896,247 @@ function applyDevTier4() {
   addJournalEntry("campSmeltingPlansFound");
   addJournalEntry("manaCondenserPlansFound");
   addJournalEntry("partialTowerPlansFound");
+}
+
+// T4 remains the handoff point into Tower construction. T4.5 is intentionally
+// definition-driven: it represents a completed save containing every feature
+// that exists in the current build, including content added after T4.
+function applyDevTier45() {
+  for (let locationName in getExpeditionLocationDefinitions()) {
+    markLocationComplete(locationName);
+  }
+
+  for (let dungeonId in getDungeonDefinitions()) {
+    markDungeonCompleteForDev(dungeonId);
+  }
+
+  for (let regionId in gameState.world.regions) {
+    markRegionMasteredForDev(regionId);
+  }
+
+  DEV_TIER_FLAGS.forEach(function (flagName) {
+    gameState[flagName] = true;
+  });
+
+  gameState.hasCamp = true;
+  gameState.phase = "expedition";
+  gameState.combatVictories = Math.max(1, Number(gameState.combatVictories) || 0);
+  gameState.northernDisturbance = { triggered: true, resolved: true, popupShown: true };
+  gameState.regionalProgress = {
+    unlocked: true,
+    east: { disturbanceTriggered: true, disturbanceResolved: true, capabilityDiscovered: true },
+    south: { disturbanceTriggered: true, disturbanceResolved: true, capabilityDiscovered: true },
+  };
+
+  for (let researchName in getResearchDefinitions()) {
+    completeResearchForDev(researchName);
+  }
+
+  for (let upgradeName in getCampUpgradeDefinitions()) {
+    purchaseCampUpgradeForDev(upgradeName);
+  }
+
+  for (let upgradeName in getGearUpgradeDefinitions()) {
+    purchaseGearUpgradeForDev(upgradeName);
+  }
+
+  for (let craftName in getResourceCraftDefinitions()) {
+    unlockResourceCraftForDev(craftName);
+  }
+
+  for (let machineName in getAutomationDefinitions()) {
+    unlockAutomationForDev(machineName);
+  }
+
+  for (let actionName in getActionDefinitions()) {
+    unlockAction(actionName);
+  }
+
+  for (let spellName in getSpellDefinitions()) {
+    unlockSpellForDev(spellName);
+  }
+
+  completeAllProjectsForDev();
+  completeAllTowerNodesForDev();
+  maxAllSkillsForDev();
+  maxAllSpellProgressForDev();
+  completeAllPermanentImbuementsForDev();
+  maxBoundElementalInventoryForDev();
+
+  for (let journalName in getJournalDefinitions()) {
+    addJournalEntry(journalName);
+  }
+
+  gameState.currentGoalId = "buildTowerBasement";
+}
+
+function completeAllProjectsForDev() {
+  ensureProjectsState();
+
+  const definitions = getProjectDefinitions();
+
+  for (let projectName in definitions) {
+    const definition = definitions[projectName];
+    const project = getProjectState(projectName);
+
+    project.unlocked = true;
+    project.completed = true;
+    project.level = Array.isArray(definition.levels) ? definition.levels.length : 0;
+    project.work = 0;
+    project.deposits = {};
+  }
+
+  gameState.towerConstructionUnlocked = true;
+  gameState.towerBasementCompleted = true;
+  applyBasementStorageUpgrade();
+  syncTowerStructureUnlocks(false);
+}
+
+function completeAllTowerNodesForDev() {
+  ensureTowerNodesState();
+
+  const definitions = getTowerNodeDefinitions();
+
+  for (let nodeName in definitions) {
+    const definition = definitions[nodeName];
+    const state = getTowerNodeState(nodeName);
+
+    state.activated = true;
+    state.researchUnlocked = true;
+    state.built = true;
+    state.deposits = { ...(definition.materials || {}) };
+    state.imbueProgress = definition.imbueRequired || 0;
+    state.threadSenseProgress = definition.threadSenseRequired || 0;
+    state.threadSensed = true;
+    state.advancedRecallUnlocked = true;
+    state.permanentImbued = true;
+  }
+}
+
+function maxAllSkillsForDev() {
+  ensureSkillsState();
+
+  const definitions = getSkillDefinitions();
+
+  for (let skillName in definitions) {
+    const ranks = Array.isArray(definitions[skillName].ranks) ? definitions[skillName].ranks : [];
+    const highestRank = ranks.reduce(function (highest, rankDefinition) {
+      return !highest || rankDefinition.rank > highest.rank ? rankDefinition : highest;
+    }, null);
+
+    if (!highestRank || !Array.isArray(highestRank.levels) || !highestRank.levels.length) continue;
+
+    const highestLevel = highestRank.levels.reduce(function (highest, levelDefinition) {
+      return !highest || levelDefinition.level > highest.level ? levelDefinition : highest;
+    }, null);
+    const skill = getSkillState(skillName);
+
+    skill.rank = highestRank.rank;
+    skill.level = highestLevel.level;
+    skill.revealed = true;
+
+    if (skillName === "conditioning") {
+      skill.distance = getSkillThresholdForLevel(skillName, getSkillMaxLevel(skillName, 1), 1);
+      skill.reinforcedEnergyUnlockSpent = CONDITIONING_RANK_TWO_UNLOCK_ENERGY;
+      skill.reinforcedEnergySpent = highestLevel.threshold || 0;
+      skill.pending = false;
+    } else if (skillName === "meditation") {
+      skill.successfulMeditations = getSkillThresholdForLevel(skillName, getSkillMaxLevel(skillName, 1), 1);
+      skill.attunedMeditations = highestLevel.threshold || 0;
+    } else {
+      setSkillProgressForDev(skillName, highestLevel.threshold || 0);
+    }
+  }
+}
+
+function maxAllSpellProgressForDev() {
+  maxSpellProgressForDev();
+
+  const attunements = getAttunementState();
+  const attunementMaximum = ATTUNEMENT_RANK_TWO_PROGRESSION[ATTUNEMENT_RANK_TWO_PROGRESSION.length - 1];
+  attunements.rank = 2;
+  attunements.rankTwoLevel = attunementMaximum.level;
+  attunements.rankTwoXp = attunementMaximum.threshold;
+  attunements.breakthroughs = {
+    persistentResonance: ATTUNEMENT_BREAKTHROUGH_DEFINITIONS.persistentResonance.requiredMana,
+    harmonicStability: ATTUNEMENT_BREAKTHROUGH_DEFINITIONS.harmonicStability.requiredMana,
+    harmonicAttunement: ATTUNEMENT_BREAKTHROUGH_DEFINITIONS.harmonicAttunement.requiredMana,
+  };
+  attunements.persistentResonanceCompleted = true;
+  attunements.rankTwoComplete = true;
+  attunements.capacity = getAttunementCapacityFromLevel();
+  attunements.active = Object.keys(getAttunementDefinitions())
+    .slice(0, attunements.capacity)
+    .map(function (id) { return { id }; });
+
+  const imbuement = ensureImbueRankTwoState();
+  const imbueProgression = getImbueRankTwoConfig().progression;
+  const imbueMaximum = imbueProgression[imbueProgression.length - 1];
+  imbuement.rank = 2;
+  imbuement.rankTwoLevel = imbueMaximum.level;
+  imbuement.rankTwoXp = imbueMaximum.threshold;
+  imbuement.breakthroughs.permanentBinding = getImbueRankTwoConfig().permanentBindingManaRequired;
+  imbuement.permanentBindingCompleted = true;
+  imbuement.rankTwoComplete = true;
+
+  const arcaneForce = ensureArcaneForceRankTwoState();
+  const forceProgression = ARCANE_FORCE_RANK_TWO_CONFIG.progression;
+  const forceMaximum = forceProgression[forceProgression.length - 1];
+  arcaneForce.rank = 2;
+  arcaneForce.rankTwoLevel = forceMaximum.level;
+  arcaneForce.rankTwoXp = forceMaximum.threshold;
+  arcaneForce.breakthroughs.forceAmplification = ARCANE_FORCE_RANK_TWO_CONFIG.breakthroughManaRequired;
+  arcaneForce.forceAmplificationCompleted = true;
+  arcaneForce.rankTwoComplete = true;
+
+  gameState.magic.ward.rank = 1;
+  gameState.magic.ward.formed = true;
+  gameState.magic.ward.maintainEnabled = true;
+
+  const maxToolCharges = getImbueToolMaxCharges();
+  gameState.magic.toolCharges = { knife: maxToolCharges, axe: maxToolCharges, pick: maxToolCharges };
+  syncSpellUpgradeEffects();
+}
+
+function completeAllPermanentImbuementsForDev() {
+  const state = ensureImbueRankTwoState();
+  const config = getImbueRankTwoConfig();
+
+  Object.keys(config.rings).forEach(function (ringId) {
+    state.craftedRings[ringId] = true;
+  });
+  state.equippedRing = Object.keys(config.rings)[Object.keys(config.rings).length - 1] || null;
+  state.backpackImbued = true;
+  state.furnaceTier = 2;
+  state.alchemyTier = 2;
+  state.controlMatrixStage = Object.keys(config.controlMatrix).length;
+  state.controlCapacity = config.controlMatrix[state.controlMatrixStage].capacity;
+
+  Object.keys(config.equipmentEnchantments).forEach(function (enchantmentId) {
+    const enchantment = config.equipmentEnchantments[enchantmentId];
+    const item = getPurchasedEquipmentForSlot("gear", enchantment.slot, false);
+    const gearId = item ? getGearUpgradeIdByDefinition(item) : null;
+    if (gearId) state.equipmentEnchantments[gearId] = enchantmentId;
+  });
+}
+
+function maxBoundElementalInventoryForDev() {
+  ensureElementalState();
+
+  const elemental = getBoundEarthElementalState();
+  const capacity = getTowerHeartElementalControlCapacity();
+
+  elemental.owned = capacity;
+  elemental.bindingDiscovered = true;
+  elemental.capabilities.equipmentUnlocked = true;
+  elemental.capabilities.attunementUnlocked = true;
+
+  Object.keys(getElementalHarnessDefinitions()).forEach(function (harnessName) {
+    elemental.capabilities.harnesses[harnessName] = capacity;
+  });
+  Object.keys(getElementalWorkerAttunementDefinitions()).forEach(function (attunementName) {
+    elemental.capabilities.attunements[attunementName] = capacity;
+  });
 }
 
 function markClearingObjectComplete(objectName) {
@@ -1036,6 +1310,12 @@ function applyDevUnlock(unlock) {
   if (unlock.type === "project") {
     const project = getProjectState(unlock.id);
     if (project) project.unlocked = true;
+    return;
+  }
+
+  if (unlock.type === "towerNode") {
+    const node = getTowerNodeState(unlock.id);
+    if (node) node.researchUnlocked = true;
   }
 }
 
@@ -1050,7 +1330,7 @@ function completeResearchForDev(researchName) {
   applyDevUnlocks(research.unlocks);
 
   if (researchName === "manaCycling") {
-    revealSkill("manaCycling");
+    unlockResearchSystem("manaCycling");
   }
 }
 
@@ -1261,7 +1541,7 @@ function setResourceVisibleAndFull(resourceName) {
 }
 
 function fillDevTierResources(tier) {
-  const resourceNames = DEV_TIER_RESOURCE_NAMES[tier] || [];
+  const resourceNames = tier === 4.5 ? Object.keys(getResourceDefinitions()) : DEV_TIER_RESOURCE_NAMES[tier] || [];
 
   resourceNames.forEach(setResourceVisibleAndFull);
 

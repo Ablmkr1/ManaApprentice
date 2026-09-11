@@ -1,5 +1,5 @@
 const SAVE_KEY = "manaApprenticeSaveV1";
-const SAVE_VERSION = 32;
+const SAVE_VERSION = 34;
 let saveSuppressed = false;
 
 function createSaveData() {
@@ -38,6 +38,7 @@ function createResourceSaveData() {
       perClick: resource.perClick,
       perSecond: resource.perSecond,
       restPerSecond: resource.restPerSecond,
+      discovered: isResourceDiscovered(resourceName),
       visible: resource.display ? resource.display.style.display !== "none" : false,
     };
   }
@@ -348,9 +349,32 @@ function migrateSaveData(saveData) {
     migrateV31SaveDataToV32(normalizedSaveData);
   }
 
+  if (version <= 32) {
+    migrateV32SaveDataToV33(normalizedSaveData);
+  }
+
+  if (version <= 33) migrateV33SaveDataToV34(normalizedSaveData);
+
   normalizedSaveData.version = SAVE_VERSION;
 
   return normalizedSaveData;
+}
+
+function migrateV33SaveDataToV34(saveData) {
+  const state = ensureObject(saveData.gameState);
+  const elemental = ensureObject(ensureObject(state.elementals).earth);
+  const capabilities = ensureObject(elemental.capabilities);
+  const regional = ensureObject(state.regionalProgress);
+  const skill = ensureObject(ensureObject(state.skills).manaCycling);
+  saveData.research = ensureObject(saveData.research);
+  const complete = function (id) { saveData.research[id] = { ...ensureObject(saveData.research[id]), completed: true, unlocked: false }; };
+  const equipment = capabilities.equipmentUnlocked || Object.values(ensureObject(capabilities.harnesses)).some(n => n > 0) || regional.east?.capabilityDiscovered;
+  const attunement = capabilities.attunementUnlocked || Object.values(ensureObject(capabilities.attunements)).some(n => n > 0) || regional.south?.capabilityDiscovered;
+  if (elemental.owned > 0 || elemental.bindingDiscovered || equipment || attunement) complete("elementalBinding");
+  if (equipment) complete("elementalHarnessing");
+  if (attunement) complete("elementalAttunement");
+  if (skill.revealed || skill.level > 0 || skill.rank > 1 || skill.manaXp > 0 || saveData.actions?.practiceManaCycling?.unlocked) complete("manaCycling");
+  for (const resource of Object.values(ensureObject(saveData.resources))) resource.discovered = !!resource.discovered || !!resource.visible || resource.value > 0;
 }
 
 function normalizeSaveData(saveData) {
@@ -493,6 +517,57 @@ function normalizeSavedCombatProgress(saveData) {
 
 function migrateV31SaveDataToV32(saveData) {
   normalizeSavedCombatProgress(saveData);
+}
+
+function migrateV32SaveDataToV33(saveData) {
+  const savedResources = ensureObject(saveData.resources);
+  const savedCampUpgrades = ensureObject(saveData.campUpgrades);
+  const savedStone = ensureObject(savedResources.stone);
+  const savedWorkbench = ensureObject(savedCampUpgrades.workbench);
+  const stoneReturnedToCamp = !!savedStone.visible || (Number.isFinite(savedStone.value) && savedStone.value > 0);
+
+  if (!savedWorkbench.purchased) {
+    savedWorkbench.unlocked = stoneReturnedToCamp;
+  }
+
+  savedCampUpgrades.workbench = savedWorkbench;
+  saveData.campUpgrades = savedCampUpgrades;
+
+  const savedGameState = ensureObject(saveData.gameState);
+  const savedTowerNodes = ensureObject(savedGameState.towerNodes);
+  const savedRegionalProgress = ensureObject(savedGameState.regionalProgress);
+  const savedResearch = ensureObject(saveData.research);
+
+  [
+    { regionId: "east", researchName: "easternTowerNode" },
+    { regionId: "south", researchName: "southernTowerNode" },
+  ].forEach(function (entry) {
+    const savedNode = ensureObject(savedTowerNodes[entry.regionId]);
+    const savedRegion = ensureObject(savedRegionalProgress[entry.regionId]);
+    const savedNodeResearch = ensureObject(savedResearch[entry.researchName]);
+    const hasDeposits = Object.values(ensureObject(savedNode.deposits)).some(function (amount) { return Number(amount) > 0; });
+    const constructionAlreadyAvailable = !!savedNode.researchUnlocked || !!savedNode.built || hasDeposits || Number(savedNode.imbueProgress) > 0;
+
+    if (constructionAlreadyAvailable) {
+      savedNode.activated = true;
+      savedNode.researchUnlocked = true;
+      savedNodeResearch.completed = true;
+      savedNodeResearch.unlocked = false;
+    } else if (savedRegion.disturbanceResolved) {
+      savedNode.activated = true;
+      savedNode.researchUnlocked = false;
+      savedNodeResearch.completed = false;
+      savedNodeResearch.unlocked = true;
+      savedNodeResearch.unlockedAt = Number.isFinite(savedNodeResearch.unlockedAt) ? savedNodeResearch.unlockedAt : Date.now();
+    }
+
+    savedTowerNodes[entry.regionId] = savedNode;
+    savedResearch[entry.researchName] = savedNodeResearch;
+  });
+
+  savedGameState.towerNodes = savedTowerNodes;
+  saveData.gameState = savedGameState;
+  saveData.research = savedResearch;
 }
 
 function migrateV30SaveDataToV31(saveData) {
@@ -1254,6 +1329,7 @@ function applyResourceSaveData(savedResources) {
     if (!resource || !savedResource) continue;
 
     applySavedFields(resource, savedResource, ["value", "maxValue", "perClick", "perSecond", "restPerSecond"]);
+    resource.discovered = !!savedResource.discovered || !!savedResource.visible || savedResource.value > 0;
     resource.value = Math.min(roundResourceAmount(resource.value), resource.maxValue);
 
     if (resource.display) {
@@ -1272,6 +1348,10 @@ function applyResourceSaveData(savedResources) {
 
 function applyGameStateSaveData(savedGameState) {
   if (!savedGameState) return;
+
+  // Older saves predate the western capstone; never inherit another save's win.
+  gameState.brokenWardenDefeated = !!savedGameState.brokenWardenDefeated;
+  gameState.tierFourCompleted = !!savedGameState.tierFourCompleted;
 
   applySavedFields(gameState, savedGameState, [
     "phase",
@@ -1302,6 +1382,8 @@ function applyGameStateSaveData(savedGameState) {
     "personalWardUnlocked",
     "personalWardPopupShown",
     "combatVictories",
+    "brokenWardenDefeated",
+    "tierFourCompleted",
     "destination",
     "hasCamp",
   ]);

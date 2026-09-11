@@ -92,7 +92,7 @@ const tests = `
   assert(ui.manaBoltBtn.style.display === "block", "Combat shows Mana Bolt at Level 5");
   assert(startManaBoltCast(), "Mana Bolt starts at Level 5 when its mana cost is available");
 
-  now = 2000;
+  now = gameState.combat.cast.endTime;
   spendManaBoltProgress(now);
   assert(mana.value === 10, "Mana Bolt preserves its 10 mana cost");
   assert(arcaneForceXp === 10, "Mana Bolt mana expenditure grants Arcane Force XP once");

@@ -1,4 +1,5 @@
 const unlockHandlers = {
+  researchSystem: function (id) { unlockResearchSystem(id); },
   resource: function (id) {
     unlockResource(id);
   },
@@ -752,14 +753,6 @@ function ensureElementalState() {
     }
   }
 
-  const elemental = gameState.elementals.earth;
-  if (gameState.regionalProgress && gameState.regionalProgress.east && gameState.regionalProgress.east.capabilityDiscovered) {
-    elemental.capabilities.equipmentUnlocked = true;
-  }
-  if (gameState.regionalProgress && gameState.regionalProgress.south && gameState.regionalProgress.south.capabilityDiscovered) {
-    elemental.capabilities.attunementUnlocked = true;
-  }
-
   normalizeBoundEarthElementalAssignments();
 }
 
@@ -887,7 +880,7 @@ function getBoundEarthElementalJobRequirementStatus(destination, source = null) 
 }
 
 function isBoundEarthElementalTowerUnlocked() {
-  return !!gameState.towerConstructionUnlocked;
+  return !!gameState.towerConstructionUnlocked && !!getResearch("elementalBinding").completed;
 }
 
 function isValidBoundEarthElementalDestination(destination) {
@@ -1008,7 +1001,7 @@ function unassignBoundEarthElemental(source) {
 
 function createBoundEarthElemental() {
   if (!isBoundEarthElementalTowerUnlocked()) {
-    announceUiStatus("The Tower must be available before a core can be bound.");
+    announceUiStatus("Restore the Tower and complete Elemental Binding research before binding a core.");
     return false;
   }
   if (!spendCost({ earthElementalCore: 1 })) {
@@ -1018,11 +1011,6 @@ function createBoundEarthElemental() {
 
   const elemental = getBoundEarthElementalState();
   elemental.owned += 1;
-
-  if (!elemental.bindingDiscovered) {
-    elemental.bindingDiscovered = true;
-    addStoryEntry("At the Tower Heart, the Earth Elemental Core accepts a stable binding. The Bound Earth Elemental can now join the Tower's regional labor network.");
-  }
 
   announceUiStatus("A Bound Earth Elemental answers the Tower Heart.");
   refreshBoundEarthElementalUI();
@@ -1391,12 +1379,34 @@ function unlockRegion(regionId) {
   gameState.world.regions[regionId].unlocked = true;
 }
 
+function unlockResearchSystem(id) {
+  if (!getResearch(id)?.completed) return;
+  if (id === "manaCycling") { unlockManaCyclingFromResearch(); return; }
+  const elemental = getBoundEarthElementalState();
+  if (id === "elementalBinding") elemental.bindingDiscovered = true;
+  if (id === "elementalHarnessing" && !elemental.capabilities.equipmentUnlocked) {
+    elemental.capabilities.equipmentUnlocked = true;
+    addJournalEntry("elementalHarnessesLearned");
+  }
+  if (id === "elementalAttunement" && !elemental.capabilities.attunementUnlocked) {
+    elemental.capabilities.attunementUnlocked = true;
+    addJournalEntry("elementalAttunementsLearned");
+  }
+}
+
+function hasResearchDiscoveryResources(research) {
+  return (research.requiresDiscoveredResources || []).every(isResourceDiscovered);
+}
+
 function applyResearchUnlocks(researchName) {
   const research = getResearch(researchName);
 
   if (!research || !Array.isArray(research.unlocks)) return;
 
   applyUnlocks(research.unlocks);
+  if (research.unlocks.some(unlock => unlock.type === "researchSystem" && unlock.id !== "manaCycling")) {
+    refreshBoundEarthElementalUI();
+  }
 }
 
 function unlockResearch(researchName) {
@@ -1407,7 +1417,7 @@ function unlockResearch(researchName) {
     return;
   }
 
-  if (research.completed || research.unlocked) return;
+  if (research.completed || research.unlocked || !hasResearchDiscoveryResources(research)) return;
 
   research.unlocked = true;
   research.unlockedAt = Date.now();
@@ -1440,6 +1450,7 @@ function completeResearch(researchName, costAlreadyPaid = false) {
   }
 
   applyResearchUnlocks(researchName);
+  checkResearchDiscoveries();
   recordDeepThought(research.deepThought || 1, research.label);
 
   if (typeof checkRank2SkillUnlocks === "function") {
@@ -1455,11 +1466,18 @@ function completeResearch(researchName, costAlreadyPaid = false) {
 }
 
 function checkResearchDiscoveries() {
+  ["manaCycling", "elementalBinding", "elementalHarnessing", "elementalAttunement"].forEach(unlockResearchSystem);
   const researchDefinitions = getResearchDefinitions();
 
   for (let researchName in researchDefinitions) {
     const research = getResearch(researchName);
 
+    const activeResearch = gameState.activity?.kind === "craft" && gameState.activity.type === "research" && gameState.activity.id === researchName;
+    // A paid legacy activity may finish; hiding it must not discard its cost or progress.
+    if (!research.completed && !activeResearch && !hasResearchDiscoveryResources(research)) {
+      research.unlocked = false;
+      continue;
+    }
     if (!isResearchDiscoverable(research)) continue;
 
     unlockResearch(researchName);
@@ -1469,7 +1487,10 @@ function checkResearchDiscoveries() {
 function isResearchDiscoverable(research) {
   if (!research || research.completed || research.unlocked) return false;
 
-  if (!research.requires) return false;
+  if (!research.requires || !hasResearchDiscoveryResources(research)) return false;
+  if (!(research.requires.regionalDisturbances || []).every(function (region) {
+    return region === "north" ? !!gameState.northernDisturbance?.resolved : !!gameState.regionalProgress?.[region]?.disturbanceResolved;
+  })) return false;
 
   if (!hasRequiredResearchLocations(research.requires.locationsExplored)) {
     return false;
@@ -1738,8 +1759,20 @@ function isCampEquipmentCraftContextAvailable(craft) {
   return !!craft && !!craft.campUpgradeRequired && isCampCraftingContext() && hasPurchasedCampUpgrade(craft.campUpgradeRequired);
 }
 
+function isCraftCampUpgradeRequirementMet(craft) {
+  return !craft || !craft.requiresCampUpgrade || hasPurchasedCampUpgrade(craft.requiresCampUpgrade);
+}
+
+function getCraftCampUpgradeRequirementReason(craft) {
+  if (isCraftCampUpgradeRequirementMet(craft)) return "";
+
+  const upgrade = getCampUpgrade(craft.requiresCampUpgrade);
+  return "Requires " + (upgrade ? upgrade.displayName || upgrade.label : craft.requiresCampUpgrade);
+}
+
 function getActiveCraftContext(craft) {
   if (!craft) return null;
+  if (!isCraftCampUpgradeRequirementMet(craft)) return null;
 
   if (craft.requiredTowerRoom) {
     if (!isCampCraftingContext() || !isTowerRoomCompleted(craft.requiredTowerRoom)) return null;
@@ -2042,7 +2075,10 @@ function syncHomeStructureUnlocks() {
   if (!gameState.hasCamp) return;
 
   const workbench = getCampUpgrade("workbench");
-  if (workbench && !workbench.purchased && !workbench.unlocked) unlockCampUpgrade("workbench");
+  const stone = getResource("stone");
+  const stoneDiscovered = !!stone && (stone.value > 0 || (!!stone.display && stone.display.style.display !== "none"));
+
+  if (stoneDiscovered && workbench && !workbench.purchased && !workbench.unlocked) unlockCampUpgrade("workbench");
 }
 
 // Check Clearing Complete Phase Helper
@@ -3218,6 +3254,11 @@ function resolveManaSenseReveal(revealContext) {
   if (reveal.popup === "campFoundation") {
     showCampFoundationPopup();
   }
+
+  if (revealId === "campFoundation") {
+    if (typeof updateHomeAreaAvailability === "function") updateHomeAreaAvailability();
+    if (typeof syncMainViewAvailability === "function") syncMainViewAvailability();
+  }
 }
 
 function repairSpellUnlocksFromFlags() {
@@ -3520,11 +3561,14 @@ function updateCraftButtonsForType(craftType, definitions) {
     let uiAvailability = { state: "ready", reason: "" };
 
     if (isActiveCraft) {
-      uiAvailability = { state: "running", reason: "Workbench task in progress" };
+      uiAvailability = { state: "running", reason: "Crafting in progress" };
     } else if (isActivityActive()) {
       uiAvailability = { state: "busy", reason: "Another task is in progress" };
     } else if (!available) {
-      uiAvailability = { state: "wrong-context", reason: "Requirements are not met for this work" };
+      uiAvailability = {
+        state: "wrong-context",
+        reason: getCraftCampUpgradeRequirementReason(craft) || "Requirements are not met for this work",
+      };
     } else if (!canAffordCost(cost)) {
       uiAvailability = { state: "unaffordable", reason: getUiCostShortfall(cost) || "Insufficient resources" };
     }
@@ -4539,22 +4583,16 @@ function resolveRegionalDisturbanceVictory(regionId) {
   if (progress.disturbanceResolved) return;
   progress.disturbanceResolved = true;
   progress.capabilityDiscovered = true;
-  const elemental = getBoundEarthElementalState();
 
   if (regionId === "east") {
-    elemental.capabilities.equipmentUnlocked = true;
-    addStoryEntry("Runed Leather bends without losing its magical pattern. With it, you can craft persistent harnesses that give Bound Earth Elementals specialized tools and leverage.");
-    addJournalEntry("elementalHarnessesLearned");
+    addStoryEntry("Runed Leather preserves an unusual magical pattern. With knowledge of elemental binding, you could study how it might anchor equipment.");
     activateTowerNode("east", true);
-    unlockTowerNodeBuild("east");
   } else if (regionId === "south") {
-    elemental.capabilities.attunementUnlocked = true;
-    addStoryEntry("Natural Essence carries a compressed instinct for living systems. Bound into an elemental, it could provide just enough perception to recognize useful herbs.");
-    addJournalEntry("elementalAttunementsLearned");
+    addStoryEntry("Natural Essence carries a compressed instinct for living systems. With knowledge of elemental binding, you could study its potential for magical specialization.");
     activateTowerNode("south", true);
-    unlockTowerNodeBuild("south");
   }
 
+  checkResearchDiscoveries();
   updateCurrentGoalUI();
   updateLocationActions();
   updatePlacePanel();
@@ -5047,7 +5085,8 @@ function createBoundEarthElementalCraftingDropdown() {
     progress: false,
     onClick: createBoundEarthElemental,
   });
-  createButton.disabled = coreCount <= 0;
+  createButton.disabled = coreCount <= 0 || !isBoundEarthElementalTowerUnlocked();
+  createButton.hidden = !getResearch("elementalBinding").completed;
   content.appendChild(createButton);
 
   if (elemental.capabilities.equipmentUnlocked && !isTowerRoomCompleted("workshop")) {
@@ -7173,6 +7212,8 @@ function resetProjectWorkButtonProgress(projectName) {
   });
 }
 
+const RESEARCH_CATEGORY_ORDER = ["Survival", "Craft", "Magic", "Tower", "Automation"];
+
 function getVisibleResearchEntries() {
   const entries = [];
 
@@ -7183,23 +7224,45 @@ function getVisibleResearchEntries() {
 
     if (!research.unlocked && !research.completed) continue;
 
+    const isInProgress =
+      isActivityActive() && gameState.activity.kind === "craft" && gameState.activity.type === "research" && gameState.activity.id === researchName;
+    const stationRequirementReason = getCraftCampUpgradeRequirementReason(research);
+
     entries.push({
       id: researchName,
       type: "research",
       label: research.label,
+      category: research.category || "Survival",
       story: research.story || "",
       unlocks: research.unlocks || [],
-      status: research.completed ? "complete" : research.blocked || !areResearchStartRequirementsMet(research) ? "blocked" : "available",
-      lockedReason: research.lockedReason || "",
+      status: research.completed
+        ? "complete"
+        : isInProgress
+          ? "in-progress"
+          : research.blocked || !areResearchStartRequirementsMet(research) || !!stationRequirementReason
+            ? "blocked"
+            : "available",
+      lockedReason: stationRequirementReason || research.lockedReason || "",
       unlockedAt: research.unlockedAt || 0,
     });
   }
 
   entries.sort(function (a, b) {
-    return (b.unlockedAt || 0) - (a.unlockedAt || 0);
+    const statusDifference = getResearchStatusPriority(a.status) - getResearchStatusPriority(b.status);
+    if (statusDifference !== 0) return statusDifference;
+
+    const unlockDifference = (b.unlockedAt || 0) - (a.unlockedAt || 0);
+    return unlockDifference !== 0 ? unlockDifference : a.label.localeCompare(b.label);
   });
 
   return entries;
+}
+
+function getResearchStatusPriority(status) {
+  if (status === "available") return 0;
+  if (status === "in-progress") return 1;
+  if (status === "blocked") return 2;
+  return 3;
 }
 
 function getResearchEntry(entryType, entryId) {
@@ -7229,37 +7292,62 @@ function updateResearchHistoryUI() {
     gameState.selectedResearchEntry = getResearchEntryKey(entries[0]);
   }
 
-  let selectedEntry = null;
+  let selectedEntry = entries.find(function (entry) {
+    return getResearchEntryKey(entry) === gameState.selectedResearchEntry;
+  }) || null;
 
-  entries.forEach(function (entry) {
-    const key = getResearchEntryKey(entry);
-
-    if (key === gameState.selectedResearchEntry) {
-      selectedEntry = entry;
-    }
-
-    const button = document.createElement("button");
-    button.type = "button";
-    button.classList.add("research-list-item", "ui-summary-list-item");
-    button.classList.toggle("active", key === gameState.selectedResearchEntry);
-
-    const title = document.createElement("span");
-    title.textContent = entry.label;
-
-    const status = document.createElement("span");
-    status.classList.add("research-status");
-    status.textContent = getResearchStatusLabel(entry.status);
-
-    button.appendChild(title);
-    button.appendChild(status);
-
-    button.addEventListener("click", function () {
-      gameState.selectedResearchEntry = key;
-      updateResearchHistoryUI();
-    });
-
-    ui.researchList.appendChild(button);
+  const activeEntries = entries.filter(function (entry) { return entry.status !== "complete"; });
+  const learnedEntries = entries.filter(function (entry) { return entry.status === "complete"; });
+  const populatedCategories = RESEARCH_CATEGORY_ORDER.filter(function (category) {
+    return activeEntries.some(function (entry) { return entry.category === category; });
   });
+  const uncataloguedCategories = activeEntries.map(function (entry) { return entry.category; }).filter(function (category, index, categories) {
+    return !RESEARCH_CATEGORY_ORDER.includes(category) && categories.indexOf(category) === index;
+  });
+
+  populatedCategories.concat(uncataloguedCategories).forEach(function (category) {
+    const section = document.createElement("section");
+    section.classList.add("research-category");
+
+    const heading = document.createElement("h4");
+    heading.classList.add("research-category-heading");
+    heading.textContent = category;
+    section.appendChild(heading);
+
+    const items = document.createElement("div");
+    items.classList.add("research-category-items");
+    activeEntries.filter(function (entry) { return entry.category === category; }).forEach(function (entry) {
+      items.appendChild(createResearchListItem(entry));
+    });
+    section.appendChild(items);
+    ui.researchList.appendChild(section);
+  });
+
+  if (learnedEntries.length > 0) {
+    const learned = document.createElement("details");
+    learned.classList.add("research-category", "research-learned");
+    learned.open = ui.researchList.dataset.learnedExpanded === "true";
+
+    const summary = document.createElement("summary");
+    summary.classList.add("research-category-heading");
+    summary.append("Learned");
+
+    const count = document.createElement("span");
+    count.textContent = String(learnedEntries.length);
+    summary.appendChild(count);
+    learned.appendChild(summary);
+
+    const learnedItems = document.createElement("div");
+    learnedItems.classList.add("research-category-items");
+    learnedEntries.forEach(function (entry) {
+      learnedItems.appendChild(createResearchListItem(entry));
+    });
+    learned.appendChild(learnedItems);
+    learned.addEventListener("toggle", function () {
+      ui.researchList.dataset.learnedExpanded = String(learned.open);
+    });
+    ui.researchList.appendChild(learned);
+  }
 
   if (!selectedEntry) {
     selectedEntry = entries[0];
@@ -7267,6 +7355,44 @@ function updateResearchHistoryUI() {
   }
 
   renderResearchDetails(selectedEntry);
+}
+
+function createResearchListItem(entry) {
+  const key = getResearchEntryKey(entry);
+  const button = document.createElement("button");
+  button.type = "button";
+  button.classList.add("research-list-item", "ui-summary-list-item");
+  button.classList.toggle("active", key === gameState.selectedResearchEntry);
+  button.dataset.researchStatus = entry.status;
+  if (key === gameState.selectedResearchEntry) button.setAttribute("aria-current", "true");
+
+  const title = document.createElement("span");
+  title.textContent = entry.label;
+
+  const status = document.createElement("span");
+  status.classList.add("research-status");
+  status.textContent = getResearchStatusLabel(entry.status);
+
+  button.appendChild(title);
+  button.appendChild(status);
+
+  button.addEventListener("click", function () {
+    gameState.selectedResearchEntry = key;
+    updateResearchHistoryUI();
+    focusResearchDetailsOnMobile();
+  });
+
+  return button;
+}
+
+function focusResearchDetailsOnMobile() {
+  if (!ui.researchDetails || !window.matchMedia || !window.matchMedia("(max-width: 719px)").matches) return;
+
+  requestAnimationFrame(function () {
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    ui.researchDetails.focus({ preventScroll: true });
+    ui.researchDetails.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "nearest" });
+  });
 }
 
 function renderResearchDetails(entry) {
@@ -7311,7 +7437,7 @@ function renderResearchDetails(entry) {
     ui.researchDetails.appendChild(createUiEmptyState(entry.lockedReason || "More information is needed before this research can begin."));
   }
 
-  if (entry.type === "research" && entry.status === "available") {
+  if (entry.type === "research" && (entry.status === "available" || entry.status === "in-progress")) {
     const research = getResearch(entry.id);
 
     const costTitle = document.createElement("h5");
@@ -7346,8 +7472,9 @@ function renderResearchDetails(entry) {
 }
 
 function getResearchStatusLabel(status) {
-  if (status === "complete") return "Complete";
-  if (status === "blocked") return "Incomplete";
+  if (status === "complete") return "Learned";
+  if (status === "blocked") return "Locked";
+  if (status === "in-progress") return "In progress";
 
   return "Available";
 }
@@ -7371,10 +7498,32 @@ function updateSelectedResearchButtonState() {
 
   button.disabled = !isActiveResearch && (isActivityActive() || !canStartResearch);
   button.classList.toggle("running", isActiveResearch);
+
+  if (typeof applyUiActionState === "function") {
+    let availability = { state: "ready", reason: "" };
+
+    if (isActiveResearch) {
+      availability = { state: "running", reason: "Research in progress" };
+    } else if (isActivityActive()) {
+      availability = { state: "busy", reason: "Another task is in progress" };
+    } else if (!isCraftAvailable("research", researchName)) {
+      availability = {
+        state: "wrong-context",
+        reason: getCraftCampUpgradeRequirementReason(research) || research.lockedReason || "Research requirements are not met",
+      };
+    } else if (!canAffordCost(getCraftCost("research", researchName))) {
+      availability = { state: "unaffordable", reason: getUiCostShortfall(getCraftCost("research", researchName)) || "Insufficient resources" };
+    }
+
+    applyUiActionState(button, availability, "craft:research:" + researchName);
+  }
 }
 
 function getUnlockDisplayText(unlock) {
   if (!unlock) return "Unknown";
+  if (unlock.type === "researchSystem") {
+    return { elementalBinding: "Create Bound Earth Elemental", elementalHarnessing: "Elemental Harnesses", elementalAttunement: "Elemental Attunements", manaCycling: "Mana Cycling skill and practice" }[unlock.id] || unlock.id;
+  }
 
   if (unlock.type === "gearUpgrade") {
     const gear = getGearUpgrade(unlock.id);

@@ -5,6 +5,7 @@ const MAIN_VIEW_NAMES = ["home", "camp", "expedition", "magic", "tower", "journa
 const UI_VITAL_RESOURCE_NAMES = ["energy", "mana", "focus", "ward"];
 let currentMainView = null;
 let mainViewUserSelected = false;
+let homeTowerViewEntryActive = false;
 let shellEnhanced = false;
 let activeUiModal = null;
 let uiModalReturnFocus = null;
@@ -12,6 +13,9 @@ let uiActionRefreshFrame = null;
 let lastInventorySummarySignature = "";
 let lastShellContextSignature = "";
 let lastActivitySignature = "";
+let lastRenderedGoalId = null;
+let objectiveExpanded = false;
+let objectiveAutoExpandReady = false;
 let lastCampWorkVisible = null;
 const resourceRenderCache = new Map();
 const actionStateRenderCache = new Map();
@@ -88,6 +92,9 @@ function hookDomToUI() {
   ui.currentGoalSection = document.getElementById("currentGoalSection");
   ui.currentGoalTitle = document.getElementById("currentGoalTitle");
   ui.currentGoalText = document.getElementById("currentGoalText");
+  ui.currentGoalProgress = document.getElementById("currentGoalProgress");
+  ui.currentGoalDetails = document.getElementById("currentGoalDetails");
+  ui.objectiveDisclosureBtn = document.getElementById("objectiveDisclosureBtn");
   ui.inventorySummary = document.getElementById("inventorySummary");
   ui.notificationStack = document.getElementById("notificationStack");
   ui.journalEntries = document.getElementById("journalEntries");
@@ -220,6 +227,13 @@ function hookDomToUI() {
   ui.journalSwitchTabs = Array.from(document.querySelectorAll("[data-journal-view]"));
   ui.journalSubpanels = Array.from(document.querySelectorAll("[data-journal-panel]"));
   ui.storyLog = document.getElementById("storyLog");
+
+  if (ui.objectiveDisclosureBtn && !ui.objectiveDisclosureBtn.dataset.hooked) {
+    ui.objectiveDisclosureBtn.addEventListener("click", function () {
+      setObjectiveExpanded(!objectiveExpanded, { userInitiated: true });
+    });
+    ui.objectiveDisclosureBtn.dataset.hooked = "true";
+  }
 
   if (ui.inventorySummary) {
     ui.inventorySummary.addEventListener("click", function () {
@@ -1357,7 +1371,14 @@ function hookMainViewTabs() {
 function setMainView(viewName, options = {}) {
   if (!MAIN_VIEW_NAMES.includes(viewName)) return;
 
-  const targetView = isMainViewAvailable(viewName) ? viewName : getDefaultMainView();
+  const canEnterTowerFromHome = viewName === "tower" && options.homeTowerEntry &&
+    !!(gameState.magic && gameState.magic.sensedReveals && gameState.magic.sensedReveals.campFoundation);
+  if (viewName !== "tower") homeTowerViewEntryActive = false;
+  else if (canEnterTowerFromHome) homeTowerViewEntryActive = true;
+
+  const hasTransientAccess = viewName === "tower" && homeTowerViewEntryActive;
+  const targetView = isMainViewAvailable(viewName) || hasTransientAccess ? viewName : getDefaultMainView();
+  if (targetView !== "tower") homeTowerViewEntryActive = false;
 
   currentMainView = targetView;
 
@@ -1365,6 +1386,8 @@ function setMainView(viewName, options = {}) {
     mainViewUserSelected = true;
     markMajorSystemSeen(targetView);
   }
+
+  if (homeTowerViewEntryActive && ui.towerPanel) showElement(ui.towerPanel, "flex");
 
   updateMainViewTabStates();
 }
@@ -1376,7 +1399,8 @@ function syncMainViewAvailability() {
   syncMajorSystemUnlocks();
 
   const defaultView = getDefaultMainView();
-  const shouldUseDefault = !currentMainView || !isMainViewAvailable(currentMainView) || (!mainViewUserSelected && currentMainView !== defaultView);
+  const hasTransientAccess = currentMainView === "tower" && homeTowerViewEntryActive;
+  const shouldUseDefault = !currentMainView || (!isMainViewAvailable(currentMainView) && !hasTransientAccess) || (!mainViewUserSelected && currentMainView !== defaultView);
 
   setMainView(shouldUseDefault ? defaultView : currentMainView);
 }
@@ -1396,7 +1420,7 @@ function syncContextPanelVisibility() {
     hideElement(ui.magicPanel);
   }
 
-  if (isMainViewAvailable("tower")) {
+  if (isMainViewAvailable("tower") || homeTowerViewEntryActive) {
     showElement(ui.towerPanel, "flex");
   } else {
     hideElement(ui.towerPanel);
@@ -1438,12 +1462,13 @@ function getDefaultMainView() {
     return "expedition";
   }
 
-  return "camp";
+  return "home";
 }
 
 function isMainViewAvailable(viewName) {
   if (viewName === "home") return isHomeUnlocked();
-  if (viewName === "camp" || viewName === "journal") return true;
+  if (viewName === "camp") return typeof isHomeCampEstablished === "function" ? isHomeCampEstablished() : !!gameState.hasCamp;
+  if (viewName === "journal") return true;
 
   if (viewName === "expedition") {
     return gameState.phase === "expedition" || !!gameState.expedition.active || !!gameState.expedition.currentLocation;
@@ -1461,12 +1486,7 @@ function isMainViewAvailable(viewName) {
 }
 
 function isHomeUnlocked() {
-  return gameState.discoveredBerryBush &&
-    gameState.discoveredStream &&
-    gameState.discoveredDeadfall &&
-    typeof hasPurchasedCampUpgrade === "function" &&
-    hasPurchasedCampUpgrade("smallFire") &&
-    hasPurchasedCampUpgrade("crudeLeanTo");
+  return true;
 }
 
 function hasMagicViewContent() {
@@ -1715,6 +1735,7 @@ function updateLocationPrimaryActionsVisibility() {
 
 //UI Unlock Resource and Panels
 function unlockResource(resourceName) {
+  discoverResource(resourceName);
   const resource = getResource(resourceName);
   const resourceElement = resourceElements[resourceName];
 
@@ -1727,9 +1748,6 @@ function unlockResource(resourceName) {
 
   showElement(resourceElement, "block");
 
-  if (resourceName === "mana" && typeof unlockManaCyclingForManaAccess === "function") {
-    unlockManaCyclingForManaAccess();
-  }
 
   updateCampResourcesSectionVisibility();
 }
@@ -2615,9 +2633,15 @@ function updateCurrentGoalUI() {
     return;
   }
 
+  const isNewGoal = objectiveAutoExpandReady && lastRenderedGoalId !== null && lastRenderedGoalId !== gameState.currentGoalId;
+  if (isNewGoal) objectiveExpanded = true;
+  lastRenderedGoalId = gameState.currentGoalId;
+
   showElement(ui.currentGoalSection, "flex");
   safeSetText(ui.currentGoalTitle, goal.title);
   ui.currentGoalText.innerHTML = "";
+  let visibleItemCount = 0;
+  let completedItemCount = 0;
 
   if (goal.text) {
     const text = document.createElement("div");
@@ -2633,6 +2657,8 @@ function updateCurrentGoalUI() {
       if (item.isVisible && !item.isVisible()) return;
 
       const isComplete = item.isComplete ? item.isComplete() : false;
+      visibleItemCount += 1;
+      if (isComplete) completedItemCount += 1;
       const listItem = document.createElement("li");
       listItem.classList.toggle("complete", isComplete);
 
@@ -2651,8 +2677,40 @@ function updateCurrentGoalUI() {
     ui.currentGoalText.appendChild(list);
   }
 
+  if (ui.currentGoalProgress) {
+    ui.currentGoalProgress.hidden = visibleItemCount === 0;
+    setUiTextIfChanged(ui.currentGoalProgress, visibleItemCount > 0 ? completedItemCount + " / " + visibleItemCount : "");
+  }
+
+  if (ui.currentGoalSection) {
+    if (isNewGoal) ui.currentGoalSection.dataset.newObjective = "true";
+    setObjectiveExpanded(objectiveExpanded);
+  }
+
   renderCampActivityLine();
   updateWorkflowPanels();
+}
+
+function setObjectiveExpanded(expanded, options = {}) {
+  objectiveExpanded = !!expanded;
+
+  if (ui.currentGoalSection) {
+    ui.currentGoalSection.dataset.expanded = String(objectiveExpanded);
+    if (options.userInitiated) delete ui.currentGoalSection.dataset.newObjective;
+  }
+
+  if (ui.objectiveDisclosureBtn) {
+    ui.objectiveDisclosureBtn.setAttribute("aria-expanded", String(objectiveExpanded));
+    ui.objectiveDisclosureBtn.setAttribute("aria-label", (objectiveExpanded ? "Collapse" : "Expand") + " current objective details");
+  }
+
+  if (ui.currentGoalDetails) ui.currentGoalDetails.hidden = !objectiveExpanded;
+}
+
+function enableObjectiveAutoExpansion() {
+  lastRenderedGoalId = gameState.currentGoalId;
+  objectiveAutoExpandReady = true;
+  setObjectiveExpanded(false);
 }
 
 function setCurrentGoal(goalId) {
@@ -2712,22 +2770,24 @@ function renderCampActivityLine() {
     if (lastActivitySignature) announceUiStatus("The current task has ended.");
     lastActivitySignature = "";
     ui.activeTaskCard.dataset.active = "false";
-    ui.activeTaskCard.setAttribute("aria-label", "Activity: ready");
-    setUiTextIfChanged(ui.activeTaskStatusText, "Activity");
-    setUiTextIfChanged(ui.activeTaskTitle, "Ready");
+    ui.activeTaskCard.hidden = true;
+    ui.activeTaskCard.setAttribute("aria-label", "");
+    setUiTextIfChanged(ui.activeTaskStatusText, "In progress");
+    setUiTextIfChanged(ui.activeTaskTitle, "");
     updateActiveTaskProgress(0, 0);
     return;
   }
 
   const activity = gameState.activity;
   const signature = [activity.kind, activity.type, activity.id, activity.mode, activityText].join("|");
+  ui.activeTaskCard.hidden = false;
   ui.activeTaskCard.dataset.active = "true";
   ui.activeTaskCard.setAttribute("aria-label", "Activity: " + activityText);
-  setUiTextIfChanged(ui.activeTaskStatusText, "Activity");
+  setUiTextIfChanged(ui.activeTaskStatusText, "In progress");
+  setUiTextIfChanged(ui.activeTaskTitle, activityText);
 
   if (signature !== lastActivitySignature) {
     lastActivitySignature = signature;
-    setUiTextIfChanged(ui.activeTaskTitle, activityText);
     announceUiStatus("Task started: " + activityText);
   }
 

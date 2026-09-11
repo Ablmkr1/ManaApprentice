@@ -181,7 +181,7 @@ const tests = `
   const mana = getResource("mana");
   mana.maxValue = 200;
   mana.value = 200;
-  rollCombatRange = function (range) { return range.min; };
+
 
   setRankTwoLevel(4);
   assert(!isManaMissileUnlocked(), "Mana Missile is locked below Rank II Level 5");
@@ -190,14 +190,16 @@ const tests = `
   const missileXpStart = ensureArcaneForceRankTwoState().rankTwoXp;
   assert(startManaMissileCast(), "Mana Missile becomes available at Rank II Level 5");
   spendArcaneCombatCastProgress(gameState.combat.cast.endTime);
-  assert(ensureArcaneForceRankTwoState().rankTwoXp - missileXpStart === 12, "Mana Missile grants Arcane Force XP from its actual mana spend");
-  assert(completeManaMissileCast() === 18, "Mana Missile performs three Force-Power-scaled low-damage hits");
-  assert(gameState.combat.resultMessage.includes("strikes 3 times"), "Mana Missile reports its multi-hit resolution");
+  assert(ensureArcaneForceRankTwoState().rankTwoXp - missileXpStart === 11, "Mana Missile grants Arcane Force XP from its actual mana spend");
+  testGameTime = gameState.combat.cast.endTime + 200;
+  processCombatTick();
+  assert(gameState.combat.enemyHealth === 170, "Mana Missile performs three separately scaled fixed hits");
+  assert(gameState.combat.events.filter(e => e.type === "hit").length === 3, "Mana Missile reports three separate hit events");
 
   setRankTwoLevel(7);
   assert(hasArcaneEfficiency(), "Arcane Efficiency activates at Rank II Level 7");
-  assert(getArcaneCombatManaCost("manaMissile") === 9.6, "Arcane Efficiency reduces Mana Missile cost by exactly 20%");
-  assert(getArcaneCombatCastTime("manaMissile") === 1, "Arcane Efficiency converts Mana Missile's 1.25s cast to 1s");
+  assert(getArcaneCombatManaCost("manaMissile") === 8.8, "Arcane Efficiency reduces Mana Missile cost by exactly 20%");
+  assert(getArcaneCombatCastTime("manaMissile") === 1.92, "Arcane Efficiency converts Mana Missile cast to 1.92s");
   resetCombat(200);
   mana.value = 200;
   const efficientXpStart = ensureArcaneForceRankTwoState().rankTwoXp;
@@ -206,20 +208,24 @@ const tests = `
   assert(startManaBoltCast(), "Mana Bolt remains available after Rank II techniques unlock");
   spendArcaneCombatCastProgress(gameState.combat.cast.endTime);
   assert(ensureArcaneForceRankTwoState().rankTwoXp - efficientXpStart === 8, "Efficient Mana Bolt XP reflects the discounted 8 mana actually spent");
-  assert(completeManaBoltCast() === 19, "Mana Bolt receives full Force Power damage scaling with integer rounding");
+  testGameTime = gameState.combat.cast.endTime;
+  processCombatTick();
+  assert(gameState.combat.enemyHealth === 176, "Mana Bolt receives full fixed Force Power damage scaling");
 
   setRankTwoLevel(9);
   assert(!isManaLanceUnlocked(), "Mana Lance is locked below Rank II Level 10");
   setRankTwoLevel(10);
   assert(isManaLanceUnlocked(), "Mana Lance unlocks at Rank II Level 10");
-  assert(getArcaneCombatManaCost("manaLance") === 16 && getArcaneCombatCastTime("manaLance") === 1.4, "Mana Lance receives centralized Arcane Efficiency cost and speed modifiers");
+  assert(getArcaneCombatManaCost("manaLance") === 12.8 && getArcaneCombatCastTime("manaLance") === 2.4, "Mana Lance receives centralized Arcane Efficiency cost and speed modifiers");
   resetCombat(200);
   mana.value = 200;
   const lanceXpStart = ensureArcaneForceRankTwoState().rankTwoXp;
   assert(startManaLanceCast(), "Mana Lance starts through the shared combat casting path");
   spendArcaneCombatCastProgress(gameState.combat.cast.endTime);
-  assert(ensureArcaneForceRankTwoState().rankTwoXp - lanceXpStart === 16, "Mana Lance grants Arcane Force XP from its actual discounted mana spend");
-  assert(completeManaLanceCast() === 54, "Mana Lance delivers one high-damage hit with 300% Force Power");
+  assert(Math.abs(ensureArcaneForceRankTwoState().rankTwoXp - lanceXpStart - 12.8) < 0.00001, "Mana Lance grants Arcane Force XP from its actual discounted mana spend");
+  testGameTime = gameState.combat.cast.endTime;
+  processCombatTick();
+  assert(gameState.combat.enemyHealth === 128, "Mana Lance delivers 72 fixed damage with 300% Force Power");
 
   const migrated = { magic: { spellProgress: { arcaneForce: { level: 5, xp: 150 } } } };
   normalizeSavedArcaneForceRankTwoState(migrated);

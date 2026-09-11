@@ -66,8 +66,6 @@ const clearingPlace = {
             { type: "flag", id: "discoveredDeadfall" },
             { type: "resource", id: "wood" },
             { type: "action", id: "gatherWood" },
-            { type: "campUpgrade", id: "smallFire" },
-            { type: "campUpgrade", id: "crudeLeanTo" },
           ],
         },
       ],
@@ -532,7 +530,7 @@ const expeditionLocations = {
     ],
     panelText: {
       discovered: "A vine-covered hut waits in the southern overgrowth. Strange scents cling to the air around it.",
-      explored: "The abandoned hut has storage, tools, and enough old notes to begin simple alchemy.",
+      explored: "The abandoned alchemy workshop still holds useful equipment and notes. Fresh materials and further study are needed before you can use them.",
     },
     availableActions: ["storeWood", "storeHerb", "storeGlimmerleaf", "concentrateTonicBase", "concentrateManaTonicBase"],
     explorableObjects: {
@@ -1621,6 +1619,7 @@ const dungeonDefinitions = {
 const researchDefinitions = {
   cordage: {
     label: "Cordage",
+    category: "Survival",
     duration: 5,
     deepThought: 1,
     completed: false,
@@ -1643,6 +1642,7 @@ const researchDefinitions = {
 
   simpleTraps: {
     label: "Simple Traps",
+    category: "Survival",
     duration: 3,
     deepThought: 1,
     completed: false,
@@ -1666,6 +1666,7 @@ const researchDefinitions = {
 
   hideworking: {
     label: "Hideworking",
+    category: "Craft",
     duration: 7,
     deepThought: 2,
     completed: false,
@@ -1688,6 +1689,7 @@ const researchDefinitions = {
 
   leatherworking: {
     label: "Leatherworking",
+    category: "Craft",
     duration: 9,
     deepThought: 3,
     completed: false,
@@ -1716,6 +1718,7 @@ const researchDefinitions = {
 
   crudeBackpack: {
     label: "Crude Backpack",
+    category: "Craft",
     duration: 5,
     deepThought: 1,
     completed: false,
@@ -1737,6 +1740,7 @@ const researchDefinitions = {
 
   smellyShoes: {
     label: "Smelly Shoes",
+    category: "Craft",
     duration: 5,
     deepThought: 1,
     completed: false,
@@ -1756,6 +1760,7 @@ const researchDefinitions = {
 
   scratchyClothes: {
     label: "Scratchy Clothes",
+    category: "Craft",
     duration: 5,
     deepThought: 1,
     completed: false,
@@ -1778,6 +1783,7 @@ const researchDefinitions = {
 
   uncomfortableCot: {
     label: "Ugly Cot",
+    category: "Survival",
     duration: 5,
     deepThought: 1,
     completed: false,
@@ -1798,8 +1804,10 @@ const researchDefinitions = {
 
   stoneTools: {
     label: "Stone Tools",
+    category: "Craft",
     duration: 5,
     deepThought: 1,
+    requiresCampUpgrade: "workbench",
     completed: false,
     unlocked: false,
     cost: {
@@ -1823,6 +1831,7 @@ const researchDefinitions = {
 
   ruinedTorch: {
     label: "Ruined Torch",
+    category: "Survival",
     duration: 8,
     deepThought: 2,
     completed: false,
@@ -1847,7 +1856,9 @@ const researchDefinitions = {
   },
 
   smelting: {
+    requiresDiscoveredResources: ["ore"],
     label: "Smelting",
+    category: "Craft",
     duration: 5,
     deepThought: 3,
     completed: false,
@@ -1871,6 +1882,7 @@ const researchDefinitions = {
 
   crudeIronPick: {
     label: "Crude Iron Pick",
+    category: "Craft",
     duration: 5,
     deepThought: 2,
     completed: false,
@@ -1893,6 +1905,7 @@ const researchDefinitions = {
 
   ironTools: {
     label: "Iron Tools",
+    category: "Craft",
     duration: 5,
     deepThought: 2,
     completed: false,
@@ -1916,6 +1929,7 @@ const researchDefinitions = {
 
   salvagedSheltercraft: {
     label: "Salvaged Sheltercraft",
+    category: "Survival",
     duration: 6,
     deepThought: 2,
     completed: false,
@@ -1936,6 +1950,7 @@ const researchDefinitions = {
 
   sturdyConstruction: {
     label: "Sturdy Construction",
+    category: "Survival",
     duration: 5,
     deepThought: 3,
     completed: false,
@@ -1957,6 +1972,7 @@ const researchDefinitions = {
 
   automationPrinciples: {
     label: "Automation Principles",
+    category: "Automation",
     duration: 8,
     deepThought: 5,
     completed: false,
@@ -1967,9 +1983,6 @@ const researchDefinitions = {
       manaCrystal: 2,
       iron: 1,
     },
-    requires: {
-      locationsExplored: ["silentGearworks"],
-    },
     story:
       "The ruin's mechanisms are not alive, exactly. They remember motion when mana is fed into them: a task, a rhythm, a cycle repeated until the charge fades.",
     unlocks: [
@@ -1979,7 +1992,9 @@ const researchDefinitions = {
   },
 
   alchemy: {
+    requiresDiscoveredResources: ["herb"],
     label: "Alchemy",
+    category: "Craft",
     duration: 5,
     deepThought: 3,
     completed: false,
@@ -2001,6 +2016,7 @@ const researchDefinitions = {
 
   manaTonics: {
     label: "Mana Tonics",
+    category: "Magic",
     duration: 6,
     deepThought: 3,
     completed: false,
@@ -2022,6 +2038,7 @@ const researchDefinitions = {
 
   alchemyBelt2: {
     label: "Improved Tonic Belt",
+    category: "Craft",
     duration: 5,
     deepThought: 2,
     completed: false,
@@ -2042,6 +2059,7 @@ const researchDefinitions = {
 
   alchemyBelt3: {
     label: "Reinforced Tonic Belt",
+    category: "Craft",
     duration: 5,
     deepThought: 2,
     completed: false,
@@ -2062,6 +2080,7 @@ const researchDefinitions = {
 
   meditation: {
     label: "Meditation",
+    category: "Magic",
     duration: 8,
     deepThought: 4,
     completed: false,
@@ -2083,7 +2102,9 @@ const researchDefinitions = {
   },
 
   manaCycling: {
+    requiresDiscoveredResources: ["manaCrystal"],
     label: "Mana Cycling",
+    category: "Magic",
     duration: 8,
     deepThought: 4,
     completed: false,
@@ -2095,16 +2116,118 @@ const researchDefinitions = {
     },
     requires: {
       flags: ["magicUnlocked"],
-      campUpgradesPurchased: ["meditationSpot"],
     },
     discoveryStory:
       "As mana returns, you begin to notice that it does not simply appear. It follows a path through you. With practice, that path might be widened.",
     story: "Careful meditation reveals the first safe path for cycling mana through yourself instead of casting it outward.",
-    unlocks: [],
+    unlocks: [{ type: "researchSystem", id: "manaCycling" }],
+  },
+
+  elementalBinding: {
+    label: "Elemental Binding",
+    category: "Magic",
+    duration: 8,
+    deepThought: 4,
+    completed: false,
+    unlocked: false,
+    requiresDiscoveredResources: [
+      "earthElementalCore"
+    ],
+    cost: {
+      energy: 40,
+      focus: 5
+    },
+    requires: {
+      flags: [
+        "towerConstructionUnlocked"
+      ],
+      regionalDisturbances: [
+        "north"
+      ]
+    },
+    discoveryStory: "You can study the recovered core at the restored Tower Heart to learn how to bind an elemental worker.",
+    story: "The core accepts a stable control bond. You can now create Bound Earth Elementals at the Tower Heart.",
+    unlocks: [
+      {
+        type: "researchSystem",
+        id: "elementalBinding"
+      }
+    ]
+  },
+
+  elementalHarnessing: {
+    label: "Elemental Harnessing",
+    category: "Magic",
+    duration: 8,
+    deepThought: 4,
+    completed: false,
+    unlocked: false,
+    requiresDiscoveredResources: [
+      "runedLeather"
+    ],
+    cost: {
+      energy: 40,
+      focus: 5
+    },
+    requires: {
+      flags: [
+        "towerConstructionUnlocked"
+      ],
+      regionalDisturbances: [
+        "east"
+      ],
+      researchCompleted: [
+        "elementalBinding"
+      ]
+    },
+    discoveryStory: "Runed Leather may anchor enchanted equipment to a bound elemental. Its binding matrix must first learn to recognize external equipment.",
+    story: "You learn to anchor enchanted material to a bound elemental, letting its matrix recognize external equipment without disrupting the control bond.",
+    unlocks: [
+      {
+        type: "researchSystem",
+        id: "elementalHarnessing"
+      }
+    ]
+  },
+
+  elementalAttunement: {
+    label: "Elemental Attunement",
+    category: "Magic",
+    duration: 8,
+    deepThought: 4,
+    completed: false,
+    unlocked: false,
+    requiresDiscoveredResources: [
+      "naturalEssence"
+    ],
+    cost: {
+      energy: 40,
+      focus: 5
+    },
+    requires: {
+      flags: [
+        "towerConstructionUnlocked"
+      ],
+      regionalDisturbances: [
+        "south"
+      ],
+      researchCompleted: [
+        "elementalBinding"
+      ]
+    },
+    discoveryStory: "Natural Essence suggests a magical specialization for elemental workers, if its living pattern can be safely integrated.",
+    story: "You learn to integrate natural magical essence into an elemental binding matrix without destabilizing it. Elemental attunements are now available.",
+    unlocks: [
+      {
+        type: "researchSystem",
+        id: "elementalAttunement"
+      }
+    ]
   },
 
   campTanning: {
     label: "Camp Tanning",
+    category: "Craft",
     duration: 8,
     deepThought: 3,
     completed: false,
@@ -2125,6 +2248,7 @@ const researchDefinitions = {
 
   campSmelting: {
     label: "Camp Smelting",
+    category: "Craft",
     duration: 10,
     deepThought: 4,
     completed: false,
@@ -2145,7 +2269,9 @@ const researchDefinitions = {
   },
 
   campAlchemy: {
+    requiresDiscoveredResources: ["herb","glimmerleaf","manaCrystal"],
     label: "Camp Alchemy",
+    category: "Craft",
     duration: 8,
     deepThought: 3,
     completed: false,
@@ -2166,7 +2292,9 @@ const researchDefinitions = {
   },
 
   ancientManaCondenser: {
+    requiresDiscoveredResources: ["chargedCrystal"],
     label: "Ancient Mana Condenser",
+    category: "Magic",
     duration: 12,
     deepThought: 5,
     completed: false,
@@ -2187,6 +2315,7 @@ const researchDefinitions = {
 
   towerFoundations: {
     label: "Tower Foundations",
+    category: "Tower",
     duration: 10,
     deepThought: 5,
     completed: false,
@@ -2209,6 +2338,7 @@ const researchDefinitions = {
 
   towerBasement: {
     label: "Tower Basement",
+    category: "Tower",
     duration: 10,
     deepThought: 6,
     completed: false,
@@ -2232,7 +2362,9 @@ const researchDefinitions = {
   },
 
   steelworking: {
+    requiresDiscoveredResources: ["ore","manaCrystal"],
     label: "Steelworking",
+    category: "Craft",
     duration: 16,
     deepThought: 8,
     completed: false,
@@ -2265,7 +2397,9 @@ const researchDefinitions = {
   },
 
   attunedMeditation: {
+    requiresDiscoveredResources: ["manaCrystal","chargedCrystal"],
     label: "Attuned Meditation",
+    category: "Magic",
     duration: 10,
     deepThought: 6,
     completed: false,
@@ -2292,6 +2426,7 @@ const researchDefinitions = {
 
   northernTowerNode: {
     label: "Northern Tower Node",
+    category: "Tower",
     duration: 8,
     deepThought: 5,
     completed: false,
@@ -2314,6 +2449,54 @@ const researchDefinitions = {
       { type: "towerNode", id: "north" },
       { type: "journal", id: "northernTowerNodeResearch" },
     ],
+  },
+
+  easternTowerNode: {
+    requiresDiscoveredResources: ["runedLeather"],
+    label: "Eastern Tower Node",
+    category: "Tower",
+    duration: 8,
+    deepThought: 5,
+    completed: false,
+    unlocked: false,
+    cost: {
+      energy: 60,
+      focus: 8,
+      runedLeather: 1,
+    },
+    requires: {
+      locationsExplored: ["huntersCabin"],
+      towerNodes: {
+        east: { activated: true },
+      },
+    },
+    story:
+      "The eastern signal resolves into a stable node pattern, with runed bindings able to carry the Heart's commands into the deepwood.",
+    unlocks: [{ type: "towerNode", id: "east" }],
+  },
+
+  southernTowerNode: {
+    requiresDiscoveredResources: ["naturalEssence"],
+    label: "Southern Tower Node",
+    category: "Tower",
+    duration: 8,
+    deepThought: 5,
+    completed: false,
+    unlocked: false,
+    cost: {
+      energy: 60,
+      focus: 8,
+      naturalEssence: 1,
+    },
+    requires: {
+      locationsExplored: ["alchemistsHut"],
+      towerNodes: {
+        south: { activated: true },
+      },
+    },
+    story:
+      "The southern signal resolves into a node pattern precise enough to carry tools and delicate instructions through the overgrowth.",
+    unlocks: [{ type: "towerNode", id: "south" }],
   },
 };
 
@@ -2885,6 +3068,7 @@ const towerNodeDefinitions = {
     locationName: "huntersCabin",
     regionId: "east",
     destinationLabel: "Eastern Node",
+    researchName: "easternTowerNode",
     materials: { stone: 30, iron: 8, chargedCrystal: 4 },
     imbueRequired: 60,
     imbueCost: { mana: 10 },
@@ -2897,7 +3081,7 @@ const towerNodeDefinitions = {
     completeTitle: "Eastern Node Online",
     incompleteDescription: "The cabin's foundation hides a distant anchor. Stone, iron, charged crystals, and imbuement can bind it to the Heart.",
     completeDescription: "The Eastern Node carries the Heart's commands into the deepwood. Equipped Earth Elementals can now work here.",
-    activationStory: "Runed Leather reveals a dormant anchor beneath the Hunter's Cabin. The Eastern Node can now be rebuilt.",
+    activationStory: "Runed Leather reveals a dormant anchor beneath the Hunter's Cabin. Its pattern is clear enough to study, but not yet to rebuild.",
     builtStory: "The Eastern Node locks into the Heart's rhythm. Its connection reaches the hunting grounds without weakening the Tower's control.",
     builtJournal: "easternTowerNodeBuilt",
   },
@@ -2906,6 +3090,7 @@ const towerNodeDefinitions = {
     locationName: "alchemistsHut",
     regionId: "south",
     destinationLabel: "Southern Node",
+    researchName: "southernTowerNode",
     materials: { stone: 25, iron: 5, chargedCrystal: 6 },
     imbueRequired: 60,
     imbueCost: { mana: 10 },
@@ -2918,7 +3103,7 @@ const towerNodeDefinitions = {
     completeTitle: "Southern Node Online",
     incompleteDescription: "An old anchor sleeps beneath the hut's herb-drying floor. Stone, iron, charged crystals, and imbuement can reconnect it.",
     completeDescription: "The Southern Node carries precise instructions into the overgrowth. Properly equipped and attuned Earth Elementals can now work here.",
-    activationStory: "Natural Essence makes the old bindings beneath the Alchemist's Hut perceptible. The Southern Node can now be rebuilt.",
+    activationStory: "Natural Essence makes the old bindings beneath the Alchemist's Hut perceptible. Their living pattern is clear enough to study, but not yet to rebuild.",
     builtStory: "The Southern Node opens to the Heart. The connection is steady enough to carry both tools and delicate sensory instructions.",
     builtJournal: "southernTowerNodeBuilt",
   },
@@ -3596,6 +3781,7 @@ const gearUpgrades = {
   },
   leatherShirt: {
     label: "Leather Shirt (-2 Exploration Energy)",
+    requiresCampUpgrade: "workbench",
     displayName: "Leather Shirt",
     equipmentType: "gear",
     slot: "chest",
@@ -3650,6 +3836,7 @@ const gearUpgrades = {
   },
   leatherPants: {
     label: "Leather Pants (-20% Travel Energy)",
+    requiresCampUpgrade: "workbench",
     displayName: "Leather Pants",
     equipmentType: "gear",
     slot: "legs",
@@ -3732,6 +3919,7 @@ const gearUpgrades = {
 
   reinforcedWaterskin: {
     label: "Reinforced Waterskin (25 Water Capacity)",
+    requiresCampUpgrade: "workbench",
     displayName: "Reinforced Waterskin",
     equipmentType: "gear",
     slot: "water",
@@ -3819,6 +4007,7 @@ const gearUpgrades = {
 
   travelBoots: {
     label: "Travel Boots (+100% Travel Distance)",
+    requiresCampUpgrade: "workbench",
     displayName: "Travel Boots",
     equipmentType: "gear",
     slot: "feet",
@@ -3843,6 +4032,7 @@ const gearUpgrades = {
 
   stoneKnife: {
     label: "Stone Knife (+1 Fiber, +1 Hunt Pelt)",
+    requiresCampUpgrade: "workbench",
     duration: 10,
     displayName: "Stone Knife",
     equipmentType: "tool",
@@ -3872,6 +4062,7 @@ const gearUpgrades = {
 
   ironKnife: {
     label: "Iron Knife (+2 Fiber, +2 Hunt Pelts)",
+    requiresCampUpgrade: "workbench",
     duration: 15,
     displayName: "Iron Knife",
     equipmentType: "tool",
@@ -3926,6 +4117,7 @@ const gearUpgrades = {
 
   stoneAxe: {
     label: "Stone Axe (+1 Wood)",
+    requiresCampUpgrade: "workbench",
     displayName: "Stone Axe",
     equipmentType: "tool",
     slot: "axe",
@@ -3954,6 +4146,7 @@ const gearUpgrades = {
 
   ironAxe: {
     label: "Iron Axe (+2 Wood)",
+    requiresCampUpgrade: "workbench",
     displayName: "Iron Axe",
     equipmentType: "tool",
     slot: "axe",
@@ -4009,6 +4202,7 @@ const gearUpgrades = {
 
   patchedLeatherBackpack: {
     label: "Patched Leather Backpack (Inventory 35)",
+    requiresCampUpgrade: "workbench",
     displayName: "Patched Backpack",
     equipmentType: "gear",
     slot: "pack",
@@ -4045,6 +4239,7 @@ const gearUpgrades = {
 
   repairedLeatherBackpack: {
     label: "Repaired Leather Backpack (Inventory 50)",
+    requiresCampUpgrade: "workbench",
     displayName: "Leather Backpack",
     equipmentType: "gear",
     slot: "pack",
@@ -4107,6 +4302,7 @@ const gearUpgrades = {
 
   crudeIronPick: {
     label: "Crude Iron Pick (Mine 2 Ore)",
+    requiresCampUpgrade: "workbench",
     displayName: "Crude Iron Pick",
     equipmentType: "tool",
     slot: "pick",
@@ -4161,6 +4357,7 @@ const gearUpgrades = {
 
   ironStaff: {
     label: "Iron Staff (Combat Cast Speed +15%, Combat Mana Cost -10%)",
+    requiresCampUpgrade: "workbench",
     displayName: "Iron Staff",
     equipmentType: "tool",
     slot: "staff",
@@ -4207,6 +4404,7 @@ const gearUpgrades = {
 
   simpleTonicBelt: {
     label: "Simple Tonic Belt (1 Tonic)",
+    requiresCampUpgrade: "workbench",
     displayName: "Simple Tonic Belt",
     equipmentType: "gear",
     slot: "belt",
@@ -4234,6 +4432,7 @@ const gearUpgrades = {
 
   tonicBelt: {
     label: "Tonic Belt (2 Tonics)",
+    requiresCampUpgrade: "workbench",
     displayName: "Tonic Belt",
     equipmentType: "gear",
     slot: "belt",
@@ -4265,6 +4464,7 @@ const gearUpgrades = {
 
   reinforcedTonicBelt: {
     label: "Reinforced Tonic Belt (3 Tonics)",
+    requiresCampUpgrade: "workbench",
     displayName: "Reinforced Tonic Belt",
     equipmentType: "gear",
     slot: "belt",

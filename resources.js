@@ -12,6 +12,19 @@ function formatResourceAmountForDisplay(value) {
   return Math.floor(roundResourceAmount(value) * 10) / 10;
 }
 
+// Discovery survives spending the last unit and does not depend on affordability.
+function isResourceDiscovered(resourceName) {
+  const resource = getResource(resourceName);
+  return !!resource && (!!resource.discovered || resource.value > 0 || !!(resource.display && resource.display.style.display !== "none"));
+}
+
+function discoverResource(resourceName) {
+  const resource = getResource(resourceName);
+  if (!resource || resource.discovered) return;
+  resource.discovered = true;
+  if (typeof checkResearchDiscoveries === "function") checkResearchDiscoveries();
+}
+
 // Add Resource Function
 function addResource(resourceName, amount) {
   const resource = getResource(resourceName);
@@ -19,6 +32,7 @@ function addResource(resourceName, amount) {
   resource.value = roundResourceAmount(resource.value + amount);
   resource.value = Math.min(resource.value, resource.maxValue);
 
+  if (amount > 0) discoverResource(resourceName);
   updateResource(resourceName);
 
   if (typeof updateSelectedResearchButtonState === "function") {
