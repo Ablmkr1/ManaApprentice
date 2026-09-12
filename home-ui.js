@@ -84,12 +84,13 @@ const HOME_AREA_DEFINITIONS = {
     description: "Continue the skills and training currently available in Camp.",
     nodeIds: ["trainingSection"],
   },
-  automation: {
-    title: "Runed Devices",
-    description: "Manage the same camp automation controls from their place in the clearing.",
-    nodeIds: ["craftingSection"],
-    workPanel: "automation",
-  },
+// RETIRED: Tower Heart controls replace this camp automation screen.
+//   automation: {
+//     title: "Runed Devices",
+//     description: "Manage the same camp automation controls from their place in the clearing.",
+//     nodeIds: ["craftingSection"],
+//     workPanel: "automation",
+//   },
   storage: {
     title: "Storage Cache",
     description: "Review the supplies currently stored at camp.",
@@ -381,7 +382,8 @@ function updateHomeAreaAvailability() {
   setHomeAreaVisible("processing", established && typeof hasPurchasedCampUpgrade === "function" && hasPurchasedCampUpgrade("campAlchemyStation"));
   setHomeAreaVisible("meditation", established && typeof hasPurchasedCampUpgrade === "function" && (hasPurchasedCampUpgrade("meditationSpot") || hasPurchasedCampUpgrade("attunedMeditationSpot")));
   setHomeAreaVisible("training", established && isHomeNodeAvailable("trainingSection"));
-  setHomeAreaVisible("automation", established && typeof hasUnlockedAutomation === "function" && hasUnlockedAutomation());
+  // RETIRED: setHomeAreaVisible("automation", established && hasUnlockedAutomation());
+  setHomeAreaVisible("automation", false);
   setHomeAreaVisible("storage", established && isHomeNodeAvailable("campResourcesSection"));
 
   const workSpot = document.querySelector('[data-home-area="workspot"]');

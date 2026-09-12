@@ -185,27 +185,7 @@ function hookActionCompletions() {
   getAction("checkTrap").onComplete = function () {
     const locationName = gameState.expedition.currentLocation;
     const location = getExpeditionLocation(locationName);
-    const trapSiteData = getTrapSiteData(locationName);
-    const site = getFirstUncheckedInstalledTrapSite(locationName);
-
-    if (!location || !trapSiteData || !site) {
-      updateLocationActions();
-      return;
-    }
-
-    site.checkedThisVisit = true;
-
-    if (Math.random() < trapSiteData.successChance) {
-      const peltsCarried = addCarriedItemUpToCapacity(trapSiteData.reward, 1);
-
-      if (peltsCarried === 1) {
-        addStoryEntry("You find a pelt in the trap.");
-      } else {
-        addStoryEntry("You find a pelt, but your hands are full.");
-      }
-    } else {
-      addStoryEntry("The trap is empty.");
-    }
+    collectInstalledTrap(locationName);
 
     updateTrapSitesUI(location);
     updateLocationActions();
@@ -957,6 +937,7 @@ function getActionActivityContext(actionName, actionCost) {
 }
 
 function resetActivity() {
+  if (gameState.equipment) gameState.equipment.pending = null;
   gameState.activity.active = false;
   gameState.activity.kind = null;
   gameState.activity.type = null;
@@ -1153,6 +1134,29 @@ function processActivityTick() {
 function completeActivity() {
   const activity = gameState.activity;
 
+  if (activity.kind === "towerBatch") {
+    const context = structuredClone(activity.context);
+    // Consume the callback before any resource updates can re-enter completion.
+    resetActivity();
+    completeTowerBatch(context);
+    refreshEquipmentCollection();
+    trySaveGame();
+    return;
+  }
+  if (activity.kind === "equipment") {
+    completeEquipmentOperation(activity.context);
+    resetActivity();
+    refreshEquipmentCollection();
+    trySaveGame();
+    return;
+  }
+  if (activity.kind === "study") {
+    addResource("focus", isTowerRoomUpgraded("library") ? TOWER_ROOM_STAGES.library.upgradedFocus : TOWER_ROOM_STAGES.library.focus);
+    resetActivity();
+    startLibraryStudy();
+    return;
+  }
+
   if (activity.kind === "rest") {
     const restProgressFill = ui.restBtn.querySelector(".progressFill");
 
@@ -1160,11 +1164,11 @@ function completeActivity() {
       restProgressFill.style.width = "0%";
     }
 
-    addResource("energy", getResource("energy").restPerSecond);
+    completeExplicitRest(activity);
     showCompletionFeedback(activity, ui.restBtn);
     activity.resourceSnapshot = getResourceSnapshot();
 
-    if (getResource("energy").value >= getResource("energy").maxValue) {
+    if (!needsExplicitRest(activity.context?.bedroom)) {
       resetActivity();
       updateRestButton();
       updateAllActionButtons();

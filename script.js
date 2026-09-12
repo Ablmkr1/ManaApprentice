@@ -1550,6 +1550,11 @@ function fillDevTierResources(tier) {
 }
 
 function finalizeDevTierJump(tier) {
+  const devSave = createSaveData();
+  delete devSave.gameState.equipment;
+  migrateTowerEquipmentSave(devSave);
+  gameState.equipment = devSave.gameState.equipment;
+  syncEquippedBaseStats();
   recalculateCharacterStats();
   recalculateCampEffects();
   recalculateToolEffects();
@@ -1593,7 +1598,7 @@ function updateRestButton() {
 
     if (isActivityActive()) {
       availability = { state: "busy", reason: "Another task is in progress" };
-    } else if (energy && energy.value >= energy.maxValue) {
+    } else if (!needsExplicitRest()) {
       availability = { state: "wrong-context", reason: "Energy is already full" };
     } else if (typeof canRestAtCurrentPlace === "function" && !canRestAtCurrentPlace()) {
       availability = { state: "wrong-context", reason: "Rest is unavailable here" };
@@ -1615,6 +1620,7 @@ function gameTick() {
   const resourceDefinitions = getResourceDefinitions();
 
   for (let resourceName in resourceDefinitions) {
+    if (resourceName === "mana") continue;
     const amount = resourceDefinitions[resourceName].perSecond * deltaSeconds;
 
     if (amount !== 0) {
@@ -1622,7 +1628,7 @@ function gameTick() {
     }
   }
 
-  processAutomation(deltaSeconds);
+  // RETIRED: processAutomation(deltaSeconds); Tower Heart workers replace standalone devices.
   processBoundEarthElementalAutomation(deltaSeconds);
   processActivityTick();
   processCombatTick();
@@ -1630,12 +1636,13 @@ function gameTick() {
 
 function startResting() {
   if (typeof canRestAtCurrentPlace === "function" && !canRestAtCurrentPlace()) return;
-  if (getResource("energy").value >= getResource("energy").maxValue) return;
+  if (!needsExplicitRest()) return;
   if (isActivityActive()) return;
 
   startActivity({
     kind: "rest",
     id: "rest",
+    context: { bedroom: isBedroomRestContext() },
     duration: getRestDuration(),
     interval: true,
   });

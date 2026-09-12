@@ -10,7 +10,7 @@ const files = [
   "definitions.js",
   "resources.js",
   "skills.js",
-  "camp.js",
+  "camp.js", "equipment.js",
   "expedition.js",
   "actions.js",
   "save.js",
@@ -78,41 +78,8 @@ const tests = `
   });
 
   assert(getTowerHeartElementalControlCapacity() === 5, "Tower Heart begins with 5 control capacity");
-  assert(getPurchasedEquipmentSlots("gear").filter(function (slot) { return slot.current.slot === "ring"; }).length === 1, "Rank II exposes exactly one Ring slot");
-
-  recalculateCharacterStats();
-  const baseManaMaximum = getResource("mana").maxValue;
-  const baseWardMaximum = getResource("ward").maxValue;
-  const manaRingAction = getImbueDefinition("rankTwoRingOfMana").permanentAction;
-  assert(canApplyImbueRankTwoTarget(manaRingAction), "Level 0 Ring of Mana is craftable once its component cost is available");
-  completeImbueRankTwoTarget(manaRingAction);
-  assert(ensureImbueRankTwoState().equippedRing === "ringOfMana", "Crafted Ring of Mana equips into the Ring slot");
-  assert(getEquippedPermanentImbueEffectTotal("maxManaFlat") === 10, "Ring of Mana grants the configured maximum Mana bonus");
-  assert(getResource("mana").maxValue === baseManaMaximum + 10, "Ring of Mana updates the actual maximum Mana resource");
-
-  const wardRingAction = getImbueDefinition("rankTwoRingOfWarding").permanentAction;
-  completeImbueRankTwoTarget(wardRingAction);
-  assert(getPurchasedEquipmentSlots("gear").filter(function (slot) { return slot.current.slot === "ring"; }).length === 1, "Crafting a second ring does not add another Ring slot");
-  assert(getEquippedPermanentImbueEffectTotal("maxWardFlat") === 10, "Ring of Warding grants the configured maximum Ward bonus");
-  assert(getResource("ward").maxValue === baseWardMaximum + 10, "Ring of Warding updates the actual maximum Ward resource");
-  equipImbueRing("ringOfMana");
-  assert(getEquippedPermanentImbueEffectTotal("maxWardFlat") === 0, "Unequipped rings do not contribute stats");
-
-  completeImbueRankTwoTarget(getImbueDefinition("rankTwoGreaterRingOfMana").permanentAction);
-  assert(getEquippedPermanentImbueEffectTotal("maxManaFlat") === 25, "Greater Ring of Mana upgrades the owned mana-ring path to its configured bonus");
-  completeImbueRankTwoTarget(getImbueDefinition("rankTwoGreaterRingOfWarding").permanentAction);
-  assert(getEquippedPermanentImbueEffectTotal("maxWardFlat") === 25, "Greater Ring of Warding upgrades the owned ward-ring path to its configured bonus");
-  assert(getPurchasedEquipmentSlots("gear").filter(function (slot) { return slot.current.slot === "ring"; }).length === 1, "Greater rings still share the single Ring slot");
-
-  completeImbueRankTwoTarget(getImbueDefinition("rankTwoBackpack").permanentAction);
-  assert(getImbuedBackpackCapacityBonus() === 15, "Backpack imbuement grants the configured permanent Pack bonus");
-  assert(getEffectiveCarryCapacity() === gameState.expedition.carryCapacity + 15, "Effective Pack capacity includes the imbuement");
-
-  const swiftstep = getImbueDefinition("rankTwoEnchant_swiftstep").permanentAction;
-  completeImbueRankTwoTarget(swiftstep);
-  assert(getEquippedPermanentImbueEffectTotal("travelDistanceFlat") === 0.5, "Equipment enchantment effects apply only through equipped gear");
-  assert(!canApplyImbueRankTwoTarget(getImbueDefinition("rankTwoEnchant_trailweave").permanentAction), "An equipment item cannot hold a second permanent Imbue enchantment");
-
+  assert(getPurchasedEquipmentSlots("gear").filter(slot => ["leftRing", "rightRing"].includes(slot.current.slot)).length === 2, "Rank II exposes Left and Right Ring slots");
+  assert(!canApplyImbueRankTwoTarget(getImbueDefinition("rankTwoRingOfMana").permanentAction), "Legacy Heart ring binding is replaced by Study instance operations");
   completeImbueRankTwoTarget(getImbueDefinition("rankTwoEmberboundFurnace").permanentAction);
   completeImbueRankTwoTarget(getImbueDefinition("rankTwoImbuedAlchemy").permanentAction);
   assert(getImbueWorkshopFuelCost("furnace", 5) === 2.5, "Emberbound Furnace halves fuel use");

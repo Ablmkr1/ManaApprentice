@@ -663,7 +663,7 @@ function getCurrentSkillLevelDefinition(skillName) {
 function getMeditationManaRestoreAmount() {
   const levelDefinition = getCurrentSkillLevelDefinition("meditation");
 
-  return levelDefinition && Number.isFinite(levelDefinition.manaRestore) ? levelDefinition.manaRestore : 1;
+  return (levelDefinition && Number.isFinite(levelDefinition.manaRestore) ? levelDefinition.manaRestore : 1) * getEquippedPermanentImbueEffectMultiplier("meditationMultiplier");
 }
 
 function getMeditationManaRestoreForLevel(levelDefinition) {
@@ -804,9 +804,9 @@ function recalculateCharacterStats() {
   const temporaryFocusMaxBonus = typeof getActiveAttunementEffectTotal === "function" ? getActiveAttunementEffectTotal("maxFocusFlat") : 0;
   setResourceMaxValue("focus", roundResourceAmount(getSkillCapacity("concentration") + temporaryFocusMaxBonus));
   const permanentManaBonus = typeof getEquippedPermanentImbueEffectTotal === "function" ? getEquippedPermanentImbueEffectTotal("maxManaFlat") : 0;
-  setResourceMaxValue("mana", roundResourceAmount(getSkillCapacity("manaCycling") + permanentManaBonus));
+  setResourceMaxValue("mana", roundResourceAmount(getSkillCapacity("manaCycling") + permanentManaBonus + getActiveAttunementEffectTotal("maxManaFlat")));
   const mana = getResource("mana");
-  if (mana) mana.perSecond = typeof getActiveAttunementEffectTotal === "function" ? getActiveAttunementEffectTotal("manaPerSecond") : 0;
+  if (mana) mana.perSecond = 0;
   syncWardResourceState();
   syncSpellUpgradeEffects();
   updateTrainingUI();
@@ -845,6 +845,7 @@ function getFireRecoveryDurationMultiplier() {
 }
 
 function getRestDuration() {
+  if (isBedroomRestContext() && isTowerRoomUpgraded("bedroom")) return TOWER_ROOM_STAGES.bedroom.seconds;
   return roundResourceAmount(1 * getFireRecoveryDurationMultiplier());
 }
 

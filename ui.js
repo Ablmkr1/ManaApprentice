@@ -1532,11 +1532,12 @@ const MAJOR_SYSTEM_UNLOCKS = {
     description: "A new path of long-term advancement is available.",
     isAvailable: function () { return isMainViewAvailable("tower"); },
   },
-  automation: {
-    title: "AUTOMATION UNLOCKED",
-    description: "Build machines that keep working with mana.",
-    isAvailable: function () { return typeof hasUnlockedAutomation === "function" && hasUnlockedAutomation(); },
-  },
+  // RETIRED: automation unlock notifications are superseded by Heart assignments.
+//   automation: {
+//     title: "AUTOMATION UNLOCKED",
+//     description: "Build machines that keep working with mana.",
+//     isAvailable: function () { return typeof hasUnlockedAutomation === "function" && hasUnlockedAutomation(); },
+//   },
 };
 
 function getMajorSystemUnlockState() {
@@ -1603,7 +1604,7 @@ function updateMajorSystemNewIndicators() {
     });
   }
 
-  updateSystemNewIndicator(ui.automationTabBtn, "automation");
+  // RETIRED: updateSystemNewIndicator(ui.automationTabBtn, "automation");
   updateSystemNewIndicator(ui.researchTabBtn, "research");
 }
 
@@ -2757,6 +2758,9 @@ function getCurrentActivitySummaryText() {
   if (activity.kind === "towerNodeImbue") return "Activating tower node";
   if (activity.kind === "towerNodeThreadSense") return "Sensing node thread";
   if (activity.kind === "rest") return "Resting";
+  if (activity.kind === "study") return "Studying for Focus";
+  if (activity.kind === "equipment") return "Equipment · " + activity.id;
+  if (activity.kind === "towerBatch") return "Batch crafting · " + activity.context.quantity;
 
   return "In progress";
 }
@@ -2838,6 +2842,7 @@ function updateWorkflowPanels() {
 }
 
 function addJournalEntry(entryId) {
+  if (entryId === "automationPrinciplesFound") return; // Retired automation research notification.
   if (gameState.journal.entries.includes(entryId)) return;
 
   const entry = getJournalEntryDefinition(entryId);
@@ -2865,6 +2870,7 @@ function updateJournalUI() {
   }
 
   gameState.journal.entries.forEach((entryId) => {
+    if (entryId === "automationPrinciplesFound") return; // Preserve saved history without exposing retired research.
     const entry = getJournalEntryDefinition(entryId);
 
     if (!entry) return;

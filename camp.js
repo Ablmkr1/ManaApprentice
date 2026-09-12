@@ -382,10 +382,12 @@ function completeWardChannel(context) {
   return restored > 0;
 }
 
-function applyWardDamage(amount) {
+function applyWardDamage(amount, source = "other") {
   const ward = getResource("ward");
   const state = getWardState();
-  const damage = roundResourceAmount(Math.max(0, Number(amount) || 0));
+  const previousWard = ward.value;
+  const multiplier = getEquippedPermanentImbueEffectMultiplier("wardDamageMultiplier") * (source === "basicAttack" ? getEquippedPermanentImbueEffectMultiplier("basicDamageMultiplier") : 1);
+  const damage = roundResourceAmount(Math.max(0, Number(amount) || 0) * multiplier);
 
   if (!ward || ward.value <= 0 || damage <= 0) return 0;
 
@@ -396,6 +398,12 @@ function applyWardDamage(amount) {
 
   const absorbed = roundResourceAmount(Math.min(ward.value, damage));
   ward.value = roundResourceAmount(ward.value - absorbed);
+  const c = ensureEquipmentCollection();
+  const legs = ownedEquipment(c.equipped.legs);
+  if (typeof isCombatActive === "function" && isCombatActive() && ward.value > 0 && previousWard >= ward.maxValue / 2 && ward.value < ward.maxValue / 2 && c.triggers.verdantItemId === legs?.id && itemEffects(legs).verdantRestCharge) {
+    c.triggers.verdantItemId = null;
+    ward.value = Math.min(ward.maxValue, ward.value + 15);
+  }
   updateResource("ward");
 
   if (ward.value <= 0) {
@@ -501,10 +509,13 @@ function isTowerFloorCompleted(floorId) {
 
 function isTowerRoomCompleted(roomId) {
   const state = getTowerRoomState(roomId);
-  return !!state && state.completed;
+  return !!state && (state.completed || state.level >= 1);
 }
 
+function isTowerRoomUpgraded(roomId) { return !!getTowerRoomState(roomId)?.completed; }
+
 function getTowerRoomEffectValue(effectType, fallbackValue) {
+  if (effectType === "imbueExperienceMultiplier") return isTowerRoomUpgraded("enchantingStudy") ? 1.2 : fallbackValue;
   const rooms = getTowerRoomDefinitions();
 
   for (let roomId in rooms) {
@@ -528,7 +539,8 @@ function areTowerPrerequisitesMet(prerequisites) {
       const state = getProjectState(projectId);
       return !!state && state.completed;
     }) &&
-    roomsCompleted.every(isTowerRoomCompleted)
+    roomsCompleted.every(isTowerRoomCompleted) &&
+    (!requirements.anyRoomsCompleted || requirements.anyRoomsCompleted.some(isTowerRoomCompleted))
   );
 }
 
@@ -664,6 +676,55 @@ function normalizeTowerNodeState(nodeName) {
 let lastBoundEarthAutomationUiSignature = "";
 let boundEarthElementalCraftingOpen = false;
 
+function isLocalGolemJobDiscovered(jobName) {
+  if (jobName === "traps") return !!getResearch("simpleTraps").completed &&
+    !!getExpeditionLocation("strangeTrails").explored &&
+    (getTrapSites("strangeTrails") || []).some(site => site.discovered && site.installed);
+  const activity = { food: "gatherFood", wood: "gatherWood", fiber: "gatherFiber" }[jobName];
+  // Action.unlocked is contextual and is cleared while the player travels.
+  // Permanent resource/location discovery keeps workers running independently.
+  if (!activity || !isResourceDiscovered(jobName)) return false;
+  if (jobName === "food") return !!gameState.discoveredBerryBush;
+  if (jobName === "wood") return !!gameState.discoveredDeadfall;
+  return !!getExpeditionLocation("mysteriousPlants").explored;
+}
+
+function getLocalTrapWorkerStatus() {
+  if (!isLocalGolemJobDiscovered("traps")) return "Blocked: no usable traps";
+  const data = getTrapSiteData("strangeTrails");
+  const reward = getResource(data.reward);
+  if (reward.value >= reward.maxValue) return "Storage full";
+  return getFirstUncheckedInstalledTrapSite("strangeTrails") ? "Ready" : "Waiting: next expedition resets traps";
+}
+
+function checkLocalGolemTraps(maxChecks = 1) {
+  let checked = false;
+  while (maxChecks-- > 0 && getLocalTrapWorkerStatus() === "Ready") {
+    if (!collectInstalledTrap("strangeTrails", { worker: true })) break;
+    checked = true;
+  }
+  if (checked) {
+    updateTrapSitesUI(getExpeditionLocation(gameState.expedition.currentLocation));
+    updateLocationActions();
+  }
+  return checked;
+}
+
+function getGolemJobStatusText(nodeName, jobName, workers) {
+  const job = getElementalNodeConfig(nodeName)?.jobs[jobName];
+  if (!job) return "";
+  if (job.trapCheck) {
+    const status = getLocalTrapWorkerStatus();
+    return workers > 0 ? (status === "Ready" ? "Check in " + formatCompactElementalReturn(getBoundEarthElementalCycle(nodeName, jobName).remaining) : status) : "1s per trap · One worker";
+  }
+  const resource = getResource(job.resource);
+  if (!isResourceDiscovered(job.resource)) return "";
+  if (workers > 0 && resource.value >= resource.maxValue) return "Storage full";
+  const output = getBoundEarthElementalJobBatchOutput(nodeName, jobName, workers || 1);
+  const rate = "+" + formatResourceAmountForDisplay(output) + " / " + job.cycleDuration + "s";
+  return rate + (workers > 0 ? " · Return: " + formatCompactElementalReturn(getBoundEarthElementalCycle(nodeName, jobName).remaining) : " per golem");
+}
+
 function getDefaultBoundEarthElementalState() {
   const config = getElementalAutomationConfig();
   const nodes = {};
@@ -748,7 +809,10 @@ function ensureElementalState() {
         saved.assignments.nodes[nodeName][jobName] = Math.max(0, Math.floor(Number(saved.assignments.nodes[nodeName][jobName]) || 0));
         const cycle = saved.cycles.nodes[nodeName][jobName];
         const remaining = cycle && Number.isFinite(cycle.remaining) ? cycle.remaining : 0;
-        saved.cycles.nodes[nodeName][jobName] = { remaining: Math.max(0, remaining) };
+        // Keep the shared cycle object stable while delivery helpers read state.
+        // Replacing it here could detach the timer currently being advanced.
+        if (!cycle || typeof cycle !== "object" || Array.isArray(cycle)) saved.cycles.nodes[nodeName][jobName] = {};
+        saved.cycles.nodes[nodeName][jobName].remaining = Math.max(0, remaining);
       }
     }
   }
@@ -820,10 +884,11 @@ function getTowerHeartElementalControlCapacity() {
 
 function getBoundEarthElementalNodeCapacity(nodeName) {
   const node = getElementalNodeConfig(nodeName);
-  return node ? node.elementalCapacity : 0;
+  return node?.local ? getTowerHeartElementalControlCapacity() : node ? node.elementalCapacity : 0;
 }
 
 function isBoundEarthElementalNodeUnlocked(nodeName) {
+  if (getElementalNodeConfig(nodeName)?.local) return isBoundEarthElementalTowerUnlocked();
   const node = getTowerNodeState(nodeName);
   const definition = getTowerNodeDefinition(nodeName);
   return !!node && node.built && (!!node.advancedRecallUnlocked || !!(definition && definition.automationOnBuild));
@@ -855,6 +920,9 @@ function getBoundEarthElementalCapabilityUseCount(kind, capabilityName, source =
 
 function getBoundEarthElementalJobRequirementStatus(destination, source = null) {
   if (!destination || destination.type !== "node") return { valid: true };
+  if (getElementalNodeConfig(destination.nodeName)?.local) {
+    return isLocalGolemJobDiscovered(destination.jobName) ? { valid: true } : { valid: false, reason: "This local activity is not available yet." };
+  }
   const nodeDefinition = getTowerNodeDefinition(destination.nodeName);
   const nodeState = getTowerNodeState(destination.nodeName);
   const job = getElementalNodeConfig(destination.nodeName)?.jobs[destination.jobName];
@@ -902,6 +970,8 @@ function validateBoundEarthElementalAssignment(destination, source = null) {
   const requirements = getBoundEarthElementalJobRequirementStatus(destination, source);
   if (!requirements.valid) return requirements;
 
+  const job = destination.type === "node" ? getElementalNodeConfig(destination.nodeName)?.jobs[destination.jobName] : null;
+  if (job?.maxWorkers && getBoundEarthElementalAssignmentCount(destination) >= job.maxWorkers) return { valid: false, reason: "One golem can check all installed traps." };
   const sourceCount = source ? getBoundEarthElementalAssignmentCount(source) : 0;
   if (source && sourceCount <= 0) return { valid: false, reason: "No Bound Earth Elemental is assigned there." };
   if (source && source.type === destination.type && source.nodeName === destination.nodeName && source.jobName === destination.jobName) {
@@ -1097,7 +1167,7 @@ function normalizeBoundEarthElementalAssignments() {
     let nodeRemaining = Math.min(nodeCapacity, remaining);
 
     for (let jobName in config.nodes[nodeName].jobs) {
-      assignments[jobName] = Math.min(Math.max(0, assignments[jobName] || 0), nodeRemaining);
+      assignments[jobName] = Math.min(Math.max(0, assignments[jobName] || 0), config.nodes[nodeName].jobs[jobName].maxWorkers || Infinity, nodeRemaining);
       nodeRemaining -= assignments[jobName];
       remaining -= assignments[jobName];
       if (assignments[jobName] <= 0) elemental.cycles.nodes[nodeName][jobName].remaining = 0;
@@ -1128,6 +1198,7 @@ function getBoundEarthElementalOptionalEquipmentWorkers(nodeName, jobName) {
 function getBoundEarthElementalJobBatchOutput(nodeName, jobName, workers) {
   const job = getElementalNodeConfig(nodeName)?.jobs[jobName];
   if (!job || workers <= 0) return 0;
+  if (nodeName === "local") return roundResourceAmount(workers * job.batchSize * getGatherResourceYield(job.resource));
   const equippedWorkers = getBoundEarthElementalOptionalEquipmentWorkers(nodeName, jobName);
   const harness = job.optionalEquipment ? getElementalHarnessDefinition(job.optionalEquipment) : null;
   const multiplier = harness && harness.effect && Number.isFinite(harness.effect.productionMultiplier) ? harness.effect.productionMultiplier : 1;
@@ -1135,6 +1206,7 @@ function getBoundEarthElementalJobBatchOutput(nodeName, jobName, workers) {
 }
 
 function processBoundEarthElementalAutomation(deltaSeconds) {
+  if (!Number.isFinite(deltaSeconds) || deltaSeconds <= 0) return;
   const config = getElementalAutomationConfig();
   let delivered = false;
 
@@ -1152,12 +1224,26 @@ function processBoundEarthElementalAutomation(deltaSeconds) {
         cycle.remaining = 0;
         continue;
       }
+      if (!isBoundEarthElementalNodeUnlocked(nodeName) || (nodeName === "local" && !isLocalGolemJobDiscovered(jobName))) continue;
+      if (job.trapCheck) {
+        if (getLocalTrapWorkerStatus() !== "Ready") continue;
+        cycle.remaining = (cycle.remaining || job.cycleDuration) - deltaSeconds;
+        if (cycle.remaining <= 0) {
+          const checks = Math.floor(-cycle.remaining / job.cycleDuration) + 1;
+          cycle.remaining += checks * job.cycleDuration;
+          delivered = checkLocalGolemTraps(checks) || delivered;
+        }
+        continue;
+      }
+      const resource = getResource(job.resource);
+      if (resource.value >= resource.maxValue) continue;
       if (cycle.remaining <= 0) cycle.remaining = job.cycleDuration;
 
       cycle.remaining -= deltaSeconds;
-      while (cycle.remaining <= 0) {
-        addResource(job.resource, getBoundEarthElementalJobBatchOutput(nodeName, jobName, workers));
-        cycle.remaining += job.cycleDuration;
+      if (cycle.remaining <= 0) {
+        const batches = Math.floor(-cycle.remaining / job.cycleDuration) + 1;
+        cycle.remaining += batches * job.cycleDuration;
+        addResource(job.resource, getBoundEarthElementalJobBatchOutput(nodeName, jobName, workers) * batches);
         delivered = true;
       }
     }
@@ -1183,6 +1269,8 @@ function getBoundEarthElementalAutomationSignature() {
   for (let nodeName in config.nodes) {
     for (let jobName in config.nodes[nodeName].jobs) {
       values.push(Math.ceil(getBoundEarthElementalCycle(nodeName, jobName).remaining));
+      const job = config.nodes[nodeName].jobs[jobName];
+      values.push(job.trapCheck ? getLocalTrapWorkerStatus() : getResource(job.resource).value);
     }
   }
 
@@ -1238,9 +1326,7 @@ function updateBoundEarthElementalLiveUI() {
     const nodeName = parts[0];
     const jobName = parts[1];
     const workers = getBoundEarthElementalAssignmentCount({ type: "node", nodeName, jobName });
-    timer.textContent = workers > 0
-      ? "Return: " + formatCompactElementalReturn(getBoundEarthElementalCycle(nodeName, jobName).remaining)
-      : "—";
+    timer.textContent = getGolemJobStatusText(nodeName, jobName, workers);
   });
 
   document.querySelectorAll("[data-project-work-progress]").forEach(function (meter) {
@@ -1399,6 +1485,7 @@ function hasResearchDiscoveryResources(research) {
 }
 
 function applyResearchUnlocks(researchName) {
+  if (getResearch(researchName)?.retired) return;
   const research = getResearch(researchName);
 
   if (!research || !Array.isArray(research.unlocks)) return;
@@ -1410,6 +1497,7 @@ function applyResearchUnlocks(researchName) {
 }
 
 function unlockResearch(researchName) {
+  if (getResearch(researchName)?.retired) return;
   const research = getResearch(researchName);
 
   if (!research) {
@@ -1435,6 +1523,7 @@ function unlockResearch(researchName) {
 }
 
 function completeResearch(researchName, costAlreadyPaid = false) {
+  if (getResearch(researchName)?.retired) return;
   const research = getResearch(researchName);
 
   if (!research || research.completed) return;
@@ -1466,6 +1555,10 @@ function completeResearch(researchName, costAlreadyPaid = false) {
 }
 
 function checkResearchDiscoveries() {
+  if (gameState.towerConstructionUnlocked && gameState.archiveDoorOpened && getExpeditionLocation("arcaneArchive").explored) {
+    // Discovery only. Research, material deposits and imbuement are still required.
+    getTowerNodeState("west").activated = true;
+  }
   ["manaCycling", "elementalBinding", "elementalHarnessing", "elementalAttunement"].forEach(unlockResearchSystem);
   const researchDefinitions = getResearchDefinitions();
 
@@ -1485,6 +1578,8 @@ function checkResearchDiscoveries() {
 }
 
 function isResearchDiscoverable(research) {
+  if (research?.retired) return false;
+  if (research === getResearch("steelworking") && !research.completed && !isTowerRoomUpgraded("forge")) return false;
   if (!research || research.completed || research.unlocked) return false;
 
   if (!research.requires || !hasResearchDiscoveryResources(research)) return false;
@@ -1537,6 +1632,7 @@ function hasRequiredResearchTowerRooms(requiredRooms) {
 }
 
 function areResearchStartRequirementsMet(research) {
+  if (research === getResearch("steelworking") && !research.completed && !isTowerRoomUpgraded("forge")) return false;
   if (!research || !research.startRequires) return true;
   const requirements = research.startRequires;
   if (requirements.arcaneForceRank && getArcaneForceRank() < requirements.arcaneForceRank) return false;
@@ -1691,6 +1787,10 @@ function hookCampUpgradestoUI() {
 function updateCampUpgradeUI(upgradeName) {
   const upgrade = getCampUpgrade(upgradeName);
 
+  if (upgrade?.requiredLocation && upgrade.button && ui.locationPrimaryActions) {
+    // One control, owned by the Western location; never rendered in camp.
+    ui.locationPrimaryActions.appendChild(upgrade.button);
+  }
   updateCampUpgradeDisplay(upgrade);
 
   if (upgrade && upgrade.button && upgrade.unlocked && !upgrade.purchased) {
@@ -1771,7 +1871,12 @@ function getCraftCampUpgradeRequirementReason(craft) {
 }
 
 function getActiveCraftContext(craft) {
+  if (craft?.retired) return null;
   if (!craft) return null;
+  const towerStation = craft.imbueInfrastructure === "furnace" ? "forge" : craft.imbueInfrastructure === "alchemy" ? "alchemyRoom" : null;
+  if (towerStation && isCampCraftingContext() && isTowerRoomCompleted(towerStation) && gameState.tower?.selectedId === "room:" + towerStation) {
+    return { mode: "towerRoom", cost: getImbueAdjustedCraftCost(craft, craft.campCost || craft.cost || {}), storageCost: null, produces: craft.campProduces || craft.produces, storageProduces: null, producesConsumable: craft.campProducesConsumable || craft.producesConsumable };
+  }
   if (!isCraftCampUpgradeRequirementMet(craft)) return null;
 
   if (craft.requiredTowerRoom) {
@@ -1990,6 +2095,7 @@ function buyCampUpgrade(upgradeName) {
 }
 
 function completeCampUpgrade(upgradeName) {
+  if (getCampUpgrade(upgradeName)?.retired) return;
   const upgrade = getCampUpgrade(upgradeName);
 
   if (!upgrade || !upgrade.unlocked || upgrade.purchased) return;
@@ -2019,6 +2125,7 @@ function completeCampUpgrade(upgradeName) {
 
 // Unlock Camp Upgrade Function
 function unlockCampUpgrade(upgradeName) {
+  if (getCampUpgrade(upgradeName)?.retired) return;
   const upgrade = getCampUpgrade(upgradeName);
 
   if (!upgrade) {
@@ -2310,7 +2417,7 @@ function getPurchasedCampUpgradeSlots() {
   for (let upgradeName in upgrades) {
     const upgrade = getCampUpgrade(upgradeName);
 
-    if (!upgrade || !upgrade.campSlot || !upgrade.purchased) continue;
+    if (!upgrade || upgrade.retired || !upgrade.campSlot || !upgrade.purchased) continue;
 
     if (!slots[upgrade.campSlot]) {
       slots[upgrade.campSlot] = {
@@ -2336,6 +2443,8 @@ function renderPaperDollEquipment() {
   const gearSlots = getPurchasedEquipmentSlots("gear");
   const toolSlots = getPurchasedEquipmentSlots("tool");
   const availableItems = gearSlots.map(function (slot) { return slot.current; }).concat(toolSlots.map(function (slot) { return slot.current; }));
+
+  if (selectedEquipmentDetailId?.collectionItem) selectedEquipmentDetailId = availableItems.find(item => item.slot === selectedEquipmentDetailId.slot) || null;
 
   if (!availableItems.some(function (item) { return item === selectedEquipmentDetailId; })) {
     selectedEquipmentDetailId = availableItems[0] || null;
@@ -2373,7 +2482,7 @@ function createPaperDollItemButton(item) {
   button.title = item.displayName || item.label;
   button.appendChild(createEquipmentIconImage(item));
   const gearId = getGearUpgradeIdByDefinition(item);
-  const isPermanentlyImbued = !!item.imbueRingId ||
+  const isPermanentlyImbued = !!ownedEquipment(item.instanceId)?.family || !!ownedEquipment(item.instanceId)?.core || !!item.imbueRingId ||
     (item.slot === "pack" && ensureImbueRankTwoState().backpackImbued) ||
     (!!gearId && !!ensureImbueRankTwoState().equipmentEnchantments[gearId]);
   button.classList.toggle("is-imbued", isPermanentlyImbued);
@@ -2417,6 +2526,7 @@ function updateEquipmentDetail(availableItems) {
   summary.textContent = (item.displayName || item.label) + "  " + getEquipmentEffectText(item);
   ui.equipmentDetail.appendChild(summary);
 
+  if (item.collectionItem) { appendEquipmentCollectionUI(ui.equipmentDetail, item.slot); return; }
   if (item.slot === "ring") {
     const choices = document.createElement("div");
     choices.className = "ring-choice-row";
@@ -2438,11 +2548,12 @@ function updateEquipmentDetail(availableItems) {
 function getEquipmentEffectText(item) {
   const effects = item.effects || {};
   const parts = [];
+  if (item.instanceId) parts.push(describeEquipmentEffects(itemEffects(ownedEquipment(item.instanceId))));
   if (effects.carryCapacity !== undefined) parts.push("Carry " + effects.carryCapacity);
   if (effects.waterCapacity !== undefined) parts.push("Water " + effects.waterCapacity);
   if (effects.explorationEnergyReduction !== undefined) parts.push("Explore Energy −" + effects.explorationEnergyReduction);
   if (effects.travelEnergyMultiplier !== undefined) parts.push("Travel Energy −" + Math.round((1 - effects.travelEnergyMultiplier) * 100) + "%");
-  if (effects.travelDistanceFlat !== undefined) parts.push("Travel +" + Math.round(effects.travelDistanceFlat * 100) + "%");
+  if (effects.travelDistanceFlat !== undefined) parts.push("Travel +" + effects.travelDistanceFlat + " distance / step");
   if (effects.tonicSlots !== undefined) parts.push("Tonics " + effects.tonicSlots);
   if (effects.forageYieldFlat !== undefined) parts.push("Food +" + effects.forageYieldFlat, "Herb +" + effects.forageYieldFlat);
   if (effects.cuttingYieldFlat !== undefined) parts.push("Fiber +" + effects.cuttingYieldFlat);
@@ -2458,7 +2569,7 @@ function getEquipmentEffectText(item) {
   if (effects.darkExploration) parts.push("Dark places");
   if (effects.maxManaFlat !== undefined) parts.push("Max Mana +" + effects.maxManaFlat);
   if (effects.maxWardFlat !== undefined) parts.push("Max Ward +" + effects.maxWardFlat);
-  if (item.slot === "pack" && ensureImbueRankTwoState().backpackImbued) {
+  if (!item.collectionItem && item.slot === "pack" && ensureImbueRankTwoState().backpackImbued) {
     parts.push("Imbued Pack +" + getImbuedBackpackCapacityBonus());
   }
   const gearId = getGearUpgradeIdByDefinition(item);
@@ -3114,8 +3225,8 @@ function completeSpellCast(spellName, context) {
     }
 
     if (context && context.type === "dungeonCharge") {
-      addManaSenseDungeonChargeForNode(context.dungeonId, context.nodeId);
-      completedSuccessfully = true;
+      completedSuccessfully = addManaSenseDungeonChargeForNode(context.dungeonId, context.nodeId);
+      if (completedSuccessfully) applyManualEquipmentSense(context.dungeonId, context.nodeId);
     }
 
     if (context && context.type === "locationObjectCharge") {
@@ -3274,6 +3385,14 @@ function repairSpellUnlocksFromFlags() {
 }
 
 function getPurchasedEquipmentSlots(equipmentType, includeRankTwo = true) {
+  if (equipmentType === "gear" && gameState.equipment) {
+    const collection = getCollectionEquipmentSlots(includeRankTwo);
+    const extras = Object.values(getGearUpgradeDefinitions()).filter(g => g.equipmentType === "gear" && !WEARABLE_SLOTS.includes(g.slot) && g.purchased);
+    const uniqueExtras = {};
+    extras.forEach(g => { if (!uniqueExtras[g.slot] || (g.slotRank || 0) > (uniqueExtras[g.slot].slotRank || 0)) uniqueExtras[g.slot] = g; });
+    Object.values(uniqueExtras).forEach(g => collection.push({ label: g.slotLabel, order: g.slotOrder || 99, current: g }));
+    return collection;
+  }
   const gearDefinitions = getGearUpgradeDefinitions();
   const slots = {};
 
@@ -3351,6 +3470,7 @@ function buyGearUpgrade(upgradeName) {
 }
 
 function completeGearUpgrade(upgradeName) {
+  if (isWearableGear(upgradeName)) return false; // Wearables commit through their reserved instance operation.
   const upgrade = getGearUpgrade(upgradeName);
 
   if (!upgrade || !upgrade.unlocked || upgrade.purchased) return;
@@ -3385,7 +3505,7 @@ function hasDiscoveredCraftingContent() {
   return craftGroups.some(function (definitions) {
     return Object.keys(definitions).some(function (entryName) {
       const entry = definitions[entryName];
-      return !!entry && (!!entry.unlocked || !!entry.purchased || !!entry.completed);
+      return !!entry && !entry.retired && (!!entry.unlocked || !!entry.purchased || !!entry.completed);
     });
   });
 }
@@ -3453,7 +3573,11 @@ function getCraftDuration(craftType, craftId) {
     return getResearchDuration(craftId);
   }
 
-  return roundResourceAmount((craft.duration || 1) * getTowerRoomEffectValue("craftDurationMultiplier", 1));
+  const context = getActiveCraftContext(craft);
+  const multiplier = craftId === "steel" ? 1 : craft.imbueInfrastructure === "furnace" ? (context?.mode === "towerRoom" ? 0.75 : 1)
+    : craft.imbueInfrastructure === "alchemy" ? (context?.mode === "towerRoom" ? 0.75 : 1)
+    : getTowerRoomEffectValue("craftDurationMultiplier", 1);
+  return roundResourceAmount((craft.duration || 1) * multiplier);
 }
 
 function shouldContinueCrafting(craftType, craftId) {
@@ -3470,6 +3594,7 @@ function shouldContinueCrafting(craftType, craftId) {
 }
 
 function startCrafting(craftType, craftId) {
+  if (craftType === "gearUpgrade" && isWearableGear(craftId)) return startEquipmentOperation({ type: "craft", baseGearId: craftId });
   if (isActivityActive()) return;
 
   const craft = getCraftDefinition(craftType, craftId);
@@ -3518,6 +3643,7 @@ function isCraftAvailable(craftType, craftId) {
     return craft.unlocked && !craft.purchased;
   }
 
+  if (craftType === "gearUpgrade" && isWearableGear(craftId)) return !equipmentOperationReason({ type: "craft", baseGearId: craftId });
   if (craftType === "gearUpgrade") {
     const requiredGear = craft.requiredGear ? getGearUpgrade(craft.requiredGear) : null;
     if (craft.craftingCategory === "steelworking" && !isSteelworkingUnlocked()) return false;
@@ -3735,6 +3861,7 @@ function isCraftContextAvailable(craft) {
 }
 
 function updateCraftingUIForCurrentContext() {
+  resumeWesternCondenserActivity();
   const campUpgrades = getCampUpgradeDefinitions();
 
   for (let upgradeName in campUpgrades) {
@@ -3758,6 +3885,16 @@ function updateCraftingUIForCurrentContext() {
   if (ui.researchPanel && ui.researchPanel.style.display !== "none") {
     updateResearchHistoryUI();
   }
+}
+
+function resumeWesternCondenserActivity() {
+  const pending = gameState.pendingCondenserActivity;
+  if (!pending || isActivityActive() || gameState.expedition.currentLocation !== "roadsideRuin") return;
+  const activity = pending.activity;
+  gameState.pendingCondenserActivity = null;
+  // Work was already paid for. Resume its saved progress without charging again.
+  activity.context = { ...activity.context, mode: "location" };
+  Object.assign(gameState.activity, activity, { active: true, startTime: getGameTime() - pending.elapsed * 1000 });
 }
 
 function getCurrentCraftLocationStorage() {
@@ -4643,7 +4780,9 @@ function getAdvancedRecallButton(nodeName) {
 function getAdvancedRecallCost(nodeName) {
   const definition = getTowerNodeDefinition(nodeName);
 
-  return { ...((definition && definition.advancedRecallCost) || { mana: 5 }) };
+  const cost = { ...((definition && definition.advancedRecallCost) || { mana: 5 }) };
+  cost.mana *= getEquippedPermanentImbueEffectMultiplier("inventoryRecallMultiplier");
+  return cost;
 }
 
 function getAdvancedRecallCarriedItems() {
@@ -4955,7 +5094,7 @@ function createCompactBoundEarthElementalAssignmentRow(nodeName, jobName) {
   const destination = { type: "node", nodeName, jobName };
   const workers = getBoundEarthElementalAssignmentCount(destination);
   const resource = job ? getResource(job.resource) : null;
-  const resourceLabel = resource ? resource.label : (job ? job.label : jobName);
+  const resourceLabel = nodeName === "local" ? job.label : resource ? resource.label : (job ? job.label : jobName);
   const row = document.createElement("div");
   row.className = "elemental-compact-row";
 
@@ -4978,9 +5117,7 @@ function createCompactBoundEarthElementalAssignmentRow(nodeName, jobName) {
   const timer = document.createElement("span");
   timer.className = "elemental-compact-return";
   timer.dataset.elementalNodeJob = nodeName + ":" + jobName;
-  timer.textContent = workers > 0
-    ? "Return: " + formatCompactElementalReturn(getBoundEarthElementalCycle(nodeName, jobName).remaining)
-    : "—";
+  timer.textContent = getGolemJobStatusText(nodeName, jobName, workers);
 
   row.append(label, controls, timer);
   return row;
@@ -4993,14 +5130,15 @@ function createCompactBoundEarthElementalNodePanel(nodeName) {
   panel.className = "tower-stage-details elemental-assignment-panel elemental-compact-panel";
 
   const heading = document.createElement("h4");
-  heading.textContent = nodeDefinition ? nodeDefinition.label : "Regional Node";
+  heading.textContent = config.local ? "Camp & Outskirts" : nodeDefinition ? nodeDefinition.label : "Regional Node";
 
   const capacity = document.createElement("p");
   capacity.className = "elemental-compact-capacity";
-  capacity.textContent = "Assigned: " + getBoundEarthElementalNodeAssignmentCount(nodeName) + " / " + config.elementalCapacity;
+  capacity.textContent = config.local ? "Uses shared Heart capacity" : "Node: " + (isBoundEarthElementalNodeUnlocked(nodeName) ? "Active" : "Inactive") + " · Assigned: " + getBoundEarthElementalNodeAssignmentCount(nodeName) + " / " + config.elementalCapacity;
   panel.append(heading, capacity);
 
   for (let jobName in config.jobs) {
+    if (config.local && !isLocalGolemJobDiscovered(jobName)) continue;
     panel.appendChild(createCompactBoundEarthElementalAssignmentRow(nodeName, jobName));
   }
 
@@ -5008,7 +5146,7 @@ function createCompactBoundEarthElementalNodePanel(nodeName) {
 }
 
 function createBoundEarthElementalNodePanel(nodeName) {
-  if (nodeName === "north") return createCompactBoundEarthElementalNodePanel(nodeName);
+  if (nodeName === "north" || nodeName === "west") return createCompactBoundEarthElementalNodePanel(nodeName);
 
   const config = getElementalNodeConfig(nodeName);
   const assignments = getBoundEarthElementalNodeAssignments(nodeName);
@@ -5117,7 +5255,7 @@ function createBoundEarthElementalTowerPanel() {
   controlledValue.className = "elemental-controlled-capacity";
   const controlledCount = getBoundEarthElementalActiveCount();
   const controlledCapacity = getTowerHeartElementalControlCapacity();
-  controlledValue.textContent = controlledCount + " / " + controlledCapacity;
+  controlledValue.textContent = controlledCount + " / " + controlledCapacity + " · Available: " + Math.min(getBoundEarthElementalAvailableCount(), Math.max(0, controlledCapacity - controlledCount));
   controlledValue.setAttribute("aria-label", controlledCount + " elementals currently controlled out of " + controlledCapacity);
   controlledRow.append(controlledLabel, controlledValue);
   panel.appendChild(controlledRow);
@@ -5146,8 +5284,8 @@ function createBoundEarthElementalTowerPanel() {
   constructionRow.append(constructionLabel, constructionControls, constructionRate);
   panel.appendChild(constructionRow);
 
-  ["north", "east", "south"].forEach(function (nodeName) {
-    if (isBoundEarthElementalNodeUnlocked(nodeName)) {
+  ["local", "north", "east", "south", "west"].forEach(function (nodeName) {
+    if (isBoundEarthElementalNodeUnlocked(nodeName) || (nodeName === "west" && getTowerNodeState("west").activated)) {
       panel.appendChild(createCompactBoundEarthElementalNodePanel(nodeName));
     }
   });
@@ -5542,6 +5680,11 @@ function advanceProjectLevel(projectName) {
   state.level += 1;
   state.work = 0;
   state.deposits = {};
+  if (state.level === 1 && state.upgradeCredit) {
+    state.work = state.upgradeCredit.work || 0;
+    state.deposits = state.upgradeCredit.deposits || {};
+    delete state.upgradeCredit;
+  }
 
   if (state.level >= definition.levels.length) {
     state.completed = true;
@@ -5549,6 +5692,9 @@ function advanceProjectLevel(projectName) {
     completeProject(projectName, definition);
   }
 
+  syncTowerStructureUnlocks(true);
+  recalculateCampEffects();
+  checkResearchDiscoveries();
   updateProjectUI();
   updateCraftingSectionVisibility();
   updateWorkTabsVisibility();
@@ -6267,6 +6413,7 @@ function getTowerPrerequisiteText(entity) {
     const room = getTowerRoomDefinition(roomId);
     if (room) names.push(room.name);
   });
+  if (prerequisites.anyRoomsCompleted) names.push("any one functional Floor 1 room");
 
   return names.length ? "Requires: " + names.join(", ") + "." : "Complete the preceding Tower work first.";
 }
@@ -6296,9 +6443,9 @@ function renderTowerDetailPanel() {
     const effect = document.createElement("div");
     effect.className = "tower-effect-callout";
     const effectTitle = document.createElement("strong");
-    effectTitle.textContent = state.completed ? "Active effect" : "Planned effect";
+    effectTitle.textContent = state.completed ? "Upgraded" : isTowerRoomCompleted(selected.id) ? "Functional · Upgrade available" : "Planned functional room";
     const effectText = document.createElement("span");
-    effectText.textContent = entity.baselineEffect.label;
+    effectText.textContent = entity.baselineEffect.label + ". " + (state.completed ? "Active upgrade: " : "Next upgrade: ") + TOWER_ROOM_STAGES[selected.id].upgrade;
     effect.append(effectTitle, effectText);
     ui.projectList.appendChild(effect);
   } else {
@@ -6315,7 +6462,8 @@ function renderTowerDetailPanel() {
 
   appendTowerProjectControls(ui.projectList, entity.projectId);
 
-  if (selected.type === "room" && state.completed) {
+  if (selected.type === "room" && isTowerRoomCompleted(selected.id)) {
+    appendTowerEquipmentActions(ui.projectList, selected.id);
     const elemental = getBoundEarthElementalState();
     if (selected.id === "workshop" && elemental.capabilities.equipmentUnlocked) {
       ui.projectList.appendChild(createElementalCapabilityCraftingPanel("equipment"));
@@ -7222,6 +7370,7 @@ function getVisibleResearchEntries() {
   for (let researchName in researchDefinitions) {
     const research = getResearch(researchName);
 
+    if (research.retired) continue;
     if (!research.unlocked && !research.completed) continue;
 
     const isInProgress =
@@ -7583,224 +7732,237 @@ function getUnlockDisplayText(unlock) {
   return unlock.id;
 }
 
-function unlockAutomation(machineName) {
-  const machine = getAutomation(machineName);
-
-  if (!machine) {
-    console.warn("Unknown automation:", machineName);
-    return;
-  }
-
-  if (machine.unlocked) return;
-
-  machine.unlocked = true;
-
-  if (typeof updateAutomationUI === "function") {
-    updateAutomationUI();
-  }
-
-  updateWorkTabsVisibility();
-}
-
-function hasUnlockedAutomation() {
-  const machines = getAutomationDefinitions();
-
-  for (let machineName in machines) {
-    if (machines[machineName].unlocked) return true;
-  }
-
-  return false;
-}
-
-function updateAutomationUI() {
-  if (!ui.automationList) return;
-
-  ui.automationList.innerHTML = "";
-
-  const machines = getAutomationDefinitions();
-
-  for (let machineName in machines) {
-    const machine = machines[machineName];
-
-    if (!machine.unlocked) continue;
-
-    const row = document.createElement("div");
-    row.className = "automation-row";
-    row.dataset.automation = machineName;
-
-    const title = document.createElement("strong");
-    title.textContent = machine.label;
-
-    const details = document.createElement("div");
-    details.className = "automation-details";
-    details.textContent = getAutomationDetailsText(machine);
-
-    const progress = document.createElement("div");
-    progress.className = "automation-progress";
-
-    const fill = document.createElement("div");
-    fill.className = "progressFill";
-    fill.style.width = Math.floor((machine.progress || 0) * 100) + "%";
-
-    progress.appendChild(fill);
-
-    const button = createUiActionButton({
-      label: "Imbue Mana",
-      cost: formatCost(machine.fuelCost || {}),
-      className: "automation-imbue-btn",
-      progress: false,
-      onClick: function () {
-        imbueAutomation(machineName);
-      },
-    });
-    button.disabled = !canImbueAutomation(machineName);
-
-    const crystalButton = createUiActionButton({
-      label: "Use Charged Crystal",
-      cost: "1 Charged Mana Crystal",
-      className: "automation-crystal-btn",
-      progress: false,
-      onClick: function () {
-        chargeAutomationWithCrystal(machineName);
-      },
-    });
-    crystalButton.disabled = !canChargeAutomationWithCrystal(machineName);
-
-    row.appendChild(title);
-    row.appendChild(details);
-    row.appendChild(progress);
-    row.appendChild(button);
-    row.appendChild(crystalButton);
-    ui.automationList.appendChild(row);
-  }
-}
-
-function canImbueAutomation(machineName) {
-  const machine = getAutomation(machineName);
-
-  if (!isCampWorkContextAvailable()) return false;
-  if (!machine || !machine.unlocked) return false;
-
-  return canAffordCost(machine.fuelCost);
-}
-
-function imbueAutomation(machineName) {
-  const machine = getAutomation(machineName);
-
-  if (!isCampWorkContextAvailable()) return;
-  if (!machine || !machine.unlocked) return;
-  if (!spendCost(machine.fuelCost)) return;
-
-  machine.cycles += machine.cyclesPerMana;
-  updateAutomationUI();
-}
-
-function canChargeAutomationWithCrystal(machineName) {
-  const machine = getAutomation(machineName);
-
-  if (!isCampWorkContextAvailable()) return false;
-  if (!machine || !machine.unlocked) return false;
-
-  return canAffordCost({ chargedCrystal: 1 });
-}
-
-function chargeAutomationWithCrystal(machineName) {
-  const machine = getAutomation(machineName);
-
-  if (!isCampWorkContextAvailable()) return;
-  if (!machine || !machine.unlocked) return;
-  if (!spendCost({ chargedCrystal: 1 })) return;
-
-  machine.cycles += 100;
-  updateAutomationUI();
-}
-
-function getAutomationCyclesPerOutput(machine) {
-  return machine && Number.isFinite(machine.cyclesPerOutput) && machine.cyclesPerOutput > 0 ? machine.cyclesPerOutput : 1;
-}
-
-function getAutomationDetailsText(machine) {
-  const cyclesPerOutput = getAutomationCyclesPerOutput(machine);
-  const parts = ["Cycles: " + (machine.cycles || 0)];
-
-  if (cyclesPerOutput > 1) {
-    parts.push("Output: " + cyclesPerOutput + " cycles");
-  }
-
-  return parts.join(" | ");
-}
-
-function canReceiveAutomationProduces(machine) {
-  if (!machine || !machine.produces) return false;
-
-  const resource = getResource(machine.produces.resource);
-
-  if (!resource) return false;
-
-  return resource.value + machine.produces.amount <= resource.maxValue;
-}
-
-function processAutomation(deltaSeconds) {
-  const machines = getAutomationDefinitions();
-
-  for (let machineName in machines) {
-    const machine = machines[machineName];
-    const cyclesPerOutput = getAutomationCyclesPerOutput(machine);
-
-    if (!machine.unlocked || machine.cycles < cyclesPerOutput) continue;
-    if (!canReceiveAutomationProduces(machine)) continue;
-
-    machine.progress += deltaSeconds / machine.duration;
-
-    while (machine.progress >= 1 && machine.cycles >= cyclesPerOutput) {
-      if (!canReceiveAutomationProduces(machine)) break;
-
-      addResource(machine.produces.resource, machine.produces.amount);
-      machine.cycles -= cyclesPerOutput;
-      machine.progress -= 1;
-    }
-
-    if (machine.cycles < cyclesPerOutput) {
-      machine.progress = 0;
-    }
-  }
-
-  updateAutomationProgressUI();
-}
-
-function updateAutomationProgressUI() {
-  if (!ui.automationList || !ui.automationPanel || ui.automationPanel.style.display === "none") return;
-
-  const machines = getAutomationDefinitions();
-
-  for (let machineName in machines) {
-    const row = ui.automationList.querySelector('[data-automation="' + machineName + '"]');
-    const machine = machines[machineName];
-
-    if (!row || !machine) continue;
-
-    const fill = row.querySelector(".progressFill");
-    const details = row.querySelector(".automation-details");
-    const button = row.querySelector(".automation-imbue-btn");
-    const crystalButton = row.querySelector(".automation-crystal-btn");
-
-    if (fill) {
-      fill.style.width = Math.floor((machine.progress || 0) * 100) + "%";
-    }
-
-    if (details) {
-      details.textContent = getAutomationDetailsText(machine);
-    }
-
-    if (button) {
-      button.disabled = !canImbueAutomation(machineName);
-    }
-
-    if (crystalButton) {
-      crystalButton.disabled = !canChargeAutomationWithCrystal(machineName);
-    }
-  }
-}
+// RETIRED: standalone automation replaced by Tower Heart assignments. Preserved for restoration.
+// function unlockAutomation(machineName) {
+//   const machine = getAutomation(machineName);
+// 
+//   if (!machine) {
+//     console.warn("Unknown automation:", machineName);
+//     return;
+//   }
+// 
+//   if (machine.unlocked) return;
+// 
+//   machine.unlocked = true;
+// 
+//   if (typeof updateAutomationUI === "function") {
+//     updateAutomationUI();
+//   }
+// 
+//   updateWorkTabsVisibility();
+// }
+// 
+// function hasUnlockedAutomation() {
+//   const machines = getAutomationDefinitions();
+// 
+//   for (let machineName in machines) {
+//     if (machines[machineName].unlocked) return true;
+//   }
+// 
+//   return false;
+// }
+// 
+// function updateAutomationUI() {
+//   if (!ui.automationList) return;
+// 
+//   ui.automationList.innerHTML = "";
+// 
+//   const machines = getAutomationDefinitions();
+// 
+//   for (let machineName in machines) {
+//     const machine = machines[machineName];
+// 
+//     if (!machine.unlocked) continue;
+// 
+//     const row = document.createElement("div");
+//     row.className = "automation-row";
+//     row.dataset.automation = machineName;
+// 
+//     const title = document.createElement("strong");
+//     title.textContent = machine.label;
+// 
+//     const details = document.createElement("div");
+//     details.className = "automation-details";
+//     details.textContent = getAutomationDetailsText(machine);
+// 
+//     const progress = document.createElement("div");
+//     progress.className = "automation-progress";
+// 
+//     const fill = document.createElement("div");
+//     fill.className = "progressFill";
+//     fill.style.width = Math.floor((machine.progress || 0) * 100) + "%";
+// 
+//     progress.appendChild(fill);
+// 
+//     const button = createUiActionButton({
+//       label: "Imbue Mana",
+//       cost: formatCost(machine.fuelCost || {}),
+//       className: "automation-imbue-btn",
+//       progress: false,
+//       onClick: function () {
+//         imbueAutomation(machineName);
+//       },
+//     });
+//     button.disabled = !canImbueAutomation(machineName);
+// 
+//     const crystalButton = createUiActionButton({
+//       label: "Use Charged Crystal",
+//       cost: "1 Charged Mana Crystal",
+//       className: "automation-crystal-btn",
+//       progress: false,
+//       onClick: function () {
+//         chargeAutomationWithCrystal(machineName);
+//       },
+//     });
+//     crystalButton.disabled = !canChargeAutomationWithCrystal(machineName);
+// 
+//     row.appendChild(title);
+//     row.appendChild(details);
+//     row.appendChild(progress);
+//     row.appendChild(button);
+//     row.appendChild(crystalButton);
+//     ui.automationList.appendChild(row);
+//   }
+// }
+// 
+// function canImbueAutomation(machineName) {
+//   const machine = getAutomation(machineName);
+// 
+//   if (!isCampWorkContextAvailable()) return false;
+//   if (!machine || !machine.unlocked) return false;
+// 
+//   return canAffordCost(machine.fuelCost);
+// }
+// 
+// function imbueAutomation(machineName) {
+//   const machine = getAutomation(machineName);
+// 
+//   if (!isCampWorkContextAvailable()) return;
+//   if (!machine || !machine.unlocked) return;
+//   if (!spendCost(machine.fuelCost)) return;
+// 
+//   machine.cycles += machine.cyclesPerMana;
+//   updateAutomationUI();
+// }
+// 
+// function canChargeAutomationWithCrystal(machineName) {
+//   const machine = getAutomation(machineName);
+// 
+//   if (!isCampWorkContextAvailable()) return false;
+//   if (!machine || !machine.unlocked) return false;
+// 
+//   return canAffordCost({ chargedCrystal: 1 });
+// }
+// 
+// function chargeAutomationWithCrystal(machineName) {
+//   const machine = getAutomation(machineName);
+// 
+//   if (!isCampWorkContextAvailable()) return;
+//   if (!machine || !machine.unlocked) return;
+//   if (!spendCost({ chargedCrystal: 1 })) return;
+// 
+//   machine.cycles += 100;
+//   updateAutomationUI();
+// }
+// 
+// function getAutomationCyclesPerOutput(machine) {
+//   return machine && Number.isFinite(machine.cyclesPerOutput) && machine.cyclesPerOutput > 0 ? machine.cyclesPerOutput : 1;
+// }
+// 
+// function getAutomationDetailsText(machine) {
+//   const cyclesPerOutput = getAutomationCyclesPerOutput(machine);
+//   const parts = ["Cycles: " + (machine.cycles || 0)];
+// 
+//   if (cyclesPerOutput > 1) {
+//     parts.push("Output: " + cyclesPerOutput + " cycles");
+//   }
+// 
+//   return parts.join(" | ");
+// }
+// 
+// function canReceiveAutomationProduces(machine) {
+//   if (!machine || !machine.produces) return false;
+// 
+//   const resource = getResource(machine.produces.resource);
+// 
+//   if (!resource) return false;
+// 
+//   return resource.value + machine.produces.amount <= resource.maxValue;
+// }
+// 
+// function processAutomation(deltaSeconds) {
+//   const machines = getAutomationDefinitions();
+// 
+//   for (let machineName in machines) {
+//     const machine = machines[machineName];
+//     const cyclesPerOutput = getAutomationCyclesPerOutput(machine);
+// 
+//     if (!machine.unlocked || machine.cycles < cyclesPerOutput) continue;
+//     if (!canReceiveAutomationProduces(machine)) continue;
+// 
+//     machine.progress += deltaSeconds / machine.duration;
+// 
+//     while (machine.progress >= 1 && machine.cycles >= cyclesPerOutput) {
+//       if (!canReceiveAutomationProduces(machine)) break;
+// 
+//       addResource(machine.produces.resource, machine.produces.amount);
+//       machine.cycles -= cyclesPerOutput;
+//       machine.progress -= 1;
+//     }
+// 
+//     if (machine.cycles < cyclesPerOutput) {
+//       machine.progress = 0;
+//     }
+//   }
+// 
+//   updateAutomationProgressUI();
+// }
+// 
+// function updateAutomationProgressUI() {
+//   if (!ui.automationList || !ui.automationPanel || ui.automationPanel.style.display === "none") return;
+// 
+//   const machines = getAutomationDefinitions();
+// 
+//   for (let machineName in machines) {
+//     const row = ui.automationList.querySelector('[data-automation="' + machineName + '"]');
+//     const machine = machines[machineName];
+// 
+//     if (!row || !machine) continue;
+// 
+//     const fill = row.querySelector(".progressFill");
+//     const details = row.querySelector(".automation-details");
+//     const button = row.querySelector(".automation-imbue-btn");
+//     const crystalButton = row.querySelector(".automation-crystal-btn");
+// 
+//     if (fill) {
+//       fill.style.width = Math.floor((machine.progress || 0) * 100) + "%";
+//     }
+// 
+//     if (details) {
+//       details.textContent = getAutomationDetailsText(machine);
+//     }
+// 
+//     if (button) {
+//       button.disabled = !canImbueAutomation(machineName);
+//     }
+// 
+//     if (crystalButton) {
+//       crystalButton.disabled = !canChargeAutomationWithCrystal(machineName);
+//     }
+//   }
+// }
+// 
+// 
+// Retired entry points stay harmless for old saves and callers. Definitions retain all saved charge/progress data.
+function unlockAutomation() {}
+function hasUnlockedAutomation() { return false; }
+function updateAutomationUI() { if (ui.automationPanel) ui.automationPanel.style.display = "none"; }
+function canImbueAutomation() { return false; }
+function imbueAutomation() { return false; }
+function canChargeAutomationWithCrystal() { return false; }
+function chargeAutomationWithCrystal() { return false; }
+function processAutomation() {}
+function updateAutomationProgressUI() {}
 
 function getSpellProgressDefinition(spellName) {
   return SPELL_PROGRESS_DEFINITIONS[spellName] || null;
@@ -8244,15 +8406,15 @@ function advanceImbueRankTwo() {
 
 function getImbueRankTwoRewardText(level = getImbueRankTwoLevel()) {
   const rewards = {
-    0: "Permanent Binding and Ring of Mana",
-    1: "Imbued Backpack",
-    2: "Ring of Warding",
+    0: "Permanent infrastructure binding",
+    1: "Permanent binding practice",
+    2: "Permanent binding practice",
     3: "Emberbound Furnace and Imbued Alchemy",
-    4: "Permanent equipment enchantments",
+    4: "Standard enchantments and ringcraft in the functional Study",
     5: "Expanded Control Matrix I",
     6: "Greater Ringcraft and Expanded Control Matrix II",
     7: "Node Imbuement and Expanded Control Matrix III",
-    8: "Arcane Workshop and Expanded Control Matrix IV",
+    8: "Arcane Furnace / Alchemy and Expanded Control Matrix IV",
     9: "Regional Imbuement and Expanded Control Matrix V",
     10: "Master Control Matrix",
   };
@@ -8299,6 +8461,7 @@ function getEquippedImbueRingDefinition() {
 }
 
 function equipImbueRing(ringId) {
+  if (gameState.equipment) return equipOwnedItem(ringId, "leftRing");
   const state = ensureImbueRankTwoState();
   if (!state.craftedRings[ringId] || !getImbueRankTwoConfig().rings[ringId]) return false;
   state.equippedRing = ringId;
@@ -8310,6 +8473,7 @@ function equipImbueRing(ringId) {
 }
 
 function getGearUpgradeIdByDefinition(item) {
+  if (item?.baseGearId) return item.baseGearId;
   const definitions = getGearUpgradeDefinitions();
   for (let gearId in definitions) {
     if (definitions[gearId] === item) return gearId;
@@ -8330,29 +8494,14 @@ function getEquippedImbueEnchantmentEntries() {
 }
 
 function getEquippedPermanentImbueEffectTotal(effectName) {
-  const ring = getEquippedImbueRingDefinition();
-  let total = ring && ring.effects && Number.isFinite(ring.effects[effectName]) ? ring.effects[effectName] : 0;
-  getEquippedImbueEnchantmentEntries().forEach(function (entry) {
-    const value = entry.definition.effects && entry.definition.effects[effectName];
-    if (Number.isFinite(value)) total += value;
-  });
-  return roundResourceAmount(total);
+  return equippedItems().reduce((total, item) => total + (Number(itemEffects(item)[effectName]) || 0), 0);
 }
 
 function getEquippedPermanentImbueEffectMultiplier(effectName) {
-  let multiplier = 1;
-  const ring = getEquippedImbueRingDefinition();
-  if (ring && ring.effects && Number.isFinite(ring.effects[effectName])) multiplier *= ring.effects[effectName];
-  getEquippedImbueEnchantmentEntries().forEach(function (entry) {
-    const value = entry.definition.effects && entry.definition.effects[effectName];
-    if (Number.isFinite(value)) multiplier *= value;
-  });
-  return multiplier;
+  return equippedItems().reduce((total, item) => total * (itemEffects(item)[effectName] ?? 1), 1);
 }
 
-function getImbuedBackpackCapacityBonus() {
-  return ensureImbueRankTwoState().backpackImbued ? getImbueRankTwoConfig().bonuses.backpackCapacity : 0;
-}
+function getImbuedBackpackCapacityBonus() { return getEquippedPermanentImbueEffectTotal("carryCapacityFlat"); }
 
 function getImbueWorkshopTier(system) {
   const state = ensureImbueRankTwoState();
@@ -8399,7 +8548,7 @@ function isImbueRankTwoTargetComplete(action) {
 
 function isImbueRankTwoTargetUnlocked(targetName) {
   const definition = getImbueDefinition(targetName);
-  if (!definition || !definition.permanentImbue) return false;
+  if (!definition || !definition.permanentImbue || ["ring", "equipment", "backpack"].includes(definition.permanentAction?.type)) return false;
   return getImbueRank() >= (definition.requiredImbueRank || 2) && getImbueRankTwoLevel() >= (definition.requiredRankTwoLevel || 0);
 }
 
@@ -8412,7 +8561,7 @@ function isImbueRankTwoTargetVisible(targetName) {
 
 function canApplyImbueRankTwoTarget(action) {
   const state = ensureImbueRankTwoState();
-  if (!action || state.rank < 2 || isImbueRankTwoTargetComplete(action)) return false;
+  if (!action || ["ring", "equipment", "backpack"].includes(action.type) || state.rank < 2 || isImbueRankTwoTargetComplete(action)) return false;
   if (action.type === "component") return true;
   if (action.type === "ring") return !action.prerequisite || !!state.craftedRings[action.prerequisite];
   if (action.type === "backpack") return !!getPurchasedEquipmentForSlot("gear", "pack", false);
@@ -8587,7 +8736,7 @@ function recordImbueExperience(amount) {
   const imbuement = ensureImbueRankTwoState();
 
   if (imbuement.rank >= 2) {
-    imbuement.rankTwoXp = roundResourceAmount(imbuement.rankTwoXp + amount);
+    imbuement.rankTwoXp = roundResourceAmount(imbuement.rankTwoXp + amount * getTowerRoomEffectValue("imbueExperienceMultiplier", 1));
     advanceImbueRankTwo();
     recalculateCharacterStats();
     updateEquipmentSlotUI();
@@ -8982,6 +9131,7 @@ function getActiveAttunementEffectTotal(effectName) {
 
 function getAttunementScaledEffectValue(attunementName, definition, effectName) {
   const effects = definition ? definition.effects || {} : {};
+  if (attunementName === "manaConduit" && effectName === "maxManaFlat") return 10 * (1 + getAttunementRankTwoBonusPercent() / 100);
 
   if (attunementName === "reinforcedBody" && effectName === "maxEnergyFlat" && typeof getReinforcedBodyMaxEnergyBonus === "function") {
     return getReinforcedBodyMaxEnergyBonus();
@@ -9029,6 +9179,7 @@ function getAttunementTargetDescription(attunementName, definition, options = {}
   }
 
   if (effects.maxWardFlat) parts.push("+" + formatAttunementEffectNumber(getAttunementScaledEffectValue(attunementName, definition, "maxWardFlat")) + " maximum Ward");
+  if (effects.maxManaFlat) parts.push("+" + formatAttunementEffectNumber(getAttunementScaledEffectValue(attunementName, definition, "maxManaFlat")) + " maximum Mana");
   if (effects.manaPerSecond) parts.push("+" + formatAttunementEffectNumber(getAttunementScaledEffectValue(attunementName, definition, "manaPerSecond")) + " mana/sec");
   if (effects.maxFocusFlat) parts.push("+" + formatAttunementEffectNumber(getAttunementScaledEffectValue(attunementName, definition, "maxFocusFlat")) + " Focus");
   if (effects.manualStoneFlat) parts.push("+" + formatAttunementEffectNumber(getAttunementScaledEffectValue(attunementName, definition, "manualStoneFlat")) + " manual Stone");
@@ -9065,17 +9216,22 @@ function formatAttunementEffectPercent(value) {
 }
 
 function clearActiveAttunements() {
+  if (equipmentChangeReason()) return false;
+  const previous = getAttunementState().active;
   getAttunementState().active = [];
+  if (getCarriedTotal() > getEffectiveCarryCapacity()) { getAttunementState().active = previous; return false; }
   recalculateCharacterStats();
   updateEquipmentSlotUI();
 }
 
 function removeActiveAttunement(attunementName) {
+  if (equipmentChangeReason()) return false;
   const state = getAttunementState();
   const index = state.active.findIndex(function (entry) { return entry.id === attunementName; });
   if (index < 0) return false;
   const definition = getAttunementDefinition(attunementName);
   state.active.splice(index, 1);
+  if (getCarriedTotal() > getEffectiveCarryCapacity()) { state.active.splice(index, 0, { id: attunementName }); return false; }
   recalculateCharacterStats();
   addStoryEntry("You release " + (definition ? definition.label : attunementName) + ".");
   updateEquipmentSlotUI();
@@ -10042,7 +10198,8 @@ function finalizeProductionSpellTargetContext(spellName, definition, targetConte
 function getCampEquipmentProductionSpellTargetContext(definition) {
   if (!definition || !definition.campUpgradeRequired) return null;
   if (!isCampCraftingContext()) return null;
-  if (!hasPurchasedCampUpgrade(definition.campUpgradeRequired)) return null;
+  const towerAlchemy = definition.campUpgradeRequired === "campAlchemyStation" && isTowerRoomCompleted("alchemyRoom") && gameState.tower?.selectedId === "room:alchemyRoom";
+  if (!hasPurchasedCampUpgrade(definition.campUpgradeRequired) && !towerAlchemy) return null;
 
   return {
     mode: "campEquipment",
@@ -10607,6 +10764,7 @@ function castTargetedSpell(spellName, context) {
 }
 
 function applyAttunement(attunementName) {
+  if (typeof isCombatActive === "function" && isCombatActive()) return false;
   const state = getAttunementState();
   const definition = getAttunementDefinition(attunementName);
 
@@ -10729,4 +10887,3 @@ function applyProductionSpellTarget(spellName, targetName, requestedContext) {
 
   return true;
 }
-

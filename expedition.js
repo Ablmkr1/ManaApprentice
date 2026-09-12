@@ -560,7 +560,11 @@ function useConsumableFromSlot(slotIndex) {
   if (!consumable || typeof consumable.use !== "function") return false;
 
   consumable.use();
-  slots[slotIndex] = null;
+  const triggers = ensureEquipmentCollection().triggers;
+  const free = gameState.expedition.active && !triggers.expeditionTonicUsed && getEquippedPermanentImbueEffectTotal("freeExpeditionTonic") > 0;
+  if (!free) slots[slotIndex] = null;
+  if (gameState.expedition.active) triggers.expeditionTonicUsed = true;
+  if (typeof isCombatActive === "function" && isCombatActive()) addResource("ward", getEquippedPermanentImbueEffectTotal("tonicWardFlat"));
 
   if (consumable.effectText) {
     addStoryEntry(consumable.effectText);
@@ -1734,6 +1738,26 @@ function getFirstUncheckedInstalledTrapSite(locationName) {
   return null;
 }
 
+// Both manual and Heart work claim the very same trap, synchronously, before
+// awarding its catch. Existing traps reset once per expedition, not on a timer;
+// there is no bait or rearming material cost in this system.
+function collectInstalledTrap(locationName, { worker = false } = {}) {
+  const data = getTrapSiteData(locationName);
+  const site = getFirstUncheckedInstalledTrapSite(locationName);
+  if (!data || !site) return false;
+  const reward = getResource(data.reward);
+  if (worker && reward.value >= reward.maxValue) return false;
+  site.checkedThisVisit = true;
+  if (Math.random() < data.successChance) {
+    if (worker) addResource(data.reward, 1);
+    else {
+      const collected = addCarriedItemUpToCapacity(data.reward, 1);
+      addStoryEntry(collected === 1 ? "You find a pelt in the trap." : "You find a pelt, but your hands are full.");
+    }
+  } else if (!worker) addStoryEntry("The trap is empty.");
+  return true;
+}
+
 function getTrapSiteData(locationName) {
   const location = getExpeditionLocation(locationName);
 
@@ -2205,6 +2229,7 @@ function setPackingActionsAvailable(available) {
 function enterExpeditionPreparation() {
   const expedition = gameState.expedition;
 
+  if (!expedition.active) ensureEquipmentCollection().triggers.expeditionTonicUsed = false;
   expedition.active = true;
   expedition.completed = false;
   expedition.distance = 0;
@@ -2311,7 +2336,7 @@ function startTowerNodeJump() {
   unlockAction("returnToCamp");
   setPackingActionsAvailable(false);
 
-  addStoryEntry("Mana folds through the Heart's northern path. You arrive at the " + getLocationLabel(definition.locationName) + " with your pack intact.");
+  addStoryEntry("Mana folds through the Heart's node path. You arrive at the " + getLocationLabel(definition.locationName) + " with your pack intact.");
   updateResource("mana");
   refreshExpeditionUI();
   updateTravelButton(false);
@@ -2941,6 +2966,7 @@ function enterCurrentLocationDungeon() {
     nodeId: dungeon.startNode,
   };
 
+  applyAutomaticEquipmentSense();
   addStoryEntry("You descend into " + dungeon.label + ".");
   updateLocationActions();
   updateDungeonUI();
@@ -2985,6 +3011,7 @@ function moveToDungeonNode(targetNodeId) {
   const targetNode = getDungeonNode(dungeonState.dungeonId, targetNodeId);
 
   gameState.expedition.dungeon.nodeId = targetNodeId;
+  applyAutomaticEquipmentSense();
 
   if (!targetNode.discovered) {
     targetNode.discovered = true;

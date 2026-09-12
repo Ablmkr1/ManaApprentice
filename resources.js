@@ -1,4 +1,4 @@
-// Passive effects such as Mana Conduit can add fractional mana every tick.
+// Fractional crafting costs and multiplicative effects retain full precision.
 const RESOURCE_AMOUNT_PRECISION = 1000000;
 const RESOURCE_AFFORDABILITY_EPSILON = 0.000001;
 

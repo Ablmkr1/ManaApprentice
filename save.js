@@ -1,5 +1,5 @@
 const SAVE_KEY = "manaApprenticeSaveV1";
-const SAVE_VERSION = 34;
+const SAVE_VERSION = 36;
 let saveSuppressed = false;
 
 function createSaveData() {
@@ -222,7 +222,7 @@ function readSaveData() {
 
   try {
     const saveData = JSON.parse(rawSave);
-
+    if (saveData.version < 35 && !localStorage.getItem(SAVE_KEY + "BackupPre35")) localStorage.setItem(SAVE_KEY + "BackupPre35", rawSave);
     return migrateSaveData(saveData);
   } catch (error) {
     console.warn("Could not read save:", error);
@@ -355,6 +355,8 @@ function migrateSaveData(saveData) {
 
   if (version <= 33) migrateV33SaveDataToV34(normalizedSaveData);
 
+  if (version <= 34) migrateTowerEquipmentSave(normalizedSaveData);
+  if (normalizedSaveData.resources.mana) normalizedSaveData.resources.mana.perSecond = 0;
   normalizedSaveData.version = SAVE_VERSION;
 
   return normalizedSaveData;
@@ -1279,6 +1281,7 @@ function applyProjectSaveData(savedProjects) {
 
     applySavedFields(state, savedProject, ["unlocked", "completed", "level", "work"]);
     state.deposits = structuredClone(ensureObject(savedProject.deposits));
+    state.upgradeCredit = savedProject.upgradeCredit ? structuredClone(savedProject.upgradeCredit) : null;
     normalizeProjectState(projectName);
 
     if (projectName === "towerFoundation" && state.completed) {
@@ -1348,6 +1351,9 @@ function applyResourceSaveData(savedResources) {
 
 function applyGameStateSaveData(savedGameState) {
   if (!savedGameState) return;
+  gameState.equipment = savedGameState.equipment ? structuredClone(savedGameState.equipment) : newEquipmentCollection();
+  // Timed jobs do not advance offline; unpaid equipment reservations are canceled.
+  gameState.equipment.pending = null;
 
   // Older saves predate the western capstone; never inherit another save's win.
   gameState.brokenWardenDefeated = !!savedGameState.brokenWardenDefeated;
@@ -1561,6 +1567,7 @@ function applyGameStateSaveData(savedGameState) {
   }
 
   resetActivity();
+  gameState.pendingCondenserActivity = structuredClone(savedGameState.pendingCondenserActivity || null);
   gameState.autoAction.actionName = null;
   gameState.autoAction.pausedForRest = false;
 }
@@ -1771,6 +1778,7 @@ function loadGame() {
   applyExpeditionLocationSaveData(saveData.expeditionLocations);
   applyDungeonSaveData(saveData.dungeons);
   applyResearchSaveData(saveData.research);
+  syncEquippedBaseStats();
   repairTowerNodeResearchFromCompletedResearch();
   applyAutomationSaveData(saveData.automation);
   ensureSkillsState();
@@ -1791,7 +1799,10 @@ function loadGame() {
   applyBasementStorageUpgrade();
   recalculateToolEffects();
   checkResearchDiscoveries();
+  repairWesternCondenserSave(saveData);
+  applyGolemOfflineProgress(saveData);
   refreshGameUIAfterLoad();
+  trySaveGame(); // Commit deliveries and the new timestamp before another reload.
 
   return true;
 }
@@ -1809,7 +1820,41 @@ function repairExpeditionTonicSlots() {
   expedition.tonicSlots = repairedSlots;
 }
 
+function repairWesternCondenserSave(saveData) {
+  // The alcove already unlocked manual production before the archive machine.
+  // Preserve that distinction, including saves made before location discovery
+  // was persisted. Do not open the archive door or activate any regional node.
+  const accessible = gameState.manaCrystalImbuingUnlocked || gameState.manaCondenserPlansFound ||
+    ["manaCondenserFrame", "manaCondenser"].some(id => getCampUpgrade(id).unlocked || getCampUpgrade(id).purchased);
+  if (accessible) {
+    gameState.world.regions.west.unlocked = true;
+    const location = getExpeditionLocation("roadsideRuin");
+    location.discovered = true;
+    location.explored = true;
+  }
+  const savedActivity = saveData.gameState?.activity;
+  const manualCrystal = savedActivity?.kind === "spell" && savedActivity.id === "imbue" &&
+    savedActivity.context?.type === "productionSpell" && savedActivity.context.targetId === "manaCrystal";
+  const construction = savedActivity?.kind === "craft" && savedActivity.type === "campUpgrade" &&
+    ["manaCondenserFrame", "manaCondenser"].includes(savedActivity.id);
+  if (savedActivity?.active && (manualCrystal || construction)) {
+    const elapsed = Math.max(0, (saveData.savedAt - savedActivity.startTime) / 1000);
+    gameState.pendingCondenserActivity = {
+      activity: structuredClone(savedActivity),
+      elapsed: Math.min(savedActivity.duration || 0, Number.isFinite(elapsed) ? elapsed : 0),
+    };
+  }
+  resumeWesternCondenserActivity();
+}
+
+function applyGolemOfflineProgress(saveData, now = Date.now()) {
+  const elapsed = Number.isFinite(saveData.savedAt) ? Math.max(0, (now - saveData.savedAt) / 1000) : 0;
+  // Shared worker engine: no standalone automation and no synthetic trap resets.
+  processBoundEarthElementalAutomation(elapsed);
+}
+
 function getPurchasedTonicSlotCapacity() {
+  if (gameState.equipment) return getGearUpgrade(ownedEquipment(gameState.equipment.equipped.belt)?.baseGearId)?.effects?.tonicSlots || 0;
   if (getGearUpgrade("reinforcedTonicBelt")?.purchased) return 3;
   if (getGearUpgrade("tonicBelt")?.purchased) return 2;
   if (getGearUpgrade("simpleTonicBelt")?.purchased) return 1;

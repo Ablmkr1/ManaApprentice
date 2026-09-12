@@ -5,7 +5,7 @@ const vm = require("vm");
 const root = path.resolve(__dirname, "..");
 const files = [
   "state.js", "expeditionData.js", "content.js", "definitions.js", "resources.js",
-  "skills.js", "camp.js", "expedition.js", "actions.js", "combat.js", "save.js",
+  "skills.js", "camp.js", "equipment.js", "expedition.js", "actions.js", "combat.js", "save.js",
 ];
 
 const browserStubs = `
@@ -114,7 +114,7 @@ const tests = `
   checkResearchDiscoveries();
   assert(!automation.unlocked, "Exploring the Silent Gearworks does not reveal Automation Principles");
   applyUnlocks(getDungeon("silentGearworksDepths").nodes.controlDais.search.reward.unlocks);
-  assert(automation.unlocked, "The Control Dais authoritatively reveals Automation Principles");
+  assert(!automation.unlocked, "The Control Dais no longer reveals retired Automation Principles");
 
   const migrated = migrateSaveData({
     version: 32,
@@ -129,7 +129,7 @@ const tests = `
     actions: {}, campUpgrades: { workbench: { unlocked: true, purchased: false } }, gearUpgrades: {}, spells: {},
     resourceCrafts: {}, expeditionLocations: {}, dungeons: {}, research: {}, automation: {},
   });
-  assert(migrated.version === 34 && !migrated.campUpgrades.workbench.unlocked, "Early legacy saves lose the premature unbuilt workbench reveal");
+  assert(migrated.version === SAVE_VERSION && !migrated.campUpgrades.workbench.unlocked, "Early legacy saves lose the premature unbuilt workbench reveal");
   assert(migrated.research.easternTowerNode.completed && migrated.gameState.towerNodes.east.researchUnlocked, "Legacy Eastern construction access is preserved as completed research");
   assert(migrated.research.southernTowerNode.completed && migrated.gameState.towerNodes.south.built, "A built legacy Southern Node remains built with completed research");
 

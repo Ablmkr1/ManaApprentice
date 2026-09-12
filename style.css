@@ -2168,8 +2168,32 @@ button:disabled {
 .paper-doll-item.slot-feet { top: 173px; left: calc(50% - 21px); }
 .paper-doll-item.slot-pack { top: 43px; left: 22px; }
 .paper-doll-item.slot-water { top: 43px; right: 22px; }
-.paper-doll-item.slot-belt { top: 106px; right: 31px; }
+.paper-doll-item.slot-belt { top: 173px; right: 31px; }
 .paper-doll-item.slot-ring { top: 106px; left: 31px; }
+.paper-doll-item.slot-leftRing { top: 106px; left: 31px; }
+.paper-doll-item.slot-rightRing { top: 106px; right: 31px; }
+.equipment-collection { display: grid; gap: 8px; width: 100%; min-width: 0; }
+.equipment-collection select, .equipment-collection input { max-width: 100%; min-width: 0; }
+.equipment-collection > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.equipment-recipe-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0; }
+.equipment-recipe-row span { flex: 1 1 200px; overflow-wrap: anywhere; font-size: 0.85rem; }
+.tower-detail-panel select { max-width: 100%; }
+#projectList select, .equipment-collection select, .equipment-collection input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #b6c5bc;
+  border-radius: 6px;
+  color: #243b35;
+  background: #fffdf4;
+  font: inherit;
+}
+@media (max-width: 600px) {
+  .equipment-collection select, .equipment-collection input { width: 100%; }
+  .equipment-recipe-row span { flex-basis: 100%; }
+  #projectList select { max-width: 100%; width: 100%; }
+}
 
 .paper-doll-item.is-imbued {
   border-color: #7560a8;
@@ -4382,6 +4406,7 @@ button:disabled,
 
 .elemental-controlled-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   min-height: 34px;
@@ -4426,10 +4451,26 @@ button:disabled,
 }
 
 .elemental-assignment-adjust.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   min-width: 34px;
   min-height: 34px;
   padding: 4px;
   font-size: 17px;
+  line-height: 1;
+}
+
+.elemental-assignment-adjust .ui-action-icon,
+.elemental-assignment-adjust .ui-action-cost,
+.elemental-assignment-adjust .ui-action-detail,
+.elemental-assignment-adjust .ui-action-reason {
+  display: none;
+}
+
+.elemental-assignment-adjust .ui-action-label {
+  align-self: center;
+  font-size: 20px;
   line-height: 1;
 }
 
@@ -4455,7 +4496,8 @@ button:disabled,
   color: #4a3e31;
   font-size: 13px;
   text-align: right;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .elemental-crafting-dropdown {

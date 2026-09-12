@@ -130,7 +130,8 @@ function getArcaneCombatCastTime(techniqueId) {
   if (!spell) return 0;
   const arcaneDuration = typeof getArcaneForceCastDuration === "function" ? getArcaneForceCastDuration(spell.castTimeSeconds) : spell.castTimeSeconds;
   const staffSpeed = typeof getCombatStaffCastSpeedMultiplier === "function" ? getCombatStaffCastSpeedMultiplier() : 1;
-  return roundResourceAmount(arcaneDuration / staffSpeed);
+  const runeSpeed = techniqueId === "manaMissile" ? 1 + getEquippedPermanentImbueEffectTotal("missileSpeedBonus") : 1;
+  return roundResourceAmount(arcaneDuration / staffSpeed / runeSpeed);
 }
 
 function hookCombatUI() {
@@ -193,6 +194,7 @@ function startCombatEncounter(enemyId, options = {}) {
   gameState.combat.nextAbilityTime = enemy.ability ? getGameTime() + (enemy.ability.initialDelaySeconds || enemy.ability.intervalSeconds) * 1000 : null;
   gameState.combat.ability = null;
   gameState.combat.cast = null;
+  gameState.combat.lastVerdantBoltCast = null;
   gameState.combat.rewardGranted = false;
   gameState.combat.reward = options.reward || null;
   gameState.combat.storyEncounter = !!options.storyEncounter;
@@ -419,7 +421,7 @@ function interruptCombatAbility(now) {
 }
 
 function dealCombatWardDamage(damage, source, now) {
-  applyWardDamage(damage);
+  damage = applyWardDamage(damage, source);
   combatEvent("wardDamage", now, { source, damage });
   gameState.combat.resultMessage = getCombatEnemy().label + " uses " + source + " for " + damage + " Ward damage.";
   if (getResource("ward").value <= 0) resolveCombatDefeat();
@@ -510,7 +512,7 @@ function getArcaneCombatDamage(techniqueId) {
   if (getCombatEnemy()?.earthAligned && typeof getActiveAttunementEffectTotal === "function") {
     damage = Math.round(damage * (1 + getActiveAttunementEffectTotal("earthDamageBonus")));
   }
-  return damage;
+  return damage * (techniqueId === "manaLance" ? 1 + getEquippedPermanentImbueEffectTotal("lanceDamageBonus") : 1);
 }
 
 function resolveCombatSpellHit(hit) {
@@ -548,7 +550,12 @@ function resolveCombatSpellHit(hit) {
   }
   const armored = c.phase === "armored";
   const healthDamage = damage * (armored ? enemy.armorMultiplier : 1);
+  const actualHealthDamage = Math.min(c.enemyHealth, healthDamage);
   c.enemyHealth = Math.max(0, c.enemyHealth - healthDamage);
+  if (techniqueId === "manaBolt" && actualHealthDamage > 0 && c.lastVerdantBoltCast !== hit.castId) {
+    c.lastVerdantBoltCast = hit.castId;
+    addResource("ward", getEquippedPermanentImbueEffectTotal("boltWardFlat"));
+  }
   combatEvent("hit", time, { ...hit, damage: healthDamage, rawDamage: damage });
   c.resultMessage = COMBAT_CONFIG.spells[techniqueId].label + " hit " + hit.hitIndex + " deals " + healthDamage + " damage.";
   if (c.enemyHealth <= 0) { resolveCombatVictory(); return; }

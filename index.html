@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <title>Lost Wizard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="style.css?v=20260911-overhaul" />
     <link rel="stylesheet" href="tower-visual-system.css?v=20260903-unified-tower-r1" />
     <link rel="stylesheet" href="home-ui.css?v=20260907-clearing-layout-r3" />
     <link rel="stylesheet" href="combat-scene.css?v=20260910" />
@@ -227,10 +227,12 @@
                     <span class="home-place-label"><strong>Practice Circle</strong><small>Skills and training</small></span>
                   </button>
 
-                  <button class="home-place home-place-automation" type="button" data-home-area="automation" aria-controls="homeAreaPanel" aria-expanded="false" hidden>
+                  <!-- RETIRED: standalone automation replaced by Tower Heart workers.
+<button class="home-place home-place-automation" type="button" data-home-area="automation" aria-controls="homeAreaPanel" aria-expanded="false" hidden>
                     <span class="home-place-art" aria-hidden="true"></span>
                     <span class="home-place-label"><strong>Runed Devices</strong><small>Camp automation</small></span>
                   </button>
+-->
 
                   <button class="home-place home-place-storage" type="button" data-home-area="storage" aria-controls="homeAreaPanel" aria-expanded="false" hidden>
                     <span class="home-place-art" aria-hidden="true"></span>
@@ -335,7 +337,7 @@
                 <div id="workTabs" class="work-tabs" style="display: none">
                   <button id="craftingTabBtn" class="work-tab active" type="button">Crafting</button>
                   <button id="researchTabBtn" class="work-tab" type="button">Research</button>
-                  <button id="automationTabBtn" class="work-tab" type="button" style="display: none">Automation</button>
+                  <!-- RETIRED: Tower Heart workers replace standalone automation. <button id="automationTabBtn" class="work-tab" type="button" style="display: none">Automation</button> -->
                 </div>
 
                 <div id="craftingPanel" class="work-panel">
@@ -354,8 +356,8 @@
                     <button id="researchSpotBtn" style="display: none"></button>
                     <button id="meditationSpotBtn" style="display: none"></button>
                     <button id="attunedMeditationSpotBtn" style="display: none"></button>
-                    <button id="lumberMillBtn" style="display: none"></button>
-                    <button id="foragingLureBtn" style="display: none"></button>
+                    <!-- RETIRED: Tower Heart workers replace standalone automation. <button id="lumberMillBtn" style="display: none"></button> -->
+                    <!-- RETIRED: Tower Heart workers replace standalone automation. <button id="foragingLureBtn" style="display: none"></button> -->
                     <button id="researchBenchBtn" style="display: none"></button>
                     <button id="campSmelterFoundationBtn" style="display: none"></button>
                     <button id="campSmelterBtn" style="display: none"></button>
@@ -419,10 +421,12 @@
                   </div>
                 </div>
 
-                <div id="automationPanel" class="work-panel automation-panel" style="display: none">
+                <!-- RETIRED: Tower Heart workers replace standalone automation.
+<div id="automationPanel" class="work-panel automation-panel" style="display: none">
                   <h3>Automation</h3>
                   <div id="automationList" class="automation-list"></div>
                 </div>
+-->
               </div>
 
               <details id="campResourcesSection" class="camp-resources-section storage-section" style="display: none">
@@ -1068,19 +1072,20 @@
 
     <script src="state.js?v=20260831-arcane-force-r2"></script>
     <script src="expeditionData.js?v=20260830"></script>
-    <script src="content.js?v=20260907-progression-pass1"></script>
+    <script src="content.js?v=20260911-overhaul"></script>
     <script src="definitions.js?v=20260831-imbue2"></script>
-    <script src="ui.js?v=20260906-ui-architecture"></script>
-    <script src="resources.js?v=20260831-imbue2"></script>
-    <script src="skills.js?v=20260831-imbue2"></script>
-    <script src="camp.js?v=20260907-progression-pass1"></script>
+    <script src="ui.js?v=20260911-overhaul"></script>
+    <script src="resources.js?v=20260911-overhaul"></script>
+    <script src="skills.js?v=20260911-overhaul"></script>
+    <script src="camp.js?v=20260911-overhaul"></script>
+    <script src="equipment.js?v=20260911-overhaul"></script>
     <script src="tower-visual-system.js?v=20260903-unified-tower-r1"></script>
     <script src="home-ui.js?v=20260906-ui-architecture"></script>
-    <script src="expedition.js?v=20260907-progression-pass1"></script>
-    <script src="actions.js?v=20260906-pre-camp"></script>
-    <script src="combat.js?v=20260831-arcane-force-r2"></script>
+    <script src="expedition.js?v=20260911-overhaul"></script>
+    <script src="actions.js?v=20260911-overhaul"></script>
+    <script src="combat.js?v=20260911-overhaul"></script>
     <script src="combat-scene.js?v=20260910"></script>
-    <script src="save.js?v=20260907-progression-pass1"></script>
-    <script src="script.js?v=20260906-t45-complete"></script>
+    <script src="save.js?v=20260911-overhaul"></script>
+    <script src="script.js?v=20260911-overhaul"></script>
   </body>
 </html>

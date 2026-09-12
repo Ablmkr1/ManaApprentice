@@ -10,7 +10,7 @@ const files = [
   "definitions.js",
   "resources.js",
   "skills.js",
-  "camp.js",
+  "camp.js", "equipment.js",
   "expedition.js",
   "actions.js",
   "combat.js",

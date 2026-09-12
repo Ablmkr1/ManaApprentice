@@ -5,7 +5,7 @@ const vm = require("vm");
 const root = path.resolve(__dirname, "..");
 const files = [
   "state.js", "expeditionData.js", "content.js", "definitions.js", "resources.js",
-  "skills.js", "camp.js", "expedition.js", "actions.js", "combat.js", "save.js",
+  "skills.js", "camp.js", "equipment.js", "expedition.js", "actions.js", "combat.js", "save.js",
 ];
 
 const browserStubs = `

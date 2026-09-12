@@ -30,9 +30,11 @@ const context = {
   document: { createElement: element },
   getBoundEarthElementalState() { return { assignments: { tower: 2 } }; },
   getBoundEarthElementalActiveCount() { return 3; },
+  getBoundEarthElementalAvailableCount() { return 4; },
   getBoundEarthElementalAssignmentCount(destination) { return destination.type === "tower" ? 2 : 0; },
   getBoundEarthElementalTowerConstructionRate() { return 2; },
   getTowerHeartElementalControlCapacity() { return 5; },
+  getTowerNodeState() { return { activated: false }; },
   createBoundEarthElementalAssignmentAdjustButton() { return element("button"); },
   isBoundEarthElementalNodeUnlocked(nodeName) { return unlockedNodes.has(nodeName); },
   createCompactBoundEarthElementalNodePanel(nodeName) { return { nodeName }; },
@@ -44,7 +46,7 @@ vm.runInNewContext(createPanelSource, context);
 const separatedSummaryPanel = context.createBoundEarthElementalTowerPanel();
 const totalControlledRow = separatedSummaryPanel.children.find((child) => child.className === "elemental-controlled-row");
 const constructionRow = separatedSummaryPanel.children.find((child) => child.className.includes("elemental-construction-row"));
-if (!totalControlledRow || totalControlledRow.children[0].textContent !== "Total Controlled" || totalControlledRow.children[1].textContent !== "3 / 5") {
+if (!totalControlledRow || totalControlledRow.children[0].textContent !== "Total Controlled" || totalControlledRow.children[1].textContent !== "3 / 5 · Available: 2") {
   throw new Error("The Tower Heart should show total controlled elementals separately from assignments.");
 }
 if (!constructionRow || constructionRow.children[0].textContent !== "Tower Construction" || constructionRow.children[1].children[1].textContent !== "2") {

@@ -1096,8 +1096,10 @@ const dungeonDefinitions = {
           successText: "The ruin's lesson locks into place: mana can hold a task in motion for a fixed number of cycles.",
           reward: {
             unlocks: [
-              { type: "research", id: "automationPrinciples" },
-              { type: "journal", id: "automationPrinciplesFound" },
+// RETIRED: standalone automation replaced by Tower Heart assignments. Preserved for restoration.
+//               { type: "research", id: "automationPrinciples" },
+//               { type: "journal", id: "automationPrinciplesFound" },
+// 
             ],
           },
         },
@@ -1529,7 +1531,7 @@ const dungeonDefinitions = {
           baseChance: 35,
           deepThought: 5,
           cost: { energy: 14 },
-          successText: "You copy the ancient mana condenser plans. With enough work, camp could produce mana crystals instead of only finding them.",
+          successText: "You copy the ancient mana condenser plans. The design can be assembled at the Western Roadside Ruin, beside the crystal-binding alcove.",
           reward: {
             unlocks: [
               { type: "flag", id: "manaCondenserPlansFound" },
@@ -1962,7 +1964,8 @@ const researchDefinitions = {
       focus: 3,
     },
     requires: {
-      researchCompleted: ["smelting", "leatherworking", "automationPrinciples"],
+      // Retired automation research must not block shelter progression.
+      researchCompleted: ["smelting", "leatherworking"],
       campUpgradesPurchased: ["framedShelter"],
       resources: {},
     },
@@ -1970,26 +1973,31 @@ const researchDefinitions = {
     unlocks: [{ type: "campUpgrade", id: "smallHut" }],
   },
 
-  automationPrinciples: {
-    label: "Automation Principles",
-    category: "Automation",
-    duration: 8,
-    deepThought: 5,
-    completed: false,
-    unlocked: false,
-    cost: {
-      energy: 12,
-      focus: 4,
-      manaCrystal: 2,
-      iron: 1,
-    },
-    story:
-      "The ruin's mechanisms are not alive, exactly. They remember motion when mana is fed into them: a task, a rhythm, a cycle repeated until the charge fades.",
-    unlocks: [
-      { type: "campUpgrade", id: "lumberMill" },
-      { type: "campUpgrade", id: "foragingLure" },
-    ],
-  },
+// RETIRED: standalone automation replaced by Tower Heart golems. Original definition retained for restoration.
+//   automationPrinciples: {
+//     retired: true, // Save data retained; research disabled in favor of the Heart.
+//     label: "Automation Principles",
+//     category: "Automation",
+//     duration: 8,
+//     deepThought: 5,
+//     completed: false,
+//     unlocked: false,
+//     cost: {
+//       energy: 12,
+//       focus: 4,
+//       manaCrystal: 2,
+//       iron: 1,
+//     },
+//     story:
+//       "The ruin's mechanisms are not alive, exactly. They remember motion when mana is fed into them: a task, a rhythm, a cycle repeated until the charge fades.",
+//     unlocks: [
+// // RETIRED: standalone automation replaced by Tower Heart assignments. Preserved for restoration.
+// //       { type: "campUpgrade", id: "lumberMill" },
+// //       { type: "campUpgrade", id: "foragingLure" },
+// // 
+//     ],
+//   },
+  automationPrinciples: { retired: true, label: "Automation Principles", category: "Automation", completed: false, unlocked: false, unlocks: [] },
 
   alchemy: {
     requiresDiscoveredResources: ["herb"],
@@ -2307,7 +2315,8 @@ const researchDefinitions = {
     },
     requires: {
       flags: ["manaCondenserPlansFound"],
-      researchCompleted: ["automationPrinciples"],
+      // Retired prerequisite: researchCompleted: ["automationPrinciples"].
+      // Archive plans still determine the construction milestone.
     },
     story: "The archive's condenser design is slow, exacting, and too valuable to leave as theory.",
     unlocks: [{ type: "campUpgrade", id: "manaCondenserFrame" }],
@@ -2424,6 +2433,13 @@ const researchDefinitions = {
     unlocks: [{ type: "campUpgrade", id: "attunedMeditationSpot" }],
   },
 
+  westernTowerNode: {
+    label: "Western Tower Node", category: "Tower", duration: 8, deepThought: 5,
+    completed: false, unlocked: false, cost: { energy: 60, focus: 8 },
+    requires: { locationsExplored: ["arcaneArchive"], flags: ["archiveDoorOpened", "towerConstructionUnlocked"] },
+    story: "The archive anchor resolves into a buildable pattern for the Western Node.",
+    unlocks: [{ type: "towerNode", id: "west" }],
+  },
   northernTowerNode: {
     label: "Northern Tower Node",
     category: "Tower",
@@ -2562,7 +2578,7 @@ const towerFloorDefinitions = {
     projectId: "towerFloor2",
     prerequisites: {
       projectsCompleted: ["towerFloor1"],
-      roomsCompleted: ["bedroom", "forge", "workshop"],
+      anyRoomsCompleted: ["bedroom", "forge", "workshop"],
     },
     construction: {
       actionLabel: "Raise Floor 2",
@@ -2703,6 +2719,15 @@ const towerRoomDefinitions = {
   },
 };
 
+const TOWER_ROOM_STAGES = {
+  bedroom: { name: "Restorative Chambers", baselineEffect: { type: "restEnergyMultiplier", value: 1.25, label: "+25% Bedroom rest Energy" }, upgrade: "Completed 10-second Bedroom rests restore 20 Mana alongside Energy and existing Ward recovery.", mana: 20, seconds: 10 },
+  forge: { name: "Arcane Forge (Room)", baselineEffect: { type: "ironSmeltingDurationMultiplier", value: 0.75, label: "Tower Iron smelting duration ×0.75" }, upgrade: "Reveals Steelworking research (also requires Arcane Force Rank II). Separate from the Arcane Furnace fuel imbuement." },
+  workshop: { name: "Master Workshop", baselineEffect: { type: "craftDurationMultiplier", value: 0.85, label: "Ordinary crafting duration ×0.85; excludes smelting, alchemy and enchanting" }, upgrade: "Batch ordinary recipes; salvage unequipped unenchanted gear for 50% mundane materials." },
+  alchemyRoom: { name: "Grand Alchemy Laboratory", baselineEffect: { type: "herbGatherFlat", value: 1, label: "+1 manual Herb; Tower brewing duration ×0.75; batch brewing" }, upgrade: "Batch access to the existing strongest tonics with their independent Imbue requirements; no increase to tonic strength." },
+  library: { name: "Arcane Library", baselineEffect: { type: "researchDurationMultiplier", value: 0.85, label: "Research duration ×0.85; Study restores 2 Focus per 3-second cycle for 5 Energy" }, upgrade: "Study restores 4 Focus per 3-second cycle for 5 Energy.", focus: 2, upgradedFocus: 4, seconds: 3, energy: 5 },
+  enchantingStudy: { name: "Grand Enchanting Study", baselineEffect: { type: "standardEnchanting", value: 1, label: "Standard enchantments and ringcraft at Imbue II level 4" }, upgrade: "Greater at Imbue II level 6; regional at level 9 plus discovery; enchanted salvage; +20% Imbue XP." },
+};
+
 function createTowerExpansionProjectDefinitions() {
   const projects = {};
 
@@ -2711,7 +2736,29 @@ function createTowerExpansionProjectDefinitions() {
   });
 
   Object.values(towerRoomDefinitions).forEach(function (room) {
-    projects[room.projectId] = createTowerEntityProjectDefinition(room, "room");
+    const policy = TOWER_ROOM_STAGES[room.id];
+    room.legacyConstruction = structuredClone(room.construction);
+    room.baselineEffect = policy.baselineEffect;
+    room.upgradedName = policy.name;
+    const original = room.legacyConstruction;
+    const basic = {};
+    const advanced = {};
+    Object.entries(original.materials).forEach(function ([id, amount]) {
+      const initial = ["chargedCrystal", "glimmerleaf", "imbuedWood"].includes(id) ? 0 : Math.max(1, Math.round(amount * 0.3));
+      if (initial) basic[id] = initial;
+      if (amount - initial) advanced[id] = amount - initial;
+    });
+    const work = Math.round(original.workRequired * 0.3 / 10) * 10;
+    room.construction = { ...original, workRequired: work, materials: basic };
+    const project = createTowerEntityProjectDefinition(room, "room");
+    project.levels[0].name = "Functional " + room.name;
+    project.levels.push({ name: policy.name, actionLabel: "Upgrade to " + policy.name,
+      workRequired: original.workRequired - work, workYield: original.workYield, materials: advanced,
+      description: policy.upgrade, completionStory: policy.name + " is ready. " + policy.upgrade });
+    project.completedLabel = policy.name;
+    project.completedDescription = policy.upgrade;
+    project.visualStages = [{ title: "Unbuilt" }, { title: "Functional" }, { title: "Upgraded" }];
+    projects[room.projectId] = project;
   });
 
   return projects;
@@ -3021,6 +3068,19 @@ const projectDefinitions = {
 };
 
 const towerNodeDefinitions = {
+  west: {
+    label: "Western Tower Node", locationName: "arcaneArchive", regionId: "west",
+    destinationLabel: "Western Node", researchName: "westernTowerNode",
+    materials: { stone: 30, iron: 8, chargedCrystal: 4 },
+    imbueRequired: 60, imbueCost: { mana: 10 }, imbueYield: 10, imbueDuration: 3,
+    jumpCost: { mana: 10 }, threadSenseRequired: 0, automationOnBuild: true,
+    incompleteTitle: "Dormant Western Node", completeTitle: "Western Node Online",
+    incompleteDescription: "The opened archive reveals an anchor. Research its pattern, supply stone, iron and charged crystals, then imbue it.",
+    completeDescription: "The Western Node is connected to the Heart. Control capacity is ready for future regional work; no Western jobs are available yet.",
+    activationStory: "Beyond the opened archive seal, the restored Heart detects a Western anchor.",
+    builtStory: "The Western Node joins the Heart, opening the archive route to node travel.",
+    builtJournal: "westernTowerNodeBuilt",
+  },
   north: {
     label: "Northern Tower Node",
     locationName: "minersCamp",
@@ -3121,6 +3181,14 @@ const elementalAutomationConfig = {
     towerConstructionWorkPerSecond: 1,
   },
   nodes: {
+    // Local work uses the existing assignment engine, with no travel node or extra cap.
+    local: { local: true, jobs: {
+      food: { label: "Gather Food", resource: "food", cycleDuration: 60, batchSize: 5 },
+      wood: { label: "Gather Wood", resource: "wood", cycleDuration: 60, batchSize: 5 },
+      fiber: { label: "Gather Fiber", resource: "fiber", cycleDuration: 60, batchSize: 5 },
+      traps: { label: "Check Traps", trapCheck: true, cycleDuration: 1, batchSize: 0, maxWorkers: 1 },
+    } },
+    west: { elementalCapacity: 2, jobs: {} },
     north: {
       elementalCapacity: 3,
       jobs: {
@@ -3507,57 +3575,67 @@ const campUpgrades = {
     },
   },
 
-  lumberMill: {
-    label: "Lumber Mill (Automate Wood)",
-    displayName: "Lumber Mill",
-    campSlot: "mill",
-    campSlotLabel: "Mill",
-    campSlotOrder: 6,
-    campSlotRank: 1,
-    duration: 12,
-    cost: {
-      nails: 20,
-      wood: 40,
-      manaCrystal: 2,
-      energy: 100,
-    },
-    unlocked: false,
-    purchased: false,
-    button: null,
-    display: null,
-    onComplete() {
-      getResource("wood").maxValue = Math.max(getResource("wood").maxValue, 500);
-      updateResource("wood");
-      unlockAutomation("lumberMill");
-      updateCampResourcesSectionVisibility();
-    },
-  },
+// RETIRED: standalone automation replaced by Tower Heart golems. Original definition retained for restoration.
+//   lumberMill: {
+//     retired: true, // Standalone automation retired; save fields retained.
+//     label: "Lumber Mill (Automate Wood)",
+//     displayName: "Lumber Mill",
+//     campSlot: "mill",
+//     campSlotLabel: "Mill",
+//     campSlotOrder: 6,
+//     campSlotRank: 1,
+//     duration: 12,
+//     cost: {
+//       nails: 20,
+//       wood: 40,
+//       manaCrystal: 2,
+//       energy: 100,
+//     },
+//     unlocked: false,
+//     purchased: false,
+//     button: null,
+//     display: null,
+//     onComplete() {
+// // RETIRED: standalone automation replaced by Tower Heart assignments. Preserved for restoration.
+// //       getResource("wood").maxValue = Math.max(getResource("wood").maxValue, 500);
+// //       updateResource("wood");
+// //       unlockAutomation("lumberMill");
+// //       updateCampResourcesSectionVisibility();
+// // 
+//     },
+//   },
+  lumberMill: { retired: true, label: "Lumber Mill", unlocked: false, purchased: false, button: null, display: null, onComplete() {} },
 
-  foragingLure: {
-    label: "Foraging Lure (Automate Food)",
-    displayName: "Foraging Lure",
-    campSlot: "foodAutomation",
-    campSlotLabel: "Food",
-    campSlotOrder: 7,
-    campSlotRank: 1,
-    duration: 10,
-    cost: {
-      wood: 20,
-      fiber: 20,
-      manaCrystal: 2,
-      energy: 60,
-    },
-    unlocked: false,
-    purchased: false,
-    button: null,
-    display: null,
-    onComplete() {
-      getResource("food").maxValue = Math.max(getResource("food").maxValue, 500);
-      updateResource("food");
-      unlockAutomation("foragingLure");
-      updateCampResourcesSectionVisibility();
-    },
-  },
+// RETIRED: standalone automation replaced by Tower Heart golems. Original definition retained for restoration.
+//   foragingLure: {
+//     retired: true, // Standalone automation retired; save fields retained.
+//     label: "Foraging Lure (Automate Food)",
+//     displayName: "Foraging Lure",
+//     campSlot: "foodAutomation",
+//     campSlotLabel: "Food",
+//     campSlotOrder: 7,
+//     campSlotRank: 1,
+//     duration: 10,
+//     cost: {
+//       wood: 20,
+//       fiber: 20,
+//       manaCrystal: 2,
+//       energy: 60,
+//     },
+//     unlocked: false,
+//     purchased: false,
+//     button: null,
+//     display: null,
+//     onComplete() {
+// // RETIRED: standalone automation replaced by Tower Heart assignments. Preserved for restoration.
+// //       getResource("food").maxValue = Math.max(getResource("food").maxValue, 500);
+// //       updateResource("food");
+// //       unlockAutomation("foragingLure");
+// //       updateCampResourcesSectionVisibility();
+// // 
+//     },
+//   },
+  foragingLure: { retired: true, label: "Foraging Lure", unlocked: false, purchased: false, button: null, display: null, onComplete() {} },
 
   campTannery: {
     label: "Camp Tannery (Tan Leather At Camp)",
@@ -3658,7 +3736,8 @@ const campUpgrades = {
   manaCondenserFrame: {
     label: "Mana Condenser Frame (Condenser Step 1)",
     displayName: "Condenser Frame",
-    campSlot: "condenser",
+    requiredLocation: "roadsideRuin",
+    // Relocated from campSlot: "condenser"; stored construction IDs are unchanged.
     campSlotLabel: "Condenser",
     campSlotOrder: 11,
     campSlotRank: 1,
@@ -3680,9 +3759,10 @@ const campUpgrades = {
   },
 
   manaCondenser: {
-    label: "Mana Condenser (Automate Mana Crystals)",
+    label: "Mana Condenser",
     displayName: "Mana Condenser",
-    campSlot: "condenser",
+    requiredLocation: "roadsideRuin",
+    // Relocated from campSlot: "condenser"; stored construction IDs are unchanged.
     campSlotLabel: "Condenser",
     campSlotOrder: 11,
     campSlotRank: 2,
@@ -3699,7 +3779,7 @@ const campUpgrades = {
     button: null,
     display: null,
     onComplete() {
-      unlockAutomation("manaCondenser");
+      // RETIRED: unlockAutomation("manaCondenser"); manual crystal creation remains available.
       updateWorkTabsVisibility();
     },
   },
@@ -4496,43 +4576,50 @@ const gearUpgrades = {
   },
 };
 
+// RETIRED: standalone automation replaced by Tower Heart golems. Original definition retained for restoration.
+// const automationDefinitions = {
+//   lumberMill: {
+//     label: "Lumber Mill",
+//     description: "A mana-turned frame that helps process nearby wood.",
+//     duration: 3,
+//     cyclesPerMana: 10,
+//     fuelCost: { mana: 1 },
+//     produces: { resource: "wood", amount: 1 },
+//     unlocked: false,
+//     cycles: 0,
+//     progress: 0,
+//   },
+// 
+//   foragingLure: {
+//     label: "Foraging Lure",
+//     description: "A quiet charm that draws small edible finds back toward camp.",
+//     duration: 5,
+//     cyclesPerMana: 10,
+//     fuelCost: { mana: 1 },
+//     produces: { resource: "food", amount: 1 },
+//     unlocked: false,
+//     cycles: 0,
+//     progress: 0,
+//   },
+// 
+//   manaCondenser: {
+//     label: "Mana Condenser",
+//     description: "An archive device that condenses diffuse mana into new crystals.",
+//     duration: 30,
+//     cyclesPerMana: 10,
+//     cyclesPerOutput: 20,
+//     fuelCost: { mana: 1 },
+//     produces: { resource: "manaCrystal", amount: 1 },
+//     unlocked: false,
+//     cycles: 0,
+//     progress: 0,
+//   },
+// };
+// Serialization-only records: never expose controls or provide production recipes.
 const automationDefinitions = {
-  lumberMill: {
-    label: "Lumber Mill",
-    description: "A mana-turned frame that helps process nearby wood.",
-    duration: 3,
-    cyclesPerMana: 10,
-    fuelCost: { mana: 1 },
-    produces: { resource: "wood", amount: 1 },
-    unlocked: false,
-    cycles: 0,
-    progress: 0,
-  },
-
-  foragingLure: {
-    label: "Foraging Lure",
-    description: "A quiet charm that draws small edible finds back toward camp.",
-    duration: 5,
-    cyclesPerMana: 10,
-    fuelCost: { mana: 1 },
-    produces: { resource: "food", amount: 1 },
-    unlocked: false,
-    cycles: 0,
-    progress: 0,
-  },
-
-  manaCondenser: {
-    label: "Mana Condenser",
-    description: "An archive device that condenses diffuse mana into new crystals.",
-    duration: 30,
-    cyclesPerMana: 10,
-    cyclesPerOutput: 20,
-    fuelCost: { mana: 1 },
-    produces: { resource: "manaCrystal", amount: 1 },
-    unlocked: false,
-    cycles: 0,
-    progress: 0,
-  },
+  lumberMill: { unlocked: false, cycles: 0, progress: 0 },
+  foragingLure: { unlocked: false, cycles: 0, progress: 0 },
+  manaCondenser: { unlocked: false, cycles: 0, progress: 0 },
 };
 
 const resourceCrafts = {
@@ -4686,7 +4773,7 @@ const consumables = {
     carriedItem: "staminaTonic",
     effectText: "You drink a bitter tonic and feel strength return.",
     use() {
-      addResource("energy", 20);
+      addResource("energy", 20 * getEquippedPermanentImbueEffectMultiplier("tonicMultiplier"));
       updateResource("energy");
     },
   },
@@ -4696,7 +4783,7 @@ const consumables = {
     carriedItem: "improvedStaminaTonic",
     effectText: "You drink a bright, biting tonic and strength floods back into your limbs.",
     use() {
-      addResource("energy", 30);
+      addResource("energy", 30 * getEquippedPermanentImbueEffectMultiplier("tonicMultiplier"));
       updateResource("energy");
     },
   },
@@ -4706,7 +4793,7 @@ const consumables = {
     carriedItem: "manaTonic",
     effectText: "You drink a cool, silver-edged tonic and feel mana settle back into reach.",
     use() {
-      addResource("mana", 5);
+      addResource("mana", 5 * getEquippedPermanentImbueEffectMultiplier("tonicMultiplier"));
       updateResource("mana");
     },
   },
@@ -4716,7 +4803,7 @@ const consumables = {
     carriedItem: "majorManaTonic",
     effectText: "You drink a dense, bright tonic and mana surges back into shape.",
     use() {
-      addResource("mana", 10);
+      addResource("mana", 10 * getEquippedPermanentImbueEffectMultiplier("tonicMultiplier"));
       updateResource("mana");
     },
   },
@@ -4847,11 +4934,11 @@ const attunementDefinitions = {
 
   manaConduit: {
     label: "Mana Conduit",
-    description: "+0.1 mana per second",
+    description: "+10 base maximum mana, growing to +30 at full Rank II development",
     requiredAttunementRank: 2,
     requiredRankTwoLevel: 1,
     cost: { mana: 8 },
-    effects: { manaPerSecond: 0.1 },
+    effects: { maxManaFlat: 10 },
   },
 
   focusedMind: {
@@ -5228,7 +5315,8 @@ const imbueDefinitions = {
   manaCrystal: {
     label: "Create Mana Crystal",
     description: "Compress a full reserve of mana into a new stable crystal.",
-    requiredLocation: "camp",
+    requiredLocation: "roadsideRuin",
+    locationProduces: { resource: "manaCrystal", amount: 1 }, // Preserve delivery to the resource stockpile.
     cost: {
       mana: 20,
       focus: 5,
@@ -5334,7 +5422,7 @@ const imbueDefinitions = {
 
   chargedCrystal: {
     label: "Charge Mana Crystal",
-    description: "Store mana inside an existing crystal for later tower and automation work.",
+    description: "Store mana inside an existing crystal for later tower work.",
     requiredLocation: "camp",
     cost: {
       mana: 5,
@@ -5735,7 +5823,7 @@ const journalDefinitions = {
   },
   manaCrystalImbuingUnlocked: {
     title: "Crystal Binding Pattern",
-    text: "The ruined alcove showed how raw mana can be pressed into a crystal lattice. With enough mana, you can create mana crystals at camp.",
+    text: "The ruined alcove showed how raw mana can be pressed into a crystal lattice. With enough mana, you can create mana crystals at the Western Roadside Ruin.",
   },
   manaAwakened: {
     title: "Mana Awakened",
@@ -5809,6 +5897,7 @@ const journalDefinitions = {
     title: "Northern Tower Node",
     text: "The northern signal can be rebuilt as a small local node: stone for the body, iron for the binding, charged crystals for the focus, and imbuement to wake the path.",
   },
+  westernTowerNodeBuilt: { title: "Western Node Online", text: "The archive anchor is linked to the Tower Heart. Western node travel is now available." },
   northernTowerNodeBuilt: {
     title: "Northern Node Online",
     text: "The Miners' Camp node now holds a stable link to the Tower Heart. With mana, you can jump there directly after packing for an expedition.",
