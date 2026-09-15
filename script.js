@@ -1632,6 +1632,7 @@ function gameTick() {
   processBoundEarthElementalAutomation(deltaSeconds);
   processActivityTick();
   processCombatTick();
+  if (typeof ExpeditionScene !== "undefined") ExpeditionScene.render();
 }
 
 function startResting() {

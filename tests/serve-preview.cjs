@@ -2,7 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const root = path.resolve(__dirname, '..');
-const mime = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.png':'image/png','.svg':'image/svg+xml','.json':'application/json'};
+const mime = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.png':'image/png','.webp':'image/webp','.svg':'image/svg+xml','.json':'application/json'};
 http.createServer((req,res) => {
   const url = new URL(req.url, 'http://localhost');
   if (url.pathname === '/tests/overhaul-preview.html') {

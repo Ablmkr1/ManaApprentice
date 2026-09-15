@@ -1254,7 +1254,10 @@ function createTrainingEntry(skillName) {
 function updateTrainingUI() {
   ensureSkillsState();
 
-  if (!ui.trainingSection || !ui.trainingList) return;
+  if (!ui.trainingSection || !ui.trainingList) {
+    if (typeof updateHomeAttentionIndicators === "function") updateHomeAttentionIndicators();
+    return;
+  }
 
   const skillNames = ["conditioning", "concentration", "manaCycling", "meditation"];
 
@@ -1268,6 +1271,7 @@ function updateTrainingUI() {
 
   if (visibleSkills.length === 0) {
     hideElement(ui.trainingSection);
+    if (typeof updateHomeAttentionIndicators === "function") updateHomeAttentionIndicators();
     return;
   }
 
@@ -1277,4 +1281,6 @@ function updateTrainingUI() {
   visibleSkills.forEach(function (skillName) {
     ui.trainingList.appendChild(createTrainingEntry(skillName));
   });
+
+  if (typeof updateHomeAttentionIndicators === "function") updateHomeAttentionIndicators();
 }

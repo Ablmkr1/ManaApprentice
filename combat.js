@@ -730,7 +730,7 @@ function recallFromCombat() {
   if (gameState.expedition && gameState.expedition.active) {
     beginReturnToCamp("combatRecall");
   } else if (typeof setMainView === "function") {
-    setMainView("camp");
+    setMainView("home");
   }
 
   return true;

@@ -1403,6 +1403,17 @@ const gameState = {
     announced: {},
     seen: {},
   },
+  // Camp station alerts remember the specific work the player has already
+  // inspected. New recipe/research ids and later skill breakthroughs can then
+  // light the station again without turning repeatable work into a permanent
+  // notification.
+  homeAttention: {
+    seen: {
+      crafting: [],
+      research: [],
+      training: [],
+    },
+  },
   journal: {
     entries: [],
   },

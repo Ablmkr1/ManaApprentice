@@ -122,7 +122,12 @@ function equipmentChangeReason() {
 function equipmentFitReason(equipped) {
   const items = Object.values(equipped).map(ownedEquipment).filter(Boolean);
   const pack = items.find(i => equipmentSlot(i) === "pack");
-  const capacity = (getGearUpgrade(pack?.baseGearId)?.effects?.carryCapacity || 0) + items.reduce((n, i) => n + (itemEffects(i).carryCapacityFlat || 0), 0) + getActiveAttunementEffectTotal("carryCapacityFlat");
+  const capacity = Math.max(
+    typeof BASE_CARRY_CAPACITY === "number" ? BASE_CARRY_CAPACITY : 5,
+    (getGearUpgrade(pack?.baseGearId)?.effects?.carryCapacity || 0) +
+      items.reduce((n, i) => n + (itemEffects(i).carryCapacityFlat || 0), 0) +
+      getActiveAttunementEffectTotal("carryCapacityFlat")
+  );
   if (getCarriedTotal() > capacity) return "Unload carried inventory before reducing capacity.";
   const belt = items.find(i => equipmentSlot(i) === "belt");
   const slots = getGearUpgrade(belt?.baseGearId)?.effects?.tonicSlots || 0;
@@ -219,7 +224,24 @@ function startEquipmentOperation(op) {
   const reserved = { ...structuredClone(op), transactionId: "operation-" + c.nextId++ };
   c.pending = reserved;
   if (!startActivity({ kind: "equipment", id: op.type, duration: op.type === "craft" ? getCraftDuration("gearUpgrade", op.baseGearId) : 3, context: reserved })) { c.pending = null; return false; }
+  updateCraftingButtons();
+  updateAllActionButtons();
   return true;
+}
+function autoEquipCompletedEquipment(item) {
+  if (!item) return;
+
+  const c = ensureEquipmentCollection();
+  const itemSlot = equipmentSlot(item);
+  let slot = itemSlot;
+
+  if (itemSlot === "ring") {
+    if (Object.values(c.equipped).includes(item.id)) return;
+    slot = !c.equipped.leftRing ? "leftRing" : !c.equipped.rightRing ? "rightRing" : "leftRing";
+  }
+
+  const next = { ...c.equipped, [slot]: item.id };
+  if (!equipmentFitReason(next)) c.equipped = next;
 }
 function completeEquipmentOperation(op) {
   const reservation = ensureEquipmentCollection().pending;
@@ -239,17 +261,22 @@ function completeEquipmentOperation(op) {
   }
   c.pending = null;
   if (!spendCost(cost)) return false;
+  let completedItem;
   if (op.type === "craft" && op.predecessorId) {
-    Object.assign(ownedEquipment(op.predecessorId), candidate);
-  } else if (item) Object.assign(item, candidate);
+    completedItem = ownedEquipment(op.predecessorId);
+    Object.assign(completedItem, candidate);
+  } else if (item) {
+    completedItem = item;
+    Object.assign(completedItem, candidate);
+  }
   else {
     candidate.id = "gear-" + c.nextId++;
     candidate.family = candidate.family || null;
     candidate.grade = candidate.grade || "standard";
     c.items.push(candidate);
-    const slot = equipmentSlot(candidate);
-    if (slot !== "ring" && !c.equipped[slot]) c.equipped[slot] = candidate.id;
+    completedItem = candidate;
   }
+  autoEquipCompletedEquipment(completedItem);
   syncGearOwnershipFlags();
   if (op.type !== "craft" && cost.mana) { recordImbueExperience(cost.mana); recordManaControl(cost.mana, "Equipment enchantment"); }
   return true;
@@ -414,13 +441,7 @@ function appendEquipmentCollectionUI(container, selectedSlot) {
     controls.replaceChildren();
     const equip = document.createElement("button"); equip.textContent = "Equip"; equip.disabled = !item || isItemEquipped(item.id) || !!equipmentChangeReason(); equip.onclick = () => equipOwnedItem(item.id, selectedSlot); controls.appendChild(equip);
     if (current) { const off = document.createElement("button"); off.textContent = "Unequip"; off.disabled = !!equipmentChangeReason(); off.onclick = () => equipOwnedItem(null, selectedSlot); controls.appendChild(off); }
-    if (item) {
-      const name = document.createElement("input"); name.type = "text"; name.maxLength = 80; name.value = item.name || ""; name.placeholder = equipmentName({ ...item, name: "" }); name.setAttribute("aria-label", "Custom equipment name"); name.disabled = !!equipmentChangeReason();
-      name.onchange = () => { if (!equipmentChangeReason()) { item.name = name.value.trim().slice(0, 80); trySaveGame(); } }; controls.appendChild(name);
-      const salvage = document.createElement("button"); salvage.textContent = "Salvage…";
-      const reason = equipmentOperationReason({ type: "salvage", itemId: item.id, confirmed: true }); salvage.disabled = !!reason; salvage.title = reason || formatCost(equipmentSalvageRefund(item));
-      salvage.onclick = () => { if (window.confirm("Salvage " + equipmentName(item) + "? Returns " + formatCost(equipmentSalvageRefund(item)) + ". This destroys the item.")) startEquipmentOperation({ type: "salvage", itemId: item.id, confirmed: true }); }; controls.appendChild(salvage);
-    }
+    // Rename and Salvage controls are intentionally hidden for now.
   };
   select.onchange = render; section.append(select, preview, controls); container.appendChild(section); render();
 }

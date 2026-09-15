@@ -1,0 +1,30 @@
+{
+  "generator": "Built-in image_gen",
+  "date": "2026-09-15",
+  "assets": [
+    {
+      "file": "hall.png",
+      "rooms": [
+        "entryStair",
+        "crackedHall"
+      ],
+      "prompt": "Use case: stylized-concept. Asset type: landscape 1536x1024 fantasy game dungeon room background, no UI. Create the interior of Roadside Ruin, an ancient modest stone ruin beneath a broken forest road. Painterly realism, detailed weathered limestone, earthy olive and warm grey stone, restrained pale cyan mana flecks, naturalistic light matching a grounded fantasy exploration game. At the foot of an entry stair, look across a vaulted cracked hall: stairs up to daylight on the far left, a shadowed stone passage at right, a smaller side doorway left of center. Open stone floor foreground. Soft warm reflected daylight with cool subterranean shadows; readable midtones, no pitch black. No people, enemies, text, symbols, treasure chests, UI or watermarks. Single coherent scene, not a collage."
+    },
+    {
+      "file": "chamber.png",
+      "rooms": [
+        "sideChamber",
+        "emptyRoom"
+      ],
+      "prompt": "Use case: stylized-concept. Asset type: landscape 1536x1024 fantasy game dungeon room background, no UI. Interior side chamber of Roadside Ruin beneath an ancient broken forest road. Grounded painterly realism, weathered grey limestone vaults and earthy olive shadows. Broken wooden shelves on rear wall, shattered furniture and scattered rubble on floor, faint pale cyan crystal dust inside cracks. A simple open arched doorway at left and one at right; central shelves are the visual focus. Warm indirect daylight from small ceiling cracks, gentle cool ambient shadows, readable midtones. Abandoned and quiet, modest archaeology rather than grand palace. No characters, monsters, treasure chest, text, icons, interface, watermark. Single coherent scene."
+    },
+    {
+      "file": "alcove.png",
+      "rooms": [
+        "collapsedPassage",
+        "crystalBindingAlcove"
+      ],
+      "prompt": "Use case: stylized-concept. Asset type: landscape 1536x1024 fantasy dungeon background. Roadside Ruin deep chamber beneath a forest road, grounded painterly realism with finely weathered grey limestone and earthy olive shadows. View from a partially collapsed passage: rubble piled around foreground edges leaving a narrow walkable path into an intact stone alcove at center-right. Small translucent pale cyan crystal facets embedded in the alcove walls form a subtle ordered mineral lattice, not runes. An arched passage back at left. Restrained crystal glow and warm reflected light illuminate readable stone midtones. Quiet mysterious ancient masonry, no giant crystal, no altar, no treasure chest, no enemy, no people, no UI, no words, no watermark. Single coherent scene."
+    }
+  ]
+}

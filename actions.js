@@ -96,7 +96,7 @@ function hookActionCompletions() {
       return;
     }
 
-    const stoneAmount = 1 + (typeof getActiveAttunementEffectTotal === "function" ? getActiveAttunementEffectTotal("manualStoneFlat") : 0);
+    const stoneAmount = getGatherStoneAmount();
     if (!addCarriedItem("stone", stoneAmount)) {
       addStoryEntry("The stones are too heavy to carry more.");
       return;
@@ -762,6 +762,11 @@ function getAutoActionCarryAmount(actionName) {
   return 1;
 }
 
+// Shared with the Expedition presentation so displayed yields match rewards.
+function getGatherStoneAmount() {
+  return 1 + (typeof getActiveAttunementEffectTotal === "function" ? getActiveAttunementEffectTotal("manualStoneFlat") : 0);
+}
+
 function canPauseAutoActionForRest(actionName) {
   const action = getAction(actionName);
 
@@ -968,6 +973,11 @@ function getActivityButton(activity) {
     return craft ? craft.button : null;
   }
 
+  if (activity.kind === "equipment" && activity.id === "craft") {
+    const craft = getGearUpgrade(activity.context?.baseGearId);
+    return craft ? craft.button : null;
+  }
+
   if (activity.kind === "travel") {
     const action = getAction("travel");
     return action ? action.button : null;
@@ -1062,6 +1072,10 @@ function processActivityTick() {
     setCraftButtonProgress(button, progress);
   }
 
+  if (activity.kind === "equipment" && activity.id === "craft" && button) {
+    setCraftButtonProgress(button, progress);
+  }
+
   if (activity.kind === "travel") {
     const travelAction = getAction("travel");
 
@@ -1144,9 +1158,16 @@ function completeActivity() {
     return;
   }
   if (activity.kind === "equipment") {
-    completeEquipmentOperation(activity.context);
+    const operation = activity.context;
+    const button = getActivityButton(activity);
+    completeEquipmentOperation(operation);
+    if (button) resetCraftButtonProgress(button);
     resetActivity();
     refreshEquipmentCollection();
+    // Wearable recipes use the equipment transaction path. Refresh the full
+    // crafting UI after that transaction clears so completed recipes disappear
+    // and failed transactions return to their current actionable state.
+    updateCraftingUIForCurrentContext();
     trySaveGame();
     return;
   }

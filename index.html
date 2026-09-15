@@ -6,8 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="style.css?v=20260911-overhaul" />
     <link rel="stylesheet" href="tower-visual-system.css?v=20260903-unified-tower-r1" />
-    <link rel="stylesheet" href="home-ui.css?v=20260907-clearing-layout-r3" />
+    <link rel="stylesheet" href="home-ui.css?v=20260915-camp-attention" />
     <link rel="stylesheet" href="combat-scene.css?v=20260910" />
+    <link rel="stylesheet" href="expedition-scene.css?v=20260915-water-summary" />
+    <link rel="stylesheet" href="dungeon-scene.css?v=20260915" />
   </head>
 
   <body>
@@ -344,6 +346,8 @@
                   <h3>Crafting</h3>
 
                   <div class="crafting-actions">
+                    <button id="practiceCircleBtn" style="display: none"></button>
+                    <button id="storageCacheBtn" style="display: none"></button>
                     <button id="workbenchBtn" style="display: none"></button>
                     <button id="smallFireBtn" style="display: none"></button>
                     <button id="crudeLeanToBtn" style="display: none"></button>
@@ -1077,12 +1081,16 @@
     <script src="ui.js?v=20260911-overhaul"></script>
     <script src="resources.js?v=20260911-overhaul"></script>
     <script src="skills.js?v=20260911-overhaul"></script>
-    <script src="camp.js?v=20260911-overhaul"></script>
-    <script src="equipment.js?v=20260911-overhaul"></script>
+    <script src="camp.js?v=20260915-craft-refresh"></script>
+    <script src="equipment.js?v=20260915-craft-refresh"></script>
     <script src="tower-visual-system.js?v=20260903-unified-tower-r1"></script>
-    <script src="home-ui.js?v=20260906-ui-architecture"></script>
+    <script src="home-ui.js?v=20260915-camp-attention"></script>
     <script src="expedition.js?v=20260911-overhaul"></script>
-    <script src="actions.js?v=20260911-overhaul"></script>
+    <script src="dungeon-scene.js?v=20260915-direct"></script>
+    <script src="expedition-map-config.js?v=20260915"></script>
+    <script src="expedition-map.js?v=20260915-found-map-gate"></script>
+    <script src="expedition-scene.js?v=20260915-direct"></script>
+    <script src="actions.js?v=20260915-craft-refresh"></script>
     <script src="combat.js?v=20260911-overhaul"></script>
     <script src="combat-scene.js?v=20260910"></script>
     <script src="save.js?v=20260911-overhaul"></script>

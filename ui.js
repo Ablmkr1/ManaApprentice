@@ -1390,6 +1390,7 @@ function setMainView(viewName, options = {}) {
   if (homeTowerViewEntryActive && ui.towerPanel) showElement(ui.towerPanel, "flex");
 
   updateMainViewTabStates();
+  if (targetView === "expedition" && options.userSelected && typeof ExpeditionMap !== "undefined") ExpeditionMap.open();
 }
 
 function syncMainViewAvailability() {

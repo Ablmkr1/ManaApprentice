@@ -6,6 +6,12 @@ No applicable AGENTS.md was found in the repository or its ancestor directories.
 Checkpoints:
 1. Split room projects into functional/upgrade stages; explicit recovery and Mana Conduit.
 2. Central bounded wearable records, atomic operations, and versioned legacy conversion.
+
+Wearable recipes participate in the shared crafting-button lifecycle even though
+their atomic transaction uses the equipment activity path. Starting a wearable
+craft now marks its recipe as running and advances its progress bar; completion
+resets progress and refreshes recipe visibility after ownership is committed, so
+completed one-time recipes do not remain as disabled requirement failures.
 3. Equipped effects, regional events, Study/collection UI using existing assets.
 4. Regression suite, combat loadouts, desktop/mobile browser verification.
 

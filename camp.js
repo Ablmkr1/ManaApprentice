@@ -1454,6 +1454,7 @@ function unlockResourceCraft(craftName) {
   craft.unlocked = true;
   updateResourceCraftUI(craftName);
   updateCraftingSectionVisibility();
+  if (typeof updateHomeAttentionIndicators === "function") updateHomeAttentionIndicators();
 }
 
 function unlockRegion(regionId) {
@@ -1516,6 +1517,7 @@ function unlockResearch(researchName) {
 
   updateCraftingSectionVisibility();
   updateWorkTabsVisibility();
+  if (typeof updateHomeAttentionIndicators === "function") updateHomeAttentionIndicators();
 
   if (typeof updateResearchHistoryUI === "function") {
     updateResearchHistoryUI();
@@ -2138,6 +2140,7 @@ function unlockCampUpgrade(upgradeName) {
   upgrade.unlocked = true;
   updateCampUpgradeUI(upgradeName);
   updateCraftingSectionVisibility();
+  if (typeof updateHomeAttentionIndicators === "function") updateHomeAttentionIndicators();
 }
 
 // Lock Camp Upgrade Function
@@ -2178,8 +2181,23 @@ function hasPurchasedCampUpgrade(upgradeName) {
   return !!upgrade && upgrade.purchased;
 }
 
+function hasHomeFacilityConstructionUnlocked() {
+  return !!gameState.hasCamp || (
+    hasPurchasedCampUpgrade("smallFire") &&
+    hasPurchasedCampUpgrade("crudeLeanTo") &&
+    !!gameState.discoveredStream &&
+    !!gameState.discoveredBerryBush
+  );
+}
+
 function syncHomeStructureUnlocks() {
-  if (!gameState.hasCamp) return;
+  if (!hasHomeFacilityConstructionUnlocked()) return;
+
+  // Simple camp facilities need construction, but no research prerequisite.
+  ["practiceCircle", "storageCache"].forEach(function (upgradeName) {
+    const upgrade = getCampUpgrade(upgradeName);
+    if (upgrade && !upgrade.purchased && !upgrade.unlocked) unlockCampUpgrade(upgradeName);
+  });
 
   const workbench = getCampUpgrade("workbench");
   const stone = getResource("stone");
@@ -3463,6 +3481,7 @@ function unlockGearUpgrade(upgradeName) {
   updateGearUpgradeUI(upgradeName);
   updateExpeditionLoadoutVisibility();
   updateCraftingSectionVisibility();
+  if (typeof updateHomeAttentionIndicators === "function") updateHomeAttentionIndicators();
 }
 
 function buyGearUpgrade(upgradeName) {
@@ -3676,8 +3695,10 @@ function updateCraftButtonsForType(craftType, definitions) {
 
     if (!craft || !craft.button) continue;
 
-    const isActiveCraft =
-      isActivityActive() && gameState.activity.kind === "craft" && gameState.activity.type === craftType && gameState.activity.id === craftId;
+    const isActiveCraft = isActivityActive() && (
+      (gameState.activity.kind === "craft" && gameState.activity.type === craftType && gameState.activity.id === craftId) ||
+      (craftType === "gearUpgrade" && gameState.activity.kind === "equipment" && gameState.activity.id === "craft" && gameState.activity.context?.baseGearId === craftId)
+    );
 
     const available = isCraftAvailable(craftType, craftId);
     const cost = getCraftCost(craftType, craftId);
@@ -9575,6 +9596,7 @@ function appendManaSenseTargetOption(targetName, menuEl) {
   const context = getManaSenseTargetContext(targetName);
   const isActive = isManaSenseTargetActive(targetName);
   const button = document.createElement("button");
+  button.dataset.manaSenseTarget = targetName;
   button.type = "button";
   button.className = "attunement-target-btn";
 

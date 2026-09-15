@@ -1,0 +1,187 @@
+/* Expedition presentation only. Scenery is generated raster artwork. */
+#expeditionPanel.expedition-frame {
+  --exp-paper: #fffaf0; --exp-paper-secondary: #eadfca; --exp-ink: #2b241c; --exp-muted: #655b4f;
+  min-width: 0; padding: clamp(10px, 2vw, 22px); border: 1px solid #847253;
+  border-radius: 15px; background: #14291f; color: #fffaf0; gap: 8px;
+}
+.expedition-frame > h2 { margin: 0 0 10px; font: clamp(20px, 2.5vw, 27px) var(--font-display, Georgia, serif); color: #fffaf0; }
+.expedition-frame [hidden], .expedition-frame .expedition-filtered { display: none !important; }
+.expedition-status { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 22px; padding: 11px 12px; background: #fffaf0; border: 1px solid #b3a080; border-radius: 8px; font-size: 14px; color: #2b241c; }
+#expeditionPackStatus { min-width: 0; font-weight: 600; }
+#expeditionWaterStatus { white-space: nowrap; }
+.expedition-frame .travel-section { margin: 10px 0; padding: 12px; background: #eadfca; color: #2b241c; border: 1px solid #b3a080; border-radius: 8px; }
+.expedition-frame .travel-section > h3 { margin: 0 0 8px; font-size: 12px; color: #655b4f; letter-spacing: .08em; text-transform: uppercase; }
+.expedition-frame .travel-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: start; }
+.expedition-frame .travel-actions > .action-btn { flex: 1 1 170px; min-width: 0; max-width: 340px; margin: 0; }
+.expedition-frame .expedition-stats { margin: 0 0 8px; }
+.expedition-frame .expedition-distance-bar { min-height: 26px; background: #fffaf0; border-color: #8c795e; }
+.expedition-frame .expedition-distance-label { font-size: 13px; color: #2b241c; }
+.expedition-frame .destination-actions { flex-wrap: wrap; min-width: 0; }
+.expedition-frame .regional-map-section { margin: 0; padding: 8px; background: #eadfca; border-color: #b3a080; }
+.expedition-region-knowledge summary { min-height: 36px; padding: 10px 2px 0; font-size: 13px; color: #655b4f; cursor: pointer; }
+#expeditionPanel #regionalMap { display: grid; gap: 6px; padding: 0; background: transparent; border: 0; min-width: 0; width: 100%; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: auto; grid-template-areas: none; overflow: visible; }
+#expeditionPanel #regionalMap::before, #expeditionPanel #regionalMap::after { display: none; }
+#expeditionPanel #regionalMap .region-node { grid-area: auto; width: auto; min-width: 0; min-height: 60px; padding: 8px; background: #fffaf0; color: #2b241c; border: 1px solid #9a8869; }
+#expeditionPanel #regionalMap .region-node[aria-pressed="true"] { background: #314b39; color: #fffaf0; border-color: #314b39; box-shadow: inset 0 -3px #c5ae7e; }
+#expeditionPanel #regionalMap .region-node:disabled { background: #e0d5c1; color: #655b4f; opacity: 1; }
+.expedition-frame .region-node-direction { font-size: 10px; color: inherit; }
+.expedition-frame .region-node-name { font-size: 14px; color: inherit; }
+.expedition-frame .region-node-status { font-size: 11px; color: inherit; }
+.expedition-frame .region-details { padding: 10px; margin-top: 8px; background: #fffaf0; color: #2b241c; }
+.expedition-frame .region-details p, .expedition-frame .region-details strong { color: #2b241c; }
+.expedition-frame .region-status-badge { background: #314b39; color: #fffaf0; }
+.expedition-frame .region-details-header { margin: 0; }
+.expedition-frame .region-details h3 { font-size: 17px; margin: 0; color: #2b241c; }
+.expedition-frame .region-details > p { font-size: 13px; margin: 5px 0; }
+.expedition-frame .region-facts { display: none; }
+.expedition-frame .region-progress-labels { font-size: 12px; color: #655b4f; }
+.expedition-frame .region-progress-track { height: 5px; }
+.expedition-view-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; }
+.expedition-view-heading p { margin: 0; color: #eee4cf; font-size: 14px; }
+.expedition-frame .expedition-view-heading button, .expedition-detail header > button { flex-shrink: 0; min-height: 44px; padding: 8px 12px; border: 1px solid #b3a080; border-radius: 7px; font: inherit; font-size: 13px; cursor: pointer; color: #2b241c; background: #fffaf0; }
+.expedition-surface { position: relative; isolation: isolate; height: clamp(560px, 52vw, 720px); border: 1px solid #a28b63; border-radius: 10px; overflow: clip; background: #26372b; }
+.expedition-scene-window { position: absolute; inset: 0; overflow: clip; }
+.expedition-art, .expedition-landmarks { position: absolute; pointer-events: none; }
+.expedition-background { display: block; width: 100%; height: 100%; }
+.expedition-node-overlay { position: absolute; width: 12%; height: auto; left: 66%; top: 20%; }
+.expedition-surface[data-node-state="built"] .expedition-node-overlay { filter: drop-shadow(0 0 5px #70d8dc) drop-shadow(0 0 12px #70d8dc66); }
+.expedition-map-key { position: absolute; top: 16px; left: 18px; color: #2b241c; padding: 8px 10px; border-radius: 6px; background: #fffaf0ed; font: 20px Georgia, serif; pointer-events: none; }
+.expedition-map-key small { font: 11px var(--font-body, Georgia, serif); letter-spacing: .06em; }
+.expedition-landmark { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); pointer-events: auto; width: 19%; height: 11%; min-width: 76px; min-height: 60px; padding: 0; border: 2px solid transparent; border-radius: 18px; background: transparent; box-shadow: none; cursor: pointer; text-align: center; font: inherit; color: #2b241c; overflow: visible; }
+.expedition-landmark-label { position: absolute; top: 82%; left: 50%; transform: translateX(-50%); display: block; width: max-content; max-width: 170px; padding: 7px 10px; border: 1px solid #ab9167; border-radius: 6px; background: #fffaf0f5; box-shadow: 0 3px 12px #091b1640; }
+.expedition-landmark strong { display: block; font: 15px var(--font-display, Georgia, serif); }
+.expedition-landmark small { display: block; margin-top: 3px; color: #655b4f; font-size: 11px; }
+.expedition-landmark:hover, .expedition-landmark:focus-visible, .expedition-landmark[aria-pressed="true"] { border-color: #f4d89d; background: #fff4cf16; box-shadow: 0 0 20px #f5d18b44; }
+.expedition-landmark[aria-pressed="true"] .expedition-landmark-label { background: #f5e3be; border-color: #705c36; }
+.expedition-landmark.is-current .expedition-landmark-label { border: 2px solid #314b39; }
+.expedition-surface.stone-sense-active .expedition-landmark[data-landmark="scree"] { box-shadow: 0 0 35px 10px #75e6e94d; background: #75e6e918; border-color: #92ebec; }
+.expedition-frame button:focus-visible, .expedition-frame summary:focus-visible { outline: 3px solid #97713a; outline-offset: 3px; }
+.expedition-frame .expedition-landmark:focus-visible { outline-color: #fffaf0; }
+.expedition-detail { position: absolute; z-index: 2; top: 14px; right: 14px; bottom: 14px; width: min(43%, 460px); overflow: auto; overscroll-behavior: contain; padding: 18px; border: 1px solid #e7d5b5; border-radius: 10px; color: #2b241c; background: linear-gradient(145deg, #fffaf0, #eadfca); box-shadow: 0 12px 35px #07130e66; scrollbar-color: #887451 #eadfca; }
+.expedition-surface[data-panel-side="left"] .expedition-detail { left: 14px; right: auto; }
+.expedition-detail header { display: flex; align-items: start; justify-content: space-between; gap: 8px; }
+.expedition-detail > header { position: sticky; top: -18px; z-index: 5; padding-block: 9px; background: #fffaf0; }
+.expedition-detail header h3 { margin: 3px 0 0; color: #2b241c; font: 25px var(--font-display, Georgia, serif); }
+#expeditionDetailKicker { color: #655b4f; text-transform: uppercase; letter-spacing: .1em; font-size: 11px; }
+.expedition-detail > p { color: #655b4f; font-size: 14px; line-height: 1.55; margin: 12px 0; }
+#expeditionDetailInfo { padding: 10px 0; border-block: 1px solid #b7a385; font-weight: 600; color: #2b241c; }
+.expedition-detail #locationContent { margin: 0; padding: 0; background: transparent; border: 0; }
+.expedition-detail .location-primary-actions, .expedition-detail .contextual-actions, .expedition-detail .destination-actions { grid-template-columns: minmax(0, 1fr); flex-direction: column; gap: 8px; margin: 12px 0; padding: 0; border: 0; background: transparent; }
+.expedition-detail h3, .expedition-detail h4, .expedition-detail p { color: #2b241c; }
+.expedition-detail .location-primary-actions > h3 { display: none; }
+#expeditionPanel .action-btn, #expeditionPanel .ui-action-button, #expeditionPanel .attunement-target-btn { min-width: 0; min-height: 48px; border: 1px solid #998365; background: #fffaf0; color: #2b241c; border-radius: 7px; }
+#expeditionDetail .action-btn, #expeditionDetail .ui-action-button, #expeditionDetail .attunement-target-btn { width: 100%; margin: 0 0 7px; padding: 12px; }
+#expeditionPanel .action-btn:hover:not(:disabled), #expeditionPanel .ui-action-button:hover:not(:disabled) { background: #f5ead4; border-color: #705c36; }
+#expeditionPanel button:disabled { opacity: 1; color: #655b4f; background-color: #e5dac7; border-color: #a18e72; }
+#expeditionPanel .ui-action-label, #expeditionPanel .craft-name { color: inherit; font-size: 14px; }
+#expeditionPanel .ui-action-cost, #expeditionPanel .ui-action-detail, #expeditionPanel .craft-cost, #expeditionPanel .action-cost, #expeditionPanel .action-detail { color: #655b4f; font-size: 12px; opacity: 1; }
+#expeditionPanel .ui-action-reason { color: #754336; font-size: 12px; opacity: 1; }
+#expeditionPanel .ui-action-icon { color: #655b4f; border-color: #a18e72; }
+#expeditionPanel .action-result-feedback { color: #2b241c; background: #fffaf0; }
+#expeditionPanel .progressFill { background: #bda36c45; }
+#expeditionPanel .ui-action-button[data-ui-state="running"] { border-color: #896633; box-shadow: inset 3px 0 #896633; }
+.expedition-detail .camp-resources-section { background: #eadfca; border-color: #b3a080; margin: 10px 0; padding: 10px; }
+#expeditionPanel .resource-pill { background: #fffaf0; color: #2b241c; border-color: #b3a080; font-size: 13px; }
+.expedition-detail .tower-node-layout { grid-template-columns: minmax(0, 1fr); }
+.expedition-detail .tower-node-layout > .tower-visual-panel { display: none; }
+#expeditionDetail .tower-stage-panel, #expeditionDetail .tower-node-entry { min-width: 0; padding: 10px; color: #2b241c; background: #fffaf0; border-color: #b3a080; }
+.expedition-detail .tower-stage-panel p, .expedition-detail .tower-node-entry h4, .expedition-detail .tower-node-entry strong { color: inherit; }
+.expedition-kit { margin-top: 12px; padding: 10px 12px; border: 1px solid #b3a080; border-radius: 8px; background: #eadfca; color: #2b241c; }
+.expedition-kit summary { min-height: 36px; cursor: pointer; padding: 6px 0; font-size: 14px; color: #2b241c; }
+.expedition-kit > p { font-size: 13px; color: #655b4f; }
+.expedition-retained { min-width: 0; }
+.expedition-local-tools { margin-top: 12px; padding: 14px; border: 1px solid #b3a080; border-radius: 8px; background: #fffaf0; color: #2b241c; min-width: 0; }
+.expedition-local-tools h3 { color: #2b241c; margin: 0 0 10px; }
+.expedition-local-tools p { color: #655b4f; font-size: 13px; }
+.expedition-direct-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 8px; }
+.expedition-direct-actions > button { min-width: 0; min-height: 60px; padding: 10px; border: 1px solid #ab9167; border-radius: 6px; color: #2b241c; background: #fffaf0; text-align: left; font: inherit; cursor: pointer; }
+.expedition-direct-actions strong, .expedition-direct-actions small { display: block; overflow-wrap: anywhere; }
+.expedition-direct-actions small { margin-top: 4px; color: #655b4f; font-size: 12px; }
+.direct-progress { position: relative; display: block; height: 4px; overflow: hidden; margin-top: 5px; }
+.direct-progress .progressFill { position: absolute; inset: 0 auto 0 0; display: block; height: 100%; width: 0; background: #896633 !important; }
+.expedition-direct-actions button:focus-visible { outline: 3px solid #896633; outline-offset: 2px; }
+.expedition-direct-actions button[data-ui-state="running"] { border-color: #896633; box-shadow: inset 3px 0 #896633; }
+#expeditionLocalUtilities { display: grid; gap: 8px; margin-top: 12px; min-width: 0; }
+#expeditionLocalUtilities > div { min-width: 0; flex-wrap: wrap; }
+.expedition-frame .expedition-landmark:disabled { background: transparent !important; border-color: transparent !important; }
+.expedition-retained > #locationContent, .expedition-frame .packing-section { padding: 14px; background: #fffaf0; color: #2b241c; border-radius: 8px; }
+.expedition-frame[data-expedition-state="combat"] { display: none !important; }
+@media (max-width: 900px) {
+  .expedition-surface { height: auto; min-height: 330px; padding-top: 330px; }
+  .expedition-scene-window { height: 330px; bottom: auto; }
+  .expedition-detail, .expedition-surface[data-panel-side="left"] .expedition-detail { position: relative; inset: auto; width: auto; max-height: 480px; margin: 0; padding: 15px; border-radius: 0 0 9px 9px; }
+  .expedition-detail > header { top: -15px; }
+}
+@media (max-width: 760px) {
+  #expeditionPanel #regionalMap { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  #expeditionPanel.expedition-frame { padding: 10px; }
+  .expedition-status { gap: 6px 12px; font-size: 12px; }
+  .expedition-frame .travel-section { position: sticky; top: 100px; z-index: 8; padding: 8px; }
+  .expedition-frame .travel-section > h3 { display: none; }
+  .expedition-frame .region-node-name { font-size: 12px; }
+  .expedition-view-heading { align-items: start; }
+  .expedition-view-heading p { font-size: 12px; }
+  .expedition-landmark { height: 13%; }
+  .expedition-landmark-label { max-width: 125px; padding: 5px 7px; }
+  .expedition-landmark strong { font-size: 13px; }
+  .expedition-landmark small { font-size: 10px; }
+  .expedition-map-key { top: 8px; left: 8px; font-size: 16px; padding: 5px 7px; }
+  .expedition-map-key small { font-size: 9px; }
+  .expedition-detail header h3 { font-size: 22px; }
+  .expedition-frame .travel-actions > .action-btn { flex-basis: 120px; }
+  .expedition-frame .packing-actions { min-width: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .expedition-frame *, .expedition-frame *::before, .expedition-frame *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+/* Warm action selection; cyan is reserved for the active magical scenery. */
+#expeditionPanel .ui-action-button.is-primary { box-shadow: inset 3px 0 #896633; border-color: #998365; }
+#expeditionPanel .is-primary .ui-action-icon { color: #655b4f; background: #eadfca; border-color: #a18e72; }
+@media (max-width: 900px) { .expedition-detail { scroll-margin-top: 200px; } }
+.expedition-landmark[data-landmark="route"] small { display: none; }
+/* Keep the image coordinate transform when the shared button press rule runs. */
+.expedition-frame .expedition-landmark:not(:disabled):active { transform: translate(-50%, -50%); }
+
+/* Immutable parchment and one shared coordinate plane for interactive overlays. */
+#expeditionPanel.is-world-map > :not(#expeditionWorldMap) { display: none !important; }
+.expedition-world-map[hidden] { display: none !important; }
+.expedition-world-map { width: 100%; min-width: 0; box-sizing: border-box; padding: 18px; color: #30271c; background: #f7ecd5; border: 1px solid #b49a6e; border-radius: 12px; }
+.expedition-world-map header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.expedition-world-map h2, .expedition-world-map h3 { color: #30271c; margin: 0; font-family: Georgia, serif; }
+.expedition-world-map p { color: #55452e; line-height: 1.5; }
+.expedition-world-map button { color: #30271c; background: #fff6df; border: 1px solid #ae8e56; border-radius: 7px; min-height: 44px; padding: 10px 14px; font: inherit; cursor: pointer; }
+.expedition-world-map button:focus-visible { outline: 3px solid #92600e; outline-offset: 3px; }
+.world-map-current { font-weight: 600; margin: 8px 0 12px; }
+.world-map-legend { margin: 8px 0; font-size: 13px; }
+.world-map-viewport { overflow: auto; max-width: 100%; overscroll-behavior-x: contain; border-radius: 6px; }
+.world-map-geography { position: relative; width: 100%; min-width: 720px; aspect-ratio: 3 / 2; isolation: isolate; }
+.map-base { display: block; width: 100%; height: 100%; position: absolute; inset: 0; }
+.map-overlays { position: absolute; inset: 0; }
+.expedition-world-map .world-map-region { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); width: 27%; height: 28%; padding: 0; background: transparent; border: 0; border-radius: 45%; box-shadow: none; }
+.world-map-region-label { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); white-space: nowrap; font: bold clamp(14px, 1.5vw, 22px) Georgia, serif; color: #443018; text-shadow: 0 1px #fff9e6; background: #f6e6c9d9; border-radius: 50%; padding: 4px 10px; }
+.world-map-region[data-region="outskirts"] .world-map-region-label { top: 92%; }
+.expedition-world-map .world-map-region:hover, .expedition-world-map .world-map-region:focus-visible, .expedition-world-map .world-map-region[aria-pressed="true"] { background: #fce4a328; box-shadow: inset 0 0 30px #bd873750; }
+.world-map-region.is-current-region .world-map-region-label { border-bottom: 3px solid #a96915; }
+.world-map-region.is-locked .world-map-region-label::after { content: " · Uncharted"; font-size: 11px; }
+.world-map-region.is-locked { opacity: .8; }
+.expedition-world-map .world-map-object { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); width: 7%; height: 11%; min-width: 44px; min-height: 44px; padding: 0; background: transparent; border: 0; box-shadow: none; border-radius: 50%; z-index: 2; }
+.world-map-object img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; filter: drop-shadow(0 2px 2px #65401845); }
+.world-map-sprite { display: block; width: 100%; aspect-ratio: 1; background-size: 400% 400%; background-repeat: no-repeat; pointer-events: none; }
+.world-map-object[data-overlay="tower-ground-floor"], .world-map-object[data-overlay="tower-expanded"], .world-map-object[data-overlay="foundation"] { width: 13%; height: 21%; }
+.world-map-tooltip { display: none; position: absolute; z-index: 4; left: 50%; bottom: 100%; transform: translateX(-50%); width: max-content; max-width: 160px; padding: 6px 10px; border: 1px solid #a48452; background: #fff5de; color: #3e301e; border-radius: 6px; font-size: 12px; pointer-events: none; }
+.world-map-object:hover, .world-map-object:focus-visible { z-index: 5; }
+.world-map-object:hover .world-map-tooltip, .world-map-object:focus-visible .world-map-tooltip, .world-map-object[aria-pressed="true"] .world-map-tooltip { display: block; }
+.world-map-object[aria-current="location"], .world-map-object[aria-pressed="true"] { background: #ffd37b55; box-shadow: 0 0 15px #c68a3480; }
+.expedition-world-map .world-map-region:not(:disabled):active, .expedition-world-map .world-map-object:not(:disabled):active { transform: translate(-50%, -50%); }
+.world-map-detail { margin-top: 12px; padding: 14px 18px; background: #fff7e6; border-top: 1px solid #bb9b66; border-radius: 8px; min-height: 100px; }
+.world-map-detail p { margin: 8px 0; }
+.world-map-detail button { margin: 4px 8px 0 0; }
+@media (max-width: 700px) {
+  .expedition-world-map { padding: 10px; }
+  .world-map-detail { padding: 12px; }
+  .expedition-world-map h2 { font-size: 22px; }
+  .world-map-region-label { font-size: 15px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .expedition-world-map *, .expedition-world-map *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

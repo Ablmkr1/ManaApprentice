@@ -346,6 +346,8 @@ function getAffordableExpeditionModifiers() {
 }
 
 // Carry Helpers
+const BASE_CARRY_CAPACITY = 5;
+
 function getCarriedTotal() {
   const carriedItems = gameState.expedition.carriedItems;
   let total = 0;
@@ -376,7 +378,10 @@ function hasCarrySpace(itemName, amount) {
 
 function getEffectiveCarryCapacity() {
   const backpackBonus = typeof getImbuedBackpackCapacityBonus === "function" ? getImbuedBackpackCapacityBonus() : 0;
-  return gameState.expedition.carryCapacity + backpackBonus + getActiveAttunementEffectTotal("carryCapacityFlat");
+  return Math.max(
+    BASE_CARRY_CAPACITY,
+    gameState.expedition.carryCapacity + backpackBonus + getActiveAttunementEffectTotal("carryCapacityFlat")
+  );
 }
 
 function addCarriedItem(itemName, amount) {
@@ -881,7 +886,7 @@ function endExpedition(reason) {
   // Physical state, rather than the previously selected information tab,
   // determines what the player sees after a return or recall.
   if (typeof setMainView === "function") {
-    setMainView("camp");
+    setMainView("home");
   }
 }
 
@@ -2019,6 +2024,10 @@ function refreshExpeditionUI() {
 }
 
 function renderExpeditionWorkflowPanel() {
+  if (typeof ExpeditionScene !== "undefined") {
+    ExpeditionScene.schedule();
+    return;
+  }
   if (!ui.expeditionWorkflowPanel) return;
 
   const expedition = gameState.expedition;
@@ -2363,6 +2372,7 @@ function renderDestinationActions() {
     const button = createUiActionButton({
       label: "Travel to " + getLocationLabel(locationName),
       detail: formatDistance(getLocationTravelDistance(location)),
+      dataset: { expeditionDestination: locationName },
       progress: false,
       onClick: function () {
         startActivity({
@@ -2381,6 +2391,7 @@ function renderDestinationActions() {
       const nodeDefinition = getTowerNodeDefinition(nodeName);
       const nodeButton = createUiActionButton({
         label: "Prepare " + ((nodeDefinition && nodeDefinition.destinationLabel) || "Tower Node") + " Jump",
+        dataset: { expeditionDestination: locationName },
         progress: false,
         onClick: function () {
           startActivity({
@@ -2505,6 +2516,7 @@ function renderLocationTravelActions(locationName) {
     const button = createUiActionButton({
       label: "Travel to " + getLocationLabel(targetLocationName),
       detail: formatDistance(distance),
+      dataset: { expeditionDestination: targetLocationName },
       progress: false,
       onClick: function () {
         beginLocationToLocationTravel(locationName, targetLocationName);
@@ -2625,6 +2637,7 @@ function updateDungeonUI() {
   const dungeon = getCurrentDungeon();
   const currentNode = getCurrentDungeonNode();
 
+  if (typeof DungeonScene !== "undefined") DungeonScene.prepare();
   ui.dungeonMap.innerHTML = "";
 
   if (ui.dungeonActions) {
@@ -2721,6 +2734,7 @@ function updateDungeonUI() {
   }
 
   renderDungeonActions(currentNode);
+  if (typeof DungeonScene !== "undefined") DungeonScene.render();
 }
 
 function renderDungeonActions(node) {

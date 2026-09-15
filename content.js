@@ -3280,6 +3280,36 @@ const explorationStages = {
 
 // Camp Upgrade Definitions
 const campUpgrades = {
+  practiceCircle: {
+    label: "Practice Circle (Home Training Area)",
+    displayName: "Practice Circle",
+    campSlot: "training",
+    campSlotLabel: "Training",
+    campSlotOrder: 6,
+    campSlotRank: 1,
+    duration: 6,
+    cost: { wood: 10, energy: 15 },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {},
+  },
+  storageCache: {
+    label: "Storage Cache (Home Supply Area)",
+    displayName: "Storage Cache",
+    campSlot: "storage",
+    campSlotLabel: "Storage",
+    campSlotOrder: 7,
+    campSlotRank: 1,
+    duration: 6,
+    cost: { wood: 15, energy: 10 },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {},
+  },
   workbench: {
     label: "Rough Workbench (Permanent Camp Work Surface)",
     displayName: "Rough Workbench",

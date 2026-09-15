@@ -121,7 +121,8 @@
   content: "";
   transition: border-color 160ms ease, box-shadow 160ms ease;
 }
-.home-place.has-new-system::before {
+.home-place.has-new-system::before,
+.home-place.has-camp-attention::before {
   position: absolute;
   z-index: 8;
   top: 4px;

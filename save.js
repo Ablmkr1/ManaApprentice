@@ -1401,6 +1401,16 @@ function applyGameStateSaveData(savedGameState) {
     seen: structuredClone(ensureObject(savedSystemUnlocks.seen)),
   };
 
+  const savedHomeAttention = ensureObject(savedGameState.homeAttention);
+  const savedHomeAttentionSeen = ensureObject(savedHomeAttention.seen);
+  gameState.homeAttention = {
+    seen: {
+      crafting: Array.isArray(savedHomeAttentionSeen.crafting) ? [...new Set(savedHomeAttentionSeen.crafting.filter(value => typeof value === "string"))] : [],
+      research: Array.isArray(savedHomeAttentionSeen.research) ? [...new Set(savedHomeAttentionSeen.research.filter(value => typeof value === "string"))] : [],
+      training: Array.isArray(savedHomeAttentionSeen.training) ? [...new Set(savedHomeAttentionSeen.training.filter(value => typeof value === "string"))] : [],
+    },
+  };
+
   const savedTower = ensureObject(savedGameState.tower);
   gameState.tower = {
     selectedId: typeof savedTower.selectedId === "string" ? savedTower.selectedId : "heart",

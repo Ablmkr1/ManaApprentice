@@ -1,0 +1,38 @@
+{
+  "generator": "Built-in image_gen",
+  "reference": "assets/home/clearing-background-landmarks.png",
+  "prompts": {
+    "north": "Use case: stylized-concept. Asset: finished raster environment background for grounded fantasy exploration, portrait 1120x1400 (4:5), a single painting filling the frame. Naturalistic painterly detail like the provided Home reference: believable gray stone, weathered brown wood, muted forest green, parchment-tan soil, clear soft afternoon daylight and restrained amber sunlight, atmospheric depth. Brighter readable landforms, no heavy fog. Keep all interactive landforms within central 70% width and between 25% and 78% height. Elevated natural perspective looking into landscape, not isometric. No people, enemies, modern objects, text, UI, symbols, icons, labels, borders, dotted routes, outlines, flat vector shapes, cartoon or saturated mobile-game art. Illustrated physical overview of the northern wilderness, higher viewpoint over a coherent mountain valley. Loose exposed scree slope focal area around x30% y68%; abandoned miners shelters with small cold stone smelter around x50% y48%; a timber-supported dark mine entrance on a rocky upper slope around x68% y30%. Believable winding foot trail connects terrain and continues subtly beyond into unexplored pass at x45% y24%. Destinations part of natural landforms, no map symbols. Pine forest framing edges, gray mountain backdrop.",
+    "foothill-scree": "Use case: stylized-concept. Asset: finished raster environment background for grounded fantasy exploration, portrait 1120x1400 (4:5), a single painting filling the frame. Naturalistic painterly detail like the provided Home reference: believable gray stone, weathered brown wood, muted forest green, parchment-tan soil, clear soft afternoon daylight and restrained amber sunlight, atmospheric depth. Brighter readable landforms, no heavy fog. Keep all interactive landforms within central 70% width and between 25% and 78% height. Elevated natural perspective looking into landscape, not isometric. No people, enemies, modern objects, text, UI, symbols, icons, labels, borders, dotted routes, outlines, flat vector shapes, cartoon or saturated mobile-game art. Windswept rocky foothill slope. Clear loose stone gathering deposit around x30% y65%, broad exposed ridge with scattered stone for surveying around x66% y40%. Narrow route footpath enters lower center at x52% y82%. A few natural iron mineral flecks, no permanent magic, no glow. Pine fringes, mountain backdrop.",
+    "miners-camp": "Use case: stylized-concept. Asset: finished raster environment background for grounded fantasy exploration, portrait 1120x1400 (4:5), a single painting filling the frame. Naturalistic painterly detail like the provided Home reference: believable gray stone, weathered brown wood, muted forest green, parchment-tan soil, clear soft afternoon daylight and restrained amber sunlight, atmospheric depth. Brighter readable landforms, no heavy fog. Keep all interactive landforms within central 70% width and between 25% and 78% height. Elevated natural perspective looking into landscape, not isometric. No people, enemies, modern objects, text, UI, symbols, icons, labels, borders, dotted routes, outlines, flat vector shapes, cartoon or saturated mobile-game art. Abandoned medieval miners worksite beside a small stream. Cold damaged stone smelter, ore crates, stacked fuel and rusty hand tools around x30% y52%; weathered collapsed timber shelter by stream around x67% y70%; ordinary empty rocky terrace around x66% y30% for a FUTURE separately layered discovered magic landmark: no standing stone, ruins, runes or magic on this terrace. Natural route footpath enters lower center x48% y85%. Bright legible weathered worksite in forest foothills.",
+    "iron-mine": "Use case: stylized-concept. Asset: finished raster environment background for grounded fantasy exploration, portrait 1120x1400 (4:5), a single painting filling the frame. Naturalistic painterly detail like the provided Home reference: believable gray stone, weathered brown wood, muted forest green, parchment-tan soil, clear soft afternoon daylight and restrained amber sunlight, atmospheric depth. Brighter readable landforms, no heavy fog. Keep all interactive landforms within central 70% width and between 25% and 78% height. Elevated natural perspective looking into landscape, not isometric. No people, enemies, modern objects, text, UI, symbols, icons, labels, borders, dotted routes, outlines, flat vector shapes, cartoon or saturated mobile-game art. Rocky medieval iron mine entrance with weathered timber supports and exposed rusty iron-bearing stone around x30% y42%; fractured boulders and disturbed earth around x65% y69%, a natural focal area for investigating tremors. Some abandoned crates near the entrance. Natural route trail enters bottom center x48% y84%. No tower, node, runes, magic, enemy or creature. Gray rocky ridge, pine fringes and readable afternoon light.",
+    "northern-node": "Use case: stylized-concept. Generate one isolated Northern Tower Node raster overlay on a genuinely transparent alpha background, portrait 4:5. Small grounded fantasy weathered gray stone anchor: two roughly hewn standing stones, one central taller tapered stone with shallow worn channels, modest low broken stone base. Naturalistic painterly materials, soft daylight from upper left, muted gray stone and brown moss. Elevated natural view matching the Home forest reference, believable small physical scale. Unlit and dormant, no magic glow; activation will be a subtle UI light overlay. Object occupies central 75% width and 85% height with clear alpha margin. No scenic background, floor plane, rectangular shadow, text, letters, icons, interface, cyan, enemy or cartoon. This will sit on a rocky terrace in the Miners Camp scene after its existing discovery gate."
+  },
+  "assets": [
+    {
+      "id": "north",
+      "path": "assets/expedition/north.webp",
+      "source": "C:/Users/abour/.codex/generated_images/01a09ad7-af64-7f43-a483-7292ff2740ec/exec-fd9c10ac-bb0a-4ba0-baf4-b483e836a899.png"
+    },
+    {
+      "id": "foothill-scree",
+      "path": "assets/expedition/foothill-scree.webp",
+      "source": "C:/Users/abour/.codex/generated_images/01a09ad7-af64-7f43-a483-7292ff2740ec/exec-d89c733e-d175-4237-a538-414ffd20e40a.png"
+    },
+    {
+      "id": "miners-camp",
+      "path": "assets/expedition/miners-camp.webp",
+      "source": "C:/Users/abour/.codex/generated_images/01a09ad7-af64-7f43-a483-7292ff2740ec/exec-910a64d0-14cd-4bff-ba4c-53a12ae863cf.png"
+    },
+    {
+      "id": "iron-mine",
+      "path": "assets/expedition/iron-mine.webp",
+      "source": "C:/Users/abour/.codex/generated_images/01a09ad7-af64-7f43-a483-7292ff2740ec/exec-389445ce-8c8a-4a06-a7dd-c28df0af782a.png"
+    },
+    {
+      "id": "northern-node",
+      "path": "assets/expedition/northern-node.webp",
+      "source": "C:/Users/abour/.codex/generated_images/01a09ad7-af64-7f43-a483-7292ff2740ec/exec-8579d376-fc34-4ca7-aa83-ab7427251018.png"
+    }
+  ]
+}

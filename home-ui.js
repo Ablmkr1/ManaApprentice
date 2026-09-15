@@ -81,7 +81,7 @@ const HOME_AREA_DEFINITIONS = {
   },
   training: {
     title: "Practice Circle",
-    description: "Continue the skills and training currently available in Camp.",
+    description: "A marked space for practice. Training methods will gather here as you discover them.",
     nodeIds: ["trainingSection"],
   },
 // RETIRED: Tower Heart controls replace this camp automation screen.
@@ -173,8 +173,10 @@ function syncHomeView(isActive) {
   }
 }
 
-function selectHomeArea(areaName) {
+function selectHomeArea(areaName, options = {}) {
   if (areaName !== null && !HOME_AREA_DEFINITIONS[areaName]) return;
+
+  if (options.userSelected) markHomeAreaAttentionSeen(areaName);
 
   selectedHomeArea = areaName;
   restoreHomeCampNodes();
@@ -376,15 +378,17 @@ function updateHomeAreaAvailability() {
   const showPrimitiveWorkSpot = resourcesDiscovered && !established;
   setHomeAreaVisible("workspot", showPrimitiveWorkSpot || (established && hasVisibleHomeWork() && !workbenchBuilt));
   setHomeAreaVisible("workbench", established && hasVisibleHomeWork() && workbenchBuilt);
-  setHomeAreaVisible("campfire", established || smallFireBuilt);
+  setHomeAreaVisible("campfire", smallFireBuilt);
   setHomeAreaVisible("shelter", shelterBuilt);
   setHomeAreaVisible("study", established && typeof isResearchSpotPurchased === "function" && isResearchSpotPurchased());
   setHomeAreaVisible("processing", established && typeof hasPurchasedCampUpgrade === "function" && hasPurchasedCampUpgrade("campAlchemyStation"));
   setHomeAreaVisible("meditation", established && typeof hasPurchasedCampUpgrade === "function" && (hasPurchasedCampUpgrade("meditationSpot") || hasPurchasedCampUpgrade("attunedMeditationSpot")));
-  setHomeAreaVisible("training", established && isHomeNodeAvailable("trainingSection"));
+  // A completed structure always has a place in Home. Its contents may still be
+  // empty until the player discovers the relevant skill or resource systems.
+  setHomeAreaVisible("training", established && typeof hasPurchasedCampUpgrade === "function" && hasPurchasedCampUpgrade("practiceCircle"));
   // RETIRED: setHomeAreaVisible("automation", established && hasUnlockedAutomation());
   setHomeAreaVisible("automation", false);
-  setHomeAreaVisible("storage", established && isHomeNodeAvailable("campResourcesSection"));
+  setHomeAreaVisible("storage", established && typeof hasPurchasedCampUpgrade === "function" && hasPurchasedCampUpgrade("storageCache"));
 
   const workSpot = document.querySelector('[data-home-area="workspot"]');
   if (workSpot) {
@@ -400,6 +404,7 @@ function updateHomeAreaAvailability() {
   }
 
   updateHomeCampStructureVisuals();
+  if (typeof updateHomeAttentionIndicators === "function") updateHomeAttentionIndicators();
   updateHomeTowerVisibility();
   updateHomeTrailVisibility();
 
@@ -416,6 +421,91 @@ function updateHomeAreaAvailability() {
     if (!selectedButton || selectedButton.hidden) selectHomeArea(null);
     else if (sceneChanged && (HOME_AREA_DEFINITIONS[selectedHomeArea].objectName || selectedHomeArea === "workspot")) mountHomeArea(selectedHomeArea);
   }
+}
+
+function getHomeAttentionState() {
+  if (!gameState.homeAttention || typeof gameState.homeAttention !== "object") gameState.homeAttention = {};
+  if (!gameState.homeAttention.seen || typeof gameState.homeAttention.seen !== "object") gameState.homeAttention.seen = {};
+
+  ["crafting", "research", "training"].forEach(function (category) {
+    if (!Array.isArray(gameState.homeAttention.seen[category])) gameState.homeAttention.seen[category] = [];
+  });
+
+  return gameState.homeAttention;
+}
+
+function getAvailableHomeCraftKeys(craftType, definitions) {
+  if (!definitions || typeof isCraftAvailable !== "function") return [];
+
+  return Object.keys(definitions).filter(function (craftId) {
+    return isCraftAvailable(craftType, craftId);
+  }).map(function (craftId) {
+    return craftType + ":" + craftId;
+  });
+}
+
+function getHomeAttentionKeys(category) {
+  if (category === "crafting") {
+    return []
+      .concat(getAvailableHomeCraftKeys("campUpgrade", typeof getCampUpgradeDefinitions === "function" ? getCampUpgradeDefinitions() : null))
+      .concat(getAvailableHomeCraftKeys("gearUpgrade", typeof getGearUpgradeDefinitions === "function" ? getGearUpgradeDefinitions() : null))
+      .concat(getAvailableHomeCraftKeys("resourceCraft", typeof getResourceCraftDefinitions === "function" ? getResourceCraftDefinitions() : null));
+  }
+
+  if (category === "research") {
+    return getAvailableHomeCraftKeys("research", typeof getResearchDefinitions === "function" ? getResearchDefinitions() : null);
+  }
+
+  if (category === "training" && typeof isManaCyclingBreakthroughReady === "function" && isManaCyclingBreakthroughReady()) {
+    const skill = typeof getSkillState === "function" ? getSkillState("manaCycling") : null;
+    return skill ? ["manaCycling:" + (skill.rank || 1) + ":" + (skill.level || 0)] : [];
+  }
+
+  return [];
+}
+
+function getHomeAttentionCategory(areaName) {
+  if (areaName === "workspot" || areaName === "workbench") return "crafting";
+  if (areaName === "study") return "research";
+  if (areaName === "training") return "training";
+  return null;
+}
+
+function setHomeAttentionIndicator(areaName, category, keys) {
+  const button = document.querySelector('[data-home-area="' + areaName + '"]');
+  if (!button) return;
+
+  const seen = new Set(getHomeAttentionState().seen[category]);
+  const unseenCount = keys.filter(function (key) { return !seen.has(key); }).length;
+  const label = button.querySelector(".home-place-label strong");
+  const baseLabel = label ? label.textContent.trim() : HOME_AREA_DEFINITIONS[areaName].title;
+
+  button.classList.toggle("has-camp-attention", unseenCount > 0);
+  button.dataset.homeAttentionCount = String(unseenCount);
+  button.setAttribute("aria-label", baseLabel + (unseenCount > 0 ? ", new activity available" : ""));
+}
+
+function updateHomeAttentionIndicators() {
+  const craftingKeys = getHomeAttentionKeys("crafting");
+  setHomeAttentionIndicator("workspot", "crafting", craftingKeys);
+  setHomeAttentionIndicator("workbench", "crafting", craftingKeys);
+  setHomeAttentionIndicator("study", "research", getHomeAttentionKeys("research"));
+  setHomeAttentionIndicator("training", "training", getHomeAttentionKeys("training"));
+}
+
+function markHomeAreaAttentionSeen(areaName) {
+  const category = getHomeAttentionCategory(areaName);
+  if (!category) return;
+
+  const state = getHomeAttentionState();
+  const previous = new Set(state.seen[category]);
+  const keys = getHomeAttentionKeys(category);
+  keys.forEach(function (key) { previous.add(key); });
+  if (previous.size === state.seen[category].length) return;
+
+  state.seen[category] = [...previous];
+  updateHomeAttentionIndicators();
+  if (typeof trySaveGame === "function") trySaveGame();
 }
 
 function getHomeExploreStep() {
@@ -461,7 +551,7 @@ function updateHomeScenePresentation(sceneState, exploreStep) {
     clearing: ["Home · Revealed clearing", "The Clearing", "The fog has lifted. Investigate the deadfall, brush, and sound of running water around the clearing."],
     "workspot-available": ["Home · Revealed clearing", "The Clearing", "The essentials are close at hand. Choose an open place to establish a primitive work area."],
     "primitive-camp": ["Home · Primitive camp", "The Clearing", "Build a Small Fire and Crude Lean-To here. Each completed structure takes its place in the clearing."],
-    "established-camp": ["Home · Clearing exterior", "The Clearing", "Choose a place in camp. Its familiar controls will open beside the clearing."],
+    "established-camp": ["Home · Clearing exterior", "The Clearing", "The fire and lean-to have made this a camp. Practice Circle and Storage Cache plans are now ready to build; each will appear here when finished."],
   }[sceneState];
 
   if (scene) {
