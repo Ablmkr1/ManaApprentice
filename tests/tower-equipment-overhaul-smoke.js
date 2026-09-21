@@ -43,6 +43,7 @@ require('./overhaul-harness')(`
   let result=finish({type:'craft',baseGearId:'leatherShirt'}); assert(result.ok,'First wearable works before enchanting');
   const shirt=ensureEquipmentCollection().items.find(i=>i.baseGearId==='leatherShirt');
   assert(gearCraftReason('leatherShirt')===EQUIPMENT_MESSAGES.full,'Normal gear cannot be duplicated');
+  assert(!isGearCraftOptionNeeded('leatherShirt'),'Crafted normal gear recipe is hidden');
   assert(equipmentOperationReason({type:'enchant',itemId:shirt.id,family:'reservoirWeave'}).includes('Enchanting Study'),'Enchantments cannot be applied outside the selected Tower room');
   room('enchantingStudy',1); gameState.tower.selectedId='room:enchantingStudy';
   result=finish({type:'enchant',itemId:shirt.id,family:'reservoirWeave'}); assert(result.ok,'Standard enchant starts at II4');
@@ -59,6 +60,7 @@ require('./overhaul-harness')(`
   funds(); finish({type:'enchant',itemId:pants.id,family:'meditativeWeave'}); const oldPantsId=pants.id; getGearUpgrade('leatherPants').unlocked=true; funds(); result=finish({type:'craft',baseGearId:'leatherPants'});
   assert(result.ok&&pants.id===oldPantsId&&pants.family==='meditativeWeave'&&ensureEquipmentCollection().items.filter(i=>equipmentSlot(i)==='legs').length===1,'Gear upgrade replaces in place and preserves enchantment');
   getGearUpgrade('scratchyPants').unlocked=true; assert(gearCraftReason('scratchyPants')===EQUIPMENT_MESSAGES.full,'A lower tier cannot replace current gear');
+  assert(!isGearCraftOptionNeeded('scratchyPants')&&!isGearCraftOptionNeeded('leatherPants'),'Current and obsolete normal gear recipes are hidden');
 
   funds(); result=finish({type:'ring',core:'mana'}); assert(result.ok,'First mana ring'); funds(); result=finish({type:'ring',core:'mana'}); assert(result.ok,'Second identical mana ring');
   assert(equipmentOperationReason({type:'ring',core:'mana'})===EQUIPMENT_MESSAGES.rings,'Third ring rejected');

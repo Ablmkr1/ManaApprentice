@@ -3633,8 +3633,9 @@ function updateGearUpgradeUI(upgradeName) {
 
   if (upgrade.button) {
     const progressionAvailable = upgrade.craftingCategory !== "steelworking" || isSteelworkingUnlocked();
-    upgrade.button.style.display = progressionAvailable && isCraftContextAvailable(upgrade) && upgrade.unlocked && !upgrade.purchased ? "grid" : "none";
-    if (upgrade.unlocked && !upgrade.purchased) {
+    const recipeNeeded = typeof isGearCraftOptionNeeded !== "function" || isGearCraftOptionNeeded(upgradeName);
+    upgrade.button.style.display = progressionAvailable && isCraftContextAvailable(upgrade) && upgrade.unlocked && recipeNeeded ? "grid" : "none";
+    if (upgrade.unlocked && recipeNeeded) {
       updateCraftButtonLabel("gearUpgrade", upgradeName);
     }
   }
@@ -3873,6 +3874,12 @@ function updateCraftButtonsForType(craftType, definitions) {
     const craft = getCraftDefinition(craftType, craftId);
 
     if (!craft || !craft.button) continue;
+
+    if (craftType === "gearUpgrade") {
+      const progressionAvailable = craft.craftingCategory !== "steelworking" || isSteelworkingUnlocked();
+      const recipeNeeded = typeof isGearCraftOptionNeeded !== "function" || isGearCraftOptionNeeded(craftId);
+      craft.button.style.display = progressionAvailable && isCraftContextAvailable(craft) && craft.unlocked && recipeNeeded ? "grid" : "none";
+    }
 
     const isActiveCraft = isActivityActive() && (
       (gameState.activity.kind === "craft" && gameState.activity.type === craftType && gameState.activity.id === craftId) ||

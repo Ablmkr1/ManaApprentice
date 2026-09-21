@@ -129,6 +129,20 @@ function gearCraftReason(baseGearId, predecessorId = null, ignoreReservation = f
   if (predecessor && (getGearUpgrade(predecessor.baseGearId)?.slotRank || 0) >= (base?.slotRank || 0)) return EQUIPMENT_MESSAGES.full;
   return "";
 }
+function isGearCraftOptionNeeded(baseGearId) {
+  const base = getGearUpgrade(baseGearId);
+  if (!base?.slot) return false;
+
+  if (isWearableGear(baseGearId)) {
+    const current = ensureEquipmentCollection().items.find(item => !item.core && equipmentSlot(item) === base.slot);
+    return !current || (getGearUpgrade(current.baseGearId)?.slotRank || 0) < (base.slotRank || 0);
+  }
+
+  const current = Object.values(getGearUpgradeDefinitions()).find(item =>
+    item !== base && item.purchased && item.equipmentType === base.equipmentType && item.slot === base.slot
+  );
+  return !base.purchased && (!current || (current.slotRank || 0) < (base.slotRank || 0));
+}
 function equipmentChangeReason() {
   if (typeof isCombatActive === "function" && isCombatActive()) return "Equipment cannot change during combat.";
   if (isActivityActive()) return "Finish or cancel the current action first.";
@@ -522,7 +536,7 @@ function appendTowerEquipmentActions(container, roomId) {
   }
   if (roomId === "workshop") {
     const note = document.createElement("p"); note.textContent = "Crafting a better tier upgrades the item you already own and preserves its enchantment."; container.appendChild(note);
-    Object.keys(getGearUpgradeDefinitions()).filter(id => isWearableGear(id) && (getGearUpgrade(id).unlocked || getGearUpgrade(id).purchased)).forEach(id => {
+    Object.keys(getGearUpgradeDefinitions()).filter(id => isWearableGear(id) && getGearUpgrade(id).unlocked && isGearCraftOptionNeeded(id)).forEach(id => {
       const base = getGearUpgrade(id);
       appendEquipmentOperationButton(container, "Craft " + (base.displayName || id), { type: "craft", baseGearId: id });
     });
