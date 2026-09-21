@@ -19,7 +19,7 @@ Existing gameplay code, definitions, saved IDs, resource/research rules and save
 
 The map is a read-only projection. `showing`, `selected` and a render signature are transient closure values, never saved. Every overlay has `id`, `region`, normalized `x/y`, `asset`, `label`, `displayCondition`, and `destination`. Optional `sprite` selects a cell of the transparent landmark atlas; asset/label functions provide camp improvement variants. The renderer evaluates `displayCondition` before creating any DOM, tooltip, accessible name or image for that object. Actual discovery changes rebuild overlays while preserving focused IDs; ordinary ticks retain the DOM and pan position.
 
-`MapBase` is one immutable geography-only painting. Labels/hit areas use stable coordinates: Outskirts **50,50**, North **50,19**, East **79,50**, South **50,80**, West **21,50**. Map-facing labels follow the brief; existing regional names and IDs are unchanged in gameplay.
+`MapBase` is one immutable geography-only painting. Labels/hit areas use coordinates: Outskirts **50,50**, North **38,16**, East **79,31**, South **67,76**, West **21,30**. Outer-region destinations progress visually outward from camp in travel-distance order. Related encounter and condenser art stays beside its destination. These are presentation coordinates only; travel distances and discovery gates are unchanged.
 
 `MapOverlays` contains native buttons and transparent landmark imagery. Existing regional paintings are not used as thumbnails because they could expose secondary discoveries or interior structures. The atlas contains only individual exteriors, terrain miniatures and separately gated objects. No future objects are baked into the base.
 

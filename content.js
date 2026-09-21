@@ -618,8 +618,8 @@ const expeditionLocations = {
 
   silentGearworks: {
     region: "west",
-    label: "Silent Gearworks",
-    exploredLabel: "Silent Gearworks",
+    label: "Abandon Workshop",
+    exploredLabel: "Abandon Workshop",
     distance: 140,
     dungeon: "silentGearworksDepths",
     discovered: false,
@@ -634,7 +634,7 @@ const expeditionLocations = {
     ],
     panelText: {
       discovered: "A low ruin waits beside the broken road. The air near it feels organized, like a held breath.",
-      explored: "The gearworks entrance is clear. Old mechanisms wait below, still enough to study.",
+      explored: "The workshop entrance is clear. Old mechanisms wait below, still enough to study.",
     },
     availableActions: ["enterDungeon"],
   },
@@ -880,7 +880,7 @@ const dungeonDefinitions = {
   },
 
   silentGearworksDepths: {
-    label: "Silent Gearworks Depths",
+    label: "Abandon Workshop Depths",
     entryLocation: "silentGearworks",
     startNode: "entryGallery",
     nodes: {
@@ -1095,6 +1095,15 @@ const dungeonDefinitions = {
           cost: { energy: 12 },
           successText: "The ruin's lesson locks into place: mana can hold a task in motion for a fixed number of cycles.",
           reward: {
+            equipment: [
+              {
+                rewardId: "fadedArtificersRing",
+                name: "Faded Artificer’s Ring",
+                slot: "ring",
+                effects: { maxManaFlat: 5 },
+                description: "A narrow metal band, its inner surface covered in almost familiar markings. Most of its enchantment has faded, but a small reservoir remains.",
+              },
+            ],
             unlocks: [
 // RETIRED: standalone automation replaced by Tower Heart assignments. Preserved for restoration.
 //               { type: "research", id: "automationPrinciples" },
@@ -2308,17 +2317,15 @@ const researchDefinitions = {
     completed: false,
     unlocked: false,
     cost: {
-      energy: 60,
-      focus: 5,
-      wood: 30,
-      chargedCrystal: 1,
+      energy: 40,
+      focus: 4,
     },
     requires: {
       flags: ["manaCondenserPlansFound"],
       // Retired prerequisite: researchCompleted: ["automationPrinciples"].
       // Archive plans still determine the construction milestone.
     },
-    story: "The archive's condenser design is slow, exacting, and too valuable to leave as theory.",
+    story: "The Arcane Archive plans reveal how to rebuild the Mana Condenser at Roadside Ruin: a frame, a condensing lattice, then three 10-Mana activations. The Western Node can later connect Earth Elemental operators.",
     unlocks: [{ type: "campUpgrade", id: "manaCondenserFrame" }],
   },
 
@@ -2434,7 +2441,7 @@ const researchDefinitions = {
   },
 
   westernTowerNode: {
-    label: "Western Tower Node", category: "Tower", duration: 8, deepThought: 5,
+    label: "Western Node", category: "Tower", duration: 8, deepThought: 5,
     completed: false, unlocked: false, cost: { energy: 60, focus: 8 },
     requires: { locationsExplored: ["arcaneArchive"], flags: ["archiveDoorOpened", "towerConstructionUnlocked"] },
     story: "The archive anchor resolves into a buildable pattern for the Western Node.",
@@ -2514,6 +2521,35 @@ const researchDefinitions = {
       "The southern signal resolves into a node pattern precise enough to carry tools and delicate instructions through the overgrowth.",
     unlocks: [{ type: "towerNode", id: "south" }],
   },
+
+  longRangeNetwork: {
+    requiresDiscoveredResources: ["wardenCore"],
+    label: "Long-Range Network",
+    category: "Tower",
+    duration: 18,
+    deepThought: 9,
+    completed: false,
+    unlocked: false,
+    cost: {
+      energy: 120,
+      focus: 12,
+      manaCrystal: 8,
+      chargedCrystal: 4,
+    },
+    requires: {
+      flags: ["wardenCoreRecovered"],
+    },
+    discoveryStory: "The Warden Core carries routing patterns that do not belong to any of the four regional nodes. It can be studied at the Tower.",
+    unlockNotice: {
+      title: "LONG-RANGE NETWORK RESEARCH UNLOCKED",
+      description: "Study the Warden Core and the network beyond the Home Territory.",
+    },
+    story: "The Warden Core contains routing patterns unlike those used by the four regional nodes. The local network was never isolated. The Tower was designed to reach far beyond the Home Territory.",
+    unlocks: [
+      { type: "journal", id: "longRangeNetworkMapped" },
+      { type: "goal", id: "buildGateChamber" },
+    ],
+  },
 };
 
 // The tower expansion is configured independently from its project state so
@@ -2587,6 +2623,33 @@ const towerFloorDefinitions = {
       materials: { stone: 650, wood: 300, iron: 140, nails: 100, chargedCrystal: 8 },
     },
     rooms: ["alchemyRoom", "library", "enchantingStudy"],
+  },
+  floor3: {
+    id: "floor3",
+    name: "Gate Chamber",
+    subtitle: "Long-Range Transit Floor",
+    number: 3,
+    icon: "Ⅲ",
+    description: "The Tower's final planned floor, reinforced to house a transit structure that can reach beyond the Home Territory.",
+    projectId: "towerFloor3",
+    prerequisites: {
+      projectsCompleted: ["towerFloor2"],
+      researchCompleted: ["longRangeNetwork"],
+    },
+    unlockNotice: {
+      title: "GATE CHAMBER UNLOCKED",
+      description: "The Tower's final planned floor is ready for construction.",
+    },
+    construction: {
+      actionLabel: "Raise Gate Chamber",
+      workRequired: 1900,
+      workYield: 40,
+      materials: { stone: 800, wood: 250, iron: 120, steel: 60, nails: 150, manaCrystal: 12, chargedCrystal: 8, runedLeather: 3, naturalEssence: 3 },
+      onComplete: function () {
+        if (typeof setCurrentGoal === "function") setCurrentGoal("buildLongRangeGate");
+      },
+    },
+    rooms: ["longRangeGate"],
   },
 };
 
@@ -2717,6 +2780,40 @@ const towerRoomDefinitions = {
     },
     specializationOptions: [],
   },
+  longRangeGate: {
+    id: "longRangeGate",
+    name: "Long-Range Gate",
+    floor: "floor3",
+    icon: "◉",
+    capstone: true,
+    description: "A massive arcane transit structure designed to establish connections far beyond the local regional network.",
+    projectId: "towerRoomLongRangeGate",
+    prerequisites: { projectsCompleted: ["towerFloor3"] },
+    unlockNotice: {
+      title: "LONG-RANGE GATE UNLOCKED",
+      description: "Construct the permanent transit structure in the Gate Chamber.",
+    },
+    construction: {
+      actionLabel: "Construct Long-Range Gate",
+      workRequired: 1500,
+      workYield: 40,
+      materials: { stone: 300, iron: 80, steel: 40, manaCrystal: 16, chargedCrystal: 12, runedLeather: 4, naturalEssence: 4, mana: 60 },
+      onComplete: function () {
+        if (typeof setCurrentGoal === "function") setCurrentGoal("activateLongRangeGate");
+      },
+    },
+    activation: {
+      name: "Gate Synchronization",
+      actionLabel: "Activate Long-Range Gate",
+      workRequired: 1,
+      workYield: 1,
+      workCost: {},
+      workDuration: 12,
+      materials: {},
+      description: "Synchronize the Northern, Eastern, Southern, and Western nodes with the greater network.",
+      completionStory: "The final alignment settles into place. The Long-Range Gate is active.",
+    },
+  },
 };
 
 const TOWER_ROOM_STAGES = {
@@ -2736,6 +2833,23 @@ function createTowerExpansionProjectDefinitions() {
   });
 
   Object.values(towerRoomDefinitions).forEach(function (room) {
+    if (room.capstone) {
+      const project = createTowerEntityProjectDefinition(room, "room");
+      project.levels.push({ ...room.activation, onComplete: room.activation.onComplete });
+      project.completedLabel = room.name + " Active";
+      project.completedDescription = room.description + " The greater network is synchronized and one external destination is known.";
+      project.completedStory = "The Long-Range Gate answers a signal beyond the Home Territory.";
+      project.visualStages = [
+        { title: "Unbuilt", description: room.description, aria: room.name + " is not yet built." },
+        { title: "Inactive", description: "The gate stands complete, waiting to be synchronized with the four regional nodes.", aria: room.name + " is built but inactive." },
+        { title: "Active", description: project.completedDescription, aria: room.name + " is active." },
+      ];
+      project.onComplete = function () {
+        if (typeof completeTierFourFinale === "function") completeTierFourFinale(true);
+      };
+      projects[room.projectId] = project;
+      return;
+    }
     const policy = TOWER_ROOM_STAGES[room.id];
     room.legacyConstruction = structuredClone(room.construction);
     room.baselineEffect = policy.baselineEffect;
@@ -2783,12 +2897,12 @@ function createTowerEntityProjectDefinition(entity, entityType) {
     description: entity.description,
     completedDescription:
       entityType === "floor"
-        ? entity.description + " Its three room spaces are ready for construction."
-        : entity.description + " " + entity.baselineEffect.label + ".",
+        ? entity.description + " Its " + (entity.rooms.length === 1 ? "interior space is" : entity.rooms.length + " room spaces are") + " ready for construction."
+        : entity.description + (entity.baselineEffect ? " " + entity.baselineEffect.label + "." : ""),
     completedStory:
       completionSubject +
       (entityType === "floor"
-        ? " settles onto the Tower's rising structure. Three new room spaces stand ready."
+        ? " settles onto the Tower's rising structure. " + (entity.rooms.length === 1 ? "Its chamber stands ready." : entity.rooms.length + " new room spaces stand ready.")
         : " is complete and begins contributing to life in the Tower."),
     visualStages: [
       { title: "Unbuilt", description: entity.description, aria: entity.name + " is not yet built." },
@@ -2803,6 +2917,7 @@ function createTowerEntityProjectDefinition(entity, entityType) {
         materials: construction.materials,
         description: entity.description,
         completionStory: completionSubject + " takes its finished shape within the growing Tower.",
+        onComplete: construction.onComplete,
       },
     ],
   };
@@ -3069,16 +3184,16 @@ const projectDefinitions = {
 
 const towerNodeDefinitions = {
   west: {
-    label: "Western Tower Node", locationName: "arcaneArchive", regionId: "west",
+    label: "Western Node", locationName: "arcaneArchive", regionId: "west",
     destinationLabel: "Western Node", researchName: "westernTowerNode",
     materials: { stone: 30, iron: 8, chargedCrystal: 4 },
     imbueRequired: 60, imbueCost: { mana: 10 }, imbueYield: 10, imbueDuration: 3,
     jumpCost: { mana: 10 }, threadSenseRequired: 0, automationOnBuild: true,
     incompleteTitle: "Dormant Western Node", completeTitle: "Western Node Online",
     incompleteDescription: "The opened archive reveals an anchor. Research its pattern, supply stone, iron and charged crystals, then imbue it.",
-    completeDescription: "The Western Node is connected to the Heart. Control capacity is ready for future regional work; no Western jobs are available yet.",
+    completeDescription: "The Western Node at Arcane Archive connects the Heart to the Mana Condenser at Roadside Ruin. Assign up to two Bound Earth Elementals after the condenser is activated: one crystal every 120 seconds per operator.",
     activationStory: "Beyond the opened archive seal, the restored Heart detects a Western anchor.",
-    builtStory: "The Western Node joins the Heart, opening the archive route to node travel.",
+    builtStory: "The Western Node joins the Heart, opening node travel and remote Earth Elemental operation of the activated Mana Condenser at Roadside Ruin.",
     builtJournal: "westernTowerNodeBuilt",
   },
   north: {
@@ -3188,7 +3303,9 @@ const elementalAutomationConfig = {
       fiber: { label: "Gather Fiber", resource: "fiber", cycleDuration: 60, batchSize: 5 },
       traps: { label: "Check Traps", trapCheck: true, cycleDuration: 1, batchSize: 0, maxWorkers: 1 },
     } },
-    west: { elementalCapacity: 2, jobs: {} },
+    west: { elementalCapacity: 2, jobs: {
+      manaCondenser: { label: "Operate Mana Condenser", resource: "manaCrystal", cycleDuration: 120, batchSize: 1, requiresCondenser: true },
+    } },
     north: {
       elementalCapacity: 3,
       jobs: {
@@ -3773,11 +3890,11 @@ const campUpgrades = {
     campSlotRank: 1,
     duration: 10,
     cost: {
-      energy: 90,
+      energy: 40,
       stone: 40,
+      wood: 20,
       iron: 5,
       nails: 20,
-      manaCrystal: 4,
     },
     unlocked: false,
     purchased: false,
@@ -3789,7 +3906,7 @@ const campUpgrades = {
   },
 
   manaCondenser: {
-    label: "Mana Condenser",
+    label: "Install Condensing Lattice",
     displayName: "Mana Condenser",
     requiredLocation: "roadsideRuin",
     // Relocated from campSlot: "condenser"; stored construction IDs are unchanged.
@@ -3798,18 +3915,16 @@ const campUpgrades = {
     campSlotRank: 2,
     duration: 12,
     cost: {
-      energy: 90,
-      stone: 20,
-      iron: 5,
-      nails: 20,
-      chargedCrystal: 4,
+      energy: 40,
+      manaCrystal: 2,
+      chargedCrystal: 2,
     },
     unlocked: false,
     purchased: false,
     button: null,
     display: null,
     onComplete() {
-      // RETIRED: unlockAutomation("manaCondenser"); manual crystal creation remains available.
+      addStoryEntry("The Mana Condenser stands restored at Roadside Ruin. Activate it with three separate 10-Mana infusions.");
       updateWorkTabsVisibility();
     },
   },
@@ -5154,7 +5269,7 @@ function createImbueRankTwoTargetDefinitions() {
     ),
     rankTwoRingOfMana: createImbueRankTwoTargetDefinition(
       "Ring of Mana",
-      "Permanently increase maximum Mana while this ring occupies the single Ring slot.",
+      "Permanently increase maximum Mana while this ring occupies a Ring slot.",
       0,
       config.recipes.ringOfMana.cost,
       { type: "ring", id: "ringOfMana" }
@@ -5168,7 +5283,7 @@ function createImbueRankTwoTargetDefinitions() {
     ),
     rankTwoRingOfWarding: createImbueRankTwoTargetDefinition(
       "Ring of Warding",
-      "Permanently increase maximum Ward while this ring occupies the single Ring slot.",
+      "Permanently increase maximum Ward while this ring occupies a Ring slot.",
       2,
       config.recipes.ringOfWarding.cost,
       { type: "ring", id: "ringOfWarding" }
@@ -5343,13 +5458,13 @@ const imbueDefinitions = {
   },
 
   manaCrystal: {
-    label: "Create Mana Crystal",
-    description: "Compress a full reserve of mana into a new stable crystal.",
-    requiredLocation: "roadsideRuin",
+    label: "Hand-Condense Mana Crystal",
+    description: "Force Mana into one crystal in normal storage: 20 Mana + 2 Focus. An active Mana Condenser reduces this to 16 Mana + 2 Focus at Roadside Ruin only.",
+    requiredLocations: ["roadsideRuin", "silentGearworks", "arcaneArchive"],
     locationProduces: { resource: "manaCrystal", amount: 1 }, // Preserve delivery to the resource stockpile.
     cost: {
       mana: 20,
-      focus: 5,
+      focus: 2,
     },
     produces: {
       resource: "manaCrystal",
@@ -5359,6 +5474,20 @@ const imbueDefinitions = {
       flags: ["manaCrystalImbuingUnlocked"],
     },
     story: "You compress the mana inward until it hardens into a clear, steady crystal.",
+  },
+
+  activateManaCondenser: {
+    label: "Activate Condenser — 10 Mana",
+    description: "At Roadside Ruin, infuse one of three lattice segments. Each completed infusion stays active between visits. Total: 30 Mana.",
+    requiredLocation: "roadsideRuin",
+    cost: { mana: 10 },
+    requires: { campUpgradesPurchased: ["manaCondenser"] },
+    canApply() { return !isManaCondenserActive(); },
+    apply() {
+      gameState.manaCondenserActivation = Math.min(3, getManaCondenserActivation() + 1);
+      addStoryEntry(isManaCondenserActive() ? "The Mana Condenser is active. Hand condensation here now costs 16 Mana + 2 Focus. Connect the Western Node at Arcane Archive to assign Earth Elemental operators." : "A lattice segment awakens: " + getManaCondenserActivation() + "/3 activations complete.");
+      trySaveGame();
+    },
   },
 
   staminaTonic: {
@@ -5462,7 +5591,7 @@ const imbueDefinitions = {
       resource: "chargedCrystal",
       amount: 1,
     },
-    story: "The crystal catches the Gearworks rhythm and holds a steady inner charge.",
+    story: "The crystal catches the workshop's rhythm and holds a steady inner charge.",
   },
 
   chargedCrystalCluster: {
@@ -5820,6 +5949,56 @@ const goalDefinitions = {
       },
     ],
   },
+  researchLongRangeNetwork: {
+    title: "Study The Warden Core",
+    text: "Research Long-Range Network to understand the signal paths preserved inside the Warden Core.",
+    items: [
+      {
+        label: "Complete Long-Range Network research",
+        isComplete: function () { return !!getResearch("longRangeNetwork")?.completed; },
+      },
+    ],
+  },
+  buildGateChamber: {
+    title: "Build The Gate Chamber",
+    text: "Raise the Tower's final planned floor to house the long-range transit structure.",
+    items: [
+      {
+        label: "Complete the Gate Chamber",
+        isComplete: function () { return !!getProjectState("towerFloor3")?.completed; },
+      },
+    ],
+  },
+  buildLongRangeGate: {
+    title: "Build The Long-Range Gate",
+    text: "Construct the permanent transit structure inside the Gate Chamber.",
+    items: [
+      {
+        label: "Construct the Long-Range Gate",
+        isComplete: function () { return (getProjectState("towerRoomLongRangeGate")?.level || 0) >= 1; },
+      },
+    ],
+  },
+  activateLongRangeGate: {
+    title: "Activate The Long-Range Gate",
+    text: "Synchronize the four regional nodes with the greater network.",
+    items: [
+      {
+        label: "Activate the Long-Range Gate",
+        isComplete: function () { return !!getProjectState("towerRoomLongRangeGate")?.completed; },
+      },
+    ],
+  },
+  travelToFirstExternalTerritory: {
+    title: "Travel Beyond The Home Territory",
+    text: "Travel to the first external Territory through the Long-Range Gate.",
+    items: [
+      {
+        label: "Travel to the first external Territory",
+        isComplete: function () { return !!gameState.world?.territories?.unknownTerritory1?.visited; },
+      },
+    ],
+  },
 };
 
 const journalDefinitions = {
@@ -5853,7 +6032,7 @@ const journalDefinitions = {
   },
   manaCrystalImbuingUnlocked: {
     title: "Crystal Binding Pattern",
-    text: "The ruined alcove showed how raw mana can be pressed into a crystal lattice. With enough mana, you can create mana crystals at the Western Roadside Ruin.",
+    text: "The alcove taught you to force Mana into crystals by hand at Roadside Ruin, Abandon Workshop, or Arcane Archive: 20 Mana + 2 Focus per crystal. The Arcane Archive may hold plans for machinery to help.",
   },
   manaAwakened: {
     title: "Mana Awakened",
@@ -5865,7 +6044,7 @@ const journalDefinitions = {
   },
   automationPrinciplesFound: {
     title: "Automation Principles",
-    text: "The Silent Gearworks used mana to repeat simple tasks. The machines were not intelligent, but they could remember a pattern while the charge lasted.",
+    text: "The Abandon Workshop used mana to repeat simple tasks. The machines were not intelligent, but they could remember a pattern while the charge lasted.",
   },
   attunementLearned: {
     title: "Attunement",
@@ -5897,7 +6076,19 @@ const journalDefinitions = {
   },
   manaCondenserPlansFound: {
     title: "Ancient Mana Condenser",
-    text: "The condenser plans describe a machine that gathers diffuse mana and slowly condenses it into crystals.",
+    text: "The Arcane Archive plans describe machinery to rebuild at Roadside Ruin. Construct its frame, install the lattice, and activate it with three 10-Mana infusions. Hand condensation there then costs 16 Mana + 2 Focus. The Western Node at Arcane Archive connects up to two Earth Elemental operators, each producing one crystal every 120 seconds.",
+  },
+  wardenCoreRecovered: {
+    title: "Warden Core",
+    text: "A dense arcane core recovered from the fallen Warden. Its structure resembles the regional node network, but its routes extend far beyond it.",
+  },
+  longRangeNetworkMapped: {
+    title: "The Greater Network",
+    text: "The four regional nodes form only the local network of the Home Territory. The Tower's final chamber was designed to connect to other Territories through a Long-Range Gate.",
+  },
+  firstExternalTerritoryDetected: {
+    title: "Unknown Territory",
+    text: "The active Long-Range Gate detects one destination beyond the Home Territory. Its identity and condition remain unknown.",
   },
   partialTowerPlansFound: {
     title: "Partial Tower Plans",
@@ -5927,7 +6118,7 @@ const journalDefinitions = {
     title: "Northern Tower Node",
     text: "The northern signal can be rebuilt as a small local node: stone for the body, iron for the binding, charged crystals for the focus, and imbuement to wake the path.",
   },
-  westernTowerNodeBuilt: { title: "Western Node Online", text: "The archive anchor is linked to the Tower Heart. Western node travel is now available." },
+  westernTowerNodeBuilt: { title: "Western Node Online", text: "The Arcane Archive anchor is linked to the Tower Heart. Node travel is available. Up to two Earth Elementals can operate the activated Mana Condenser at Roadside Ruin, producing one crystal every 120 seconds each." },
   northernTowerNodeBuilt: {
     title: "Northern Node Online",
     text: "The Miners' Camp node now holds a stable link to the Tower Heart. With mana, you can jump there directly after packing for an expedition.",

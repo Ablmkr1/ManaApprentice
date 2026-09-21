@@ -40,7 +40,7 @@ const os = require('node:os');
     const text = await heart.innerText();
     assert.match(text, /Camp & Outskirts/);
     assert.match(text, /Waiting: next expedition resets traps/);
-    assert.match(text, /Western Tower Node/);
+    assert.match(text, /Western Node/);
     assert.equal(await page.locator('#automationTabBtn').count(), 0);
     assert.equal(await page.locator('#automationPanel').count(), 0);
     const screenshotStyle = 'header, nav, .notification-toast { visibility: hidden !important; }';
@@ -102,14 +102,14 @@ const os = require('node:os');
     });
     assert.equal(locations.parent, 'locationPrimaryActions');
     assert.equal(locations.display, 'grid');
-    assert.match(locations.manual, /Create Mana Crystal/);
+    assert.match(locations.manual, /Hand-Condense Mana Crystal/);
     const camp = await page.evaluate(() => {
       gameState.expedition.currentLocation = null;gameState.expedition.active = false;
       updateCraftingUIForCurrentContext();renderContextualCraftingSpellActions();
       return {display:getCampUpgrade('manaCondenserFrame').button.style.display,manual:ui.craftingSpellActions.innerText};
     });
     assert.equal(camp.display, 'none');
-    assert(!camp.manual.includes('Create Mana Crystal'));
+    assert(!camp.manual.includes('Hand-Condense Mana Crystal'));
     const manualReload = await page.evaluate(() => {
       saveSuppressed = false;
       const save = createSaveData();
@@ -134,6 +134,55 @@ const os = require('node:os');
     assert.equal(manualReload.crystals, 1, 'paid legacy manual production finishes once');
     assert.equal(manualReload.manaDelta, 0);
     assert.equal(manualReload.focusDelta, 0);
+    // The condenser uses the live production-spell, worker and save interfaces.
+    const condenser = await page.evaluate(() => {
+      gameState.elementals = {}; getBoundEarthElementalState().owned = 5;
+      getCampUpgrade('manaCondenserFrame').purchased = true;
+      getCampUpgrade('manaCondenser').purchased = true;
+      gameState.manaCondenserActivation = 0;
+      gameState.expedition.active = true; gameState.expedition.currentLocation = 'roadsideRuin';
+      getResource('mana').maxValue = 100; getResource('mana').value = 30;
+      for (let i=0;i<3;i++) {
+        castTargetedSpell('imbue',{type:'productionSpell',spellName:'imbue',targetId:'activateManaCondenser',mode:'location'});
+        completeActivity();
+      }
+      const costs = ['roadsideRuin','silentGearworks','arcaneArchive'].map(id => {
+        gameState.expedition.currentLocation = id;
+        return getProductionSpellTargetContext('imbue','manaCrystal').cost;
+      });
+      gameState.expedition.currentLocation = 'roadsideRuin';
+      updatePlacePanel(); setMainView('expedition',{userSelected:true}); ExpeditionScene.render();
+      const job={type:'node',nodeName:'west',jobName:'manaCondenser'};
+      changeBoundEarthElementalAssignment(job); changeBoundEarthElementalAssignment(job);
+      getResource('manaCrystal').value=0;
+      saveSuppressed=false;
+      const save=createSaveData();save.savedAt=Date.now()-120000;
+      localStorage.setItem(SAVE_KEY,JSON.stringify(save));loadGame();
+      const first=getResource('manaCrystal').value;
+      loadGame();const second=getResource('manaCrystal').value;
+      saveSuppressed=true;
+      return {costs,first,second,activation:getManaCondenserActivation(),workers:getBoundEarthElementalNodeAssignments('west').manaCondenser};
+    });
+    assert.deepEqual(condenser.costs,[{mana:16,focus:4},{mana:20,focus:4},{mana:20,focus:4}]);
+    assert.equal(condenser.activation,3);assert.equal(condenser.workers,2);
+    assert.equal(condenser.first,2);assert.equal(condenser.second,2,'condenser offline reload is idempotent');
+    await page.evaluate(() => {
+      resetActivity();resetCombatEncounter();gameState.phase='expedition';
+      gameState.expedition.dungeon.active=false;gameState.expedition.active=true;
+      gameState.expedition.regionId='west';gameState.expedition.destination=null;
+      Object.assign(getExpeditionLocation('roadsideRuin'),{discovered:true,explored:true});
+      setCurrentLocation('roadsideRuin');lockAction('travel');unlockAction('returnToCamp');setPackingActionsAvailable(false);
+      updatePlacePanel();updateCraftingUIForCurrentContext();refreshExpeditionUI();updateRegionalMapVisibility();setMainView('expedition',{userSelected:true});ExpeditionScene.render();ExpeditionMap.close();
+      document.querySelectorAll('.popup').forEach(n=>n.style.display='none');
+    });
+    await page.getByRole('button',{name:'Inspect Mana Condenser',exact:true}).click();
+    assert.equal(await page.locator('.expedition-condenser-machinery').count(),1,'restored machinery appears after lattice');
+    assert.match(await page.locator('#expeditionDetailInfo').innerText(),/16 Mana \+ 4 Focus/);
+    await page.screenshot({path:path.join(os.tmpdir(),'mana-condenser-mobile.png')});
+    await page.setViewportSize({width:1360,height:1000});
+    await page.screenshot({path:path.join(os.tmpdir(),'mana-condenser-desktop.png')});
+    await page.evaluate(() => {getCampUpgrade('manaCondenser').purchased=false;ExpeditionScene.render();});
+    assert.equal(await page.locator('.expedition-condenser-machinery').count(),0,'machinery stays hidden before installation');
     assert.deepEqual(errors, []);
     console.log('Browser checks passed: desktop/mobile Heart controls, discovery gating, full save reload/offline idempotence, Western construction/manual controls, no runtime errors.');
     console.log(path.join(os.tmpdir(), 'lost-wizard-golems-desktop.png'));

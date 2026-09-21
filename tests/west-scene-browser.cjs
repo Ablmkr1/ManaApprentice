@@ -4,7 +4,7 @@ const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const output = path.join(__dirname, 'west-screenshots');
+const output = process.env.WEST_SCREENSHOT_DIR || path.join(__dirname, 'west-screenshots');
 fs.mkdirSync(output, { recursive: true });
 (async () => {
   const browser = await chromium.launch({ channel: 'msedge', headless: true });

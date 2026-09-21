@@ -56,6 +56,7 @@ function updateLocationStorageUI() {}
 function updateCampResourcesSectionVisibility() {}
 function updateExpeditionUI() {}
 function updateCurrentGoalUI() {}
+function setCurrentGoal(goalId) { gameState.currentGoalId = goalId; }
 function updateWorkTabsVisibility() {}
 function updateExpeditionLoadoutVisibility() {}
 function syncMainViewAvailability() {}
@@ -215,7 +216,8 @@ const tests = String.raw`
   setup('brokenWarden'); cast('manaLance'); cast('manaMissile');
   gameState.combat.enemyHealth = 1;
   cast('manaBolt');
-  assert(gameState.brokenWardenDefeated && gameState.tierFourCompleted && clean(), 'Boss victory persists milestone and clears mechanics');
+  assert(gameState.brokenWardenDefeated && !gameState.tierFourCompleted && clean(), 'Boss victory records defeat without prematurely completing Tier 4');
+  assert(gameState.wardenCoreRecovered && getResource('wardenCore').value === 1 && getResearch('longRangeNetwork').unlocked, 'Boss victory grants one protected Warden Core and unlocks Long-Range Network');
   setup('brokenWarden'); cast('manaLance'); startManaMissileCast(); recallFromCombat();
   assert(clean() && !gameState.combat.events.length, 'Boss Recall cancels pending cast, sigils, and attacks');
   setup('brokenWarden', 10, 100, 10); tick(5000);
@@ -223,10 +225,10 @@ const tests = String.raw`
   setup('brokenWarden'); startManaMissileCast(); endCombatForRecall(); assert(clean(), 'External expedition Recall also cleans pending mechanics');
   setup('brokenWarden');
   const savedCombat = createGameStateSaveData();
-  assert(!savedCombat.combat && savedCombat.brokenWardenDefeated && savedCombat.tierFourCompleted, 'Save preserves milestone but omits transient combat');
-  gameState.brokenWardenDefeated = false; gameState.tierFourCompleted = false;
+  assert(!savedCombat.combat && savedCombat.brokenWardenDefeated && savedCombat.wardenCoreRecovered && !savedCombat.tierFourCompleted, 'Save preserves the Warden milestone but omits transient combat');
+  gameState.brokenWardenDefeated = false; gameState.wardenCoreRecovered = false; gameState.tierFourCompleted = false;
   applyGameStateSaveData(savedCombat);
-  assert(gameState.brokenWardenDefeated && gameState.tierFourCompleted, 'Load restores western milestone');
+  assert(gameState.brokenWardenDefeated && gameState.wardenCoreRecovered && !gameState.tierFourCompleted, 'Load restores the western finale state without skipping gate activation');
   resetCombatEncounter();
   gameState.expedition.dungeon = { active: true, dungeonId: 'arcaneArchiveDepths', nodeId: 'deepRepository' };
   getCurrentDungeonNode().explored = false;

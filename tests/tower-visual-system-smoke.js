@@ -102,6 +102,7 @@ function makeState(unlocked, completed, level, progress) {
 const floors = {
   floor1: { id: "floor1", name: "Floor 1", subtitle: "Living / Practical Floor", number: 1, projectId: "towerFloor1", rooms: ["bedroom", "forge", "workshop"] },
   floor2: { id: "floor2", name: "Floor 2", subtitle: "Arcane Work Floor", number: 2, projectId: "towerFloor2", rooms: ["alchemyRoom", "library", "enchantingStudy"] },
+  floor3: { id: "floor3", name: "Gate Chamber", subtitle: "Long-Range Transit Floor", number: 3, projectId: "towerFloor3", rooms: ["longRangeGate"] },
 };
 
 const rooms = {
@@ -111,6 +112,7 @@ const rooms = {
   alchemyRoom: { id: "alchemyRoom", name: "Alchemy Room", projectId: "towerRoomAlchemyRoom" },
   forge: { id: "forge", name: "Forge", projectId: "towerRoomForge" },
   enchantingStudy: { id: "enchantingStudy", name: "Enchanting Study", projectId: "towerRoomEnchantingStudy" },
+  longRangeGate: { id: "longRangeGate", name: "Long-Range Gate", projectId: "towerRoomLongRangeGate" },
 };
 
 const definitions = {
@@ -118,8 +120,9 @@ const definitions = {
   towerBasement: { visualStages: Array(6).fill({}) },
   towerFloor1: { visualStages: Array(2).fill({}) },
   towerFloor2: { visualStages: Array(2).fill({}) },
+  towerFloor3: { visualStages: Array(2).fill({}) },
 };
-Object.values(rooms).forEach((room) => { definitions[room.projectId] = { visualStages: Array(2).fill({}) }; });
+Object.values(rooms).forEach((room) => { definitions[room.projectId] = { visualStages: Array(room.id === "longRangeGate" ? 3 : 2).fill({}) }; });
 
 const document = {
   activeElement: null,
@@ -150,9 +153,10 @@ const context = {
     const state = projects[id];
     if (!state || !state.unlocked) return "locked";
     if (state.completed) return "completed";
+    if (id === "towerRoomLongRangeGate" && state.level >= 1) return "inactive";
     return state.visualProgress > 0 ? "under-construction" : "available";
   },
-  getTowerStateLabel(state) { return state === "completed" ? "Complete" : state === "under-construction" ? "Under construction" : state === "available" ? "Ready to build" : "Locked"; },
+  getTowerStateLabel(state) { return state === "completed" ? "Complete" : state === "inactive" ? "Built · activation ready" : state === "under-construction" ? "Under construction" : state === "available" ? "Ready to build" : "Locked"; },
   isTowerSelectionVisible(id) {
     const state = id === "heart" ? projects.towerFoundation
       : id === "basement" ? projects.towerBasement
@@ -195,6 +199,7 @@ const presets = {
   floor1Rooms: { projects: { towerFoundation: makeState(true, true, 5, 1), towerBasement: makeState(true, true, 5, 1), towerFloor1: makeState(true, true, 1, 1), towerRoomBedroom: makeState(true, true, 1, 1), towerRoomForge: makeState(true, false, 0, 0.63), towerRoomWorkshop: makeState(true, false, 0, 0) }, viewBox: "18 112 684 704", zones: ["basement", "heart", "golem-control", "floor:floor1", "room:bedroom", "room:forge", "room:workshop"] },
   floor2Build: { projects: { towerFoundation: makeState(true, true, 5, 1), towerBasement: makeState(true, true, 5, 1), towerFloor1: makeState(true, true, 1, 1), towerRoomBedroom: makeState(true, true, 1, 1), towerRoomForge: makeState(true, true, 1, 1), towerRoomWorkshop: makeState(true, true, 1, 1), towerFloor2: makeState(true, false, 0, 0.47) }, viewBox: "0 0 720 840", zones: ["basement", "heart", "golem-control", "floor:floor1", "room:bedroom", "room:forge", "room:workshop", "floor:floor2"] },
   complete: { projects: { towerFoundation: makeState(true, true, 5, 1), towerBasement: makeState(true, true, 5, 1), towerFloor1: makeState(true, true, 1, 1), towerRoomBedroom: makeState(true, true, 1, 1), towerRoomLibrary: makeState(true, true, 1, 1), towerRoomWorkshop: makeState(true, true, 1, 1), towerFloor2: makeState(true, true, 1, 1), towerRoomAlchemyRoom: makeState(true, true, 1, 1), towerRoomForge: makeState(true, true, 1, 1), towerRoomEnchantingStudy: makeState(true, true, 1, 1) }, viewBox: "0 0 720 840", zones: ["basement", "heart", "golem-control", "floor:floor1", "room:bedroom", "room:forge", "room:workshop", "floor:floor2", "room:alchemyRoom", "room:library", "room:enchantingStudy"] },
+  gateChamber: { projects: { towerFoundation: makeState(true, true, 5, 1), towerBasement: makeState(true, true, 5, 1), towerFloor1: makeState(true, true, 1, 1), towerFloor2: makeState(true, true, 1, 1), towerFloor3: makeState(true, true, 1, 1), towerRoomLongRangeGate: makeState(true, false, 1, 0) }, viewBox: "0 -205 720 1045", zones: ["basement", "heart", "golem-control", "floor:floor1", "floor:floor2", "floor:floor3", "room:longRangeGate"] },
 };
 
 let completedVisual;

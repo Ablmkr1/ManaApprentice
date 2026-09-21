@@ -205,6 +205,124 @@ function applyUnlocks(unlocks) {
   unlocks.forEach(applyUnlock);
 }
 
+function getTerritoryProgress() {
+  if (!gameState.world || typeof gameState.world !== "object") gameState.world = { regions: {} };
+  if (!gameState.world.territories || typeof gameState.world.territories !== "object" || Array.isArray(gameState.world.territories)) {
+    gameState.world.territories = {};
+  }
+
+  const territories = gameState.world.territories;
+  territories.home = Object.assign({}, territories.home || {}, { label: "Home Territory", revealed: true, accessible: true, visited: true });
+  territories.unknownTerritory1 = Object.assign({ label: "Unknown Territory", revealed: false, accessible: false, visited: false }, territories.unknownTerritory1 || {});
+  return territories;
+}
+
+function grantWardenCore(announce = true) {
+  const core = getResource("wardenCore");
+  const alreadyRecovered = !!gameState.wardenCoreRecovered || !!(core && core.value >= 1);
+
+  gameState.wardenCoreRecovered = true;
+  if (core) {
+    core.value = 1;
+    core.discovered = true;
+    updateResource("wardenCore");
+    unlockResource("wardenCore");
+  }
+
+  const networkResearch = getResearch("longRangeNetwork");
+  if (networkResearch && !networkResearch.completed && !networkResearch.unlocked) {
+    if (announce) {
+      unlockResearch("longRangeNetwork");
+    } else {
+      networkResearch.unlocked = true;
+      networkResearch.unlockedAt = Date.now();
+    }
+  }
+
+  if (!alreadyRecovered) {
+    addJournalEntry("wardenCoreRecovered");
+    if (announce) {
+      addStoryEntry("You recover the Warden Core. Its dense arcane lattice echoes the four regional nodes, then reaches past them into the unknown.");
+      if (typeof showMajorSystemUnlockEvent === "function") {
+        showMajorSystemUnlockEvent({ title: "WARDEN CORE RECOVERED", description: "A unique progression item. It cannot be lost or duplicated." });
+      }
+    }
+  }
+
+  return !alreadyRecovered;
+}
+
+function isLongRangeGateBuilt() {
+  const state = getProjectState("towerRoomLongRangeGate");
+  return !!state && (state.level >= 1 || state.completed);
+}
+
+function updateTierFourFinaleObjective() {
+  if (!gameState.brokenWardenDefeated) return;
+  if (gameState.tierFourCompleted) {
+    gameState.currentGoalId = "travelToFirstExternalTerritory";
+  } else if (isLongRangeGateBuilt()) {
+    gameState.currentGoalId = "activateLongRangeGate";
+  } else if (getProjectState("towerFloor3")?.completed) {
+    gameState.currentGoalId = "buildLongRangeGate";
+  } else if (getResearch("longRangeNetwork")?.completed) {
+    gameState.currentGoalId = "buildGateChamber";
+  } else {
+    gameState.currentGoalId = "researchLongRangeNetwork";
+  }
+}
+
+function completeTierFourFinale(showPresentation = true) {
+  const wasComplete = !!gameState.tierFourCompleted;
+  const territories = getTerritoryProgress();
+  gameState.tierFourCompleted = true;
+  gameState.tierFiveUnlocked = true;
+  territories.unknownTerritory1.revealed = true;
+  territories.unknownTerritory1.accessible = true;
+  updateTierFourFinaleObjective();
+  addJournalEntry("firstExternalTerritoryDetected");
+
+  if (!wasComplete && showPresentation) {
+    [
+      "Mana surges through the Tower Heart.",
+      "North. East. South. West. The four regional nodes answer.",
+      "For a moment, the Home Territory network feels complete.",
+      "Then another signal appears, far beyond the known regions.",
+      "LONG-RANGE TRANSIT NETWORK DETECTED — Known external destinations: 1 — Unknown Territory.",
+    ].forEach(addStoryEntry);
+    if (typeof showMajorSystemUnlockEvent === "function") {
+      showMajorSystemUnlockEvent({ title: "TIER IV COMPLETE", description: "The Long-Range Gate is active." });
+      showMajorSystemUnlockEvent({ title: "Tier V — Rediscovery", description: "New objective: Travel to the first external Territory." });
+    }
+  }
+
+  updateCurrentGoalUI();
+  trySaveGame();
+}
+
+function syncTierFourFinaleProgression() {
+  getTerritoryProgress();
+  if (!gameState.brokenWardenDefeated) return;
+
+  grantWardenCore(false);
+  const research = getResearch("longRangeNetwork");
+  const floor = getProjectState("towerFloor3");
+  const gate = getProjectState("towerRoomLongRangeGate");
+  if (research && research.completed) syncTowerStructureUnlocks(false);
+  if (floor && floor.completed && gate) gate.unlocked = true;
+
+  if (gate && gate.completed) {
+    completeTierFourFinale(false);
+  } else {
+    gameState.tierFourCompleted = false;
+    gameState.tierFiveUnlocked = false;
+    const destination = getTerritoryProgress().unknownTerritory1;
+    destination.revealed = false;
+    destination.accessible = false;
+    updateTierFourFinaleObjective();
+  }
+}
+
 function unlockPersonalWard(showPopup = true) {
   const ward = getResource("ward");
   const wasUnlocked = !!gameState.personalWardUnlocked;
@@ -533,6 +651,7 @@ function areTowerPrerequisitesMet(prerequisites) {
   const requirements = prerequisites || {};
   const projectsCompleted = requirements.projectsCompleted || [];
   const roomsCompleted = requirements.roomsCompleted || [];
+  const researchCompleted = requirements.researchCompleted || [];
 
   return (
     projectsCompleted.every(function (projectId) {
@@ -540,6 +659,9 @@ function areTowerPrerequisitesMet(prerequisites) {
       return !!state && state.completed;
     }) &&
     roomsCompleted.every(isTowerRoomCompleted) &&
+    researchCompleted.every(function (researchName) {
+      return !!getResearch(researchName)?.completed;
+    }) &&
     (!requirements.anyRoomsCompleted || requirements.anyRoomsCompleted.some(isTowerRoomCompleted))
   );
 }
@@ -558,6 +680,9 @@ function syncTowerStructureUnlocks(announce = false) {
 
     if (announce) {
       announceUiStatus(entity.name + " is now available to construct.");
+      if (entity.unlockNotice && typeof showMajorSystemUnlockEvent === "function") {
+        showMajorSystemUnlockEvent(entity.unlockNotice);
+      }
     }
   });
 }
@@ -713,6 +838,9 @@ function checkLocalGolemTraps(maxChecks = 1) {
 function getGolemJobStatusText(nodeName, jobName, workers) {
   const job = getElementalNodeConfig(nodeName)?.jobs[jobName];
   if (!job) return "";
+  if (job.requiresCondenser && !isManaCondenserActive()) return "Activate the Mana Condenser at Roadside Ruin first.";
+  if (job.requiresCondenser && workers > 0 && getResource(job.resource).value + 1 > getResource(job.resource).maxValue) return "Storage full";
+  if (job.requiresCondenser && workers > 0 && getResource(job.resource).value + 1 <= getResource(job.resource).maxValue) return "+1 / " + (120 / workers) + "s · Roadside Ruin · Return: " + formatCompactElementalReturn(getBoundEarthElementalCycle(nodeName, jobName).remaining / workers);
   if (job.trapCheck) {
     const status = getLocalTrapWorkerStatus();
     return workers > 0 ? (status === "Ready" ? "Check in " + formatCompactElementalReturn(getBoundEarthElementalCycle(nodeName, jobName).remaining) : status) : "1s per trap · One worker";
@@ -891,6 +1019,7 @@ function isBoundEarthElementalNodeUnlocked(nodeName) {
   if (getElementalNodeConfig(nodeName)?.local) return isBoundEarthElementalTowerUnlocked();
   const node = getTowerNodeState(nodeName);
   const definition = getTowerNodeDefinition(nodeName);
+  if (nodeName === "west" && !node.activated) return false;
   return !!node && node.built && (!!node.advancedRecallUnlocked || !!(definition && definition.automationOnBuild));
 }
 
@@ -931,6 +1060,7 @@ function getBoundEarthElementalJobRequirementStatus(destination, source = null) 
     return { valid: false, reason: (nodeDefinition ? nodeDefinition.label : "Regional Node") + " required." };
   }
   if (!job) return { valid: false, reason: "That regional job is not available." };
+  if (job.requiresCondenser && !isManaCondenserActive()) return { valid: false, reason: "Activate the Mana Condenser at Roadside Ruin first." };
 
   if (job.requiredEquipment) {
     const definition = getElementalHarnessDefinition(job.requiredEquipment);
@@ -1225,6 +1355,18 @@ function processBoundEarthElementalAutomation(deltaSeconds) {
         continue;
       }
       if (!isBoundEarthElementalNodeUnlocked(nodeName) || (nodeName === "local" && !isLocalGolemJobDiscovered(jobName))) continue;
+      if (job.requiresCondenser) {
+        if (!isManaCondenserActive()) continue;
+        const resource = getResource(job.resource);
+        const space = Math.floor(resource.maxValue - resource.value);
+        if (space <= 0) continue;
+        if (cycle.remaining <= 0) cycle.remaining = job.cycleDuration;
+        const work = deltaSeconds * workers;
+        const batches = Math.min(space, Math.max(0, Math.floor((work - cycle.remaining) / job.cycleDuration) + 1));
+        cycle.remaining = batches === space ? job.cycleDuration : cycle.remaining - work + batches * job.cycleDuration;
+        if (batches > 0) { addResource(job.resource, batches); delivered = true; }
+        continue;
+      }
       if (job.trapCheck) {
         if (getLocalTrapWorkerStatus() !== "Ready") continue;
         cycle.remaining = (cycle.remaining || job.cycleDuration) - deltaSeconds;
@@ -1383,6 +1525,15 @@ function unlockProject(projectName) {
 
   state.unlocked = true;
 
+  const entity = definition.towerEntityType === "floor"
+    ? getTowerFloorDefinition(definition.towerEntityId)
+    : definition.towerEntityType === "room"
+      ? getTowerRoomDefinition(definition.towerEntityId)
+      : null;
+  if (entity && entity.unlockNotice && typeof showMajorSystemUnlockEvent === "function") {
+    showMajorSystemUnlockEvent(entity.unlockNotice);
+  }
+
   if (isTowerProject(projectName)) {
     ensureTowerStructureState();
     const selectedId = getTowerSelectionForProject(projectName);
@@ -1492,6 +1643,7 @@ function applyResearchUnlocks(researchName) {
   if (!research || !Array.isArray(research.unlocks)) return;
 
   applyUnlocks(research.unlocks);
+  if (researchName === "longRangeNetwork") syncTowerStructureUnlocks(true);
   if (research.unlocks.some(unlock => unlock.type === "researchSystem" && unlock.id !== "manaCycling")) {
     refreshBoundEarthElementalUI();
   }
@@ -1513,6 +1665,9 @@ function unlockResearch(researchName) {
 
   if (research.discoveryStory) {
     addStoryEntry(research.discoveryStory);
+  }
+  if (research.unlockNotice && typeof showMajorSystemUnlockEvent === "function") {
+    showMajorSystemUnlockEvent(research.unlockNotice);
   }
 
   updateCraftingSectionVisibility();
@@ -2380,6 +2535,12 @@ function renderContextualCraftingSpellActions() {
     }
   });
 
+  if (gameState.expedition.currentLocation === "roadsideRuin" && (getCampUpgrade("manaCondenserFrame").unlocked || getCampUpgrade("manaCondenser").purchased)) {
+    const status = document.createElement("p");
+    status.textContent = getManaCondenserStatus();
+    container.appendChild(status);
+    hasActions = true;
+  }
   if (hasActions) {
     showElement(container, "flex");
   } else {
@@ -2544,23 +2705,38 @@ function updateEquipmentDetail(availableItems) {
   summary.textContent = (item.displayName || item.label) + "  " + getEquipmentEffectText(item);
   ui.equipmentDetail.appendChild(summary);
 
-  if (item.collectionItem) { appendEquipmentCollectionUI(ui.equipmentDetail, item.slot); return; }
-  if (item.slot === "ring") {
+  if (["leftRing", "rightRing"].includes(item.slot)) {
+    appendEquipmentCollectionUI(ui.equipmentDetail, item.slot, item.instanceId);
     const choices = document.createElement("div");
     choices.className = "ring-choice-row";
-    getCraftedImbueRingDefinitions().forEach(function (ring) {
+    choices.setAttribute("aria-label", "Choose " + item.slotLabel);
+    ensureEquipmentCollection().items.filter(ring => equipmentSlot(ring) === "ring").forEach(function (ring) {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "ring-choice-btn";
-      const ringIcon = createEquipmentIconImage(ring);
-      ringIcon.classList.add("ring-choice-icon");
-      button.append(ringIcon, document.createTextNode(ring.label));
-      button.disabled = ensureImbueRankTwoState().equippedRing === ring.imbueRingId;
-      button.addEventListener("click", function () { equipImbueRing(ring.imbueRingId); });
+      const label = equipmentBaseName(ring) + (ringOrdinal(ring) ? " " + ringOrdinal(ring) : "") + " · " + equipmentEnchantmentName(ring);
+      button.title = label;
+      button.setAttribute("aria-label", label);
+      button.setAttribute("aria-pressed", String(ensureEquipmentCollection().equipped[item.slot] === ring.id));
+      const icon = createEquipmentIconImage(equipmentView(ring, item.slot));
+      icon.classList.add("ring-choice-icon");
+      const ordinal = document.createElement("small");
+      ordinal.textContent = ringOrdinal(ring);
+      button.append(icon, ordinal);
+      button.disabled = isItemEquipped(ring.id) || !!equipmentChangeReason();
+      button.onclick = function () { equipOwnedItem(ring.id, item.slot); };
       choices.appendChild(button);
     });
+    const unequip = document.createElement("button");
+    unequip.type = "button";
+    unequip.textContent = "Unequip";
+    unequip.disabled = !item.instanceId || !!equipmentChangeReason();
+    unequip.onclick = function () { equipOwnedItem(null, item.slot); };
+    choices.appendChild(unequip);
     ui.equipmentDetail.appendChild(choices);
+    return;
   }
+  if (item.collectionItem) { appendEquipmentCollectionUI(ui.equipmentDetail, item.slot); return; }
 }
 
 function getEquipmentEffectText(item) {
@@ -3497,8 +3673,11 @@ function completeGearUpgrade(upgradeName) {
   if (upgrade.requiredGear) {
     const requiredGear = getGearUpgrade(upgrade.requiredGear);
     if (!requiredGear || !requiredGear.purchased) return;
-    requiredGear.purchased = false;
   }
+
+  Object.values(getGearUpgradeDefinitions()).forEach(function (owned) {
+    if (owned !== upgrade && owned.equipmentType === upgrade.equipmentType && owned.slot === upgrade.slot) owned.purchased = false;
+  });
 
   upgrade.purchased = true;
   upgrade.unlocked = false;
@@ -3908,11 +4087,53 @@ function updateCraftingUIForCurrentContext() {
   }
 }
 
+function getManaCondenserActivation() {
+  return Math.max(0, Math.min(3, Math.floor(Number(gameState.manaCondenserActivation) || 0)));
+}
+
+function isManaCondenserActive() {
+  return !!getCampUpgrade("manaCondenser").purchased && getManaCondenserActivation() === 3;
+}
+
+function getManaCondenserStatus() {
+  if (!getCampUpgrade("manaCondenserFrame").purchased) return "Mana Condenser · Build the frame at Roadside Ruin using the Arcane Archive plans.";
+  if (!getCampUpgrade("manaCondenser").purchased) return "Mana Condenser · Frame complete. Install the Condensing Lattice next.";
+  if (!isManaCondenserActive()) return "Mana Condenser · Lattice installed. Activation: " + getManaCondenserActivation() + "/3 · Each action costs 10 Mana.";
+  const benefit = " Hand-Condense Mana Crystal at Roadside Ruin: 16 Mana + 2 Focus; other Western locations: 20 Mana + 2 Focus. ";
+  if (!isBoundEarthElementalNodeUnlocked("west")) return "Restored, but awaiting a Tower connection and operator." + benefit + "Build the Western Node at Arcane Archive.";
+  const workers = getBoundEarthElementalNodeAssignments("west").manaCondenser || 0;
+  if (workers && !canReceiveProductionProduces({resource: "manaCrystal", amount: 1})) return "Mana Condenser · Storage full; operator production paused." + benefit + "Controlled through the Western Node at Arcane Archive.";
+  return (workers ? "Operating: " + workers + " Earth Elemental(s), 1 Mana Crystal every " + (120 / workers) + " seconds." : "Ready for an Earth Elemental operator.") + benefit + "Operators work at Roadside Ruin, controlled through the Western Node at Arcane Archive.";
+}
+
+function isWesternCondenserActivity(activity) {
+  return activity?.active && ((activity.kind === "spell" && activity.id === "imbue" && activity.context?.type === "productionSpell" && ["manaCrystal", "activateManaCondenser"].includes(activity.context.targetId)) || (activity.kind === "craft" && activity.type === "campUpgrade" && ["manaCondenserFrame", "manaCondenser"].includes(activity.id)));
+}
+
+function pauseWesternCondenserActivity() {
+  const activity = gameState.activity;
+  if (!isWesternCondenserActivity(activity)) return;
+  if (gameState.pendingCondenserActivity) {
+    if (!Array.isArray(gameState.pendingCondenserActivities)) gameState.pendingCondenserActivities = [];
+    gameState.pendingCondenserActivities.push(gameState.pendingCondenserActivity);
+  }
+  gameState.pendingCondenserActivity = { activity: structuredClone(activity), elapsed: Math.min(activity.duration, Math.max(0, (getGameTime() - activity.startTime) / 1000)) };
+  resetActivity();
+}
+
 function resumeWesternCondenserActivity() {
-  const pending = gameState.pendingCondenserActivity;
-  if (!pending || isActivityActive() || gameState.expedition.currentLocation !== "roadsideRuin") return;
+  if (isActivityActive()) return;
+  const queue = [gameState.pendingCondenserActivity, ...(gameState.pendingCondenserActivities || [])].filter(Boolean);
+  const index = queue.findIndex(pending => {
+    const manual = pending.activity.context?.targetId === "manaCrystal";
+    if (manual && !canReceiveProductionProduces({resource: "manaCrystal", amount: 1})) return false;
+    return (manual ? ["roadsideRuin", "silentGearworks", "arcaneArchive"] : ["roadsideRuin"]).includes(gameState.expedition.currentLocation);
+  });
+  if (index < 0) return;
+  const pending = queue.splice(index, 1)[0];
   const activity = pending.activity;
-  gameState.pendingCondenserActivity = null;
+  gameState.pendingCondenserActivity = queue.shift() || null;
+  gameState.pendingCondenserActivities = queue;
   // Work was already paid for. Resume its saved progress without charging again.
   activity.context = { ...activity.context, mode: "location" };
   Object.assign(gameState.activity, activity, { active: true, startTime: getGameTime() - pending.elapsed * 1000 });
@@ -4087,6 +4308,8 @@ const TOWER_PROJECT_SEQUENCE = [
   "towerRoomAlchemyRoom",
   "towerRoomLibrary",
   "towerRoomEnchantingStudy",
+  "towerFloor3",
+  "towerRoomLongRangeGate",
 ];
 
 function isTowerFoundationProject(projectName) {
@@ -4144,6 +4367,8 @@ function getProjectLevelWorkCost(projectName, mode = PROJECT_WORK_MODE_ENERGY) {
   const level = getProjectCurrentLevel(projectName);
 
   if (!definition) return {};
+
+  if (level && level.workCost) return level.workCost;
 
   if (isProjectImbueHeartWorkMode(projectName, mode)) {
     return (level && level.activationCost) || { mana: 10 };
@@ -4214,8 +4439,9 @@ function getProjectWorkCost(projectName, mode = PROJECT_WORK_MODE_ENERGY) {
 
 function getProjectWorkDuration(projectName, mode = PROJECT_WORK_MODE_ENERGY) {
   const definition = getProjectDefinition(projectName);
+  const level = getProjectCurrentLevel(projectName);
 
-  const duration = definition ? definition.workDuration || 1 : 1;
+  const duration = level && Number.isFinite(level.workDuration) ? level.workDuration : definition ? definition.workDuration || 1 : 1;
   return isProjectArcaneForceWorkMode(projectName, mode) ? getArcaneForceCastDuration(duration) : duration;
 }
 
@@ -5115,7 +5341,7 @@ function createCompactBoundEarthElementalAssignmentRow(nodeName, jobName) {
   const destination = { type: "node", nodeName, jobName };
   const workers = getBoundEarthElementalAssignmentCount(destination);
   const resource = job ? getResource(job.resource) : null;
-  const resourceLabel = nodeName === "local" ? job.label : resource ? resource.label : (job ? job.label : jobName);
+  const resourceLabel = nodeName === "local" || job?.requiresCondenser ? job.label : resource ? resource.label : (job ? job.label : jobName);
   const row = document.createElement("div");
   row.className = "elemental-compact-row";
 
@@ -5157,6 +5383,12 @@ function createCompactBoundEarthElementalNodePanel(nodeName) {
   capacity.className = "elemental-compact-capacity";
   capacity.textContent = config.local ? "Uses shared Heart capacity" : "Node: " + (isBoundEarthElementalNodeUnlocked(nodeName) ? "Active" : "Inactive") + " · Assigned: " + getBoundEarthElementalNodeAssignmentCount(nodeName) + " / " + config.elementalCapacity;
   panel.append(heading, capacity);
+
+  if (nodeName === "west") {
+    const description = document.createElement("p");
+    description.textContent = "The Western Node at Arcane Archive controls Earth Elementals operating the Mana Condenser at Roadside Ruin. One operator: 1 crystal / 120s. Two: 1 crystal / 60s. " + getManaCondenserStatus();
+    panel.appendChild(description);
+  }
 
   for (let jobName in config.jobs) {
     if (config.local && !isLocalGolemJobDiscovered(jobName)) continue;
@@ -5745,6 +5977,10 @@ function completeProject(projectName, definition) {
     recalculateCampEffects();
   }
 
+  if (typeof definition.onComplete === "function") {
+    definition.onComplete(projectName, definition);
+  }
+
   checkResearchDiscoveries();
   updateCurrentGoalUI();
 }
@@ -5858,10 +6094,12 @@ function getNextAvailableTowerProject() {
 
 function getTowerConstructionState(projectId) {
   const state = getProjectState(projectId);
+  const definition = getProjectDefinition(projectId);
 
   if (!state) return "locked";
   if (state.completed) return "completed";
   if (!state.unlocked) return "locked";
+  if (definition && definition.towerEntityId === "longRangeGate" && state.level >= 1) return "inactive";
   if (isActivityActive() && gameState.activity.kind === "projectWork" && gameState.activity.id === projectId) return "under-construction";
   if ((state.work || 0) > 0 || Object.values(state.deposits || {}).some(function (amount) { return amount > 0; })) return "under-construction";
 
@@ -5870,6 +6108,7 @@ function getTowerConstructionState(projectId) {
 
 function getTowerStateLabel(stateName) {
   if (stateName === "completed") return "Complete";
+  if (stateName === "inactive") return "Built · activation ready";
   if (stateName === "under-construction") return "Under construction";
   if (stateName === "available") return "Ready to build";
   return "Locked";
@@ -6127,7 +6366,7 @@ function appendTowerFloorArt(svg, floor, y) {
     const visibleRooms = floor.rooms
       .map(getTowerRoomDefinition)
       .filter(function (room) { return room && isTowerSelectionVisible("room:" + room.id); });
-    const roomWidth = width / Math.max(3, floor.rooms.length);
+    const roomWidth = width / Math.max(1, floor.rooms.length);
 
     visibleRooms.forEach(function (room) {
       const roomIndex = floor.rooms.indexOf(room.id);
@@ -6162,7 +6401,7 @@ function createTowerBuildingVisual() {
     return isTowerSelectionVisible("floor:" + floor.id);
   });
   const highestFloor = visibleFloors.sort(function (a, b) { return b.number - a.number; })[0];
-  const sceneTop = highestFloor && highestFloor.number >= 2 ? 110 : 320;
+  const sceneTop = highestFloor && highestFloor.number >= 3 ? -40 : highestFloor && highestFloor.number >= 2 ? 110 : 320;
   const wrapper = document.createElement("div");
   wrapper.className = "tower-building-stage";
   const svg = createSvgElement("svg", {
@@ -6434,6 +6673,10 @@ function getTowerPrerequisiteText(entity) {
     const room = getTowerRoomDefinition(roomId);
     if (room) names.push(room.name);
   });
+  (prerequisites.researchCompleted || []).forEach(function (researchName) {
+    const research = getResearch(researchName);
+    if (research) names.push(research.label + " research");
+  });
   if (prerequisites.anyRoomsCompleted) names.push("any one functional Floor 1 room");
 
   return names.length ? "Requires: " + names.join(", ") + "." : "Complete the preceding Tower work first.";
@@ -6464,9 +6707,17 @@ function renderTowerDetailPanel() {
     const effect = document.createElement("div");
     effect.className = "tower-effect-callout";
     const effectTitle = document.createElement("strong");
-    effectTitle.textContent = state.completed ? "Upgraded" : isTowerRoomCompleted(selected.id) ? "Functional · Upgrade available" : "Planned functional room";
+    effectTitle.textContent = entity.capstone
+      ? state.completed ? "Active" : isLongRangeGateBuilt() ? "Built · synchronization required" : "Permanent Tower project"
+      : state.completed ? "Upgraded" : isTowerRoomCompleted(selected.id) ? "Functional · Upgrade available" : "Planned functional room";
     const effectText = document.createElement("span");
-    effectText.textContent = entity.baselineEffect.label + ". " + (state.completed ? "Active upgrade: " : "Next upgrade: ") + TOWER_ROOM_STAGES[selected.id].upgrade;
+    effectText.textContent = entity.capstone
+      ? state.completed
+        ? "Long-range transit is online. Known external destinations: 1."
+        : isLongRangeGateBuilt()
+          ? "The structure is complete and inactive. Activate it to synchronize the four regional nodes."
+          : "Build the gate from the Home Territory's established Tier 4 materials."
+      : entity.baselineEffect.label + ". " + (state.completed ? "Active upgrade: " : "Next upgrade: ") + TOWER_ROOM_STAGES[selected.id].upgrade;
     effect.append(effectTitle, effectText);
     ui.projectList.appendChild(effect);
   } else {
@@ -6483,7 +6734,22 @@ function renderTowerDetailPanel() {
 
   appendTowerProjectControls(ui.projectList, entity.projectId);
 
-  if (selected.type === "room" && isTowerRoomCompleted(selected.id)) {
+  if (selected.type === "room" && entity.capstone && state.completed) {
+    const territories = getTerritoryProgress();
+    const destination = territories.unknownTerritory1;
+    const network = document.createElement("section");
+    network.className = "tower-stage-details long-range-destination";
+    const heading = document.createElement("h4");
+    heading.textContent = "LONG-RANGE TRANSIT NETWORK DETECTED";
+    const count = document.createElement("p");
+    count.textContent = "Known external destinations: " + (destination.revealed ? "1" : "0");
+    const place = document.createElement("strong");
+    place.textContent = destination.revealed ? destination.label : "No destination detected";
+    const note = document.createElement("p");
+    note.textContent = destination.revealed ? "Territory travel will depart from this gate. Full external exploration is not yet available." : "The gate has not detected a stable external route.";
+    network.append(heading, count, place, note);
+    ui.projectList.appendChild(network);
+  } else if (selected.type === "room" && !entity.capstone && isTowerRoomCompleted(selected.id)) {
     appendTowerEquipmentActions(ui.projectList, selected.id);
     const elemental = getBoundEarthElementalState();
     if (selected.id === "workshop" && elemental.capabilities.equipmentUnlocked) {
@@ -8630,7 +8896,7 @@ function completeImbueRankTwoTarget(action) {
   } else if (action.type === "ring") {
     state.craftedRings[action.id] = true;
     state.equippedRing = action.id;
-    story = "The " + getImbueRingDefinition(action.id).label + " closes around a stable pattern and settles into your single Ring slot.";
+    story = "The " + getImbueRingDefinition(action.id).label + " closes around a stable pattern and settles into a Ring slot.";
   } else if (action.type === "backpack") {
     state.backpackImbued = true;
     story = "The Backpack's seams accept a permanent spatial pattern, increasing its capacity without changing the pack itself.";
@@ -8745,7 +9011,7 @@ function getImbueLevelRewardText(level) {
     "8 mana capacity: Minor Mana Tonic",
     "12 mana capacity: Major Mana Tonic",
     "16 mana capacity: Charge Crystal Cluster",
-    "20 mana capacity: Imbue 10 Wood, Create Mana Crystal; Rank 2 research ready",
+    "20 mana capacity: Imbue 10 Wood, Hand-Condense Mana Crystal; Rank 2 research ready",
   ];
 
   return rewards[Math.max(0, Math.min(level, rewards.length - 1))];
@@ -10197,6 +10463,9 @@ function getProductionSpellTargetContext(spellName, targetName, requestedContext
 }
 
 function finalizeProductionSpellTargetContext(spellName, definition, targetContext) {
+  if (targetContext && spellName === "imbue" && definition === getProductionSpellDefinition("imbue", "manaCrystal")) {
+    return { ...targetContext, cost: { mana: gameState.expedition.currentLocation === "roadsideRuin" && isManaCondenserActive() ? 16 : 20, focus: 2 } };
+  }
   if (!targetContext || spellName !== "arcaneForce") return targetContext;
   const finalized = { ...targetContext, cost: getArcaneForceModifiedCost(targetContext.cost) };
 
@@ -10579,6 +10848,7 @@ function isProductionSpellTargetAvailable(spellName, targetName, requestedContex
   if (!definition) return false;
   if (!targetContext) return false;
 
+  if (spellName === "imbue" && targetName === "manaCrystal" && getImbueCapacity() < 20) return false;
   if (spellName === "arcaneForce" && getArcaneForceLevel() < (definition.requiredForceLevel || 0)) return false;
   if (spellName === "arcaneForce" && definition.requiredForceRank && getArcaneForceRank() < definition.requiredForceRank) return false;
   if (spellName === "arcaneForce" && definition.requiredRankTwoLevel !== undefined && getArcaneForceRankTwoLevel() < definition.requiredRankTwoLevel) return false;
@@ -10670,6 +10940,7 @@ function canReceiveCarriedProduces(produces, carriedCost) {
 
 function areProductionSpellTargetRequirementsMet(requires) {
   if (!requires) return true;
+  if (requires.campUpgradesPurchased && !requires.campUpgradesPurchased.every(id => getCampUpgrade(id)?.purchased)) return false;
 
   if (requires.researchCompleted) {
     for (let i = 0; i < requires.researchCompleted.length; i++) {

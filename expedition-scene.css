@@ -44,6 +44,10 @@
 .expedition-art, .expedition-landmarks { position: absolute; pointer-events: none; }
 .expedition-background { display: block; width: 100%; height: 100%; }
 .expedition-node-overlay { position: absolute; width: 12%; height: auto; left: 66%; top: 20%; }
+.expedition-condenser-machinery { position: absolute; left: 52%; top: 51%; width: 20%; height: 17%; filter: drop-shadow(0 4px 3px #0009); }
+.condenser-ring { position: absolute; inset: 0 12% 18%; border: 8px ridge #9a957a; border-radius: 50%; transform: rotate(-20deg); background: radial-gradient(ellipse, #82ddd955, #162d30bb 60%); box-shadow: inset 0 0 12px #a4f6ef; }
+.condenser-core { position: absolute; left: 44%; top: 25%; width: 15%; height: 35%; background: #9ff5ed; transform: rotate(15deg); clip-path: polygon(50% 0,100% 35%,65% 100%,0 70%); }
+.condenser-base { position: absolute; bottom: 0; left: 3%; width: 94%; height: 20%; background: linear-gradient(#979481,#444f4b); border: 3px ridge #b0a48b; }
 .expedition-surface[data-node-state="built"] .expedition-node-overlay { filter: drop-shadow(0 0 5px #70d8dc) drop-shadow(0 0 12px #70d8dc66); }
 .expedition-map-key { position: absolute; top: 16px; left: 18px; color: #2b241c; padding: 8px 10px; border-radius: 6px; background: #fffaf0ed; font: 20px Georgia, serif; pointer-events: none; }
 .expedition-map-key small { font: 11px var(--font-body, Georgia, serif); letter-spacing: .06em; }

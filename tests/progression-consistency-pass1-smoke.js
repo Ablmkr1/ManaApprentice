@@ -112,9 +112,18 @@ const tests = `
   automation.completed = false;
   getExpeditionLocation("silentGearworks").explored = true;
   checkResearchDiscoveries();
-  assert(!automation.unlocked, "Exploring the Silent Gearworks does not reveal Automation Principles");
-  applyUnlocks(getDungeon("silentGearworksDepths").nodes.controlDais.search.reward.unlocks);
+  assert(!automation.unlocked, "Exploring the Abandon Workshop does not reveal Automation Principles");
+  const controlDais = getDungeon("silentGearworksDepths").nodes.controlDais;
+  applyUnlocks(controlDais.search.reward.unlocks);
   assert(!automation.unlocked, "The Control Dais no longer reveals retired Automation Principles");
+  controlDais.rewardClaimed = false;
+  claimDungeonNodeReward(controlDais);
+  const ring = ensureEquipmentCollection().items.find(item => item.rewardId === "fadedArtificersRing");
+  assert(ring && ring.name === "Faded Artificer’s Ring" && itemEffects(ring).maxManaFlat === 5, "The Control Dais awards the Faded Artificer’s Ring with +5 maximum Mana");
+  const manaMaxBeforeRing = getResource("mana").maxValue;
+  assert(equipOwnedItem(ring.id, "leftRing") && getResource("mana").maxValue === manaMaxBeforeRing + 5, "The Faded Artificer’s Ring adds 5 maximum Mana only while equipped");
+  claimDungeonNodeReward(controlDais);
+  assert(ensureEquipmentCollection().items.filter(item => item.rewardId === "fadedArtificersRing").length === 1, "The Faded Artificer’s Ring cannot be awarded twice");
 
   const migrated = migrateSaveData({
     version: 32,
@@ -132,6 +141,11 @@ const tests = `
   assert(migrated.version === SAVE_VERSION && !migrated.campUpgrades.workbench.unlocked, "Early legacy saves lose the premature unbuilt workbench reveal");
   assert(migrated.research.easternTowerNode.completed && migrated.gameState.towerNodes.east.researchUnlocked, "Legacy Eastern construction access is preserved as completed research");
   assert(migrated.research.southernTowerNode.completed && migrated.gameState.towerNodes.south.built, "A built legacy Southern Node remains built with completed research");
+  const replacementSave = structuredClone(migrated);
+  replacementSave.version = 36;
+  replacementSave.dungeons = { silentGearworksDepths: { nodes: { controlDais: { rewardClaimed: true } } } };
+  const compensated = migrateSaveData(replacementSave);
+  assert(compensated.gameState.equipment.items.filter(item => item.rewardId === "fadedArtificersRing").length === 1, "Players who already claimed the Control Dais reward receive one Faded Artificer’s Ring on migration");
 
   console.log(JSON.stringify({ passed: results.length, results }, null, 2));
 })();

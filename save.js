@@ -1,5 +1,5 @@
 const SAVE_KEY = "manaApprenticeSaveV1";
-const SAVE_VERSION = 36;
+const SAVE_VERSION = 41;
 let saveSuppressed = false;
 
 function createSaveData() {
@@ -183,13 +183,15 @@ function createDungeonSaveData() {
     for (let nodeId in dungeon.nodes) {
       const node = dungeon.nodes[nodeId];
 
-      savedDungeons[dungeonId].nodes[nodeId] = {
+      const savedNode = {
         discovered: !!node.discovered,
         explored: !!node.explored,
         rewardClaimed: !!node.rewardClaimed,
         manaSenseCharges: node.manaSenseCharges || 0,
         spellCharges: structuredClone(getDungeonNodeSpellCharges(node)),
       };
+      if (node.pendingReward) savedNode.pendingReward = structuredClone(node.pendingReward);
+      savedDungeons[dungeonId].nodes[nodeId] = savedNode;
     }
   }
 
@@ -356,10 +358,106 @@ function migrateSaveData(saveData) {
   if (version <= 33) migrateV33SaveDataToV34(normalizedSaveData);
 
   if (version <= 34) migrateTowerEquipmentSave(normalizedSaveData);
+  if (version <= 36) migrateV36SaveDataToV37(normalizedSaveData);
+  if (version <= 37) migrateV37SaveDataToV38(normalizedSaveData);
+  if (version <= 38) {
+    normalizedSaveData.gameState.manaCondenserActivation = normalizedSaveData.campUpgrades?.manaCondenser?.purchased ? 3 : 0;
+  }
+  if (version <= 39) migrateV39SaveDataToV40(normalizedSaveData);
+  if (version <= 40) migrateV40SaveDataToV41(normalizedSaveData);
   if (normalizedSaveData.resources.mana) normalizedSaveData.resources.mana.perSecond = 0;
   normalizedSaveData.version = SAVE_VERSION;
 
   return normalizedSaveData;
+}
+
+function migrateV40SaveDataToV41(saveData) {
+  migrateTowerEquipmentSave(saveData);
+  const savedGear = ensureObject(saveData.gearUpgrades);
+  const highestBySlot = {};
+  Object.keys(getGearUpgradeDefinitions()).forEach(function (id) {
+    const definition = getGearUpgrade(id), saved = ensureObject(savedGear[id]);
+    if (!definition?.slot || !saved.purchased) return;
+    const key = definition.equipmentType + ":" + definition.slot;
+    const current = highestBySlot[key];
+    if (!current || (definition.slotRank || 0) > (getGearUpgrade(current)?.slotRank || 0)) highestBySlot[key] = id;
+  });
+  Object.keys(getGearUpgradeDefinitions()).forEach(function (id) {
+    const definition = getGearUpgrade(id), saved = ensureObject(savedGear[id]);
+    const highest = highestBySlot[definition.equipmentType + ":" + definition.slot];
+    if (saved.purchased && highest && highest !== id) saved.purchased = false;
+    savedGear[id] = saved;
+  });
+}
+
+function migrateV39SaveDataToV40(saveData) {
+  const state = ensureObject(saveData.gameState);
+  const savedResources = ensureObject(saveData.resources);
+  const savedResearch = ensureObject(saveData.research);
+  const savedProjects = ensureObject(state.projects);
+  const world = ensureObject(state.world);
+  const territories = ensureObject(world.territories);
+  const gate = ensureObject(savedProjects.towerRoomLongRangeGate);
+  const floor = ensureObject(savedProjects.towerFloor3);
+  const gateCompleted = !!gate.completed || Number(gate.level) >= 2;
+
+  territories.home = { ...ensureObject(territories.home), label: "Home Territory", revealed: true, accessible: true, visited: true };
+  territories.unknownTerritory1 = {
+    ...ensureObject(territories.unknownTerritory1),
+    label: "Unknown Territory",
+    revealed: gateCompleted,
+    accessible: gateCompleted,
+    visited: !!ensureObject(territories.unknownTerritory1).visited,
+  };
+  world.territories = territories;
+  state.world = world;
+
+  if (state.brokenWardenDefeated) {
+    state.wardenCoreRecovered = true;
+    savedResources.wardenCore = {
+      value: 1,
+      maxValue: 1,
+      perClick: 0,
+      perSecond: 0,
+      restPerSecond: 0,
+      discovered: true,
+      visible: true,
+      ...ensureObject(savedResources.wardenCore),
+    };
+    savedResources.wardenCore.value = 1;
+    savedResources.wardenCore.discovered = true;
+    savedResources.wardenCore.visible = true;
+
+    const network = ensureObject(savedResearch.longRangeNetwork);
+    if (!network.completed) {
+      network.unlocked = true;
+      network.unlockedAt = Number.isFinite(network.unlockedAt) && network.unlockedAt > 0 ? network.unlockedAt : Date.now();
+    }
+    savedResearch.longRangeNetwork = network;
+  }
+
+  if (savedResearch.longRangeNetwork?.completed && ensureObject(savedProjects.towerFloor2).completed) floor.unlocked = true;
+  if (floor.completed) gate.unlocked = true;
+  savedProjects.towerFloor3 = floor;
+  savedProjects.towerRoomLongRangeGate = gate;
+
+  state.tierFourCompleted = gateCompleted;
+  state.tierFiveUnlocked = gateCompleted;
+  if (state.brokenWardenDefeated) {
+    state.currentGoalId = gateCompleted
+      ? "travelToFirstExternalTerritory"
+      : Number(gate.level) >= 1
+        ? "activateLongRangeGate"
+        : floor.completed
+          ? "buildLongRangeGate"
+          : savedResearch.longRangeNetwork?.completed
+            ? "buildGateChamber"
+            : "researchLongRangeNetwork";
+  }
+
+  saveData.gameState = state;
+  saveData.resources = savedResources;
+  saveData.research = savedResearch;
 }
 
 function migrateV33SaveDataToV34(saveData) {
@@ -377,6 +475,48 @@ function migrateV33SaveDataToV34(saveData) {
   if (attunement) complete("elementalAttunement");
   if (skill.revealed || skill.level > 0 || skill.rank > 1 || skill.manaXp > 0 || saveData.actions?.practiceManaCycling?.unlocked) complete("manaCycling");
   for (const resource of Object.values(ensureObject(saveData.resources))) resource.discovered = !!resource.discovered || !!resource.visible || resource.value > 0;
+}
+
+function migrateV36SaveDataToV37(saveData) {
+  const controlDais = saveData.dungeons?.silentGearworksDepths?.nodes?.controlDais;
+  const collection = saveData.gameState?.equipment;
+  if (!controlDais?.rewardClaimed || !collection || !Array.isArray(collection.items)) return;
+  if (collection.items.some(item => item.rewardId === "fadedArtificersRing")) return;
+
+  const nextId = Math.max(1, Math.floor(Number(collection.nextId) || 1));
+  collection.items.push({
+    id: "gear-" + nextId,
+    rewardId: "fadedArtificersRing",
+    name: "Faded Artificer’s Ring",
+    slot: "ring",
+    effects: { maxManaFlat: 5 },
+    description: "A narrow metal band, its inner surface covered in almost familiar markings. Most of its enchantment has faded, but a small reservoir remains.",
+  });
+  collection.nextId = nextId + 1;
+}
+
+function migrateV37SaveDataToV38(saveData) {
+  const dungeons = ensureObject(saveData.dungeons);
+  for (let dungeonId in dungeons) {
+    const dungeon = ensureObject(dungeons[dungeonId]);
+    const nodes = ensureObject(dungeon.nodes);
+    for (let nodeId in nodes) {
+      const node = nodes[nodeId];
+      if (!node || typeof node !== "object") continue;
+      if (node.rewardClaimed) {
+        delete node.pendingReward;
+        continue;
+      }
+      if (!node.pendingReward || typeof node.pendingReward !== "object" || Array.isArray(node.pendingReward)) continue;
+      const carried = ensureObject(node.pendingReward.carried);
+      node.pendingReward.carried = {};
+      for (let itemName in carried) {
+        const amount = Math.floor(Number(carried[itemName]) || 0);
+        if (amount > 0) node.pendingReward.carried[itemName] = amount;
+      }
+      node.pendingReward.nonCarriedGranted = !!node.pendingReward.nonCarriedGranted;
+    }
+  }
 }
 
 function normalizeSaveData(saveData) {
@@ -426,6 +566,7 @@ function normalizeSaveData(saveData) {
   saveData.research = ensureObject(saveData.research);
   saveData.gameState.world = ensureObject(saveData.gameState.world);
   saveData.gameState.world.regions = ensureObject(saveData.gameState.world.regions);
+  saveData.gameState.world.territories = ensureObject(saveData.gameState.world.territories);
 
   saveData.resources = ensureObject(saveData.resources);
   saveData.actions = ensureObject(saveData.actions);
@@ -1351,13 +1492,15 @@ function applyResourceSaveData(savedResources) {
 
 function applyGameStateSaveData(savedGameState) {
   if (!savedGameState) return;
-  gameState.equipment = savedGameState.equipment ? structuredClone(savedGameState.equipment) : newEquipmentCollection();
+  gameState.equipment = normalizeEquipmentCollection(savedGameState.equipment ? structuredClone(savedGameState.equipment) : newEquipmentCollection());
   // Timed jobs do not advance offline; unpaid equipment reservations are canceled.
   gameState.equipment.pending = null;
 
   // Older saves predate the western capstone; never inherit another save's win.
   gameState.brokenWardenDefeated = !!savedGameState.brokenWardenDefeated;
+  gameState.wardenCoreRecovered = !!savedGameState.wardenCoreRecovered;
   gameState.tierFourCompleted = !!savedGameState.tierFourCompleted;
+  gameState.tierFiveUnlocked = !!savedGameState.tierFiveUnlocked;
 
   applySavedFields(gameState, savedGameState, [
     "phase",
@@ -1389,7 +1532,9 @@ function applyGameStateSaveData(savedGameState) {
     "personalWardPopupShown",
     "combatVictories",
     "brokenWardenDefeated",
+    "wardenCoreRecovered",
     "tierFourCompleted",
+    "tierFiveUnlocked",
     "destination",
     "hasCamp",
   ]);
@@ -1511,6 +1656,11 @@ function applyGameStateSaveData(savedGameState) {
   }
 
   if (savedGameState.world) {
+    const savedTerritories = ensureObject(savedGameState.world.territories);
+    gameState.world.territories = {
+      home: { ...ensureObject(savedTerritories.home), label: "Home Territory", revealed: true, accessible: true, visited: true },
+      unknownTerritory1: { label: "Unknown Territory", revealed: false, accessible: false, visited: false, ...ensureObject(savedTerritories.unknownTerritory1) },
+    };
     if (savedGameState.world.selectedRegion) {
       gameState.world.selectedRegion = savedGameState.world.selectedRegion;
     }
@@ -1578,6 +1728,8 @@ function applyGameStateSaveData(savedGameState) {
 
   resetActivity();
   gameState.pendingCondenserActivity = structuredClone(savedGameState.pendingCondenserActivity || null);
+  gameState.pendingCondenserActivities = structuredClone(Array.isArray(savedGameState.pendingCondenserActivities) ? savedGameState.pendingCondenserActivities : []);
+  gameState.manaCondenserActivation = Math.max(0, Math.min(3, Math.floor(Number(savedGameState.manaCondenserActivation) || 0)));
   gameState.autoAction.actionName = null;
   gameState.autoAction.pausedForRest = false;
 }
@@ -1689,7 +1841,8 @@ function applyDungeonSaveData(savedDungeons) {
       const node = dungeon.nodes[nodeId];
       const savedNode = savedDungeon.nodes[nodeId];
 
-      applySavedFields(node, savedNode, ["discovered", "explored", "rewardClaimed", "manaSenseCharges", "spellCharges"]);
+      applySavedFields(node, savedNode, ["discovered", "explored", "rewardClaimed", "pendingReward", "manaSenseCharges", "spellCharges"]);
+      if (node.rewardClaimed) delete node.pendingReward;
     }
   }
 }
@@ -1809,6 +1962,7 @@ function loadGame() {
   applyBasementStorageUpgrade();
   recalculateToolEffects();
   checkResearchDiscoveries();
+  syncTierFourFinaleProgression();
   repairWesternCondenserSave(saveData);
   applyGolemOfflineProgress(saveData);
   refreshGameUIAfterLoad();
@@ -1843,11 +1997,11 @@ function repairWesternCondenserSave(saveData) {
     location.explored = true;
   }
   const savedActivity = saveData.gameState?.activity;
-  const manualCrystal = savedActivity?.kind === "spell" && savedActivity.id === "imbue" &&
-    savedActivity.context?.type === "productionSpell" && savedActivity.context.targetId === "manaCrystal";
-  const construction = savedActivity?.kind === "craft" && savedActivity.type === "campUpgrade" &&
-    ["manaCondenserFrame", "manaCondenser"].includes(savedActivity.id);
-  if (savedActivity?.active && (manualCrystal || construction)) {
+  if (isWesternCondenserActivity(savedActivity)) {
+    if (gameState.pendingCondenserActivity) {
+      if (!Array.isArray(gameState.pendingCondenserActivities)) gameState.pendingCondenserActivities = [];
+      gameState.pendingCondenserActivities.push(gameState.pendingCondenserActivity);
+    }
     const elapsed = Math.max(0, (saveData.savedAt - savedActivity.startTime) / 1000);
     gameState.pendingCondenserActivity = {
       activity: structuredClone(savedActivity),

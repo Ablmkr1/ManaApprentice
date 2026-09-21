@@ -39,7 +39,7 @@ assert(!getResearch('sturdyConstruction').requires.researchCompleted.includes('a
 assert(!getResearch('ancientManaCondenser').requires.researchCompleted,'condenser has no retired prerequisite');
 assert(getDungeon('roadsideRuinDepths').nodes.crackedHall.search.reward.carried.manaCrystal===1,'first crystal remains in early ruin');
 const manual = getProductionSpellDefinition('imbue','manaCrystal');
-assert(manual.cost.mana===20 && manual.cost.focus===5 && !manual.requires.campUpgradesPurchased && !manual.requires.towerNodes,'manual recipe costs and independent unlock preserved');
+assert(manual.cost.mana===20 && manual.cost.focus===4 && !manual.requires.campUpgradesPurchased && !manual.requires.towerNodes,'manual recipe costs and independent unlock preserved');
 gameState.manaCrystalImbuingUnlocked = true;
 gameState.expedition.currentLocation = 'roadsideRuin';
 gameState.expedition.active = true;
@@ -54,7 +54,7 @@ assert(!getProductionSpellTargetContext('imbue','manaCrystal'),'manual crystal c
 const frame = getCampUpgrade('manaCondenserFrame'); frame.unlocked=true;
 assert(!isCraftAvailable('campUpgrade','manaCondenserFrame'),'camp frame control unavailable');
 gameState.expedition.currentLocation='roadsideRuin';
-assert(isCraftAvailable('campUpgrade','manaCondenserFrame') && frame.cost.manaCrystal===4,'Western construction preserves original cost');
+assert(isCraftAvailable('campUpgrade','manaCondenserFrame') && frame.cost.wood===20 && frame.cost.energy===40,'Western construction preserves original cost');
 gameState.expedition.currentLocation=null;
 getCampUpgrade('manaCondenser').purchased=true;
 gameState.world.regions.west.unlocked=false;
@@ -78,7 +78,7 @@ for(let i=0;i<6;i++) completeTowerNodeImbue('west');
 assert(west.built && isBoundEarthElementalNodeUnlocked('west'),'Western node activates through six imbuements');
 gameState.expedition.active=false;gameState.expedition.currentLocation=null;
 assert(getBuiltTowerNodeForLocation('arcaneArchive')==='west' && canPrepareTowerNodeJump('west','arcaneArchive'),'Western node participates in shared travel');
-assert(Object.keys(getElementalNodeConfig('west').jobs).length===0,'no invented Western assignment');
+assert(Object.keys(getElementalNodeConfig('west').jobs).length===1,'one Western condenser assignment');
 getResearch('elementalBinding').completed=true;
 gameState.elementals={};
 const earth=getBoundEarthElementalState(); earth.owned=10;
@@ -147,7 +147,7 @@ assert(isActivityActive() && gameState.activity.context.mode==='location' && get
 resetActivity();
 const oldSave=createSaveData(); oldSave.version=35;
 const migrated=migrateSaveData(oldSave);
-assert(migrated.version===36 && migrated.automation.lumberMill.cycles===100 && migrated.campUpgrades.manaCondenser.purchased,'old save migrates with machine data and construction intact');
+assert(migrated.version===SAVE_VERSION && migrated.automation.lumberMill.cycles===100 && migrated.campUpgrades.manaCondenser.purchased,'old save migrates with machine data and construction intact');
 console.log('Golem management: '+passed+' focused checks passed.');
 `;
 vm.runInNewContext(stubs+files.map(f=>fs.readFileSync(path.join(root,f),'utf8')).join('\n')+test,{console,structuredClone,setTimeout,clearTimeout,Date,Math,Map,Set},{filename:'golem-management.vm.js'});

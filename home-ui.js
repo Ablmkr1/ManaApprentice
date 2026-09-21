@@ -660,7 +660,8 @@ function updateHomeTowerVisibility() {
   const towerDiscovered = isHomeTowerDiscovered();
   const firstFloor = typeof getProjectState === "function" ? getProjectState("towerFloor1") : null;
   const secondFloor = typeof getProjectState === "function" ? getProjectState("towerFloor2") : null;
-  const towerBuilt = !!((firstFloor && firstFloor.completed) || (secondFloor && secondFloor.completed));
+  const thirdFloor = typeof getProjectState === "function" ? getProjectState("towerFloor3") : null;
+  const towerBuilt = !!((firstFloor && firstFloor.completed) || (secondFloor && secondFloor.completed) || (thirdFloor && thirdFloor.completed));
 
   if (towerButton) {
     towerButton.hidden = !towerDiscovered;
@@ -696,9 +697,9 @@ function renderHomeTowerPlaceholder() {
     ? getTowerVisualCaption()
     : { title: "The Tower Site", status: "Beyond the camp" };
   const projectIds = [
-    "towerFoundation", "towerBasement", "towerFloor1", "towerFloor2",
+    "towerFoundation", "towerBasement", "towerFloor1", "towerFloor2", "towerFloor3",
     "towerRoomBedroom", "towerRoomForge", "towerRoomWorkshop",
-    "towerRoomAlchemyRoom", "towerRoomLibrary", "towerRoomEnchantingStudy",
+    "towerRoomAlchemyRoom", "towerRoomLibrary", "towerRoomEnchantingStudy", "towerRoomLongRangeGate",
   ];
   const progress = typeof getProjectState === "function"
     ? projectIds.map(function (id) {

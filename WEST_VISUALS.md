@@ -19,9 +19,9 @@ Coordinates are percentages of the existing shared artwork plane; positions were
 
 | Surface | Hotspots (x, y) | Existing controls |
 | --- | --- | --- |
-| West map | Roadside Ruin (28,47), Silent Gearworks (75,37), Arcane Archive (53,19) | Known-location inspection and current route controls |
+| West map | Roadside Ruin (28,47), Abandon Workshop (75,37), Arcane Archive (53,19) | Known-location inspection and current route controls |
 | Roadside Ruin | Survey (28,34), stair (75,44), route (40,62) | exploreLocation, enterDungeon, route inspection |
-| Silent Gearworks | Survey (33,34), entrance (75,43), route (40,62) | exploreLocation, enterDungeon, route inspection |
+| Abandon Workshop | Survey (33,34), entrance (75,43), route (40,62) | exploreLocation, enterDungeon, route inspection |
 | Arcane Archive | Survey (36,25), door (49,36), node (75,47), route (40,62) | exploreLocation, sealedArchiveDoor ritual, enterDungeon, towerNodePanel, route inspection |
 
 The explored Roadside Ruin label remains “Entrance to Roadside Ruin.” Completed survey markers use the existing completion treatment. The Archive node requires the existing opened-door flag, explored Archive, and an allowed node status. Its overlay uses the existing dormant/built styling.
@@ -64,10 +64,9 @@ Roadside Ruin surface only: sunken moss-covered low ruin beside a broken stone r
 
 ### silent-gearworks.png
 
-Silent Gearworks surface: low compact ancient stone industrial building half-sunk into wooded hillside. Weathered rusted metal braces and motionless machinery details in outer stonework at x28% y38%; cracked dark entrance at x70% y43%. Broken road foreground x40% y62%. No active machinery, resources, rewards or interior rooms. Single final image.
+Abandon Workshop surface: low compact ancient stone industrial building half-sunk into wooded hillside. Weathered rusted metal braces and motionless machinery details in outer stonework at x28% y38%; cracked dark entrance at x70% y43%. Broken road foreground x40% y62%. No active machinery, resources, rewards or interior rooms. Single final image.
 
 ### arcane-archive.png
 
 Arcane Archive surface only. Low imposing pale windowless ancient building at end of broken western woodland road. Nearly seamless stone walls for survey at x28% y33%; architecturally sealed massive plain door at x43% y44%, no glyphs or glowing spell markings. Empty ordinary earthen terrace at x74% y42% reserved for later node overlay: NO node, standing stones, crystal or machinery here. Road foreground x40% y62%. Single final image, no interior.
-
 

@@ -8,6 +8,8 @@ const ExpeditionScene = (() => {
       landmarks: [
         { id: "survey", title: "Weathered ruin", description: "Explore the fallen walls and discover the stair below.", x: 28, y: 34, actions: ["exploreLocation"], investigation: true },
         { id: "entrance", title: "Dark stair", description: "Inspect the existing entrance to Roadside Ruin.", x: 75, y: 44, actions: ["enterDungeon"] },
+        { id: "condensation", title: "Hand Condensation", description: "Force Mana into crystals by hand. The Arcane Archive holds plans to rebuild machinery here.", x: 32, y: 62, actions: [], sections: ["craftingSpellActions"], crafts: true, visible: () => gameState.manaCrystalImbuingUnlocked || getCampUpgrade("manaCondenserFrame").unlocked },
+        { id: "condenser", title: "Mana Condenser", description: "Restored machinery at Roadside Ruin. Operators connect through the Western Node at Arcane Archive.", x: 62, y: 66, actions: [], sections: ["craftingSpellActions"], crafts: true, visible: () => getCampUpgrade("manaCondenser").purchased },
       ],
     },
     silentGearworks: {
@@ -15,7 +17,8 @@ const ExpeditionScene = (() => {
       description: "Weathered metalwork rests against a stone structure sunk into the hillside.",
       landmarks: [
         { id: "survey", title: "Silent metalwork", description: "Explore the old structure and its motionless mechanisms.", x: 33, y: 34, actions: ["exploreLocation"], investigation: true },
-        { id: "entrance", title: "Cracked entrance", description: "Inspect the existing entrance to Silent Gearworks.", x: 75, y: 43, actions: ["enterDungeon"] },
+        { id: "entrance", title: "Cracked entrance", description: "Inspect the existing entrance to Abandon Workshop.", x: 75, y: 43, actions: ["enterDungeon"] },
+        { id: "condensation", title: "Hand Condensation", description: "20 Mana + 4 Focus produces one Mana Crystal in normal storage.", x: 40, y: 64, actions: [], sections: ["craftingSpellActions"], visible: () => gameState.manaCrystalImbuingUnlocked },
       ],
     },
     arcaneArchive: {
@@ -25,8 +28,9 @@ const ExpeditionScene = (() => {
       description: "A pale, windowless archive stands at the end of the western road.",
       landmarks: [
         { id: "survey", title: "Pale archive walls", description: "Explore the archive and study the sealed entrance.", x: 36, y: 25, actions: ["exploreLocation"], investigation: true },
+        { id: "condensation", title: "Hand Condensation", description: "20 Mana + 4 Focus produces one Mana Crystal. Search the archive for Ancient Mana Condenser plans.", x: 28, y: 65, actions: [], sections: ["craftingSpellActions"], visible: () => gameState.manaCrystalImbuingUnlocked },
         { id: "door", title: "Archive door", description: "Inspect the four-part door ritual and enter the ruin when unlocked.", x: 49, y: 36, actions: ["enterDungeon"], object: "sealedArchiveDoor", sections: ["expeditionLocationObjectActionsSlot", "locationSpellActions", "craftingSpellActions"] },
-        { id: "node", title: "Western Tower Node", description: "Inspect the western anchor and its available local functions.", x: 75, y: 47, actions: [], sections: ["towerNodePanel", "locationContextualActions", "locationSpellActions", "craftingSpellActions"], visible: () => gameState.archiveDoorOpened && getExpeditionLocation("arcaneArchive").explored && !!nodeStatus() },
+        { id: "node", title: "Western Node", description: "Inspect the western anchor and its available local functions.", x: 75, y: 47, actions: [], sections: ["towerNodePanel", "locationContextualActions", "locationSpellActions", "craftingSpellActions"], visible: () => gameState.archiveDoorOpened && getExpeditionLocation("arcaneArchive").explored && !!nodeStatus() },
       ],
     },
     wildHerbPatch: {
@@ -346,6 +350,14 @@ const ExpeditionScene = (() => {
     background.width = 1122; background.height = 1402;
     background.decoding = "async";
     refs.art.append(background);
+    if (place === "roadsideRuin" && getCampUpgrade("manaCondenser").purchased) {
+      const machinery = document.createElement("div");
+      machinery.className = "expedition-condenser-machinery";
+      machinery.setAttribute("role", "img");
+      machinery.setAttribute("aria-label", "Restored Mana Condenser machinery");
+      machinery.innerHTML = '<span class="condenser-ring"></span><span class="condenser-core"></span><span class="condenser-base"></span>';
+      refs.art.append(machinery);
+    }
     if (place === getTowerNodeDefinition(scenes[place]?.nodeRegion || "north").locationName && landmarks.some(l => l.id === "node")) {
       const overlay = document.createElement("img");
       overlay.className = "expedition-node-overlay";
@@ -443,7 +455,7 @@ const ExpeditionScene = (() => {
     if (map && west) text(byId("expeditionSceneCaption"), "West · Known places — select a landmark to inspect its route.");
     if (map && east) text(byId("expeditionSceneCaption"), "East · Known places — select a landmark to inspect its route.");
     if (map && outskirts) text(byId("expeditionSceneCaption"), "Outskirts · Known places — select a landmark to inspect its route.");
-    const landmarks = map ? getRegionKnownLocations(regionId).filter(id => mapPositions[id]).map(id => ({ id, title: getLocationLabel(id), x: mapPositions[id][0], y: mapPositions[id][1] })) : [...scene.landmarks.filter(landmarkVisible), { ...routeLandmark, x: e.currentLocation === "foothillScree" ? 60 : 40 }];
+    const landmarks = map ? getRegionKnownLocations(regionId).filter(id => mapPositions[id]).map(id => ({ id, title: getLocationLabel(id) + (id === "roadsideRuin" && getCampUpgrade("manaCondenser").purchased ? " · Mana Condenser" : ""), x: mapPositions[id][0], y: mapPositions[id][1] })) : [...scene.landmarks.filter(landmarkVisible), { ...routeLandmark, x: e.currentLocation === "foothillScree" ? 60 : 40 }];
     const key = (map ? regionId : e.currentLocation) + ":" + landmarks.map(l => l.id).join(",");
     if (surfaceKey !== key) {
       if (!landmarks.some(l => l.id === selected)) selected = null;
@@ -520,6 +532,8 @@ const ExpeditionScene = (() => {
         const label = scene.nodeRegion === "west" ? "Western" : scene.nodeRegion === "south" ? "Southern" : scene.nodeRegion === "east" ? "Eastern" : "Northern";
         info = label + " Node · " + nodeStatus() + (nodeStatus() === "Discovered" ? ". Research the " + label + " Tower Node to reveal its construction controls." : "");
       }
+      if (chosen.id === "condenser" || (chosen.id === "condensation" && e.currentLocation === "roadsideRuin")) info = getManaCondenserStatus();
+      if (chosen.id === "node" && scene.nodeRegion === "west") info += " Controls Earth Elemental operators at the Mana Condenser in Roadside Ruin. " + getManaCondenserStatus();
     }
     text(byId("expeditionDetailInfo"), info);
     byId("expeditionDetailInfo").hidden = !info;

@@ -213,6 +213,19 @@ const resources = {
     perClickDisplay: null,
     perSecondDisplay: null,
   },
+  wardenCore: {
+    label: "Warden Core",
+    value: 0,
+    maxValue: 1,
+    perClick: 0,
+    perSecond: 0,
+    hidden: true,
+    protected: true,
+    description: "A dense arcane core recovered from the fallen Warden. Its internal structure resembles the regional node network, but extends far beyond it.",
+    display: null,
+    perClickDisplay: null,
+    perSecondDisplay: null,
+  },
   runedLeather: {
     label: "Runed Leather",
     value: 0,
@@ -1363,7 +1376,9 @@ const gameState = {
 
   // Combat is intentionally transient: save/load always returns to normal play.
   brokenWardenDefeated: false,
+  wardenCoreRecovered: false,
   tierFourCompleted: false,
+  tierFiveUnlocked: false,
   combat: {
     conditions: {},
     intent: null,
@@ -1420,6 +1435,20 @@ const gameState = {
 
   world: {
     selectedRegion: "outskirts",
+    territories: {
+      home: {
+        label: "Home Territory",
+        revealed: true,
+        accessible: true,
+        visited: true,
+      },
+      unknownTerritory1: {
+        label: "Unknown Territory",
+        revealed: false,
+        accessible: false,
+        visited: false,
+      },
+    },
     regions: {
       outskirts: {
         unlocked: true,
@@ -1474,6 +1503,7 @@ const gameState = {
   campTanningPlansFound: false,
   campSmeltingPlansFound: false,
   manaCondenserPlansFound: false,
+  manaCondenserActivation: 0,
   partialTowerPlansFound: false,
   towerConstructionUnlocked: false,
   towerBasementCompleted: false,

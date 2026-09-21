@@ -644,10 +644,14 @@ function resolveCombatVictory() {
   if (enemy && enemy.regionId === "west") {
     if (!gameState.brokenWardenDefeated) {
       gameState.brokenWardenDefeated = true;
-      gameState.tierFourCompleted = true;
-      addStoryEntry("The Broken Warden falls. Its final memory names the archive's builders as the makers of your Tower: a network built to shelter and teach, now waiting for a new keeper. Your mastery of the four roads completes this chapter.");
+      if (typeof updateTierFourFinaleObjective === "function") updateTierFourFinaleObjective();
+      addStoryEntry("The Broken Warden falls. Within its remains, the Warden Core preserves routes that reach beyond the four roads of the Home Territory.");
     }
-    gameState.combat.resultMessage = "Victory — Broken Warden defeated. Tier 4 complete: the archive and Tower share the same makers.";
+    if (typeof grantWardenCore === "function") grantWardenCore(true);
+    if (typeof checkResearchDiscoveries === "function") checkResearchDiscoveries();
+    gameState.combat.resultMessage = gameState.tierFourCompleted
+      ? "Victory — Broken Warden defeated. The Long-Range Gate remains active."
+      : "Victory — Broken Warden defeated. The Warden Core can now be studied at the Tower.";
   } else if (gameState.combat.storyEncounter && enemy && enemy.regionId) {
     if (typeof resolveRegionalDisturbanceVictory === "function") resolveRegionalDisturbanceVictory(enemy.regionId);
     gameState.combat.resultMessage = enemy.regionId === "east"

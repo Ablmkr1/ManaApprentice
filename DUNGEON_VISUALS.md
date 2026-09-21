@@ -2,7 +2,7 @@
 
 ## Scope and selection
 
-Roadside Ruin Depths is the earliest of the three existing dungeons. Its six rooms include two branches, backtracking, searches, progression gates, crystal rewards and the crystal-binding unlock. It is small enough to validate the presentation pattern without changing content. Silent Gearworks and Arcane Archive retain their original presentation.
+Roadside Ruin Depths is the earliest of the three existing dungeons. Its six rooms include two branches, backtracking, searches, progression gates, crystal rewards and the crystal-binding unlock. It is small enough to validate the presentation pattern without changing content. Abandon Workshop and Arcane Archive retain their original presentation.
 
 Inspected before implementation: all three dungeon definitions in `content.js`; dungeon rendering, navigation, requirements, searches and reward helpers in `expedition.js`; action timing in `actions.js`; contextual spells and dungeon charges in `camp.js`/`skills.js`; equipment effects; dungeon state and serialization in `state.js`/`save.js`; the Archive Warden trigger and combat return path; Expedition scene/hotspot layout and Combat scene rendering; existing image assets and browser test conventions.
 
@@ -61,7 +61,7 @@ Passed in the disposable preview save, with no access to the player's normal sav
 - Real serialization and document reload mid-dungeon, preserving room state, current room and carried loot.
 - Repeated rendering does not change saved state; topology, requirements, search and reward definitions stay unchanged.
 - Desktop at 1440px; mobile at 390px and 320px; 44px+ hotspot targets, map expansion, no page overflow and keyboard focus after navigation. Screenshots visually inspected.
-- Legacy Silent Gearworks spell gate; original Archive Warden action, existing Combat UI, victory flags and return to the same room. The browser test forces victory to exercise the transition; existing combat suites exercise fight mechanics.
+- Legacy Abandon Workshop spell gate; original Archive Warden action, existing Combat UI, victory flags and return to the same room. The browser test forces victory to exercise the transition; existing combat suites exercise fight mechanics.
 - Existing `expedition-map-browser.cjs` and `west-scene-browser.cjs` passed.
 - Existing `combat-scene-smoke.js` (64 checks), `combat-content-smoke.js` (199), `equipment-warden-smoke.js` (21) and `arcane-force-rank2-smoke.js` (64) passed.
 

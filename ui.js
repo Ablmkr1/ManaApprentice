@@ -714,6 +714,7 @@ function announceUiStatus(message) {
 }
 
 function getUiTierLabel() {
+  if (gameState.tierFiveUnlocked) return "Tier V — Rediscovery";
   if (gameState.personalWardUnlocked || gameState.towerConstructionUnlocked || gameState.partialTowerPlansFound) return "Tier IV Apprentice";
   if (gameState.tier3Unlocked || gameState.magicUnlocked) return "Tier III Apprentice";
   if (gameState.tier2Complete || gameState.phase === "expedition") return "Tier II Apprentice";
@@ -816,6 +817,7 @@ function hookUIMaps() {
     steel: ui.steelAmount,
     ironRing: ui.ironRingAmount,
     earthElementalCore: ui.earthElementalCoreAmount,
+    wardenCore: document.getElementById("wardenCoreAmount"),
     runedLeather: ui.runedLeatherAmount,
     naturalEssence: ui.naturalEssenceAmount,
     herb: ui.herbAmount,
@@ -1772,6 +1774,7 @@ function updateCampResourcesSectionVisibility() {
     "steel",
     "ironRing",
     "earthElementalCore",
+    "wardenCore",
     "herb",
     "glimmerleaf",
     "staminaTonicBase",

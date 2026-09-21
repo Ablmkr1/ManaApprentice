@@ -123,6 +123,23 @@ fs.mkdirSync(output, { recursive: true });
     assert.deepEqual(await page.evaluate(() => createDungeonSaveData().roadsideRuinDepths), saved.rooms);
     assert.deepEqual(await page.evaluate(() => gameState.expedition.dungeon), saved.state);
     assert.deepEqual(await page.evaluate(() => gameState.expedition.carriedItems), saved.loot);
+    // Pending loot stays visible and cannot be collected while the pack is full.
+    await page.evaluate(() => {
+      const node = getCurrentDungeonNode();
+      node.rewardClaimed = false;
+      node.pendingReward = { carried: { manaCrystal: 2 }, nonCarriedGranted: true };
+      gameState.expedition.carriedItems = { wood: getEffectiveCarryCapacity() };
+      updateDungeonUI();
+    });
+    const remainingLoot = root.locator('[data-dungeon-action="collectRemainingLoot"]');
+    assert.match(await remainingLoot.textContent(), /Loot left behind: 2 Mana Crystals/);
+    assert.match(await remainingLoot.textContent(), /Pack is full/);
+    assert(await remainingLoot.isDisabled());
+    await page.evaluate(() => { gameState.expedition.carriedItems = {}; updateDungeonUI(); });
+    assert(!await remainingLoot.isDisabled());
+    await remainingLoot.click();
+    assert.equal(await page.evaluate(() => gameState.expedition.carriedItems.manaCrystal), 2);
+    assert.equal(await remainingLoot.count(), 0, 'remaining-loot action is removed once everything is collected');
     // Reinstall only test helpers after full document reload.
     await page.evaluate(() => {
       window.dungeonQA = {
@@ -186,7 +203,7 @@ fs.mkdirSync(output, { recursive: true });
     assert(await root.isVisible());
     assert.equal(await root.locator('[data-dungeon-action="challengeBrokenWarden"]').count(), 1);
     assert.deepEqual(errors, []);
-    console.log('Dungeon flow passed: entry, discovery, locks, backtracking, costs, failure/success, Mana Sense, loot, final unlock, reload, completion, exit/reentry, desktop/mobile, legacy dungeon and Archive combat return.');
+    console.log('Dungeon flow passed: entry, discovery, locks, backtracking, costs, failure/success, Mana Sense, pending loot, final unlock, reload, completion, exit/reentry, desktop/mobile, legacy dungeon and Archive combat return.');
   } finally { await browser.close(); }
 })().catch(e => { console.error(e); process.exitCode = 1; });
 

@@ -3,10 +3,9 @@
 // validates again on completion, then pays and mutates in one synchronous commit.
 const WEARABLE_SLOTS = ["chest", "legs", "feet", "pack", "belt"];
 const EQUIPMENT_MESSAGES = {
-  duplicate: "You see no reason to make another with the same enchantment.",
-  blank: "You already have a piece ready to enchant.",
+  duplicate: "Already applied.",
   full: "You see no reason to make more of this gear at this time.",
-  rings: "You can equip no more than two identical rings. You see no reason to make another.",
+  rings: "You can own no more than two rings of this type.",
 };
 const ENCHANTMENTS = {
   reservoirWeave: { slot: "chest", label: "Reservoir Weave", standard: { maxManaFlat: 10 }, greater: { maxManaFlat: 40 } },
@@ -58,17 +57,18 @@ const EQUIPMENT_EFFECT_LABELS = {
 };
 
 function isWearableGear(id) { return WEARABLE_SLOTS.includes(getGearUpgrade(id)?.slot) && getGearUpgrade(id)?.equipmentType === "gear"; }
-function newEquipmentCollection() { return { version: 1, nextId: 1, items: [], equipped: {}, triggers: { verdantItemId: null, expeditionTonicUsed: false, rooms: {} } }; }
+function newEquipmentCollection() { return { version: 2, nextId: 1, items: [], equipped: {}, triggers: { verdantItemId: null, expeditionTonicUsed: false, rooms: {} } }; }
 function ensureEquipmentCollection() {
   if (!gameState.equipment) gameState.equipment = newEquipmentCollection();
   return gameState.equipment;
 }
 function ownedEquipment(id) { return ensureEquipmentCollection().items.find(item => item.id === id) || null; }
 function equippedItems() { const c = ensureEquipmentCollection(); return Object.values(c.equipped).map(ownedEquipment).filter(Boolean); }
-function equipmentSlot(item) { return item.core ? "ring" : getGearUpgrade(item.baseGearId)?.slot; }
+function equipmentSlot(item) { return item.core ? "ring" : item.slot || getGearUpgrade(item.baseGearId)?.slot; }
 function isItemEquipped(id) { return Object.values(ensureEquipmentCollection().equipped).includes(id); }
 function itemEffects(item) {
   if (!item) return {};
+  if (item.effects) return item.effects;
   if (item.core) return { [item.core === "mana" ? "maxManaFlat" : "maxWardFlat"]: item.grade === "greater" ? 25 : 10, ...(RING_RUNES[item.rune]?.effects || {}) };
   return item.legacyEffects || ENCHANTMENTS[item.family]?.[item.grade || "standard"] || {};
 }
@@ -78,6 +78,24 @@ function equipmentName(item) {
   if (item.core) return (item.grade === "greater" ? "Greater " : "") + "Ring of " + (item.core === "mana" ? "Mana" : "Warding") + (item.rune ? " · " + RING_RUNES[item.rune].label : "");
   const base = getGearUpgrade(item.baseGearId);
   return (base?.displayName || base?.label || item.baseGearId) + (item.family ? " · " + (item.grade === "greater" ? "Greater " : "") + (ENCHANTMENTS[item.family]?.label || item.legacyLabel || item.family) : " · Unenchanted");
+}
+function equipmentBaseName(item) {
+  if (!item) return "Empty";
+  if (item.name) return item.name;
+  if (item.core) return (item.grade === "greater" ? "Greater " : "") + "Ring of " + (item.core === "mana" ? "Mana" : "Warding");
+  const base = getGearUpgrade(item.baseGearId);
+  return base?.displayName || base?.label || item.baseGearId;
+}
+function equipmentEnchantmentName(item) {
+  if (!item) return "None";
+  if (item.core) return item.rune ? RING_RUNES[item.rune]?.label || item.rune : "None";
+  if (!item.family) return "None";
+  return (item.grade === "greater" ? "Greater " : "") + (ENCHANTMENTS[item.family]?.label || item.legacyLabel || item.family);
+}
+function ringOrdinal(item) {
+  if (!item?.core) return "";
+  const rings = ensureEquipmentCollection().items.filter(i => i.core === item.core);
+  return ["(Left)", "(Right)"][Math.max(0, rings.findIndex(i => i.id === item.id))] || "";
 }
 function describeEquipmentEffects(effects) {
   return Object.entries(effects).map(([key, value]) => {
@@ -96,22 +114,19 @@ function enchantmentGate(grade = "standard", region = null) {
   if (region && !regionalEquipmentUnlocked(region)) return region === "west" ? "Requires Broken Warden victory and Archive door discovery." : "Requires built " + region + " Node.";
   return "";
 }
-function availableFamilies(baseGearId) { return Object.keys(ENCHANTMENTS).filter(id => ENCHANTMENTS[id].slot === getGearUpgrade(baseGearId)?.slot && !enchantmentGate("standard", ENCHANTMENTS[id].region)); }
 function validateVariant(candidate, excludeId = null) {
   const items = ensureEquipmentCollection().items.filter(i => i.id !== excludeId);
-  if (candidate.core) return items.filter(i => i.core === candidate.core && (i.rune || null) === (candidate.rune || null)).length >= 2 ? EQUIPMENT_MESSAGES.rings : "";
-  return items.some(i => i.baseGearId === candidate.baseGearId && (i.family || null) === (candidate.family || null)) ? (candidate.family ? EQUIPMENT_MESSAGES.duplicate : EQUIPMENT_MESSAGES.blank) : "";
+  if (candidate.core) return items.filter(i => i.core === candidate.core).length >= 2 ? EQUIPMENT_MESSAGES.rings : "";
+  return "";
 }
 function gearCraftReason(baseGearId, predecessorId = null, ignoreReservation = false) {
   const c = ensureEquipmentCollection();
   if (!ignoreReservation && gameState.activity?.active && gameState.activity.kind === "equipment") return "Another equipment operation is in progress.";
-  const predecessor = predecessorId ? ownedEquipment(predecessorId) : null;
+  const base = getGearUpgrade(baseGearId);
+  const predecessor = predecessorId ? ownedEquipment(predecessorId) : c.items.find(i => !i.core && equipmentSlot(i) === base?.slot);
   if (predecessorId && (!predecessor || predecessor.baseGearId !== getGearUpgrade(baseGearId)?.requiredGear)) return "Select the required predecessor item.";
-  const candidate = { ...predecessor, baseGearId };
-  const duplicate = validateVariant(candidate, predecessorId);
-  if (duplicate) return duplicate;
-  const existing = c.items.filter(i => i.baseGearId === baseGearId);
-  if (existing.length && !predecessor?.family && !availableFamilies(baseGearId).some(f => !existing.some(i => i.family === f))) return EQUIPMENT_MESSAGES.full;
+  if (base?.requiredGear && (!predecessor || predecessor.baseGearId !== base.requiredGear)) return "Requires your " + (getGearUpgrade(base.requiredGear)?.displayName || base.requiredGear) + ".";
+  if (predecessor && (getGearUpgrade(predecessor.baseGearId)?.slotRank || 0) >= (base?.slotRank || 0)) return EQUIPMENT_MESSAGES.full;
   return "";
 }
 function equipmentChangeReason() {
@@ -166,7 +181,11 @@ function refreshEquipmentCollection() {
 }
 function operationCandidate(op) {
   const item = ownedEquipment(op.itemId);
-  if (op.type === "craft") return { ...(ownedEquipment(op.predecessorId) || {}), baseGearId: op.baseGearId };
+  if (op.type === "craft") {
+    const base = getGearUpgrade(op.baseGearId);
+    const current = ownedEquipment(op.predecessorId) || ensureEquipmentCollection().items.find(i => !i.core && equipmentSlot(i) === base?.slot);
+    return { ...(current || {}), baseGearId: op.baseGearId };
+  }
   if (op.type === "ring") return { core: op.core, grade: "standard", rune: null };
   if (!item) return null;
   if (op.type === "enchant") return { ...item, family: op.family, grade: "standard" };
@@ -183,6 +202,11 @@ function equipmentOperationCost(op) {
   if (op.type === "rune") return { ...EQUIPMENT_COSTS.rune, ...EQUIPMENT_COSTS.regionalMaterials[RING_RUNES[op.rune]?.region] };
   return {};
 }
+function equipmentOperationBenefit(op) {
+  if (op.type === "enchant") return ENCHANTMENTS[op.family]?.standard || {};
+  if (op.type === "rune") return RING_RUNES[op.rune]?.effects || {};
+  return itemEffects(operationCandidate(op));
+}
 function equipmentOperationReason(op, completing = false) {
   if (!completing && equipmentChangeReason()) return equipmentChangeReason();
   if (!isCampCraftingContext()) return "Return to the Tower to work on equipment.";
@@ -191,7 +215,6 @@ function equipmentOperationReason(op, completing = false) {
   if (op.type === "craft") {
     const base = getGearUpgrade(op.baseGearId);
     if (!isWearableGear(op.baseGearId) || (!base.unlocked && !base.purchased) || !getActiveCraftContext(base)) return "Base gear recipe unavailable.";
-    if (base.requiredGear && !op.predecessorId) return "Select the required predecessor item.";
     return gearCraftReason(op.baseGearId, op.predecessorId, completing);
   }
   if (op.type === "salvage") {
@@ -206,12 +229,13 @@ function equipmentOperationReason(op, completing = false) {
   if (op.type === "enchant") {
     const def = ENCHANTMENTS[op.family];
     if (!def || def.slot !== equipmentSlot(item) || item.core) return "This enchantment does not fit this item.";
-    if (item.family) return "Binding is permanent. Craft another piece for a different family.";
+    if (item.family === op.family) return EQUIPMENT_MESSAGES.duplicate;
     region = def.region;
   }
   if (op.type === "greater" && (item.grade === "greater" || (!item.core && !ENCHANTMENTS[item.family]?.greater))) return "Select a standard item with a greater upgrade.";
   if (op.type === "rune") {
-    if (!item.core || item.rune || !RING_RUNES[op.rune]) return "Select a ring without a rune. Runes cannot be overwritten.";
+    if (!item.core || !RING_RUNES[op.rune]) return "Select a ring.";
+    if (item.rune === op.rune) return EQUIPMENT_MESSAGES.duplicate;
     region = RING_RUNES[op.rune].region;
   }
   return enchantmentGate(op.type === "greater" ? "greater" : "standard", region) || validateVariant(candidate, item?.id);
@@ -262,8 +286,8 @@ function completeEquipmentOperation(op) {
   c.pending = null;
   if (!spendCost(cost)) return false;
   let completedItem;
-  if (op.type === "craft" && op.predecessorId) {
-    completedItem = ownedEquipment(op.predecessorId);
+  if (op.type === "craft" && candidate.id) {
+    completedItem = ownedEquipment(candidate.id);
     Object.assign(completedItem, candidate);
   } else if (item) {
     completedItem = item;
@@ -288,6 +312,43 @@ function syncGearOwnershipFlags() {
     base.purchased = owned;
     if (owned) base.unlocked = true;
   });
+}
+
+function normalizeEquipmentCollection(collection = ensureEquipmentCollection()) {
+  if (!collection || !Array.isArray(collection.items)) return newEquipmentCollection();
+  collection.equipped = collection.equipped && typeof collection.equipped === "object" ? collection.equipped : {};
+  collection.triggers = collection.triggers && typeof collection.triggers === "object" ? collection.triggers : { verdantItemId: null, expeditionTonicUsed: false, rooms: {} };
+  collection.triggers.rooms ||= {};
+  const kept = [], normalBySlot = {};
+  collection.items.filter(Boolean).forEach(item => {
+    if (item.core || item.rewardId || (!item.baseGearId && item.effects)) { kept.push(item); return; }
+    const slot = equipmentSlot(item);
+    const current = normalBySlot[slot];
+    if (!current || (getGearUpgrade(item.baseGearId)?.slotRank || 0) > (getGearUpgrade(current.baseGearId)?.slotRank || 0)) normalBySlot[slot] = item;
+  });
+  Object.entries(normalBySlot).forEach(([slot, highest]) => {
+    const variants = collection.items.filter(item => !item.core && equipmentSlot(item) === slot);
+    const enchanted = variants.filter(item => item.family || item.legacyEffects).sort((a, b) => (getGearUpgrade(b.baseGearId)?.slotRank || 0) - (getGearUpgrade(a.baseGearId)?.slotRank || 0))[0];
+    if (!highest.family && enchanted) {
+      highest.family = enchanted.family || null;
+      highest.grade = enchanted.grade || "standard";
+      if (enchanted.legacyLabel) highest.legacyLabel = enchanted.legacyLabel;
+      if (enchanted.legacyEffects) highest.legacyEffects = structuredClone(enchanted.legacyEffects);
+    }
+    kept.push(highest);
+    collection.equipped[slot] = highest.id;
+  });
+  ["mana", "warding"].forEach(core => {
+    const rings = kept.filter(item => item.core === core);
+    const equippedIds = new Set(Object.values(collection.equipped));
+    const preserved = rings.slice().sort((a, b) => ((equippedIds.has(b.id) ? 4 : 0) + (b.grade === "greater" ? 2 : 0) + (b.rune ? 1 : 0)) - ((equippedIds.has(a.id) ? 4 : 0) + (a.grade === "greater" ? 2 : 0) + (a.rune ? 1 : 0))).slice(0, 2);
+    rings.filter(item => !preserved.includes(item)).forEach(item => { const index = kept.indexOf(item); if (index >= 0) kept.splice(index, 1); });
+  });
+  collection.items = kept;
+  Object.keys(collection.equipped).forEach(slot => { if (!collection.items.some(item => item.id === collection.equipped[slot])) collection.equipped[slot] = null; });
+  collection.version = 2;
+  collection.nextId = Math.max(Number(collection.nextId) || 1, ...collection.items.map(item => Number(String(item.id || "").replace(/^gear-/, "")) + 1 || 1));
+  return collection;
 }
 function equipmentSalvageRefund(item) {
   const cost = item.core ? { iron: 2 } : getGearUpgrade(item.baseGearId)?.cost || {};
@@ -337,7 +398,7 @@ function applyManualEquipmentSense(dungeonId, nodeId) {
 
 function migrateTowerEquipmentSave(save) {
   const g = save.gameState;
-  if (g.equipment?.version === 1) return;
+  if (g.equipment?.version >= 1) { normalizeEquipmentCollection(g.equipment); return; }
   const c = newEquipmentCollection(), legacy = g.magic.imbuement || {};
   const add = item => { item.id = "gear-" + c.nextId++; c.items.push(item); return item; };
   Object.entries(save.gearUpgrades || {}).forEach(([baseGearId, saved]) => {
@@ -367,12 +428,12 @@ function migrateTowerEquipmentSave(save) {
   if (legacy.backpackImbued) {
     let pack = c.items.find(i => i.id === c.equipped.pack);
     if (!pack) pack = add({ baseGearId: "repairedLeatherBackpack", grade: "standard" });
-    if (pack.family) pack = add({ baseGearId: pack.baseGearId, grade: "standard" });
+    if (pack.family) pack.family = null;
     pack.family = "expansive";
     c.equipped.pack = pack.id;
   }
   c.migrationNotice = "Legacy rooms retain their full investment. Restoring Weave, Stoneward, Verdant and old Trailweave retain their original effects as named legacy variants; they cannot be overwritten. Backpack Imbue is now an equipped Expansive pack. No second ring was granted.";
-  g.equipment = c;
+  g.equipment = normalizeEquipmentCollection(c);
   legacy.backpackImbued = false;
   legacy.equipmentEnchantments = {};
   legacy.craftedRings = Object.fromEntries(Object.keys(getImbueRankTwoConfig().rings).map(id => [id, false]));
@@ -422,34 +483,19 @@ function equipmentView(item, slot) {
 }
 function getCollectionEquipmentSlots(includeRings = true) {
   const c = ensureEquipmentCollection();
-  return [...WEARABLE_SLOTS, ...(includeRings && (getImbueRank() >= 2 || c.items.some(i => i.core)) ? ["leftRing", "rightRing"] : [])].filter(slot => c.equipped[slot] || slot.endsWith("Ring") || c.items.some(i => equipmentSlot(i) === slot)).map((slot, order) => ({ label: slot, order, current: equipmentView(ownedEquipment(c.equipped[slot]), slot) }));
+  return [...WEARABLE_SLOTS, ...(includeRings && (getImbueRank() >= 2 || c.items.some(i => equipmentSlot(i) === "ring")) ? ["leftRing", "rightRing"] : [])].filter(slot => c.equipped[slot] || slot.endsWith("Ring") || c.items.some(i => equipmentSlot(i) === slot)).map((slot, order) => ({ label: slot, order, current: equipmentView(ownedEquipment(c.equipped[slot]), slot) }));
 }
 
-function appendEquipmentCollectionUI(container, selectedSlot) {
+function appendEquipmentCollectionUI(container, selectedSlot, selectedItemId = null) {
   const c = ensureEquipmentCollection();
   const slot = selectedSlot.endsWith("Ring") ? "ring" : selectedSlot;
   if (!WEARABLE_SLOTS.includes(slot) && slot !== "ring") return;
-  const section = document.createElement("div"); section.className = "equipment-collection";
-  const select = document.createElement("select"); select.setAttribute("aria-label", "Owned " + selectedSlot + " collection");
+  const section = document.createElement("div"); section.className = "equipment-collection equipment-readonly";
   const items = c.items.filter(i => equipmentSlot(i) === slot);
-  for (const item of items) { const option = document.createElement("option"); option.value = item.id; option.textContent = equipmentName(item) + (isItemEquipped(item.id) ? " · Equipped" : " · Stored"); select.appendChild(option); }
-  select.value = c.equipped[selectedSlot] || items[0]?.id || "";
-  const preview = document.createElement("p"), controls = document.createElement("div");
-  const render = () => {
-    const item = ownedEquipment(select.value), current = ownedEquipment(c.equipped[selectedSlot]);
-    preview.textContent = item ? equipmentComparison(current, item) : "No owned items.";
-    controls.replaceChildren();
-    const equip = document.createElement("button"); equip.textContent = "Equip"; equip.disabled = !item || isItemEquipped(item.id) || !!equipmentChangeReason(); equip.onclick = () => equipOwnedItem(item.id, selectedSlot); controls.appendChild(equip);
-    if (current) { const off = document.createElement("button"); off.textContent = "Unequip"; off.disabled = !!equipmentChangeReason(); off.onclick = () => equipOwnedItem(null, selectedSlot); controls.appendChild(off); }
-    // Rename and Salvage controls are intentionally hidden for now.
-  };
-  select.onchange = render; section.append(select, preview, controls); container.appendChild(section); render();
-}
-function equipmentComparison(current, candidate) {
-  const baseA = getGearUpgrade(current?.baseGearId)?.effects || {}, baseB = getGearUpgrade(candidate?.baseGearId)?.effects || {};
-  const a = { ...baseA, ...itemEffects(current) }, b = { ...baseB, ...itemEffects(candidate) };
-  const keys = [...new Set([...Object.keys(a), ...Object.keys(b)])];
-  return keys.map(key => { const defaultValue = key.endsWith("Multiplier") ? 1 : 0; return (EQUIPMENT_EFFECT_LABELS[key]?.[0] || key) + ": " + (a[key] ?? defaultValue) + " → " + (b[key] ?? defaultValue); }).join(" · ") || "No stat change.";
+  const item = ownedEquipment(selectedItemId) || (selectedSlot.endsWith("Ring") ? ownedEquipment(c.equipped[selectedSlot]) : items[0]);
+  const preview = document.createElement("p");
+  preview.textContent = item ? "Tier " + (item.core ? (item.grade === "greater" ? "Greater" : "Standard") : (getGearUpgrade(item.baseGearId)?.slotRank || 1)) + " · Base: " + describeEquipmentEffects(item.core ? itemEffects({ ...item, rune: null }) : item.effects || getGearUpgrade(item.baseGearId)?.effects || {}) + " · Current enchantment: " + equipmentEnchantmentName(item) + (equipmentEnchantmentName(item) !== "None" ? " (" + describeEquipmentEffects(item.core ? RING_RUNES[item.rune]?.effects || {} : itemEffects(item)) + ")" : "") : "No owned item.";
+  section.append(preview); container.appendChild(section);
 }
 function appendEquipmentOperationButton(container, label, op) {
   const row = document.createElement("div"); row.className = "equipment-recipe-row";
@@ -457,7 +503,12 @@ function appendEquipmentOperationButton(container, label, op) {
   const reason = equipmentOperationReason(op), cost = equipmentOperationCost(op);
   button.textContent = label;
   button.disabled = !!reason || !canAffordCost(cost);
-  detail.textContent = [formatCost(cost), reason || (!canAffordCost(cost) ? "Missing materials or resources." : "Available"), describeEquipmentEffects(itemEffects(operationCandidate(op)))].filter(Boolean).join(" · ");
+  detail.appendChild(document.createTextNode([formatCost(cost), reason || (!canAffordCost(cost) ? "Missing materials or resources." : "Available")].filter(Boolean).join(" · ")));
+  const benefit = describeEquipmentEffects(equipmentOperationBenefit(op));
+  if (benefit) {
+    detail.appendChild(document.createElement("br"));
+    detail.appendChild(document.createTextNode("Benefit: " + benefit));
+  }
   button.onclick = () => { startEquipmentOperation(op); renderTowerDetailPanel(); };
   row.append(button, detail); container.appendChild(row);
 }
@@ -470,33 +521,39 @@ function appendTowerEquipmentActions(container, roomId) {
     const button = document.createElement("button"); button.textContent = "Study · " + (isTowerRoomUpgraded(roomId) ? 4 : 2) + " Focus / 3s · 5 Energy"; button.disabled = isActivityActive(); button.onclick = startLibraryStudy; container.appendChild(button);
   }
   if (roomId === "workshop") {
-    const note = document.createElement("p"); note.textContent = "Manage and salvage individual items in Equipment. Additional copies require a currently available missing enchantment family."; container.appendChild(note);
+    const note = document.createElement("p"); note.textContent = "Crafting a better tier upgrades the item you already own and preserves its enchantment."; container.appendChild(note);
     Object.keys(getGearUpgradeDefinitions()).filter(id => isWearableGear(id) && (getGearUpgrade(id).unlocked || getGearUpgrade(id).purchased)).forEach(id => {
       const base = getGearUpgrade(id);
-      if (!base.requiredGear) return appendEquipmentOperationButton(container, "Craft " + (base.displayName || id), { type: "craft", baseGearId: id });
-      const select = document.createElement("select"); select.setAttribute("aria-label", "Predecessor for " + (base.displayName || id));
-      ensureEquipmentCollection().items.filter(item => item.baseGearId === base.requiredGear).forEach(item => {
-        const option = document.createElement("option"); option.value = item.id; option.textContent = equipmentName(item); select.appendChild(option);
-      });
-      const row = document.createElement("div");
-      const render = () => { row.replaceChildren(); appendEquipmentOperationButton(row, "Craft " + (base.displayName || id), { type: "craft", baseGearId: id, predecessorId: select.value || null }); };
-      select.onchange = render; container.append(select, row); render();
+      appendEquipmentOperationButton(container, "Craft " + (base.displayName || id), { type: "craft", baseGearId: id });
     });
   }
   if (roomId === "enchantingStudy") {
     if (ensureEquipmentCollection().migrationNotice) { const note = document.createElement("p"); note.textContent = ensureEquipmentCollection().migrationNotice; container.appendChild(note); }
     appendEquipmentOperationButton(container, "Bind Ring of Mana", { type: "ring", core: "mana" });
     appendEquipmentOperationButton(container, "Bind Ring of Warding", { type: "ring", core: "warding" });
-    const select = document.createElement("select"); select.setAttribute("aria-label", "Item to enchant or upgrade");
-    ensureEquipmentCollection().items.forEach(item => { const option = document.createElement("option"); option.value = item.id; option.textContent = equipmentName(item) + (isItemEquipped(item.id) ? " · Equipped" : " · Stored"); select.appendChild(option); });
+    const heading = document.createElement("h4"); heading.textContent = "Select Gear → Current Enchantment → Available Enchantments"; container.appendChild(heading);
+    const select = document.createElement("select"); select.setAttribute("aria-label", "Gear to enchant");
+    ensureEquipmentCollection().items.filter(item => item.core || ENCHANTMENTS[Object.keys(ENCHANTMENTS).find(id => ENCHANTMENTS[id].slot === equipmentSlot(item))]).forEach(item => { const option = document.createElement("option"); option.value = item.id; option.textContent = item.core ? equipmentBaseName(item) + " " + ringOrdinal(item) : equipmentBaseName(item); select.appendChild(option); });
     const list = document.createElement("div");
     const render = () => {
       list.replaceChildren(); const item = ownedEquipment(select.value); if (!item) return;
+      const summary = document.createElement("div"); summary.className = "enchanting-current-card";
+      const base = item.core ? itemEffects({ ...item, rune: null }) : getGearUpgrade(item.baseGearId)?.effects || {};
+      const name = document.createElement("strong"), tier = document.createElement("span"), baseEffect = document.createElement("span"), current = document.createElement("span"), enchantmentEffect = document.createElement("span");
+      name.textContent = equipmentBaseName(item) + (item.core ? " " + ringOrdinal(item) : "");
+      tier.textContent = "Tier: " + (item.core ? (item.grade === "greater" ? "Greater" : "Standard") : (getGearUpgrade(item.baseGearId)?.slotRank || 1));
+      baseEffect.textContent = "Base effect: " + (describeEquipmentEffects(base) || "None");
+      current.textContent = "Current enchantment: " + equipmentEnchantmentName(item);
+      enchantmentEffect.textContent = "Enchantment effect: " + (equipmentEnchantmentName(item) === "None" ? "None" : describeEquipmentEffects(item.core ? RING_RUNES[item.rune]?.effects || {} : itemEffects(item)));
+      summary.append(name, tier, baseEffect, current, enchantmentEffect);
+      list.appendChild(summary);
       if (item.core) {
         appendEquipmentOperationButton(list, "Upgrade to Greater (same item)", { type: "greater", itemId: item.id });
-        Object.keys(RING_RUNES).forEach(rune => appendEquipmentOperationButton(list, RING_RUNES[rune].label, { type: "rune", itemId: item.id, rune }));
-      } else if (item.family) appendEquipmentOperationButton(list, "Upgrade to Greater (same item)", { type: "greater", itemId: item.id });
-      else Object.keys(ENCHANTMENTS).filter(f => ENCHANTMENTS[f].slot === equipmentSlot(item)).forEach(family => appendEquipmentOperationButton(list, ENCHANTMENTS[family].label, { type: "enchant", itemId: item.id, family }));
+        Object.keys(RING_RUNES).forEach(rune => appendEquipmentOperationButton(list, (item.rune && item.rune !== rune ? "Replace with " : "Apply ") + RING_RUNES[rune].label, { type: "rune", itemId: item.id, rune }));
+      } else {
+        if (item.family && ENCHANTMENTS[item.family]?.greater) appendEquipmentOperationButton(list, "Upgrade current enchantment to Greater", { type: "greater", itemId: item.id });
+        Object.keys(ENCHANTMENTS).filter(f => ENCHANTMENTS[f].slot === equipmentSlot(item)).forEach(family => appendEquipmentOperationButton(list, (item.family && item.family !== family ? "Replace with " : "Apply ") + ENCHANTMENTS[family].label, { type: "enchant", itemId: item.id, family }));
+      }
     };
     select.onchange = render; container.append(select, list); render();
   }

@@ -356,14 +356,16 @@
 
   function floorGeometry(floorNumber) {
     if (floorNumber === 1) return { x: 126, y: 354, width: 468, height: 202 };
-    return { x: 150, y: 152, width: 420, height: 202 };
+    if (floorNumber === 2) return { x: 150, y: 152, width: 420, height: 202 };
+    return { x: 174, y: 152 - (floorNumber - 2) * 202, width: 372, height: 202 };
   }
 
   function roomGeometry(floor, roomIndex) {
     const shell = floorGeometry(floor.number);
     const inset = 17;
     const gap = 8;
-    const width = (shell.width - inset * 2 - gap * 2) / 3;
+    const roomCount = Math.max(1, floor.rooms.length);
+    const width = (shell.width - inset * 2 - gap * (roomCount - 1)) / roomCount;
     return {
       x: shell.x + inset + roomIndex * (width + gap),
       y: shell.y + 23,
@@ -522,15 +524,27 @@
       add(group, "path", { class: "tower-unified-enchant-runes", d: "M" + (x + w / 2 - 35) + " " + (y + 75) + " H" + (x + w / 2 + 35) + " M" + (x + w / 2) + " " + (y + 39) + " V" + (y + 111) });
       add(group, "path", { class: "tower-unified-enchant-crystal", d: "M" + (x + w / 2) + " " + (y + 37) + " L" + (x + w / 2 + 17) + " " + (y + 72) + " L" + (x + w / 2) + " " + (y + 99) + " L" + (x + w / 2 - 17) + " " + (y + 72) + "Z" });
       add(group, "path", Object.assign({ d: "M" + (x + 23) + " " + (floorY - 16) + " Q" + (x + w / 2) + " " + (floorY - 34) + " " + (x + w - 23) + " " + (floorY - 16) + " L" + (x + w - 17) + " " + (floorY - 4) + " H" + (x + 17) + "Z" }, furniture));
+    } else if (roomId === "longRangeGate") {
+      const centerX = x + w / 2;
+      const centerY = y + h / 2 - 4;
+      add(group, "ellipse", { class: "tower-unified-enchant-circle", cx: centerX, cy: centerY, rx: Math.min(78, w * 0.28), ry: Math.min(68, h * 0.4) });
+      add(group, "ellipse", { class: "tower-unified-enchant-runes", cx: centerX, cy: centerY, rx: Math.min(58, w * 0.21), ry: Math.min(50, h * 0.3) });
+      add(group, "path", { class: "tower-unified-enchant-crystal", d: "M" + centerX + " " + (centerY - 38) + " L" + (centerX + 22) + " " + centerY + " L" + centerX + " " + (centerY + 38) + " L" + (centerX - 22) + " " + centerY + "Z" });
+      add(group, "path", Object.assign({ d: "M" + (x + 28) + " " + (floorY - 5) + " H" + (x + w - 28) + " M" + (x + 45) + " " + (floorY - 5) + " L" + (x + 65) + " " + (floorY - 34) + " M" + (x + w - 45) + " " + (floorY - 5) + " L" + (x + w - 65) + " " + (floorY - 34) }, furniture));
     }
   }
 
-  function drawRoof(svg, ids) {
+  function drawRoof(svg, ids, floorNumber) {
+    const geometry = floorGeometry(floorNumber || 2);
+    const center = geometry.x + geometry.width / 2;
+    const roofY = geometry.y + 1;
+    const left = geometry.x - 17;
+    const right = geometry.x + geometry.width + 17;
     const roof = add(svg, "g", { class: "tower-unified-roof" });
-    add(roof, "path", { class: "tower-unified-roof-shadow", d: "M128 153 L360 31 L592 153 L575 167 H145Z" });
-    add(roof, "path", { class: "tower-unified-roof-plane", d: "M133 151 L360 35 L587 151Z" });
-    add(roof, "path", { class: "tower-unified-roof-trim", d: "M135 151 L360 35 L585 151 M360 35 V151 M126 157 H594" });
-    add(roof, "path", { class: "tower-unified-spire", d: "M360 35 V20 M351 20 L360 3 L369 20 L360 36Z", filter: "url(#" + ids.softGlow + ")" });
+    add(roof, "path", { class: "tower-unified-roof-shadow", d: "M" + left + " " + (roofY + 1) + " L" + center + " " + (roofY - 121) + " L" + right + " " + (roofY + 1) + " L" + (right - 17) + " " + (roofY + 15) + " H" + (left + 17) + "Z" });
+    add(roof, "path", { class: "tower-unified-roof-plane", d: "M" + (left + 5) + " " + (roofY - 1) + " L" + center + " " + (roofY - 117) + " L" + (right - 5) + " " + (roofY - 1) + "Z" });
+    add(roof, "path", { class: "tower-unified-roof-trim", d: "M" + (left + 7) + " " + (roofY - 1) + " L" + center + " " + (roofY - 117) + " L" + (right - 7) + " " + (roofY - 1) + " M" + center + " " + (roofY - 117) + " V" + (roofY - 1) + " M" + left + " " + (roofY + 5) + " H" + right });
+    add(roof, "path", { class: "tower-unified-spire", d: "M" + center + " " + (roofY - 117) + " V" + (roofY - 132) + " M" + (center - 9) + " " + (roofY - 132) + " L" + center + " " + (roofY - 149) + " L" + (center + 9) + " " + (roofY - 132) + " L" + center + " " + (roofY - 116) + "Z", filter: "url(#" + ids.softGlow + ")" });
   }
 
   function determineScene() {
@@ -542,6 +556,7 @@
     const foundationStage = foundation && foundation.completed ? 5 : projectStage("towerFoundation");
     const basementVisible = !!basement && (basement.unlocked || basement.completed);
 
+    if (highestFloor && highestFloor.number >= 3) return { viewBox: "0 -205 720 1045", phase: "floor3", foundationStage: 5, visibleFloors };
     if (highestFloor && highestFloor.number >= 2) return { viewBox: "0 0 720 840", phase: "floor2", foundationStage: 5, visibleFloors };
     if (highestFloor) return { viewBox: "18 112 684 704", phase: "floor1", foundationStage: 5, visibleFloors };
     if (basementVisible || (foundation && foundation.completed)) return { viewBox: "35 245 650 570", phase: "heart-basement", foundationStage: 5, visibleFloors };
@@ -594,7 +609,10 @@
       .sort(function (a, b) { return a.number - b.number; })
       .forEach(function (floor) { drawFloor(svg, ids, floor); });
 
-    if (constructionState("towerFloor2") === "completed") drawRoof(svg, ids);
+    const highestCompletedFloor = scene.visibleFloors
+      .filter(function (floor) { return constructionState(floor.projectId) === "completed"; })
+      .sort(function (a, b) { return b.number - a.number; })[0];
+    if (highestCompletedFloor) drawRoof(svg, ids, highestCompletedFloor.number);
 
     wrapper.appendChild(svg);
     return wrapper;

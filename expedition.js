@@ -16,6 +16,7 @@ function setCurrentLocation(locationName) {
 }
 
 function clearCurrentLocation() {
+  pauseWesternCondenserActivity();
   resetTemporaryLocationObjectSpellCharges(gameState.expedition.currentLocation);
   clearTemporaryLocationSpellEffects(gameState.expedition.currentLocation);
   gameState.expedition.currentLocation = null;
@@ -841,6 +842,7 @@ function getOpenExpeditionTargetDistance() {
 
 // End Expedition Function
 function endExpedition(reason) {
+  pauseWesternCondenserActivity();
   if (typeof endCombatForRecall === "function") {
     endCombatForRecall();
   }
@@ -1840,6 +1842,9 @@ function getLocationPanelText(location) {
     }
   }
 
+  if (location === getExpeditionLocation("roadsideRuin") && (gameState.manaCrystalImbuingUnlocked || getCampUpgrade("manaCondenserFrame").unlocked || getCampUpgrade("manaCondenser").purchased)) text += " " + getManaCondenserStatus();
+  if (gameState.manaCrystalImbuingUnlocked && [getExpeditionLocation("silentGearworks"), getExpeditionLocation("arcaneArchive")].includes(location)) text += " Hand-Condense Mana Crystal: 20 Mana + 4 Focus, delivered to normal storage.";
+
   if (Number.isFinite(location.looseStoneMax)) {
     const remaining = getLocationLooseStoneRemaining(location);
 
@@ -2754,6 +2759,32 @@ function renderDungeonActions(node) {
     return;
   }
 
+  if (node && hasDungeonPendingCarriedRewards(node)) {
+    showElement(ui.dungeonActions, "flex");
+
+    const pendingLoot = formatDungeonPendingCarriedRewards(node);
+    const canCollect = canCollectDungeonPendingCarriedRewards(node);
+    const collect = createUiActionButton({
+      label: "Collect Remaining Loot",
+      detail: "Loot left behind: " + pendingLoot,
+      reason: canCollect ? "" : "Pack is full.",
+      dataset: {
+        dungeonAction: "collectRemainingLoot",
+      },
+      progress: false,
+    });
+    collect.disabled = !canCollect;
+    collect.addEventListener("click", function () {
+      claimDungeonNodeReward(node);
+      updateDungeonUI();
+      updatePlacePanel();
+      updateAllActionButtons();
+      updateCraftingButtons();
+    });
+    ui.dungeonActions.appendChild(collect);
+    return;
+  }
+
   if (!node || !node.search || node.explored) {
     hideElement(ui.dungeonActions);
     return;
@@ -3075,35 +3106,115 @@ function claimDungeonNodeReward(node) {
 
   if (!reward) return;
 
-  if (reward.carried) {
+  let pendingReward = getDungeonPendingReward(node);
+
+  if (!pendingReward && reward.carried) {
+    pendingReward = { carried: {}, nonCarriedGranted: false };
+
     for (let itemName in reward.carried) {
       const rewardAmount = getFoundCarriedRewardAmount(itemName, reward.carried[itemName]);
-      const amount = rewardAmount.amount;
-      const carriedAmount = addCarriedItemUpToCapacity(itemName, amount);
-
-      if (carriedAmount > 0) {
-        addStoryEntry("You collect " + carriedAmount + " " + itemName + ".");
-        unlockResource(itemName);
-      }
-
-      if (rewardAmount.bonus > 0 && carriedAmount > reward.carried[itemName]) {
-        const bonusCarried = Math.min(rewardAmount.bonus, carriedAmount - reward.carried[itemName]);
-
-        addStoryEntry("Mana Sense reveals " + bonusCarried + " extra mana crystal" + (bonusCarried === 1 ? "" : "s") + ".");
-      }
-
-      if (carriedAmount < amount) {
-        addStoryEntry("You cannot carry everything you found.");
+      if (rewardAmount.amount > 0) pendingReward.carried[itemName] = rewardAmount.amount;
+      if (rewardAmount.bonus > 0) {
+        addStoryEntry("Mana Sense reveals " + rewardAmount.bonus + " extra mana crystal" + (rewardAmount.bonus === 1 ? "" : "s") + ".");
       }
     }
+
+    node.pendingReward = pendingReward;
   }
 
-  if (reward.unlocks) {
-    applyUnlocks(reward.unlocks);
-    checkResearchDiscoveries();
+  if (!pendingReward || !pendingReward.nonCarriedGranted) {
+    if (reward.equipment) reward.equipment.forEach(grantDungeonEquipmentReward);
+    if (reward.unlocks) {
+      applyUnlocks(reward.unlocks);
+      checkResearchDiscoveries();
+    }
+    if (pendingReward) pendingReward.nonCarriedGranted = true;
+  }
+
+  if (pendingReward) {
+    collectDungeonPendingCarriedRewards(node, pendingReward);
+    if (hasDungeonPendingCarriedRewards(node)) return;
+    delete node.pendingReward;
   }
 
   node.rewardClaimed = true;
+}
+
+function getDungeonPendingReward(node) {
+  if (!node || !node.pendingReward || typeof node.pendingReward !== "object" || Array.isArray(node.pendingReward)) return null;
+  if (!node.pendingReward.carried || typeof node.pendingReward.carried !== "object" || Array.isArray(node.pendingReward.carried)) {
+    node.pendingReward.carried = {};
+  }
+  return node.pendingReward;
+}
+
+function hasDungeonPendingCarriedRewards(node) {
+  const pendingReward = getDungeonPendingReward(node);
+  return !!pendingReward && Object.values(pendingReward.carried).some(function (amount) {
+    return Number.isFinite(amount) && amount > 0;
+  });
+}
+
+function canCollectDungeonPendingCarriedRewards(node) {
+  const pendingReward = getDungeonPendingReward(node);
+  if (!pendingReward) return false;
+  return Object.keys(pendingReward.carried).some(function (itemName) {
+    return addCarriedItemUpToCapacityPreview(itemName, pendingReward.carried[itemName]) > 0;
+  });
+}
+
+function formatDungeonPendingCarriedRewards(node) {
+  const pendingReward = getDungeonPendingReward(node);
+  if (!pendingReward) return "";
+  return Object.keys(pendingReward.carried)
+    .filter(function (itemName) { return pendingReward.carried[itemName] > 0; })
+    .map(function (itemName) {
+      const amount = pendingReward.carried[itemName];
+      const resource = getResource(itemName);
+      const label = resource ? resource.label : itemName;
+      return amount + " " + label + (amount === 1 ? "" : "s");
+    })
+    .join(", ");
+}
+
+function collectDungeonPendingCarriedRewards(node, pendingReward) {
+  for (let itemName in pendingReward.carried) {
+    const remaining = pendingReward.carried[itemName];
+    if (!Number.isFinite(remaining) || remaining <= 0) {
+      delete pendingReward.carried[itemName];
+      continue;
+    }
+
+    const carriedAmount = addCarriedItemUpToCapacity(itemName, remaining);
+    if (carriedAmount <= 0) continue;
+
+    pendingReward.carried[itemName] -= carriedAmount;
+    if (pendingReward.carried[itemName] <= 0) delete pendingReward.carried[itemName];
+    const resource = getResource(itemName);
+    addStoryEntry("You collect " + carriedAmount + " " + (resource ? resource.label : itemName) + ".");
+    unlockResource(itemName);
+  }
+
+  if (hasDungeonPendingCarriedRewards(node)) {
+    addStoryEntry("You collect what fits and leave behind " + formatDungeonPendingCarriedRewards(node) + ".");
+  }
+}
+
+function grantDungeonEquipmentReward(definition) {
+  if (!definition || !definition.rewardId) return;
+
+  const collection = ensureEquipmentCollection();
+  if (collection.items.some(item => item.rewardId === definition.rewardId)) return;
+
+  collection.items.push({
+    id: "gear-" + collection.nextId++,
+    rewardId: definition.rewardId,
+    name: definition.name,
+    slot: definition.slot,
+    effects: { ...(definition.effects || {}) },
+    description: definition.description || "",
+  });
+  addStoryEntry("You find " + definition.name + ". " + definition.description + " +5 maximum Mana while equipped.");
 }
 
 function getFoundCarriedRewardAmount(itemName, amount) {

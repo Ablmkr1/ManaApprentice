@@ -1147,6 +1147,13 @@ function processActivityTick() {
 
 function completeActivity() {
   const activity = gameState.activity;
+  // Worker output may fill storage while a paid manual crystal is in flight.
+  // Keep that work pending until a whole crystal fits instead of losing it.
+  if (isWesternCondenserActivity(activity) && activity.context?.targetId === "manaCrystal" && !canReceiveProductionProduces({resource: "manaCrystal", amount: 1})) {
+    pauseWesternCondenserActivity();
+    trySaveGame();
+    return;
+  }
 
   if (activity.kind === "towerBatch") {
     const context = structuredClone(activity.context);

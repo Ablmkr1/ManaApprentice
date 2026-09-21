@@ -2173,6 +2173,9 @@ button:disabled {
 .paper-doll-item.slot-leftRing { top: 106px; left: 31px; }
 .paper-doll-item.slot-rightRing { top: 106px; right: 31px; }
 .equipment-collection { display: grid; gap: 8px; width: 100%; min-width: 0; }
+.equipment-readonly p { margin: 0; font-weight: 600; }
+.enchanting-current-card { display: grid; gap: 4px; margin: 10px 0; padding: 10px; border: 1px solid #b6c5bc; border-radius: 6px; background: rgba(255, 253, 244, 0.75); }
+.enchanting-current-card span { font-size: 0.85rem; }
 .equipment-collection select, .equipment-collection input { max-width: 100%; min-width: 0; }
 .equipment-collection > div { display: flex; flex-wrap: wrap; gap: 8px; }
 .equipment-recipe-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0; }
@@ -2302,11 +2305,14 @@ button:disabled {
 }
 
 .ring-choice-icon {
-  width: 18px;
-  height: 18px;
-  margin-right: 4px;
+  width: 32px;
+  height: 32px;
   vertical-align: middle;
 }
+
+.ring-choice-btn { display: inline-grid; justify-items: center; min-width: 46px; }
+.ring-choice-btn small { line-height: 1; }
+.ring-choice-btn[aria-pressed="true"] { outline: 2px solid #7560a8; }
 
 .ring-choice-btn:disabled {
   border-color: #7560a8;

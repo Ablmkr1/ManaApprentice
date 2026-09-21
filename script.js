@@ -72,6 +72,10 @@ const DEV_TIER_FLAGS = [
   "towerBasementCompleted",
   "personalWardUnlocked",
   "personalWardPopupShown",
+  "brokenWardenDefeated",
+  "wardenCoreRecovered",
+  "tierFourCompleted",
+  "tierFiveUnlocked",
 ];
 
 const DEV_OUTSKIRTS_LOCATIONS = ["mysteriousPlants", "strangeTrails", "creepyCave", "mysteriousTrail"];
@@ -707,6 +711,10 @@ function resetDevTierDungeons() {
 
 function resetDevTierWorld() {
   gameState.world.selectedRegion = "outskirts";
+  gameState.world.territories = {
+    home: { label: "Home Territory", revealed: true, accessible: true, visited: true },
+    unknownTerritory1: { label: "Unknown Territory", revealed: false, accessible: false, visited: false },
+  };
 
   for (let regionId in gameState.world.regions) {
     const region = gameState.world.regions[regionId];
@@ -957,6 +965,7 @@ function applyDevTier45() {
   }
 
   completeAllProjectsForDev();
+  completeTierFourFinale(false);
   completeAllTowerNodesForDev();
   maxAllSkillsForDev();
   maxAllSpellProgressForDev();
@@ -967,7 +976,7 @@ function applyDevTier45() {
     addJournalEntry(journalName);
   }
 
-  gameState.currentGoalId = "buildTowerBasement";
+  gameState.currentGoalId = "travelToFirstExternalTerritory";
 }
 
 function completeAllProjectsForDev() {
@@ -1101,6 +1110,7 @@ function maxAllSpellProgressForDev() {
 function completeAllPermanentImbuementsForDev() {
   const state = ensureImbueRankTwoState();
   const config = getImbueRankTwoConfig();
+  const collection = normalizeEquipmentCollection(ensureEquipmentCollection());
 
   Object.keys(config.rings).forEach(function (ringId) {
     state.craftedRings[ringId] = true;
@@ -1118,6 +1128,35 @@ function completeAllPermanentImbuementsForDev() {
     const gearId = item ? getGearUpgradeIdByDefinition(item) : null;
     if (gearId) state.equipmentEnchantments[gearId] = enchantmentId;
   });
+
+  const highestWearableBySlot = {};
+  Object.entries(getGearUpgradeDefinitions()).forEach(function ([id, gear]) {
+    if (!isWearableGear(id) || !gear.purchased) return;
+    const current = highestWearableBySlot[gear.slot];
+    if (!current || (gear.slotRank || 0) > (getGearUpgrade(current)?.slotRank || 0)) highestWearableBySlot[gear.slot] = id;
+  });
+  Object.entries(highestWearableBySlot).forEach(function ([slot, baseGearId]) {
+    let item = collection.items.find(entry => !entry.core && equipmentSlot(entry) === slot);
+    if (!item) {
+      item = { id: "gear-" + collection.nextId++, baseGearId, family: null, grade: "standard" };
+      collection.items.push(item);
+    }
+    item.baseGearId = baseGearId;
+    item.family = Object.keys(ENCHANTMENTS).find(id => ENCHANTMENTS[id].slot === slot) || item.family;
+    item.grade = ENCHANTMENTS[item.family]?.greater ? "greater" : "standard";
+    collection.equipped[slot] = item.id;
+  });
+  const runeIds = Object.keys(RING_RUNES);
+  ["mana", "warding"].forEach(function (core, coreIndex) {
+    while (collection.items.filter(item => item.core === core).length < 2) {
+      const index = collection.items.filter(item => item.core).length;
+      const item = { id: "gear-" + collection.nextId++, core, grade: "greater", rune: runeIds[(coreIndex * 2 + index) % runeIds.length] || null };
+      collection.items.push(item);
+      autoEquipCompletedEquipment(item);
+    }
+  });
+  normalizeEquipmentCollection(collection);
+  syncGearOwnershipFlags();
 }
 
 function maxBoundElementalInventoryForDev() {

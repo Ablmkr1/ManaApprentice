@@ -4,7 +4,7 @@ require('./overhaul-harness')(`
   getProjectState('towerFloor1').completed=true;
   room('bedroom',1); syncTowerStructureUnlocks();
   assert(getTowerFloorState('floor2').unlocked, 'One functional room opens Floor 2');
-  Object.values(getTowerRoomDefinitions()).forEach(r => {
+  Object.values(getTowerRoomDefinitions()).filter(r => !r.capstone).forEach(r => {
     const levels=getProjectDefinition(r.projectId).levels;
     assert(levels.length===2, r.id+' has exactly two stages');
     assert(levels[0].workRequired+levels[1].workRequired===r.legacyConstruction.workRequired, r.id+' preserves total work');
@@ -42,42 +42,58 @@ require('./overhaul-harness')(`
   room('enchantingStudy',0);
   let result=finish({type:'craft',baseGearId:'leatherShirt'}); assert(result.ok,'First wearable works before enchanting');
   const shirt=ensureEquipmentCollection().items.find(i=>i.baseGearId==='leatherShirt');
-  assert(gearCraftReason('leatherShirt')===EQUIPMENT_MESSAGES.blank,'One waiting blank');
+  assert(gearCraftReason('leatherShirt')===EQUIPMENT_MESSAGES.full,'Normal gear cannot be duplicated');
+  assert(equipmentOperationReason({type:'enchant',itemId:shirt.id,family:'reservoirWeave'}).includes('Enchanting Study'),'Enchantments cannot be applied outside the selected Tower room');
   room('enchantingStudy',1); gameState.tower.selectedId='room:enchantingStudy';
   result=finish({type:'enchant',itemId:shirt.id,family:'reservoirWeave'}); assert(result.ok,'Standard enchant starts at II4');
   assert(!completeEquipmentOperation(result.paid),'Duplicate completion cannot spend or award');
-  funds(); result=finish({type:'craft',baseGearId:'leatherShirt'}); assert(result.ok,'Missing available family allows spare');
-  const spare=ensureEquipmentCollection().items.find(i=>i.baseGearId==='leatherShirt'&&!i.family);
-  assert(equipmentOperationReason({type:'enchant',itemId:spare.id,family:'reservoirWeave'})===EQUIPMENT_MESSAGES.duplicate,'Duplicate family rejected');
+  assert(equipmentOperationReason({type:'enchant',itemId:shirt.id,family:'reservoirWeave'})===EQUIPMENT_MESSAGES.duplicate,'Current enchantment cannot be reapplied');
   assert(!canApplyImbueRankTwoTarget(getImbueDefinition('rankTwoBackpack').permanentAction),'Global backpack pathway removed');
-  funds(); result=finish({type:'enchant',itemId:spare.id,family:'wardweave'}); assert(result.ok,'Second family available');
-  assert(gearCraftReason('leatherShirt')===EQUIPMENT_MESSAGES.full,'All currently available families bounded');
+  funds(); ['fiber','leather','manaCrystal','mana'].forEach(id=>getResource(id).value=50); const beforeReplace={fiber:getResource('fiber').value,leather:getResource('leather').value,manaCrystal:getResource('manaCrystal').value,mana:getResource('mana').value};
+  result=finish({type:'enchant',itemId:shirt.id,family:'wardweave'}); assert(result.ok&&shirt.family==='wardweave','A new family replaces the old enchantment');
+  assert(beforeReplace.fiber-getResource('fiber').value===12&&beforeReplace.leather-getResource('leather').value===4&&beforeReplace.manaCrystal-getResource('manaCrystal').value===2&&equipmentOperationCost({type:'enchant',itemId:shirt.id,family:'wardweave'}).mana===15,'Replacement charges full new enchantment cost');
   shirt.name='Patient Light'; room('enchantingStudy',2); gameState.magic.imbuement.rankTwoLevel=6; funds();
   result=finish({type:'greater',itemId:shirt.id}); assert(result.ok&&shirt.grade==='greater'&&shirt.name==='Patient Light','Greater preserves identity and name');
   assert(ensureEquipmentCollection().equipped.chest===shirt.id,'Greater preserves equipped reference');
-  getResource('mana').value=7; getResource('ward').value=6;
-  assert(equipOwnedItem(spare.id,'chest'),'Switch to Wardweave'); assert(getResource('mana').value===7&&getResource('ward').value===6,'Switch never refills resources');
+  getGearUpgrade('scratchyPants').unlocked=true; funds(); result=finish({type:'craft',baseGearId:'scratchyPants'}); const pants=ensureEquipmentCollection().items.find(i=>i.baseGearId==='scratchyPants');
+  funds(); finish({type:'enchant',itemId:pants.id,family:'meditativeWeave'}); const oldPantsId=pants.id; getGearUpgrade('leatherPants').unlocked=true; funds(); result=finish({type:'craft',baseGearId:'leatherPants'});
+  assert(result.ok&&pants.id===oldPantsId&&pants.family==='meditativeWeave'&&ensureEquipmentCollection().items.filter(i=>equipmentSlot(i)==='legs').length===1,'Gear upgrade replaces in place and preserves enchantment');
+  getGearUpgrade('scratchyPants').unlocked=true; assert(gearCraftReason('scratchyPants')===EQUIPMENT_MESSAGES.full,'A lower tier cannot replace current gear');
 
   funds(); result=finish({type:'ring',core:'mana'}); assert(result.ok,'First mana ring'); funds(); result=finish({type:'ring',core:'mana'}); assert(result.ok,'Second identical mana ring');
   assert(equipmentOperationReason({type:'ring',core:'mana'})===EQUIPMENT_MESSAGES.rings,'Third ring rejected');
-  const rings=ensureEquipmentCollection().items.filter(i=>i.core);
-  assert(equipOwnedItem(rings[0].id,'leftRing'),'Left ring accepts Mana');
-  assert(!equipOwnedItem(rings[0].id,'rightRing'),'Same instance cannot equip twice');
-  assert(equipOwnedItem(rings[1].id,'rightRing'),'Matching second ring accepted');
+  funds(); finish({type:'ring',core:'warding'}); funds(); finish({type:'ring',core:'warding'});
+  const rings=ensureEquipmentCollection().items.filter(i=>i.core), manaRings=rings.filter(i=>i.core==='mana'), wardRings=rings.filter(i=>i.core==='warding');
+  assert(manaRings.length===2&&wardRings.length===2,'Two Mana and two Warding rings coexist');
+  assert(equipOwnedItem(manaRings[0].id,'leftRing'),'Left ring accepts Mana');
+  assert(!equipOwnedItem(manaRings[0].id,'rightRing'),'Same instance cannot equip twice');
+  assert(equipOwnedItem(manaRings[1].id,'rightRing'),'Matching second ring accepted');
   assert(getEquippedPermanentImbueEffectTotal('maxManaFlat')===20,'Two standard mana rings add 20');
-  funds(); result=finish({type:'greater',itemId:rings[0].id}); assert(result.ok,'Greater ring upgrade');
+  funds(); result=finish({type:'greater',itemId:manaRings[0].id}); assert(result.ok,'Greater ring upgrade');
   assert(equipmentOperationReason({type:'ring',core:'mana'})===EQUIPMENT_MESSAGES.rings,'Grade does not bypass ownership limit');
   gameState.magic.imbuement.rankTwoLevel=9; getTowerNodeState('north').built=true; funds();
-  result=finish({type:'rune',itemId:rings[0].id,rune:'earth'}); assert(result.ok,'Rune separately applied');
-  const ringName=rings[1].name='Twin'; funds(); finish({type:'rune',itemId:rings[1].id,rune:'earth'}); funds(); finish({type:'greater',itemId:rings[1].id});
-  assert(rings[1].rune==='earth'&&rings[1].name===ringName,'Greater preserves rune/name');
-  assert(near(getEquippedPermanentImbueEffectTotal('lanceDamageBonus'),0.2),'Two Earth runes add 20%');
-  assert(equipmentOperationReason({type:'salvage',itemId:shirt.id,confirmed:true})==='', 'Unequipped enchanted salvage requires and accepts Grand Study');
-  assert(equipmentOperationReason({type:'salvage',itemId:spare.id,confirmed:true}).includes('Unequip'),'Cannot salvage equipped');
-  assert(equipmentOperationReason({type:'salvage',itemId:shirt.id}).includes('Confirm'),'Salvage requires confirmation');
-  funds(); Object.values(getResourceDefinitions()).forEach(r=>r.value=100);
-  result=finish({type:'salvage',itemId:shirt.id,confirmed:true}); assert(result.ok&&!ownedEquipment(shirt.id),'Salvage removes just one instance');
-  assert(!completeEquipmentOperation(result.paid),'Salvage cannot replay');
+  result=finish({type:'rune',itemId:manaRings[0].id,rune:'earth'}); assert(result.ok,'Rune separately applied');
+  assert(equipmentOperationReason({type:'rune',itemId:manaRings[0].id,rune:'earth'})===EQUIPMENT_MESSAGES.duplicate,'Same ring rune cannot be reapplied');
+  getTowerNodeState('east').built=true; funds(); result=finish({type:'rune',itemId:manaRings[0].id,rune:'hunter'}); assert(result.ok&&manaRings[0].rune==='hunter','Ring enchantment can be replaced');
+  const ringName=manaRings[1].name='Twin'; funds(); finish({type:'rune',itemId:manaRings[1].id,rune:'earth'}); funds(); finish({type:'greater',itemId:manaRings[1].id});
+  assert(manaRings[1].rune==='earth'&&manaRings[1].name===ringName,'Greater preserves rune/name');
+  funds(); finish({type:'greater',itemId:wardRings[0].id}); assert(wardRings[0].grade==='greater'&&wardRings[1].grade==='standard','Each Ward ring upgrades independently');
+  assert(near(getEquippedPermanentImbueEffectTotal('lanceDamageBonus'),0.1),'Each ring keeps its own enchantment');
+  const ringSave=createSaveData(), loadedCollection=normalizeEquipmentCollection(structuredClone(ringSave.gameState.equipment));
+  const loadedRings=loadedCollection.items.filter(i=>i.core);
+  assert(loadedRings.length===4&&loadedRings.find(i=>i.id===manaRings[0].id).rune==='hunter'&&loadedRings.find(i=>i.id===manaRings[1].id).grade==='greater','Save/load preserves four independent ring identities, tiers, and enchantments');
+
+  const duplicateCollection={version:1,nextId:8,equipped:{chest:'gear-1'},items:[
+    {id:'gear-1',baseGearId:'scratchyShirt',family:'reservoirWeave',grade:'standard'},
+    {id:'gear-2',baseGearId:'leatherShirt',family:null,grade:'standard'},
+    {id:'gear-3',core:'mana',grade:'standard',rune:'earth'},
+    {id:'gear-4',core:'mana',grade:'greater',rune:'hunter'},
+    {id:'gear-5',core:'mana',grade:'standard',rune:null}
+  ],triggers:{rooms:{}}};
+  normalizeEquipmentCollection(duplicateCollection);
+  const normalizedChest=duplicateCollection.items.find(i=>i.baseGearId==='leatherShirt');
+  assert(duplicateCollection.version===2&&duplicateCollection.items.filter(i=>equipmentSlot(i)==='chest').length===1&&normalizedChest.family==='reservoirWeave','Migration keeps the highest normal tier and transfers a valid enchantment');
+  assert(duplicateCollection.items.filter(i=>i.core==='mana').length===2,'Migration caps legacy rings at two per type without collapsing the pair');
 
   const old={version:34,gameState:{magic:{imbuement:{backpackImbued:true,craftedRings:{ringOfMana:true},equippedRing:'ringOfMana',equipmentEnchantments:{leatherPants:'restoringWeave'}}},projects:{towerRoomForge:{completed:true},towerRoomBedroom:{level:0,work:300,deposits:{wood:120,fiber:90,leather:20,nails:40}}}},resources:{mana:{value:4,perSecond:1}},gearUpgrades:{leatherPants:{purchased:true},repairedLeatherBackpack:{purchased:true}},campUpgrades:{},spells:{},actions:{},research:{},dungeons:{},expeditionLocations:{},resourceCrafts:{},automation:{}};
   const migrated=migrateSaveData(structuredClone(old)); const twice=migrateSaveData(structuredClone(migrated));

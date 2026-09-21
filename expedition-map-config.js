@@ -2,10 +2,10 @@
 const ExpeditionMapConfig = (() => {
   const regions = [
     { id: "outskirts", label: "Outskirts", x: 50, y: 50 },
-    { id: "north", label: "Northern Reach", x: 50, y: 19 },
-    { id: "east", label: "Eastern Wilds", x: 79, y: 50 },
-    { id: "south", label: "Southern Fen", x: 50, y: 80 },
-    { id: "west", label: "Western Ruins", x: 21, y: 50 },
+    { id: "north", label: "Northern Reach", x: 38, y: 16 },
+    { id: "east", label: "Eastern Wilds", x: 79, y: 31 },
+    { id: "south", label: "Southern Fen", x: 67, y: 76 },
+    { id: "west", label: "Western Ruins", x: 21, y: 30 },
   ];
   const home = name => "assets/home/station-" + name + ".png";
   const art = name => "assets/expedition/map/" + name + ".webp";
@@ -41,18 +41,18 @@ const ExpeditionMapConfig = (() => {
     ["strangeTrails", "outskirts", 61, 40, "icon-boots-travel"],
     ["creepyCave", "outskirts", 39, 62, "icon-torch"],
     ["mysteriousTrail", "outskirts", 61, 62, "icon-boots-travel"],
-    ["foothillScree", "north", 38, 28, "icon-pick-stone"],
-    ["minersCamp", "north", 51, 29, home("shelter")],
-    ["ironMine", "north", 63, 27, "icon-pick-iron"],
-    ["stagRuns", "east", 73, 39, "icon-boots-travel"],
-    ["huntersCabin", "east", 86, 39, home("shelter")],
-    ["quietGrove", "east", 85, 64, "icon-boots-travel"],
-    ["wildHerbPatch", "south", 37, 86, "icon-basket-foraging"],
-    ["alchemistsHut", "south", 50, 89, home("shelter")],
-    ["overgrownFields", "south", 64, 86, "icon-basket-foraging"],
-    ["roadsideRuin", "west", 13, 38, art("foundation")],
-    ["silentGearworks", "west", 26, 38, art("foundation")],
-    ["arcaneArchive", "west", 16, 64, art("foundation")],
+    ["foothillScree", "north", 46, 33, "icon-pick-stone"],
+    ["minersCamp", "north", 53, 24, home("shelter")],
+    ["ironMine", "north", 61, 13, "icon-pick-iron"],
+    ["stagRuns", "east", 70, 48, "icon-boots-travel"],
+    ["huntersCabin", "east", 80, 43, home("shelter")],
+    ["quietGrove", "east", 91, 57, "icon-boots-travel"],
+    ["wildHerbPatch", "south", 43, 81, "icon-basket-foraging"],
+    ["alchemistsHut", "south", 50, 71, home("shelter")],
+    ["overgrownFields", "south", 57, 91, "icon-basket-foraging"],
+    ["roadsideRuin", "west", 30, 45, art("foundation")],
+    ["silentGearworks", "west", 20, 53, art("foundation")],
+    ["arcaneArchive", "west", 9, 65, art("foundation")],
   ];
   const known = (region, id) => getRegionState(region).unlocked && getRegionKnownLocations(region).includes(id);
   for (const [id, region, x, y, asset] of places) {
@@ -72,10 +72,10 @@ const ExpeditionMapConfig = (() => {
       overlay.asset = art("landmarks"); overlay.sprite = sprites[overlay.id];
     }
   }
-  add("western-condenser", "west", 9, 48, art("landmarks"), "Mana Condenser", () => known("west", "roadsideRuin") && hasPurchasedCampUpgrade("manaCondenser"), { id: "roadsideRuin" });
+  add("western-condenser", "west", 29, 55, art("landmarks"), "Mana Condenser", () => known("west", "roadsideRuin") && hasPurchasedCampUpgrade("manaCondenser"), { id: "roadsideRuin" });
   overlays.at(-1).sprite = 14;
-  add("north-elemental", "north", 71, 26, art("landmarks"), "Earth Elemental encounter", () => known("north", "ironMine") && !!gameState.northernDisturbance?.resolved, { id: "ironMine" });
+  add("north-elemental", "north", 69, 15, art("landmarks"), "Earth Elemental encounter", () => known("north", "ironMine") && !!gameState.northernDisturbance?.resolved, { id: "ironMine" });
   overlays.at(-1).sprite = 15;
-  add("glass-antler-stag", "east", 76, 65, art("stag"), "Glass-Antler Stag", () => known("east", "quietGrove") && !!getExpeditionLocation("quietGrove").explored, { id: "quietGrove" });
+  add("glass-antler-stag", "east", 86, 66, art("stag"), "Glass-Antler Stag", () => known("east", "quietGrove") && !!getExpeditionLocation("quietGrove").explored, { id: "quietGrove" });
   return { regions, overlays, centerVariant, base: art("parchment"), label: overlay => typeof overlay.label === "function" ? overlay.label() : overlay.label, asset: overlay => typeof overlay.asset === "function" ? overlay.asset() : overlay.asset };
 })();

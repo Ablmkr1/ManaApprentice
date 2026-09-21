@@ -10,26 +10,7 @@ Sturdy Construction and Ancient Mana Condenser no longer require the retired Aut
 
 ## Progression and the Western condenser
 
-Inspection found two separate systems: manual **Create Mana Crystal** was an Imbue recipe unlocked in the Roadside Ruin, while the later **Mana Condenser** construction unlocked a passive machine. They were not construction prerequisites for one another. This update preserves that distinction.
-
-1. The Creepy Cave's old map unlocks the Western road along with the other regions, before crystal production or node construction.
-2. Searches in the Roadside Ruin's Cracked Hall and Side Chamber provide the first crystals without a golem or node. Those rewards and requirements are unchanged.
-3. The Crystal Binding Alcove unlocks `manaCrystalImbuingUnlocked`. Manual creation retains that flag, the existing Imbue Level 5 / 20-mana capacity requirement, spell timing, **20 mana + 5 focus → 1 mana crystal**, and delivery to the resource stockpile. Its controls now appear at the **Western Roadside Ruin**, instead of camp. No condenser construction, node activation, or golem requirement has been added.
-4. Later, the Arcane Archive's condenser plans still unlock the Ancient Mana Condenser research at the same archive milestone. Its discovery requirement (charged crystal), cost (60 energy, 5 focus, 30 wood, 1 charged crystal), and duration (12 seconds) remain intact; only the obsolete automation research dependency is removed.
-5. Both construction steps now appear at the Roadside Ruin. The frame still costs 90 energy, 40 stone, 5 iron, 20 nails, and 4 mana crystals, taking 10 seconds. Assembly still costs 90 energy, 20 stone, 5 iron, 20 nails, and 4 charged crystals, taking 12 seconds. Construction IDs and saved purchases remain unchanged. Assembly does not reactivate the retired passive machine.
-
-Crystal-consuming progression therefore remains reachable: early ruin crystals fund Meditation and Mana Cycling (1 crystal each), and Charge Mana Crystal still converts 1 crystal plus 5 mana at camp. Tower Heart restoration still uses 8 mana crystals and 8 charged crystals. Neither these steps nor manual crystal creation depend on the new Western node. The existing Northern disturbance/core and Elemental Binding research still lead to golem creation, which consumes one Earth Elemental Core.
-
-## Western node
-
-The node stands at the **Arcane Archive**, separate from the earlier condenser location. Discover it by restoring the Heart, exploring the archive exterior, and opening its existing four-spell door. No archive-door requirements are bypassed.
-
-- Research: 60 energy, 8 focus, 8 seconds.
-- Construction: deposit 30 stone, 8 iron, and 4 charged crystals at the archive.
-- Activation: 60 imbuement, supplied by six existing 3-second actions costing 10 mana each.
-- Activated node: shared node travel, the usual 10-mana jump cost, and regional capacity of 2 subject to total Heart capacity.
-
-The Heart and regional node panels show activation and capacity. Western job definitions are intentionally empty: there is no crystal assignment or placeholder assignment control.
+The finalized three-stage condenser progression, exact costs, Western Node operator rates, and version 39 save behavior are documented in [MANA_CONDENSER.md](MANA_CONDENSER.md). This supersedes the initial relocation-only condenser implementation.
 
 ## Local jobs and rates
 
@@ -46,7 +27,7 @@ The inspected trap system has **no elapsed catch timer, bait, or rearming materi
 
 ## Saves and offline work
 
-Save version is 36. Existing condenser construction and retired machine data are retained. Saves with previously accessible condenser/manual production keep Western Roadside Ruin access without opening the archive or activating a node.
+Save version is 39. Existing condenser construction and retired machine data are retained. Saves with previously accessible condenser/manual production keep Western Roadside Ruin access without opening the archive or activating a node.
 
 Paid manual crystal or condenser construction work survives loading as a saved pending activity, including elapsed work. It resumes at the Roadside Ruin without charging again. Other pre-existing activity save behavior is unchanged.
 
