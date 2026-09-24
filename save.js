@@ -1,5 +1,5 @@
 const SAVE_KEY = "manaApprenticeSaveV1";
-const SAVE_VERSION = 41;
+const SAVE_VERSION = 43;
 let saveSuppressed = false;
 
 function createSaveData() {
@@ -365,10 +365,54 @@ function migrateSaveData(saveData) {
   }
   if (version <= 39) migrateV39SaveDataToV40(normalizedSaveData);
   if (version <= 40) migrateV40SaveDataToV41(normalizedSaveData);
+  if (version <= 41) migrateV41SaveDataToV42(normalizedSaveData);
+  if (version <= 42) migrateV42SaveDataToV43(normalizedSaveData);
   if (normalizedSaveData.resources.mana) normalizedSaveData.resources.mana.perSecond = 0;
   normalizedSaveData.version = SAVE_VERSION;
 
   return normalizedSaveData;
+}
+
+function migrateV42SaveDataToV43(saveData) {
+  const locations = ensureObject(saveData.expeditionLocations);
+  const resources = ensureObject(saveData.resources);
+  const fuel = ensureObject(resources.fuel);
+  let sharedFuel = Math.max(0, Number(fuel.value) || 0);
+
+  // Old camp fuel and the two remote workshop stores were independent pools.
+  // Each stored unit is transferred once into the Processing Station pool.
+  ["minersCamp", "alchemistsHut"].forEach(function (locationName) {
+    const storage = ensureObject(ensureObject(locations[locationName]).storage);
+    sharedFuel += Math.max(0, Number(storage.fuel) || 0);
+    delete storage.fuel;
+  });
+
+  fuel.value = roundResourceAmount(sharedFuel);
+  fuel.maxValue = Math.max(2000, Number(fuel.maxValue) || 0, fuel.value);
+  fuel.discovered = !!fuel.discovered || fuel.value > 0;
+  resources.fuel = fuel;
+}
+
+function migrateV41SaveDataToV42(saveData) {
+  const research = ensureObject(saveData.research);
+  if (!ensureObject(research.leatherworking).completed) return;
+
+  ["leatherGear", "reinforcedLeatherwork"].forEach(function (id) {
+    research[id] = { ...ensureObject(research[id]), completed: true, unlocked: false };
+  });
+
+  const gear = ensureObject(saveData.gearUpgrades);
+  ["reinforcedWaterskin", "travelBoots", "leatherShirt", "leatherPants", "repairedLeatherBackpack"].forEach(function (id) {
+    const entry = ensureObject(gear[id]);
+    if (!entry.purchased) entry.unlocked = true;
+    gear[id] = entry;
+  });
+  const warmCot = ensureObject(saveData.campUpgrades.warmCot);
+  if (!warmCot.purchased) warmCot.unlocked = true;
+  saveData.campUpgrades.warmCot = warmCot;
+  const leather = ensureObject(saveData.resourceCrafts.leather);
+  leather.unlocked = true;
+  saveData.resourceCrafts.leather = leather;
 }
 
 function migrateV40SaveDataToV41(saveData) {
@@ -1177,6 +1221,7 @@ function normalizeSavedFuelLocationStorage(savedLocations) {
     if (!location || typeof location !== "object") return;
 
     const storage = ensureObject(location.storage);
+    if (!["fuel", "wood", "imbuedWood"].some(function (name) { return Object.prototype.hasOwnProperty.call(storage, name); })) return;
     const fuel = Number.isFinite(storage.fuel) ? storage.fuel : 0;
     const woodFuel = Number.isFinite(storage.wood) ? storage.wood : 0;
     const imbuedWoodFuel = Number.isFinite(storage.imbuedWood) ? storage.imbuedWood * 4 : 0;
@@ -1472,9 +1517,13 @@ function applyResourceSaveData(savedResources) {
 
     if (!resource || !savedResource) continue;
 
-    applySavedFields(resource, savedResource, ["value", "maxValue", "perClick", "perSecond", "restPerSecond"]);
+    applySavedFields(resource, savedResource, resource.usesDefaultStorageCap
+      ? ["value", "perClick", "perSecond", "restPerSecond"]
+      : ["value", "maxValue", "perClick", "perSecond", "restPerSecond"]);
     resource.discovered = !!savedResource.discovered || !!savedResource.visible || savedResource.value > 0;
-    resource.value = Math.min(roundResourceAmount(resource.value), resource.maxValue);
+    resource.value = resource.usesDefaultStorageCap
+      ? roundResourceAmount(resource.value)
+      : Math.min(roundResourceAmount(resource.value), resource.maxValue);
 
     if (resource.display) {
       if (savedResource.visible || resourceName === "energy") {
@@ -1931,6 +1980,7 @@ function loadGame() {
   applyResourceSaveData(saveData.resources);
   applyActionSaveData(saveData.actions);
   applyUpgradeSaveData(getCampUpgradeDefinitions(), saveData.campUpgrades, ["unlocked", "purchased"], updateCampUpgradeUI);
+  syncDefaultResourceStorageCaps();
   syncHomeStructureUnlocks();
   applyUpgradeSaveData(getGearUpgradeDefinitions(), saveData.gearUpgrades, ["unlocked", "purchased"], updateGearUpgradeUI);
   applyUpgradeSaveData(getSpellDefinitions(), saveData.spells, ["unlocked"]);

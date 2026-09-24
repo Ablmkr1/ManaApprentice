@@ -126,6 +126,7 @@
   .expedition-view-heading { align-items: start; }
   .expedition-view-heading p { font-size: 12px; }
   .expedition-landmark { height: 13%; }
+  .expedition-landmark[data-landmark="sensePrey"] { top: 17%; }
   .expedition-landmark-label { max-width: 125px; padding: 5px 7px; }
   .expedition-landmark strong { font-size: 13px; }
   .expedition-landmark small { font-size: 10px; }

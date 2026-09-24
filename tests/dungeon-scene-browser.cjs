@@ -3,7 +3,7 @@ const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const output = path.join(__dirname, 'dungeon-screenshots');
+const output = process.env.DUNGEON_SCREENSHOT_DIR || path.join(__dirname, 'dungeon-screenshots');
 fs.mkdirSync(output, { recursive: true });
 (async () => {
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
@@ -190,18 +190,24 @@ fs.mkdirSync(output, { recursive: true });
     await page.evaluate(() => {
       setCurrentLocation('arcaneArchive');
       Object.assign(gameState.expedition.dungeon, { active:true, dungeonId:'arcaneArchiveDepths', nodeId:'deepRepository' });
-      getCurrentDungeonNode().explored = true; dungeonQA.refresh();
+      getCurrentDungeonNode().explored = true;
+      gameState.northernDisturbance.resolved = true;
+      gameState.regionalProgress.east.disturbanceResolved = true;
+      gameState.regionalProgress.south.disturbanceResolved = true;
+      dungeonQA.refresh();
     });
     await page.setViewportSize({ width: 1440, height: 1000 });
-    await root.locator('[data-dungeon-action="challengeBrokenWarden"]').click();
+    assert.equal(await root.locator('[data-dungeon-action="challengeBrokenWarden"]').count(), 0);
+    await page.evaluate(() => { leaveCurrentDungeon(); dungeonQA.refresh(); });
+    await page.locator('[data-landmark="warden"]').click();
+    await page.locator('#brokenWardenEncounter [data-location-action="challengeBrokenWarden"]').click();
     assert.equal(await page.evaluate(() => gameState.combat.enemyId), 'brokenWarden');
     assert(await page.locator('#combatPanel').isVisible());
     await page.evaluate(() => { gameState.combat.enemyHealth = 0; resolveCombatVictory(); });
     assert(await page.evaluate(() => gameState.brokenWardenDefeated && gameState.tierFourCompleted));
     await page.evaluate(() => { closeCombatEncounter(); dungeonQA.refresh(); });
-    assert.equal(await page.evaluate(() => getCurrentDungeonState().nodeId), 'deepRepository');
-    assert(await root.isVisible());
-    assert.equal(await root.locator('[data-dungeon-action="challengeBrokenWarden"]').count(), 1);
+    assert.equal(await page.evaluate(() => gameState.expedition.currentLocation), 'arcaneArchive');
+    assert.equal(await root.locator('[data-dungeon-action="challengeBrokenWarden"]').count(), 0);
     assert.deepEqual(errors, []);
     console.log('Dungeon flow passed: entry, discovery, locks, backtracking, costs, failure/success, Mana Sense, pending loot, final unlock, reload, completion, exit/reentry, desktop/mobile, legacy dungeon and Archive combat return.');
   } finally { await browser.close(); }

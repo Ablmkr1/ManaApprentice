@@ -28,6 +28,7 @@ assert(!isResearchDiscoverable(research),'plans gate research');gameState.manaCo
 assert(isResearchDiscoverable(research),'Archive plans reveal research');
 assert(!isCraftAvailable('campUpgrade','manaCondenserFrame'),'frame gated before research');
 research.completed=true;applyResearchUnlocks('ancientManaCondenser');
+getExpeditionLocation('roadsideRuin').explored=true;
 assert(isCraftAvailable('campUpgrade','manaCondenserFrame'),'research unlocks frame');
 assert(JSON.stringify(frame.cost)===JSON.stringify({energy:40,stone:40,wood:20,iron:5,nails:20}),'exact frame cost');
 assert(!isCraftAvailable('campUpgrade','manaCondenser'),'lattice gated before frame');

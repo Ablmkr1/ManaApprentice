@@ -4,6 +4,7 @@ const MANA_CONTROL_SYSTEM_ENABLED = false;
 // Central balance point for the temporary gathering-speed benefit of tool Imbue.
 const IMBUE_TOOL_SPEED_MULTIPLIER = 1.5;
 const IMBUE_TOOL_CHARGES_PER_MANA = 5;
+const DEFAULT_RESOURCE_STORAGE_CAPS = { beforeCache: 25, afterCache: 100 };
 
 const resources = {
   energy: {
@@ -51,7 +52,7 @@ const resources = {
   manaCrystal: {
     label: "Mana Crystal",
     value: 0,
-    maxValue: 100,
+    usesDefaultStorageCap: true,
     perClick: 0,
     perSecond: 0,
     display: null,
@@ -71,7 +72,7 @@ const resources = {
   food: {
     label: "Food",
     value: 0,
-    maxValue: 100,
+    usesDefaultStorageCap: true,
     perClick: 1,
     perSecond: 0,
     display: null,
@@ -81,7 +82,7 @@ const resources = {
   wood: {
     label: "Wood",
     value: 0,
-    maxValue: 100,
+    usesDefaultStorageCap: true,
     perClick: 1,
     perSecond: 0,
     display: null,
@@ -113,7 +114,7 @@ const resources = {
   fiber: {
     label: "Fiber",
     value: 0,
-    maxValue: 100,
+    usesDefaultStorageCap: true,
     perClick: 1,
     perSecond: 0,
     display: null,
@@ -133,7 +134,7 @@ const resources = {
   pelt: {
     label: "Pelt",
     value: 0,
-    maxValue: 100,
+    usesDefaultStorageCap: true,
     perClick: 0,
     perSecond: 0,
     display: null,
@@ -143,7 +144,7 @@ const resources = {
   stone: {
     label: "Stone",
     value: 0,
-    maxValue: 100,
+    usesDefaultStorageCap: true,
     perClick: 0,
     perSecond: 0,
     display: null,
@@ -153,7 +154,7 @@ const resources = {
   leather: {
     label: "Leather",
     value: 0,
-    maxValue: 100,
+    usesDefaultStorageCap: true,
     perClick: 0,
     perSecond: 0,
     display: null,
@@ -161,9 +162,9 @@ const resources = {
     perSecondDisplay: null,
   },
   ore: {
-    label: "Ore",
+    label: "Iron Ore",
     value: 0,
-    maxValue: 100,
+    usesDefaultStorageCap: true,
     perClick: 0,
     perSecond: 0,
     display: null,
@@ -173,7 +174,7 @@ const resources = {
   iron: {
     label: "Iron",
     value: 0,
-    maxValue: 100,
+    usesDefaultStorageCap: true,
     perClick: 0,
     perSecond: 0,
     display: null,
@@ -183,7 +184,7 @@ const resources = {
   steel: {
     label: "Steel",
     value: 0,
-    maxValue: 100,
+    usesDefaultStorageCap: true,
     perClick: 0,
     perSecond: 0,
     hidden: true,
@@ -205,7 +206,7 @@ const resources = {
   earthElementalCore: {
     label: "Earth Elemental Core",
     value: 0,
-    maxValue: 100,
+    usesDefaultStorageCap: true,
     perClick: 0,
     perSecond: 0,
     hidden: true,
@@ -229,7 +230,7 @@ const resources = {
   runedLeather: {
     label: "Runed Leather",
     value: 0,
-    maxValue: 100,
+    usesDefaultStorageCap: true,
     perClick: 0,
     perSecond: 0,
     hidden: true,
@@ -240,7 +241,7 @@ const resources = {
   naturalEssence: {
     label: "Natural Essence",
     value: 0,
-    maxValue: 100,
+    usesDefaultStorageCap: true,
     perClick: 0,
     perSecond: 0,
     hidden: true,
@@ -251,7 +252,7 @@ const resources = {
   nails: {
     label: "Nails",
     value: 0,
-    maxValue: 100,
+    usesDefaultStorageCap: true,
     perClick: 0,
     perSecond: 0,
     display: null,
@@ -261,7 +262,7 @@ const resources = {
   herb: {
     label: "Herb",
     value: 0,
-    maxValue: 100,
+    usesDefaultStorageCap: true,
     perClick: 0,
     perSecond: 0,
     display: null,
@@ -379,7 +380,7 @@ const resources = {
   chargedCrystal: {
     label: "Charged Crystal",
     value: 0,
-    maxValue: 100,
+    usesDefaultStorageCap: true,
     perClick: 0,
     perSecond: 0,
     hidden: true,
@@ -424,6 +425,10 @@ const resources = {
     perSecondDisplay: null,
   },
 };
+
+Object.values(resources).forEach(function (resource) {
+  if (resource.usesDefaultStorageCap) resource.maxValue = DEFAULT_RESOURCE_STORAGE_CAPS.beforeCache;
+});
 
 const actions = {
   explore: {
@@ -866,19 +871,6 @@ const actions = {
     onComplete: function () {},
   },
 
-  storeWood: {
-    label: "Store Fuel",
-    duration: 0,
-    cost: {},
-    unlocked: false,
-    running: false,
-    button: null,
-    progressBar: null,
-    metaProgressBar: null,
-    onStart: function () {},
-    onComplete: function () {},
-  },
-
   packImbuedWood: {
     label: "Pack Imbued Wood",
     duration: 0,
@@ -895,7 +887,7 @@ const actions = {
   },
 
   packOre: {
-    label: "Pack Ore",
+    label: "Pack Iron Ore",
     duration: 0,
     cost: {
       ore: 1,
@@ -910,7 +902,7 @@ const actions = {
   },
 
   storeOre: {
-    label: "Store Ore",
+    label: "Store Iron Ore",
     duration: 0,
     cost: {},
     unlocked: false,
@@ -952,14 +944,14 @@ const actions = {
   },
 
   mineIron: {
-    label: "Mine Iron",
+    label: "Mine Iron Ore",
     duration: 5,
     cost: {
       energy: 6,
     },
     unlocked: false,
     running: false,
-    auto: { carriedItem: "iron" },
+    auto: { carriedItem: "ore" },
     button: null,
     progressBar: null,
     metaProgressBar: null,

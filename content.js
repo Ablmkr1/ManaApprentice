@@ -410,7 +410,6 @@ const expeditionLocations = {
       food: 0,
       ore: 0,
       iron: 0,
-      fuel: 0,
     },
     discovered: false,
     explored: false,
@@ -425,10 +424,10 @@ const expeditionLocations = {
       discovered: "An old miners' camp sits beside a mountain stream. The place looks abandoned, but useful.",
       explored: "The miners' camp has water, storage, and the remains of a smelter. It could become the northern workshop.",
     },
-    availableActions: ["storeWood", "storeOre", "takeIron"],
+    availableActions: ["storeOre", "takeIron"],
     explorableObjects: {
       studySmelterHeat: {
-        label: "Study Smelter Heat",
+        label: "Strike the Anvil",
         duration: 3,
         cost: {
           energy: 8,
@@ -440,9 +439,9 @@ const expeditionLocations = {
           manaSense: {
             required: 3,
             stories: [
-              "Mana Sense settles over the cold smelter. The old stones remember heat, but not ordinary flame.",
-              "The smelter's shape guides pressure as much as fire. Mana could hold iron soft without letting it collapse.",
-              "The pattern becomes clear: heat, force, and restraint braided tightly enough to shape metal by will.",
+              "Mana Sense follows the force carried through the cold anvil and its iron face.",
+              "Each strike travels through the metal in a deliberate pattern. Mana could guide that pressure without letting the work collapse.",
+              "The pattern becomes clear: directed force and restraint braided tightly enough to shape metal by will.",
             ],
           },
         },
@@ -455,7 +454,7 @@ const expeditionLocations = {
         stages: [
           {
             story:
-              "You study the smelter's remembered pressure until the lesson catches in your hands. Iron can be persuaded, not merely hammered.",
+              "You strike the anvil and study how force travels through the metal until the lesson catches in your hands. Iron can be persuaded, not merely hammered.",
             unlocks: [
               { type: "spell", id: "arcaneForce" },
               { type: "journal", id: "arcaneForceLearned" },
@@ -517,7 +516,6 @@ const expeditionLocations = {
       manaTonicBase: 0,
       concentratedTonicBase: 0,
       concentratedManaTonicBase: 0,
-      fuel: 0,
     },
     discovered: false,
     explored: false,
@@ -532,7 +530,7 @@ const expeditionLocations = {
       discovered: "A vine-covered hut waits in the southern overgrowth. Strange scents cling to the air around it.",
       explored: "The abandoned alchemy workshop still holds useful equipment and notes. Fresh materials and further study are needed before you can use them.",
     },
-    availableActions: ["storeWood", "storeHerb", "storeGlimmerleaf", "concentrateTonicBase", "concentrateManaTonicBase"],
+    availableActions: ["storeHerb", "storeGlimmerleaf", "concentrateTonicBase", "concentrateManaTonicBase"],
     explorableObjects: {
       studyInfusionPattern: {
         label: "Study Infusion Pattern",
@@ -1719,12 +1717,56 @@ const researchDefinitions = {
     unlocks: [
       { type: "resourceCraft", id: "leather" },
       { type: "gearUpgrade", id: "reinforcedWaterskin" },
+    ],
+  },
+
+  leatherGear: {
+    label: "Leather Gear",
+    category: "Craft",
+    duration: 9,
+    deepThought: 3,
+    completed: false,
+    unlocked: false,
+    cost: { energy: 20, focus: 3, leather: 3, fiber: 4 },
+    requires: { researchCompleted: ["leatherworking"] },
+    story: "Fitted leather can protect you on the road without slowing you down.",
+    unlocks: [
       { type: "gearUpgrade", id: "travelBoots" },
-      { type: "gearUpgrade", id: "repairedLeatherBackpack" },
       { type: "gearUpgrade", id: "leatherShirt" },
       { type: "gearUpgrade", id: "leatherPants" },
+    ],
+  },
+
+  reinforcedLeatherwork: {
+    label: "Reinforced Leatherwork",
+    category: "Craft",
+    duration: 10,
+    deepThought: 4,
+    completed: false,
+    unlocked: false,
+    cost: { energy: 30, focus: 4, leather: 6, fiber: 5 },
+    requires: { researchCompleted: ["leatherGear"] },
+    story: "Layered leather and stronger stitching support heavier camp and travel gear.",
+    unlocks: [
+      { type: "gearUpgrade", id: "repairedLeatherBackpack" },
       { type: "campUpgrade", id: "warmCot" },
     ],
+  },
+
+  foragersBasket: {
+    label: "Forager's Basket",
+    category: "Survival",
+    duration: 7,
+    deepThought: 2,
+    completed: false,
+    unlocked: false,
+    cost: { energy: 15, focus: 2, fiber: 4, leather: 1 },
+    requires: {
+      researchCompleted: ["leatherworking"],
+      gearPurchased: ["foragingBasket"],
+    },
+    story: "Cured leather and a tighter weave make a sturdier basket for gathering food.",
+    unlocks: [{ type: "gearUpgrade", id: "foragersBasket" }],
   },
 
   crudeBackpack: {
@@ -2443,7 +2485,7 @@ const researchDefinitions = {
   westernTowerNode: {
     label: "Western Node", category: "Tower", duration: 8, deepThought: 5,
     completed: false, unlocked: false, cost: { energy: 60, focus: 8 },
-    requires: { locationsExplored: ["arcaneArchive"], flags: ["archiveDoorOpened", "towerConstructionUnlocked"] },
+    requires: { locationsExplored: ["arcaneArchive"], towerNodes: { west: { activated: true } } },
     story: "The archive anchor resolves into a buildable pattern for the Western Node.",
     unlocks: [{ type: "towerNode", id: "west" }],
   },
@@ -3041,9 +3083,9 @@ const projectDefinitions = {
         activationLabel: "Imbue Heart",
         activationSpell: "imbue",
         activationCost: {
-          mana: 10,
+          mana: 25,
         },
-        activationYield: 10,
+        activationYield: 100,
         workRequired: 100,
         materials: {
           manaCrystal: 8,
@@ -3190,7 +3232,7 @@ const towerNodeDefinitions = {
     imbueRequired: 60, imbueCost: { mana: 10 }, imbueYield: 10, imbueDuration: 3,
     jumpCost: { mana: 10 }, threadSenseRequired: 0, automationOnBuild: true,
     incompleteTitle: "Dormant Western Node", completeTitle: "Western Node Online",
-    incompleteDescription: "The opened archive reveals an anchor. Research its pattern, supply stone, iron and charged crystals, then imbue it.",
+    incompleteDescription: "The archive reveals an anchor. Research its pattern, supply stone, iron and charged crystals, then imbue it.",
     completeDescription: "The Western Node at Arcane Archive connects the Heart to the Mana Condenser at Roadside Ruin. Assign up to two Bound Earth Elementals after the condenser is activated: one crystal every 120 seconds per operator.",
     activationStory: "Beyond the opened archive seal, the restored Heart detects a Western anchor.",
     builtStory: "The Western Node joins the Heart, opening node travel and remote Earth Elemental operation of the activated Mana Condenser at Roadside Ruin.",
@@ -3317,8 +3359,8 @@ const elementalAutomationConfig = {
           optionalEquipment: "quarryHarness",
         },
         iron: {
-          label: "Gather Iron",
-          resource: "iron",
+          label: "Gather Iron Ore",
+          resource: "ore",
           cycleDuration: 120,
           batchSize: 2,
           optionalEquipment: "quarryHarness",
@@ -4089,8 +4131,8 @@ const gearUpgrades = {
   },
 
   foragingBasket: {
-    label: "Foraging Basket (+1 Food, +1 Herb)",
-    displayName: "Foraging Basket",
+    label: "Gathering Basket (+1 Food, +1 Herb)",
+    displayName: "Gathering Basket",
     equipmentType: "tool",
     slot: "forage",
     slotLabel: "Foraging",
@@ -4106,6 +4148,29 @@ const gearUpgrades = {
       wood: 2,
       energy: 8,
     },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      recalculateToolEffects();
+      refreshExpeditionUI();
+    },
+  },
+
+  foragersBasket: {
+    label: "Forager's Basket (+2 Food, +1 Herb)",
+    displayName: "Forager's Basket",
+    equipmentType: "tool",
+    slot: "forage",
+    slotLabel: "Foraging",
+    slotOrder: 0,
+    slotRank: 2,
+    requiredGear: "foragingBasket",
+    icon: "🧺",
+    effects: { forageYieldFlat: 1, foodYieldFlat: 2 },
+    duration: 7,
+    cost: { fiber: 10, leather: 3, wood: 4, energy: 20 },
     unlocked: false,
     purchased: false,
     button: null,
@@ -4786,6 +4851,7 @@ const resourceCrafts = {
 
   leather: {
     label: "Tan Leather",
+    campHomeArea: "processing",
     requiredLocation: "huntersCabin",
     campUpgradeRequired: "campTannery",
     duration: 2,
@@ -4812,6 +4878,7 @@ const resourceCrafts = {
 
   iron: {
     label: "Smelt Iron",
+    campHomeArea: "processing",
     imbueInfrastructure: "furnace",
     requiredLocation: "minersCamp",
     campUpgradeRequired: "campSmelter",
@@ -4855,6 +4922,7 @@ const resourceCrafts = {
 
   staminaTonic: {
     label: "Brew Stamina Tonic Base",
+    campHomeArea: "processing",
     imbueInfrastructure: "alchemy",
     requiredLocation: "alchemistsHut",
     campUpgradeRequired: "campAlchemyStation",
@@ -4884,6 +4952,7 @@ const resourceCrafts = {
 
   manaTonicBase: {
     label: "Brew Mana Tonic Base",
+    campHomeArea: "processing",
     imbueInfrastructure: "alchemy",
     requiredLocation: "alchemistsHut",
     campUpgradeRequired: "campAlchemyStation",
@@ -5493,6 +5562,7 @@ const imbueDefinitions = {
   staminaTonic: {
     label: "Imbue Weak Stamina Tonic",
     description: "Bind a small charge into one stamina tonic base, filling an empty tonic slot.",
+    campHomeArea: "processing",
     requiredLocation: "alchemistsHut",
     campUpgradeRequired: "campAlchemyStation",
     cost: {
@@ -5515,6 +5585,7 @@ const imbueDefinitions = {
   improvedStaminaTonic: {
     label: "Imbue Concentrated Stamina Tonic",
     description: "Bind mana into one concentrated tonic base, filling an empty tonic slot with a stronger tonic.",
+    campHomeArea: "processing",
     requiredLocation: "alchemistsHut",
     campUpgradeRequired: "campAlchemyStation",
     cost: {
@@ -5537,6 +5608,7 @@ const imbueDefinitions = {
   manaTonic: {
     label: "Imbue Minor Mana Tonic",
     description: "Bind mana into one mana tonic base, filling an empty tonic slot with field-ready mana recovery.",
+    campHomeArea: "processing",
     requiredLocation: "alchemistsHut",
     campUpgradeRequired: "campAlchemyStation",
     cost: {
@@ -5559,6 +5631,7 @@ const imbueDefinitions = {
   majorManaTonic: {
     label: "Imbue Major Mana Tonic",
     description: "Bind a deeper charge into concentrated mana tonic base, filling an empty tonic slot with stronger mana recovery.",
+    campHomeArea: "processing",
     requiredLocation: "alchemistsHut",
     campUpgradeRequired: "campAlchemyStation",
     duration: 3,
@@ -5780,13 +5853,14 @@ const arcaneForceDefinitions = {
 const goalDefinitions = {
   investigateRegionalDisturbances: {
     title: "Extend the Regional Network",
-    text: "The established Northern Node has exposed disturbances to the east and south. Pursue either route first.",
+    text: "The established Northern Node has exposed disturbances to the east and south and an anchor at the Arcane Archive. Pursue the three routes in any order.",
     items: [
       { label: "Investigate the Northern Disturbance", isComplete: function () { return !!gameState.northernDisturbance && gameState.northernDisturbance.resolved; } },
       { label: "Investigate the Eastern Disturbance", isComplete: function () { return !!gameState.regionalProgress && !!gameState.regionalProgress.east && gameState.regionalProgress.east.disturbanceResolved; } },
       { label: "Activate the Eastern Node", isComplete: function () { const node = getTowerNodeState("east"); return !!node && node.built; } },
       { label: "Investigate the Southern Disturbance", isComplete: function () { return !!gameState.regionalProgress && !!gameState.regionalProgress.south && gameState.regionalProgress.south.disturbanceResolved; } },
       { label: "Activate the Southern Node", isComplete: function () { const node = getTowerNodeState("south"); return !!node && node.built; } },
+      { label: "Activate the Western Node", isComplete: function () { const node = getTowerNodeState("west"); return !!node && node.built; } },
     ],
   },
   investigateNorthernDisturbance: {

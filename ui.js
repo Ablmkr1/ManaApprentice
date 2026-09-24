@@ -1,7 +1,7 @@
 const ui = {};
 let resourceElements = {};
 let panelElements = {};
-const MAIN_VIEW_NAMES = ["home", "camp", "expedition", "magic", "tower", "journal"];
+const MAIN_VIEW_NAMES = ["home", "camp", "character", "expedition", "magic", "tower", "journal"];
 const UI_VITAL_RESOURCE_NAMES = ["energy", "mana", "focus", "ward"];
 let currentMainView = null;
 let mainViewUserSelected = false;
@@ -237,7 +237,8 @@ function hookDomToUI() {
 
   if (ui.inventorySummary) {
     ui.inventorySummary.addEventListener("click", function () {
-      setMainView("camp", { userSelected: true });
+      setMainView("home", { userSelected: true });
+      if (typeof selectHomeArea === "function") selectHomeArea("storage");
       if (ui.campResourcesSection) {
         ui.campResourcesSection.open = true;
         ui.inventorySummary.setAttribute("aria-expanded", "true");
@@ -746,6 +747,11 @@ function getUiViewCopy(viewName) {
         location === "Unknown Woods"
           ? "Recover enough strength to explore and find a defensible place."
           : "Your camp is the anchor. Recover, build what you need, and choose the next useful step.",
+    },
+    character: {
+      eyebrow: "The apprentice",
+      title: "Ready yourself for the road ahead.",
+      description: "Inspect your equipment, tools, and traveling supplies.",
     },
     expedition: {
       eyebrow: location,
@@ -1470,7 +1476,8 @@ function getDefaultMainView() {
 
 function isMainViewAvailable(viewName) {
   if (viewName === "home") return isHomeUnlocked();
-  if (viewName === "camp") return typeof isHomeCampEstablished === "function" ? isHomeCampEstablished() : !!gameState.hasCamp;
+  if (viewName === "camp") return false;
+  if (viewName === "character") return hasUnlockedOrPurchasedGear() || isMainViewAvailable("expedition");
   if (viewName === "journal") return true;
 
   if (viewName === "expedition") {
@@ -1629,6 +1636,7 @@ function updateResource(resourceName) {
   const resource = getResource(resourceName);
 
   if (!resource) return;
+  if (resourceName === "fuel" && typeof updateProcessingFuelDisplay === "function") updateProcessingFuelDisplay();
 
   if (UI_VITAL_RESOURCE_NAMES.includes(resourceName) && resource.display && resource.display.dataset.vitalEnhanced === "true") {
     renderVitalResource(resourceName, resource);
@@ -1726,6 +1734,7 @@ function updateAllActionButtons() {
   updatePrimaryActionEmphasis();
   updateShellContext();
   updateCampWorkVisibility();
+  if (typeof refreshProductionSpellOptions === "function") refreshProductionSpellOptions();
 }
 
 function updateLocationPrimaryActionsVisibility() {
@@ -2080,6 +2089,10 @@ function getUiActionAvailability(actionName) {
 
   const cost = getActionCost(actionName);
 
+  if (actionName === "practiceManaCycling" && getManaCyclingAvailableMana() < getResource("mana").maxValue) {
+    return { state: "unaffordable", reason: "Requires a full mana pool (" + getResource("mana").maxValue + " Mana)" };
+  }
+
   if (!canAffordCost(cost)) {
     return { state: "unaffordable", reason: getUiCostShortfall(cost) || "Insufficient resources" };
   }
@@ -2169,7 +2182,6 @@ function getUiActionContextReason(actionName) {
     "useHuntingLure",
     "huntGame",
     "storePelt",
-    "storeWood",
     "storeOre",
     "storeHerb",
     "storeGlimmerleaf",
@@ -2345,14 +2357,6 @@ function isActionContextAvailable(actionName) {
   if (actionName === "takeLeather") {
     const location = getExpeditionLocation(locationName);
     return !!location && !!location.storage && location.storage.leather > 0 && hasCarrySpace("leather", 1);
-  }
-
-  if (actionName === "storeWood") {
-    const location = getExpeditionLocation(locationName);
-    const carriedItems = gameState.expedition.carriedItems;
-    const carriedFuelValue = (carriedItems.wood || 0) + (carriedItems.imbuedWood || 0) * 4;
-
-    return !!location && !!location.storage && location.storage.fuel !== undefined && carriedFuelValue > 0;
   }
 
   if (actionName === "storeOre") {
@@ -2580,7 +2584,7 @@ function syncPackingControlGroupState(actionName) {
 }
 
 function updateExpeditionLoadoutVisibility() {
-  const campUnlocked = gameState.phase === "expedition";
+  const campUnlocked = isMainViewAvailable("character");
 
   if (campUnlocked) {
     if (hasUnlockedOrPurchasedGear()) {
@@ -3031,7 +3035,7 @@ function updateLocationStorageUI(location) {
 
   ui.locationStorageList.innerHTML = "";
 
-  if (!location || !location.storage) {
+  if (!location || !location.storage || !location.explored) {
     hideElement(ui.locationStorageSection);
     return;
   }

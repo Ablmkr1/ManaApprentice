@@ -4,7 +4,7 @@ const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const output = path.join(__dirname, 'south-screenshots');
+const output = process.env.SOUTH_SCREENSHOT_DIR || path.join(__dirname, 'south-screenshots');
 fs.mkdirSync(output, { recursive: true });
 (async () => {
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
@@ -108,8 +108,8 @@ fs.mkdirSync(output, { recursive: true });
     for(let i=0;i<2;i++){await action('exploreLocation').click();await page.evaluate(()=>expeditionQA.advance());}assert(await page.evaluate(()=>getExpeditionLocation('alchemistsHut').explored));
     await page.evaluate(()=>{const o=getLocationObject('alchemistsHut','studyInfusionPattern');o.progress=0;o.spellCharges={};o.manaSenseCharges=0;expeditionQA.refresh();});await chooseMarker('study');await visible(panel.locator('[data-location-object="studyInfusionPattern"]'));await shot('hut-study-locked');
     for(let i=0;i<3;i++){await page.locator('#expeditionLocalUtilities').getByRole('button',{name:/Cast Mana Sense/}).click();await page.evaluate(()=>{expeditionQA.advance();expeditionQA.refresh();});}await shot('hut-study-ready');await panel.locator('[data-location-object="studyInfusionPattern"]').click();await page.evaluate(()=>expeditionQA.advance());assert(await page.evaluate(()=>isLocationObjectComplete(getLocationObject('alchemistsHut','studyInfusionPattern'))));await shot('hut-study-complete');
-    await page.evaluate(()=>{Object.assign(gameState.expedition.carriedItems,{wood:3,herb:3,glimmerleaf:3});Object.assign(getExpeditionLocation('alchemistsHut').storage,{fuel:30,staminaTonicBase:4,manaTonicBase:4});expeditionQA.refresh();});await chooseMarker('stores');
-    for(const id of ['storeWood','storeHerb','storeGlimmerleaf','concentrateTonicBase','concentrateManaTonicBase']){await visible(action(id));await action(id).click();await page.evaluate(()=>{if(isActivityActive())expeditionQA.advance();});assert.equal(await marker('stores').getAttribute('aria-pressed'),'true');}await shot('hut-storage-concentration');
+    await page.evaluate(()=>{Object.assign(gameState.expedition.carriedItems,{herb:3,glimmerleaf:3});Object.assign(getExpeditionLocation('alchemistsHut').storage,{staminaTonicBase:4,manaTonicBase:4});getResource('fuel').value=30;expeditionQA.refresh();});await chooseMarker('stores');
+    for(const id of ['storeHerb','storeGlimmerleaf','concentrateTonicBase','concentrateManaTonicBase']){await visible(action(id));await action(id).click();await page.evaluate(()=>{if(isActivityActive())expeditionQA.advance();});assert.equal(await marker('stores').getAttribute('aria-pressed'),'true');}await shot('hut-storage-concentration');
     assert(await page.evaluate(()=>getExpeditionLocation('alchemistsHut').storage.concentratedTonicBase>0 && getExpeditionLocation('alchemistsHut').storage.concentratedManaTonicBase>0));
     for(const [state,flags] of [['discovered',{activated:true,researchUnlocked:false,built:false}],['unbuilt',{activated:true,researchUnlocked:true,built:false}],['built',{activated:true,researchUnlocked:true,built:true}]]){
       await page.evaluate(flags=>{Object.assign(getTowerNodeState('south'),flags);if(flags.built){const n=getTowerNodeState('south');n.deposits={...getTowerNodeDefinition('south').materials};n.imbueProgress=getTowerNodeDefinition('south').imbueRequired;}expeditionQA.refresh();},flags);await chooseMarker('node');assert.equal(await page.locator('#expeditionSurface').getAttribute('data-node-state'),state);assert((await page.locator('#expeditionDetailInfo').innerText()).includes('Southern'));await shot('hut-node-'+state);if(state!=='discovered'){await visible(panel.locator('#towerNodePanel'));await panel.locator('#towerNodePanel').scrollIntoViewIfNeeded();await root.screenshot({path:path.join(output,'hut-node-controls-'+state+'.png')});}

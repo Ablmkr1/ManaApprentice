@@ -355,6 +355,8 @@
 .home-place-shelter[data-home-stage="framed-shelter"] { --art-image: url("assets/home/station-shelter-framed.png"); }
 .home-place-shelter[data-home-stage="small-hut"] { --art-image: url("assets/home/station-shelter-hut.png"); width: 25%; height: 22%; }
 .home-place-study { --art-image: url("assets/home/station-study.png"); top: 57%; left: 3%; width: 22%; height: 18%; }
+/* The spot remains visible until dedicated station-research-bench.png artwork is supplied. */
+.home-place-study[data-home-stage="research-bench"] { --art-image: url("assets/home/station-research-bench.png"), url("assets/home/station-study.png"); }
 .home-place-processing { --art-image: url("assets/home/station-processing.png"); top: 58%; right: 18%; width: 20%; height: 17%; }
 .home-place-meditation { --art-image: url("assets/home/station-meditation.png"); top: 37%; left: 32%; width: 20%; height: 18%; }
 .home-place-meditation[data-home-stage="attuned-meditation-spot"] { --art-image: url("assets/home/station-meditation-attuned.png"); }
@@ -527,3 +529,6 @@
   .home-area-close { transition: none; }
   .home-area-panel { animation: none; }
 }
+#processingFuelSection { display: none; }
+#homeAreaPanel[data-home-area="processing"] #processingFuelSection { display: block; }
+#processingFuelAmount { display: inline-block; margin: 0 0 0.75rem; font-weight: 700; }

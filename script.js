@@ -10,26 +10,11 @@ const DEV_RESOURCE_BASE_MAX_VALUES = {
   mana: 10,
   focus: 3,
   ward: 10,
-  manaCrystal: 100,
   water: 100,
-  food: 100,
-  wood: 100,
   fuel: 2000,
   imbuedWood: 500,
-  fiber: 100,
   trap: 5,
-  pelt: 100,
-  stone: 100,
-  leather: 100,
-  ore: 100,
-  iron: 100,
-  steel: 100,
   ironRing: 20,
-  earthElementalCore: 100,
-  runedLeather: 100,
-  naturalEssence: 100,
-  nails: 100,
-  herb: 100,
   glimmerleaf: 50,
   staminaTonic: 20,
   improvedStaminaTonic: 20,
@@ -40,7 +25,6 @@ const DEV_RESOURCE_BASE_MAX_VALUES = {
   manaTonicBase: 20,
   concentratedTonicBase: 20,
   concentratedManaTonicBase: 20,
-  chargedCrystal: 100,
   crudeIronPickHead: 1,
   ironKnifeBlade: 1,
   ironAxeHead: 1,
@@ -111,6 +95,8 @@ const DEV_T3_RESEARCH = [
 ];
 const DEV_T4_RESEARCH = [
   "leatherworking",
+  "leatherGear",
+  "reinforcedLeatherwork",
   "smelting",
   "crudeIronPick",
   "ironTools",
@@ -477,6 +463,7 @@ function resetDevTierBaseline() {
   resetDevTierActions();
   resetDevTierResearch();
   resetDevTierBuildables();
+  syncDefaultResourceStorageCaps();
   resetDevTierLocations();
   resetDevTierDungeons();
   resetDevTierWorld();
@@ -575,7 +562,9 @@ function resetDevTierResources() {
     resource.value = 0;
     resource.perSecond = 0;
 
-    if (Number.isFinite(DEV_RESOURCE_BASE_MAX_VALUES[resourceName])) {
+    if (resource.usesDefaultStorageCap) {
+      resource.maxValue = getDefaultResourceStorageCap();
+    } else if (Number.isFinite(DEV_RESOURCE_BASE_MAX_VALUES[resourceName])) {
       resource.maxValue = DEV_RESOURCE_BASE_MAX_VALUES[resourceName];
     }
 

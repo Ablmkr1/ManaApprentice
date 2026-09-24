@@ -4,7 +4,7 @@ const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const output = path.join(__dirname, 'expedition-screenshots');
+const output = process.env.EXPEDITION_SCREENSHOT_DIR || path.join(__dirname, 'expedition-screenshots');
 fs.mkdirSync(output, { recursive: true });
 (async () => {
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
@@ -99,7 +99,7 @@ fs.mkdirSync(output, { recursive: true });
     await action('beginExpedition').click();
     await page.evaluate(() => { if (isActivityActive()) expeditionQA.advance(); });
     assert.equal(await page.evaluate(() => ExpeditionScene.mode()), 'preparing');
-    await visible(page.locator('#packingSection'));
+    await visible(action('packFood'));
     await action('packFood').click();
     await page.evaluate(() => { if (isActivityActive()) expeditionQA.advance(); });
     assert((await page.evaluate(() => getCarriedTotal())) > 0);
@@ -194,14 +194,13 @@ fs.mkdirSync(output, { recursive: true });
     await shot('northern-node-unbuilt-desktop');
     await page.evaluate(() => { Object.assign(getTowerNodeState('north'), { built: true, advancedRecallUnlocked: true }); expeditionQA.refresh(); });
     await chooseMarker('smelter');
-    // Study Smelter Heat stays next to its exact existing Mana Sense requirements.
+    // Strike the Anvil stays next to its exact existing Mana Sense requirements.
     await page.evaluate(() => { const o = getLocationObject('minersCamp', 'studySmelterHeat'); o.progress = 0; o.spellCharges = {}; expeditionQA.refresh(); });
-    assert.match(await panel.innerText(), /Study Smelter Heat/);
-    await visible(action('storeWood')); await visible(action('storeOre')); await visible(action('takeIron'));
-    await page.evaluate(() => { gameState.expedition.carriedItems.ore = 5; gameState.expedition.carriedItems.wood = 5; expeditionQA.refresh(); });
+    assert.match(await panel.innerText(), /Strike the Anvil/);
+    await visible(action('storeOre')); await visible(action('takeIron'));
+    await page.evaluate(() => { gameState.expedition.carriedItems.ore = 5; expeditionQA.refresh(); });
     await action('storeOre').click(); await page.evaluate(() => { if (isActivityActive()) expeditionQA.advance(); });
-    await action('storeWood').click(); await page.evaluate(() => { if (isActivityActive()) expeditionQA.advance(); });
-    await page.evaluate(() => { const s = getExpeditionLocation('minersCamp').storage; s.ore = 30; s.fuel = 30; expeditionQA.refresh(); });
+    await page.evaluate(() => { const s = getExpeditionLocation('minersCamp').storage; s.ore = 30; getResource('fuel').value = 30; expeditionQA.refresh(); });
     await visible(panel.locator('#ironCraftBtn'));
     await panel.locator('#ironCraftBtn').click();
     assert.equal(await page.evaluate(() => gameState.activity.kind), 'craft');

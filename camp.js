@@ -140,6 +140,7 @@ const EQUIPMENT_ICON_ASSETS = {
   scratchyPants: "assets/icons/icon-trousers-wool.png",
   leatherPants: "assets/icons/icon-trousers-leather.png",
   foragingBasket: "assets/icons/icon-basket-foraging.png",
+  foragersBasket: "assets/icons/icon-basket-foraging.png",
   waterskin: "assets/icons/icon-waterskin.png",
   reinforcedWaterskin: "assets/icons/icon-waterskin-reinforced.png",
   smellyShoes: "assets/icons/icon-shoes-crude.png",
@@ -1712,10 +1713,6 @@ function completeResearch(researchName, costAlreadyPaid = false) {
 }
 
 function checkResearchDiscoveries() {
-  if (gameState.towerConstructionUnlocked && gameState.archiveDoorOpened && getExpeditionLocation("arcaneArchive").explored) {
-    // Discovery only. Research, material deposits and imbuement are still required.
-    getTowerNodeState("west").activated = true;
-  }
   ["manaCycling", "elementalBinding", "elementalHarnessing", "elementalAttunement"].forEach(unlockResearchSystem);
   const researchDefinitions = getResearchDefinitions();
 
@@ -2064,14 +2061,19 @@ function getActiveCraftContext(craft) {
 
   if (requiredLocation === "camp") {
     if (!isCampCraftingContext()) return null;
-  } else if (gameState.expedition.currentLocation !== requiredLocation) {
-    return null;
+  } else {
+    const location = getExpeditionLocation(requiredLocation);
+    if (gameState.expedition.currentLocation !== requiredLocation || !location || !location.explored) return null;
   }
+
+  const storageCost = craft.storageCost ? getImbueAdjustedCraftCost(craft, craft.storageCost) : null;
+  const fuelCost = storageCost?.fuel || 0;
+  if (storageCost) delete storageCost.fuel;
 
   return {
     mode: requiredLocation === "camp" ? "camp" : "location",
-    cost: getImbueAdjustedCraftCost(craft, craft.cost || {}),
-    storageCost: craft.storageCost ? getImbueAdjustedCraftCost(craft, craft.storageCost) : null,
+    cost: { ...getImbueAdjustedCraftCost(craft, craft.cost || {}), ...(fuelCost > 0 ? { fuel: fuelCost } : {}) },
+    storageCost,
     produces: craft.produces || null,
     storageProduces: craft.storageProduces || null,
     producesConsumable: craft.producesConsumable || null,
@@ -2260,6 +2262,10 @@ function completeCampUpgrade(upgradeName) {
   upgrade.purchased = true;
   upgrade.unlocked = false;
   upgrade.onComplete();
+  if (upgradeName === "storageCache") {
+    syncDefaultResourceStorageCaps();
+    applyBasementStorageUpgrade();
+  }
 
   updateCampUpgradeUI(upgradeName);
   updateCraftingSectionVisibility();
@@ -2430,6 +2436,11 @@ function syncContextualActionPlacement() {
       isActionContextAvailable(actionName);
     const target = atLocation ? ui.locationPrimaryActions : craftingActions;
 
+    if (button) {
+      const visibleInHomeArea = typeof isCraftVisibleInCurrentHomeArea !== "function" || isCraftVisibleInCurrentHomeArea({ campHomeArea: "processing" });
+      button.hidden = !atLocation && !visibleInHomeArea;
+    }
+
     if (button && target && button.parentElement !== target) {
       target.appendChild(button);
     }
@@ -2508,6 +2519,7 @@ function renderContextualCraftingSpellActions() {
       const definition = getProductionSpellDefinition(spellName, targetName);
       const visiblePermanentImbue = spellName === "imbue" && definition && definition.permanentImbue && isImbueRankTwoTargetVisible(targetName);
       if (!isProductionSpellTargetAvailable(spellName, targetName) && !visiblePermanentImbue && !(spellName === "imbue" && definition && definition.toolCharge && isCampCraftingContext())) continue;
+      if (typeof isCraftVisibleInCurrentHomeArea === "function" && !isCraftVisibleInCurrentHomeArea(definition)) continue;
       const targetContext = getProductionSpellTargetContext(spellName, targetName);
       const context = {
         type: "productionSpell",
@@ -2749,7 +2761,7 @@ function getEquipmentEffectText(item) {
   if (effects.travelEnergyMultiplier !== undefined) parts.push("Travel Energy −" + Math.round((1 - effects.travelEnergyMultiplier) * 100) + "%");
   if (effects.travelDistanceFlat !== undefined) parts.push("Travel +" + effects.travelDistanceFlat + " distance / step");
   if (effects.tonicSlots !== undefined) parts.push("Tonics " + effects.tonicSlots);
-  if (effects.forageYieldFlat !== undefined) parts.push("Food +" + effects.forageYieldFlat, "Herb +" + effects.forageYieldFlat);
+  if (effects.forageYieldFlat !== undefined) parts.push("Food +" + (effects.foodYieldFlat ?? effects.forageYieldFlat), "Herb +" + effects.forageYieldFlat);
   if (effects.cuttingYieldFlat !== undefined) parts.push("Fiber +" + effects.cuttingYieldFlat);
   if (effects.huntRewardFlat !== undefined) parts.push("Pelts +" + effects.huntRewardFlat);
   if (effects.choppingYieldFlat !== undefined) parts.push("Wood +" + effects.choppingYieldFlat);
@@ -4016,7 +4028,8 @@ function updateResourceCraftUI(craftName) {
     }
   }
 
-  craft.button.style.display = context && isResourceCraftUnlockedForContext(craft, context) ? "grid" : "none";
+  const visibleInHomeArea = typeof isCraftVisibleInCurrentHomeArea !== "function" || isCraftVisibleInCurrentHomeArea(craft);
+  craft.button.style.display = context && visibleInHomeArea && isResourceCraftUnlockedForContext(craft, context) ? "grid" : "none";
   updateCraftButtonLabel("resourceCraft", craftName);
   updateCraftingButtons();
 }
@@ -4949,16 +4962,18 @@ function triggerRegionalProgression() {
   gameState.regionalProgress.unlocked = true;
   east.disturbanceTriggered = true;
   south.disturbanceTriggered = true;
+  activateTowerNode("west", false);
 
   if (!wasUnlocked) {
-    addStoryEntry("The Northern Node steadies, and two more disturbances answer at once: a quick predatory pulse in the Eastern Deepwood and a dense living pattern in the Southern Overgrowth.");
+    addStoryEntry("The Northern Node steadies, and disturbances answer in the east and south. A western anchor also stirs at the Arcane Archive.");
     addJournalEntry("easternDisturbanceDiscovered");
     addJournalEntry("southernDisturbanceDiscovered");
   }
 
   const eastNode = getTowerNodeState("east");
   const southNode = getTowerNodeState("south");
-  if (!eastNode?.built || !southNode?.built) setCurrentGoal("investigateRegionalDisturbances");
+  const westNode = getTowerNodeState("west");
+  if (!eastNode?.built || !southNode?.built || !westNode?.built) setCurrentGoal("investigateRegionalDisturbances");
   updateLocationActions();
   updatePlacePanel();
   return !wasUnlocked;
@@ -9730,6 +9745,11 @@ function renderProductionSpellTargetMenu(spellName, menuEl) {
   }
 }
 
+function refreshProductionSpellOptions() {
+  if (openSpellMenuName && isProductionSpell(openSpellMenuName)) renderOpenSpellTargetMenu();
+  if (ui.craftingSpellActions) renderContextualCraftingSpellActions();
+}
+
 function createImbueToolOption(definition, context) {
   const tool = definition.toolCharge;
   const selectedMana = getImbueToolSelectedMana(tool);
@@ -10855,6 +10875,10 @@ function isProductionSpellTargetAvailable(spellName, targetName, requestedContex
   if (!definition) return false;
   if (!targetContext) return false;
 
+  // Recipes without an explicit research/flag unlock become known when their
+  // ingredients are discovered; spending the last ingredient does not hide them.
+  if (!requestedContext?.costPaid && !definition.requires && !hasDiscoveredProductionSpellMaterials(targetContext)) return false;
+
   if (spellName === "imbue" && targetName === "manaCrystal" && getImbueCapacity() < 20) return false;
   if (spellName === "arcaneForce" && getArcaneForceLevel() < (definition.requiredForceLevel || 0)) return false;
   if (spellName === "arcaneForce" && definition.requiredForceRank && getArcaneForceRank() < definition.requiredForceRank) return false;
@@ -10866,9 +10890,6 @@ function isProductionSpellTargetAvailable(spellName, targetName, requestedContex
 
   if (!areProductionSpellTargetRequirementsMet(definition.requires)) return false;
 
-  if (!requestedContext?.costPaid && !canAffordProductionSpellMaterialCost(targetContext.cost)) return false;
-  if (!canAffordStorageCost(targetContext.storageCost)) return false;
-  if (targetContext.carriedCost && !canAffordCarriedCost(targetContext.carriedCost)) return false;
   if (!canReceiveProductionProduces(targetContext.produces)) return false;
   if (!canReceiveStorageProduces(targetContext.storageProduces)) return false;
   if (!canReceiveCarriedProduces(targetContext.carriedProduces, targetContext.carriedCost)) return false;
@@ -10887,18 +10908,13 @@ function isProductionSpellTargetAvailable(spellName, targetName, requestedContex
   return true;
 }
 
-function canAffordProductionSpellMaterialCost(cost) {
-  if (!cost) return true;
-
-  for (let resourceName in cost) {
-    if (resourceName === "mana") continue;
-
-    const resource = getResource(resourceName);
-
-    if (!resource || resource.value < cost[resourceName]) return false;
-  }
-
-  return true;
+function hasDiscoveredProductionSpellMaterials(context) {
+  const costs = [context.cost, context.storageCost, context.carriedCost];
+  return costs.every(function (cost) {
+    return !cost || Object.keys(cost).every(function (resourceName) {
+      return ["mana", "focus", "energy"].includes(resourceName) || isResourceDiscovered(resourceName);
+    });
+  });
 }
 
 function canReceiveProductionProduces(produces) {
@@ -10997,6 +11013,7 @@ function canApplyProductionSpellTarget(spellName, targetName) {
   if (!isProductionSpellTargetAvailable(spellName, targetName)) return false;
 
   if (!canAffordCost(targetContext.cost || {})) return false;
+  if (!canAffordStorageCost(targetContext.storageCost)) return false;
   if (targetContext.carriedCost && !canAffordCarriedCost(targetContext.carriedCost)) return false;
 
   return true;

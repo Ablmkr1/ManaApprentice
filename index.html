@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <title>Lost Wizard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="style.css?v=20260911-overhaul" />
+    <link rel="stylesheet" href="style.css?v=20260922-character" />
     <link rel="stylesheet" href="tower-visual-system.css?v=20260903-unified-tower-r1" />
     <link rel="stylesheet" href="home-ui.css?v=20260915-camp-attention" />
     <link rel="stylesheet" href="combat-scene.css?v=20260910" />
@@ -39,7 +39,8 @@
         <nav id="mainViewTabs" class="main-view-tabs" aria-label="Apprentice journal">
           <span class="nav-rail-label" aria-hidden="true">Apprentice journal</span>
           <button id="homeViewTab" class="main-view-tab" type="button" data-main-view-tab="home" style="display: none">Home</button>
-          <button id="campViewTab" class="main-view-tab active" type="button" data-main-view-tab="camp">Camp</button>
+          <button id="campViewTab" class="main-view-tab active" type="button" data-main-view-tab="camp" style="display: none">Camp</button>
+          <button id="characterViewTab" class="main-view-tab" type="button" data-main-view-tab="character" style="display: none">Character</button>
           <button id="expeditionViewTab" class="main-view-tab" type="button" data-main-view-tab="expedition" style="display: none">Expedition</button>
           <button id="magicViewTab" class="main-view-tab" type="button" data-main-view-tab="magic" style="display: none">Magic</button>
           <button id="towerViewTab" class="main-view-tab" type="button" data-main-view-tab="tower" style="display: none">Tower</button>
@@ -290,16 +291,6 @@
                     <span>Gather Wood</span>
                   </button>
 
-                  <button class="action-btn" data-action="addWoodToFuel" style="display: none">
-                    <div class="progressFill"></div>
-                    <span>Add Wood to Fuel</span>
-                  </button>
-
-                  <button class="action-btn" data-action="addImbuedWoodToFuel" style="display: none">
-                    <div class="progressFill"></div>
-                    <span>Add Imbued Wood to Fuel</span>
-                  </button>
-
                   <button id="gatherFoodBtn" class="action-btn" data-action="gatherFood" style="display: none">
                     <div class="progressFill"></div>
                     <span>Gather Food</span>
@@ -334,6 +325,19 @@
                   </div>
                 </div>
               </details>
+
+              <section id="processingFuelSection" class="camp-actions-section">
+                <h3>Fuel</h3>
+                <div id="processingFuelAmount" class="resource-pill" aria-live="polite">Fuel: 0</div>
+                <div class="camp-actions-list">
+                  <button class="action-btn" data-action="addWoodToFuel" style="display: none">
+                    <div class="progressFill"></div><span>Add Wood to Fuel</span>
+                  </button>
+                  <button class="action-btn" data-action="addImbuedWoodToFuel" style="display: none">
+                    <div class="progressFill"></div><span>Add Imbued Wood to Fuel</span>
+                  </button>
+                </div>
+              </section>
 
               <div id="craftingSection" class="crafting-section" style="display: none">
                 <div id="workTabs" class="work-tabs" style="display: none">
@@ -468,13 +472,12 @@
             </section>
           </div>
 
-          <div id="expeditionView" class="main-view-panel" data-main-view-panel="expedition">
-            <section id="expeditionPanel" class="context-section" style="display: none">
-              <h2 id="expeditionPanelTitle">Expedition</h2>
-
-              <div id="expeditionWorkflowPanel" class="workflow-summary-panel"></div>
-
-              <div id="gearSection" class="gear-section expedition-gear-section" style="display: none">
+          <div id="characterView" class="main-view-panel" data-main-view-panel="character">
+            <section id="characterPanel" class="context-section character-panel" aria-labelledby="characterTitle">
+              <h2 id="characterTitle">Character</h2>
+              <p class="character-intro">Your equipment, tools, and supplies for the road ahead. Select an item to inspect its effects.</p>
+              <h3>Player Equipment</h3>
+              <div id="gearSection" class="gear-section character-equipment" style="display: none">
                 <div id="gearSlotsGroup" class="equipment-group" style="display: none">
                   <div id="paperDoll" class="paper-doll" aria-label="Equipped gear">
                     <div class="paper-doll-silhouette" aria-hidden="true"><img src="assets/paper-doll-apprentice.png" alt="" /></div>
@@ -491,37 +494,6 @@
                 <div id="tonicSlotsGroup" class="equipment-group" style="display: none">
                   <h3>Tonics</h3>
                   <div id="tonicSlots" class="equipment-slots"></div>
-                </div>
-              </div>
-
-              <div class="travel-section">
-                <h3>Travel</h3>
-
-                <div class="expedition-stats">
-                  <div id="expeditionDistanceBar" class="expedition-stat expedition-distance-bar">
-                    <div id="expeditionDistanceFill" class="expedition-distance-fill"></div>
-                    <span id="expeditionDistanceAmount" class="expedition-distance-label">Distance: 0 / 100</span>
-                  </div>
-                </div>
-
-                <div class="travel-actions">
-                  <button class="action-btn" data-action="beginExpedition" style="display: none">
-                    <div class="progressFill"></div>
-                    <span>Prepare for Expedition</span>
-                  </button>
-
-                  <button class="action-btn" data-action="travel" style="display: none">
-                    <div class="progressFill"></div>
-                    <span>Travel</span>
-                  </button>
-
-                  <div id="destinationActions" class="destination-actions"></div>
-                  <div id="locationTravelSection" class="destination-actions" style="display: none"></div>
-
-                  <button class="action-btn" data-action="returnToCamp" style="display: none">
-                    <div class="progressFill"></div>
-                    <span>Return to Camp</span>
-                  </button>
                 </div>
               </div>
 
@@ -587,6 +559,46 @@
                   <button class="action-btn" data-action="packChargedCrystal" style="display: none">
                     <div class="progressFill"></div>
                     <span>Pack Charged Mana Crystal</span>
+                  </button>
+                </div>
+              </div>
+
+            </section>
+          </div>
+
+          <div id="expeditionView" class="main-view-panel" data-main-view-panel="expedition">
+            <section id="expeditionPanel" class="context-section" style="display: none">
+              <h2 id="expeditionPanelTitle">Expedition</h2>
+
+              <div id="expeditionWorkflowPanel" class="workflow-summary-panel"></div>
+
+              <div class="travel-section">
+                <h3>Travel</h3>
+
+                <div class="expedition-stats">
+                  <div id="expeditionDistanceBar" class="expedition-stat expedition-distance-bar">
+                    <div id="expeditionDistanceFill" class="expedition-distance-fill"></div>
+                    <span id="expeditionDistanceAmount" class="expedition-distance-label">Distance: 0 / 100</span>
+                  </div>
+                </div>
+
+                <div class="travel-actions">
+                  <button class="action-btn" data-action="beginExpedition" style="display: none">
+                    <div class="progressFill"></div>
+                    <span>Prepare for Expedition</span>
+                  </button>
+
+                  <button class="action-btn" data-action="travel" style="display: none">
+                    <div class="progressFill"></div>
+                    <span>Travel</span>
+                  </button>
+
+                  <div id="destinationActions" class="destination-actions"></div>
+                  <div id="locationTravelSection" class="destination-actions" style="display: none"></div>
+
+                  <button class="action-btn" data-action="returnToCamp" style="display: none">
+                    <div class="progressFill"></div>
+                    <span>Return to Camp</span>
                   </button>
                 </div>
               </div>
@@ -700,11 +712,6 @@
                   <span>Take Leather</span>
                 </button>
 
-                <button class="action-btn" data-action="storeWood" style="display: none">
-                  <div class="progressFill"></div>
-                  <span>Store Fuel</span>
-                </button>
-
                 <button class="action-btn" data-action="storeOre" style="display: none">
                   <div class="progressFill"></div>
                   <span>Store Ore</span>
@@ -740,6 +747,7 @@
                   <div id="locationObjectActions" class="location-object-actions"></div>
                 </div>
 
+                <section id="brokenWardenEncounter" class="contextual-actions" style="display: none"></section>
                 <section id="locationContextualActions" class="contextual-actions" style="display: none">
                   <h3>Local actions</h3>
                 </section>
@@ -1075,14 +1083,14 @@
       </div>
     </div>
 
-    <script src="state.js?v=20260831-arcane-force-r2"></script>
+    <script src="state.js?v=20260922-progression"></script>
     <script src="expeditionData.js?v=20260830"></script>
-    <script src="content.js?v=20260911-overhaul"></script>
+    <script src="content.js?v=20260922-progression"></script>
     <script src="definitions.js?v=20260831-imbue2"></script>
-    <script src="ui.js?v=20260911-overhaul"></script>
-    <script src="resources.js?v=20260911-overhaul"></script>
-    <script src="skills.js?v=20260911-overhaul"></script>
-    <script src="camp.js?v=20260915-craft-refresh"></script>
+    <script src="ui.js?v=20260922-progression"></script>
+    <script src="resources.js?v=20260922-progression"></script>
+    <script src="skills.js?v=20260922-progression"></script>
+    <script src="camp.js?v=20260922-progression"></script>
     <script src="equipment.js?v=20260915-craft-refresh"></script>
     <script src="tower-visual-system.js?v=20260903-unified-tower-r1"></script>
     <script src="home-ui.js?v=20260915-camp-attention"></script>
@@ -1090,11 +1098,11 @@
     <script src="dungeon-scene.js?v=20260915-direct"></script>
     <script src="expedition-map-config.js?v=20260915"></script>
     <script src="expedition-map.js?v=20260915-found-map-gate"></script>
-    <script src="expedition-scene.js?v=20260915-direct"></script>
-    <script src="actions.js?v=20260915-craft-refresh"></script>
+    <script src="expedition-scene.js?v=20260922-progression"></script>
+    <script src="actions.js?v=20260922-progression"></script>
     <script src="combat.js?v=20260911-overhaul"></script>
     <script src="combat-scene.js?v=20260910"></script>
-    <script src="save.js?v=20260911-overhaul"></script>
-    <script src="script.js?v=20260911-overhaul"></script>
+    <script src="save.js?v=20260922-progression"></script>
+    <script src="script.js?v=20260922-progression"></script>
   </body>
 </html>

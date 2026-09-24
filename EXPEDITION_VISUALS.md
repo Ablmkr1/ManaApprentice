@@ -75,7 +75,7 @@ Coordinates below are percentages of the original raster, before the shared cove
 | `foothillScree` | Loose scree | 29%, 55% | Gather Stone; location/crafting magic; current Stone Sense effect, ore chance and canonical stone yield |
 | `foothillScree` | Rocky slope | 68%, 36% | Explore Location; existing completed-investigation status |
 | `foothillScree` | Trail & travel | 60%, 62% | Inspect existing routes; no immediate travel or work |
-| `minersCamp` | Smelter & stores | 28%, 46% | Store Fuel, Store Ore, Take Iron, Smelt Iron, local storage, Study Smelter Heat and its existing Mana Sense requirements; applicable magic |
+| `minersCamp` | Smelter & stores | 28%, 46% | Store Fuel, Store Ore, Take Iron, Smelt Iron, local storage, Strike the Anvil and its existing Mana Sense requirements; applicable magic |
 | `minersCamp` | Abandoned worksite | 75%, 54% | Explore Location, including the existing stream/worksite investigation sequence |
 | `minersCamp` | Northern Node | 72%, 30% | Existing node state, construction/materials/imbuement, thread sensing, Advanced Recall and golem/elemental assignments, gated by current progression |
 | `minersCamp` | Trail & travel | 40%, 62% | Inspect existing routes |
@@ -107,7 +107,7 @@ The browser suite uses `tests/overhaul-preview.html` and its disposable QA save 
 
 - North locked/undiscovered, only Scree discovered, and all three destinations discovered.
 - Scree investigation, Stone Sense unavailable/available/active, gathering progress and repeat actions.
-- Camp investigation, Study Smelter Heat, smelting progress, resource transfers.
+- Camp investigation, Strike the Anvil, smelting progress, resource transfers.
 - Node hidden, discovered, unbuilt, built, Advanced Recall and golem assignment at its actual camp location.
 - Iron Mine before node discovery, after node discovery/unbuilt, and after completion, with no leaked node UI or art; mining and disturbance/encounter gates.
 - Preparation, packing, open exploration, travel/pause/arrival, Return/Recall, node jumps and intra-region travel.

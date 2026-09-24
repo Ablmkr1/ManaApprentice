@@ -13,6 +13,8 @@ updateDungeonUI = function() {};
 updateBoundEarthElementalLiveUI = function() {};
 refreshBoundEarthElementalUI = function() {};
 updateLocationActions = function() {};
+updatePlacePanel = function() {};
+setCurrentGoal = function() {};
 ensureEquipmentCollection();
 const realRefreshAfterLoad = refreshGameUIAfterLoad;
 refreshGameUIAfterLoad = function() {};
@@ -39,7 +41,7 @@ assert(!getResearch('sturdyConstruction').requires.researchCompleted.includes('a
 assert(!getResearch('ancientManaCondenser').requires.researchCompleted,'condenser has no retired prerequisite');
 assert(getDungeon('roadsideRuinDepths').nodes.crackedHall.search.reward.carried.manaCrystal===1,'first crystal remains in early ruin');
 const manual = getProductionSpellDefinition('imbue','manaCrystal');
-assert(manual.cost.mana===20 && manual.cost.focus===4 && !manual.requires.campUpgradesPurchased && !manual.requires.towerNodes,'manual recipe costs and independent unlock preserved');
+assert(manual.cost.mana===20 && manual.cost.focus===2 && !manual.requires.campUpgradesPurchased && !manual.requires.towerNodes,'manual recipe costs and independent unlock preserved');
 gameState.manaCrystalImbuingUnlocked = true;
 gameState.expedition.currentLocation = 'roadsideRuin';
 gameState.expedition.active = true;
@@ -54,6 +56,7 @@ assert(!getProductionSpellTargetContext('imbue','manaCrystal'),'manual crystal c
 const frame = getCampUpgrade('manaCondenserFrame'); frame.unlocked=true;
 assert(!isCraftAvailable('campUpgrade','manaCondenserFrame'),'camp frame control unavailable');
 gameState.expedition.currentLocation='roadsideRuin';
+getExpeditionLocation('roadsideRuin').explored=true;
 assert(isCraftAvailable('campUpgrade','manaCondenserFrame') && frame.cost.wood===20 && frame.cost.energy===40,'Western construction preserves original cost');
 gameState.expedition.currentLocation=null;
 getCampUpgrade('manaCondenser').purchased=true;
@@ -63,7 +66,8 @@ assert(gameState.world.regions.west.unlocked && getExpeditionLocation('roadsideR
 assert(!getTowerNodeState('west').built && !gameState.archiveDoorOpened,'migration does not activate node or open archive');
 assert(!isResearchDiscoverable(getResearch('westernTowerNode')),'Western node is gated before archive and Heart');
 gameState.towerConstructionUnlocked=true;
-gameState.archiveDoorOpened=true;
+getTowerNodeState('north').built=true;
+triggerRegionalProgression();
 getExpeditionLocation('arcaneArchive').explored=true; getExpeditionLocation('arcaneArchive').discovered=true;
 checkResearchDiscoveries();
 assert(getResearch('westernTowerNode').unlocked && getTowerNodeState('west').activated && !getTowerNodeState('west').built,'Western node discovery does not grant construction');

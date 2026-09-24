@@ -106,6 +106,8 @@ const tests = `
 
   const basicNails = getArcaneForceDefinition("nails");
   const bulkNails = getArcaneForceDefinition("nailsBulk");
+  getCampUpgrade("storageCache").purchased = true;
+  syncDefaultResourceStorageCaps();
   getSpell("arcaneForce").unlocked = true;
   gameState.expedition.currentLocation = null;
   getResource("mana").maxValue = 200;

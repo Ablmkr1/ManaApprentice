@@ -125,7 +125,9 @@ const tests = `
   recordManaCyclingManaSpent(4);
   assert(skill.level === 0 && skill.breakthroughReady, 'Rank I still pauses at the 5 XP breakthrough');
   getResource('mana').value = 3;
-  assert(canPracticeManaCycling() && getManaCyclingCost().mana === 3, 'Breakthrough retains its available-mana cost');
+  assert(!canPracticeManaCycling(), 'Breakthrough requires a full mana pool');
+  getResource('mana').value = getResource('mana').maxValue;
+  assert(canPracticeManaCycling() && getManaCyclingCost().mana === getResource('mana').maxValue, 'Breakthrough costs one full mana pool');
   recordManaCycle();
   assert(skill.level === 1 && !skill.breakthroughReady && getSkillCapacity('manaCycling') === 5, 'Breakthrough preserves Rank I level and capacity');
   for (const [id,craft] of [['quarryHarness',craftElementalHarness],['herbalAttunement',craftElementalWorkerAttunement]]) {

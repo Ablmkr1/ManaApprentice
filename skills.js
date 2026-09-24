@@ -460,7 +460,8 @@ function isManaCyclingBreakthroughReady() {
 }
 
 function canPracticeManaCycling() {
-  return isManaCyclingBreakthroughReady() && getManaCyclingAvailableMana() > 0;
+  const mana = getResource("mana");
+  return isManaCyclingBreakthroughReady() && !!mana && getManaCyclingAvailableMana() >= mana.maxValue;
 }
 
 function applyManaCyclingLevel(skill, levelDefinition, wasBreakthrough) {
@@ -525,6 +526,8 @@ function recordManaCycle() {
 }
 
 function recordMeditation() {
+  if (!getResearch("meditation")?.completed) return;
+
   const skill = getSkillState("meditation");
   const oldLevel = skill.level;
   const progressField = skill.rank === RANK_TWO_SKILL_RANK ? "attunedMeditations" : "successfulMeditations";
@@ -872,7 +875,7 @@ function getManaCyclingCost() {
   return {
     energy: 10,
     focus: skill && skill.rank === RANK_TWO_SKILL_RANK ? 3 : 1,
-    mana: getManaCyclingAvailableMana(),
+    mana: getResource("mana").maxValue,
   };
 }
 
@@ -918,7 +921,7 @@ function getMiningYieldBase() {
 }
 
 function getGatherResourceYield(resourceName) {
-  if (resourceName === "food") return BASE_TOOL_GATHER_YIELDS.food + getForageYieldBonus();
+  if (resourceName === "food") return BASE_TOOL_GATHER_YIELDS.food + getToolEffectValue("forage", "foodYieldFlat", getForageYieldBonus());
   if (resourceName === "wood") return BASE_TOOL_GATHER_YIELDS.wood + getChoppingYieldBonus();
   if (resourceName === "fiber") return BASE_TOOL_GATHER_YIELDS.fiber + getCuttingYieldBonus();
 
@@ -971,7 +974,7 @@ function getMineOreAmount() {
 }
 
 function getMineResourceAmount(resourceName) {
-  const effectName = resourceName === "stone" ? "manualStoneFlat" : resourceName === "iron" ? "manualIronFlat" : null;
+  const effectName = resourceName === "stone" ? "manualStoneFlat" : resourceName === "ore" ? "manualIronFlat" : null;
   const resourceBonus = effectName && typeof getActiveAttunementEffectTotal === "function" ? getActiveAttunementEffectTotal(effectName) : 0;
   return getMineOreAmount() + resourceBonus;
 }

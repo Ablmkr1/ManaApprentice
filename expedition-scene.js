@@ -30,7 +30,8 @@ const ExpeditionScene = (() => {
         { id: "survey", title: "Pale archive walls", description: "Explore the archive and study the sealed entrance.", x: 36, y: 25, actions: ["exploreLocation"], investigation: true },
         { id: "condensation", title: "Hand Condensation", description: "20 Mana + 4 Focus produces one Mana Crystal. Search the archive for Ancient Mana Condenser plans.", x: 28, y: 65, actions: [], sections: ["craftingSpellActions"], visible: () => gameState.manaCrystalImbuingUnlocked },
         { id: "door", title: "Archive door", description: "Inspect the four-part door ritual and enter the ruin when unlocked.", x: 49, y: 36, actions: ["enterDungeon"], object: "sealedArchiveDoor", sections: ["expeditionLocationObjectActionsSlot", "locationSpellActions", "craftingSpellActions"] },
-        { id: "node", title: "Western Node", description: "Inspect the western anchor and its available local functions.", x: 75, y: 47, actions: [], sections: ["towerNodePanel", "locationContextualActions", "locationSpellActions", "craftingSpellActions"], visible: () => gameState.archiveDoorOpened && getExpeditionLocation("arcaneArchive").explored && !!nodeStatus() },
+        { id: "node", title: "Western Node", description: "Inspect the western anchor and its available local functions.", x: 75, y: 47, actions: [], sections: ["towerNodePanel", "locationContextualActions", "locationSpellActions", "craftingSpellActions"], visible: () => getExpeditionLocation("arcaneArchive").explored && !!nodeStatus() },
+        { id: "warden", title: "Broken Warden", description: "The regional guardian waits outside the archive after the three disturbances are resolved.", x: 60, y: 55, actions: [], sections: ["brokenWardenEncounter"], visible: () => canChallengeBrokenWarden() },
       ],
     },
     wildHerbPatch: {
@@ -49,7 +50,7 @@ const ExpeditionScene = (() => {
       landmarks: [
         { id: "survey", title: "Abandoned hut", description: "Explore the old workshop and its remains.", x: 32, y: 24, actions: ["exploreLocation"], investigation: true },
         { id: "study", title: "Study Infusion Pattern", description: "Study the patterns in the stained bowls and workshop notes.", x: 28, y: 43, actions: [], object: "studyInfusionPattern", sections: ["expeditionLocationObjectActionsSlot", "locationSpellActions", "craftingSpellActions"] },
-        { id: "stores", title: "Stores", description: "Inspect local supplies, transfer resources and concentrate tonic bases when available.", x: 57, y: 33, actions: ["storeWood", "storeHerb", "storeGlimmerleaf", "concentrateTonicBase", "concentrateManaTonicBase"], sections: ["locationStorageSection", "locationSpellActions", "craftingSpellActions"], crafts: true },
+        { id: "stores", title: "Stores", description: "Inspect local supplies, transfer resources and concentrate tonic bases when available.", x: 57, y: 33, actions: ["storeHerb", "storeGlimmerleaf", "concentrateTonicBase", "concentrateManaTonicBase"], sections: ["locationStorageSection", "locationSpellActions", "craftingSpellActions"], crafts: true },
         { id: "node", title: "Southern Tower Node", description: "Inspect the southern anchor and its available local functions.", x: 77, y: 45, actions: [], sections: ["towerNodePanel", "locationContextualActions", "locationSpellActions", "craftingSpellActions"], gated: "node" },
       ],
     },
@@ -67,6 +68,8 @@ const ExpeditionScene = (() => {
       landmarks: [
         { id: "tracks", title: "Track Game", description: "Inspect the tracks and follow the game trails.", x: 28, y: 42, actions: ["exploreLocation", "trackGame"], investigation: true, sections: ["locationSpellActions", "craftingSpellActions"] },
         { id: "hunt", title: "Hunt Game", description: "Hunt along the marked trails when your equipment and tracking allow it.", x: 72, y: 38, actions: ["huntGame"], sections: ["locationSpellActions", "craftingSpellActions"] },
+        { id: "sensePrey", title: "Sense Prey", x: 48, y: 24, actions: [], spellTarget: "sensePrey" },
+        { id: "lure", title: "Use Hunting Lure", x: 82, y: 58, actions: ["useHuntingLure"] },
       ],
     },
     huntersCabin: {
@@ -108,7 +111,7 @@ const ExpeditionScene = (() => {
       description: "Loose stone lies around a dark opening in the wooded hillside.",
       landmarks: [
         { id: "stones", title: "Loose stone", description: "Gather the loose stone around the cave mouth.", x: 27, y: 53, actions: ["gatherStone"], sections: ["locationSpellActions", "craftingSpellActions"] },
-        { id: "caveInterior", title: "Cave entrance", description: "Inspect the entrance and explore the interior with the required equipment.", x: 63, y: 41, actions: [], object: "caveInterior", sections: ["expeditionLocationObjectActionsSlot", "locationSpellActions", "craftingSpellActions"] },
+        { id: "caveInterior", title: "Cave entrance", description: "Inspect the entrance, meditate in the quiet, and explore the interior with the required equipment.", x: 63, y: 41, actions: ["meditate"], object: "caveInterior", sections: ["expeditionLocationObjectActionsSlot", "locationContextualActions", "locationSpellActions", "craftingSpellActions"] },
       ],
     },
     mysteriousTrail: {
@@ -132,7 +135,7 @@ const ExpeditionScene = (() => {
       artwork: "assets/expedition/miners-camp.webp",
       description: "A cold stream passes an abandoned worksite beneath the ridge.",
       landmarks: [
-        { id: "smelter", title: "Smelter & stores", description: "The old furnace, fuel pile and ore crates share a sheltered work area.", x: 28, y: 46, actions: ["storeWood", "storeOre", "takeIron"], sections: ["locationStorageSection", "expeditionLocationObjectActionsSlot", "locationSpellActions", "craftingSpellActions"], crafts: true },
+        { id: "smelter", title: "Smelter & stores", description: "The old furnace and ore crates share a sheltered work area.", x: 28, y: 46, actions: ["storeOre", "takeIron"], sections: ["locationStorageSection", "expeditionLocationObjectActionsSlot", "locationSpellActions", "craftingSpellActions"], crafts: true },
         { id: "survey", title: "Abandoned worksite", description: "Investigate the stream and the remains of the miners’ shelter.", x: 75, y: 54, actions: ["exploreLocation"], investigation: true },
         { id: "node", title: "Northern Node", description: "Inspect the northern anchor and its available local functions.", x: 72, y: 30, actions: [], sections: ["towerNodePanel", "locationContextualActions", "locationSpellActions", "craftingSpellActions"], gated: "node" },
       ],
@@ -142,6 +145,7 @@ const ExpeditionScene = (() => {
       description: "Rust-colored veins trace a dark opening in the northern ridge.",
       landmarks: [
         { id: "mine", title: "Mine entrance", description: "Inspect the old workings, then mine exposed stone and iron ore with the appropriate pick.", x: 27, y: 39, actions: ["exploreLocation", "mineStone", "mineIron"], sections: ["locationSpellActions", "craftingSpellActions"] },
+        { id: "ore", title: "Mine Iron Ore", x: 69, y: 32, actions: ["mineIron"] },
         { id: "disturbance", title: "Disturbed rock", description: "Follow the tremors through the exposed rock.", x: 72, y: 50, actions: ["investigateNorthernDisturbance", "challengeEarthElemental"], gated: "disturbance" },
       ],
     },
@@ -153,10 +157,10 @@ const ExpeditionScene = (() => {
     roadsideRuin: ["survey", "entrance"], silentGearworks: ["survey", "entrance"],
     arcaneArchive: ["survey"], wildHerbPatch: ["survey", "herbs"],
     alchemistsHut: ["survey"], overgrownFields: ["leaves", "disturbance"],
-    stagRuns: ["tracks", "hunt"], huntersCabin: ["survey"],
+    stagRuns: ["tracks", "hunt", "sensePrey", "lure"], huntersCabin: ["survey"],
     quietGrove: ["survey", "disturbance"], mysteriousPlants: ["plants"],
     creepyCave: ["stones"], foothillScree: ["scree", "survey"],
-    minersCamp: ["survey"], ironMine: ["mine", "disturbance"],
+    minersCamp: ["survey"], ironMine: ["mine", "ore", "disturbance"],
   };
   for (const [place, scene] of Object.entries(scenes)) {
     for (const landmark of scene.landmarks) {
@@ -197,6 +201,7 @@ const ExpeditionScene = (() => {
     refs.utilities = byId("expeditionLocalUtilities");
     new ResizeObserver(sizeArtwork).observe(refs.viewport);
     refs.travel = root.querySelector(".travel-section");
+    refs.travel.append(ui.packingSection);
     refs.travel.querySelector("h3").textContent = "Open exploration & travel";
     root.insertBefore(byId("regionalMapSection"), frame);
     const knowledge = document.createElement("details");
@@ -204,11 +209,6 @@ const ExpeditionScene = (() => {
     knowledge.innerHTML = '<summary>Regional familiarity & terrain</summary>';
     knowledge.append(root.querySelector(".region-details"));
     byId("regionalMapSection").append(knowledge);
-    const details = document.createElement("details");
-    details.className = "expedition-kit";
-    details.innerHTML = '<summary>Pack & equipment</summary>';
-    details.append(byId("gearSection"));
-    root.append(details);
     byId("expeditionWorkflowPanel").innerHTML = '<div class="expedition-status"><span id="expeditionPackStatus"></span><span id="expeditionWaterStatus"></span></div>';
     refs.browse.addEventListener("click", () => { browsing = !browsing; selected = null; render(); });
     byId("expeditionDetailClose").addEventListener("click", close);
@@ -247,8 +247,26 @@ const ExpeditionScene = (() => {
     if (mode() !== "location" || !action?.unlocked || !action.button || action.button.disabled) return;
     action.button.click();
   }
+  function activateSpellTarget(id) {
+    if (mode() === "location" && canApplyManaSenseTarget(id)) castTargetedSpell("manaSense", getManaSenseTargetContext(id));
+  }
   function primaryAction(landmark) {
-    return landmark.actions.find(id => getAction(id)?.unlocked) || landmark.actions[0];
+    return landmark.actions.find(id => id !== "exploreLocation" && getAction(id)?.unlocked && getExpeditionLocation(gameState.expedition.currentLocation).explored)
+      || landmark.actions.find(id => getAction(id)?.unlocked) || landmark.actions[0];
+  }
+  function updateSpellTargetButton(button, id) {
+    const definition = getManaSenseDefinition(id), active = isManaSenseTargetActive(id);
+    const running = isActivityActive() && gameState.activity.kind === "spell" && gameState.activity.context?.targetId === id;
+    button.hidden = !getSpell("manaSense")?.unlocked || !isManaSenseTargetVisible(id);
+    button.disabled = !canApplyManaSenseTarget(id);
+    text(button.querySelector("strong"), definition.label);
+    text(button.querySelector("small"), [formatSpellOptionDetails("manaSense", definition, getManaSenseTargetContext(id)), active ? definition.activeDescription : running ? "Casting" : isActivityActive() ? "Another task is in progress" : getUiCostShortfall(definition.cost)].filter(Boolean).join(" · "));
+    button.dataset.uiState = running ? "running" : active ? "complete" : button.disabled ? "blocked" : "ready";
+    button.setAttribute("aria-label", definition.label);
+    const description = button.querySelector("small");
+    description.id = "expedition-action-info-" + (button.dataset.directKey || "landmark-" + button.dataset.landmark).replace(/:/g, "-");
+    button.setAttribute("aria-describedby", description.id);
+    button.querySelector(".progressFill")?.style.setProperty("width", running ? Math.min(100, Math.max(0, (getGameTime() - gameState.activity.startTime) / (gameState.activity.duration * 10))) + "%" : "0%");
   }
   function updateDirectButton(button, id, completed = false) {
     const action = getAction(id), source = action?.button;
@@ -305,24 +323,17 @@ const ExpeditionScene = (() => {
         button.dataset.directKey = key; button.innerHTML = '<strong></strong><small></small><span class="direct-progress" aria-hidden="true"><span class="progressFill"></span></span>';
         button.addEventListener("click", () => {
           if (kind === "action") activateAction(id);
-          else if (mode() === "location" && canApplyManaSenseTarget(id)) castTargetedSpell("manaSense", getManaSenseTargetContext(id));
+          else activateSpellTarget(id);
         });
         refs.direct.append(button);
       }
       if (refs.direct.children[index] !== button) refs.direct.insertBefore(button, refs.direct.children[index] || null);
       if (kind === "action") {
         const complete = id === "exploreLocation" && getExpeditionLocation(gameState.expedition.currentLocation).explored;
-        button.hidden = !getAction(id)?.unlocked && !complete;
+        button.hidden = complete || !getAction(id)?.unlocked;
         updateDirectButton(button, id, complete);
       } else {
-        const definition = getManaSenseDefinition(id), active = isManaSenseTargetActive(id);
-        const running = isActivityActive() && gameState.activity.kind === "spell" && gameState.activity.context?.targetId === id;
-        button.hidden = !getSpell("manaSense")?.unlocked || !isManaSenseTargetVisible(id);
-        button.disabled = !canApplyManaSenseTarget(id);
-        text(button.querySelector("strong"), definition.label);
-        text(button.querySelector("small"), [formatSpellOptionDetails("manaSense", definition, getManaSenseTargetContext(id)), active ? definition.activeDescription : running ? "Casting" : isActivityActive() ? "Another task is in progress" : getUiCostShortfall(definition.cost)].filter(Boolean).join(" · "));
-        button.dataset.uiState = running ? "running" : active ? "complete" : button.disabled ? "blocked" : "ready";
-        button.querySelector(".progressFill").style.width = running ? Math.min(100, Math.max(0, (getGameTime() - gameState.activity.startTime) / (gameState.activity.duration * 10))) + "%" : "0%";
+        updateSpellTargetButton(button, id);
       }
     }
     for (const option of refs.utilities.querySelectorAll("[data-mana-sense-target]")) option.hidden = option.dataset.manaSenseTarget === target;
@@ -331,7 +342,7 @@ const ExpeditionScene = (() => {
     const place = gameState.expedition.currentLocation;
     if (place === "foothillScree") info = "Per gathering cycle: " + getGatherStoneAmount() + " Stone. Ore find chance: " + Math.round(getFoothillScreeOreFindChance() * 100) + "%. Stone Sense: " + (hasStoneSenseActive() ? "active" : "inactive") + ".";
     if (place === "creepyCave") info = "Loose stone remaining: " + getExpeditionLocation(place).looseStoneRemaining + ". Per gathering cycle: " + getGatherStoneAmount() + " Stone.";
-    if (place === "ironMine" && getExpeditionLocation(place).explored) info = "Per mining cycle: " + getMineResourceAmount("stone") + " Stone or " + getMineResourceAmount("iron") + " Iron.";
+    if (place === "ironMine" && getExpeditionLocation(place).explored) info = "Per mining cycle: " + getMineResourceAmount("stone") + " Stone or " + getMineResourceAmount("ore") + " Iron Ore.";
     text(byId("expeditionDirectInfo"), info); byId("expeditionDirectInfo").hidden = !info;
     const hasDirectActions = [...refs.direct.children].some(button => !button.hidden);
     refs.local.querySelector("h3").hidden = !hasDirectActions;
@@ -382,7 +393,7 @@ const ExpeditionScene = (() => {
       caption.className = "expedition-landmark-label";
       caption.append(label, state);
       button.append(caption);
-      button.addEventListener("click", () => landmark.route ? refs.browse.click() : landmark.interaction === "action" ? activateAction(primaryAction(landmark)) : choose(landmark.id));
+      button.addEventListener("click", () => landmark.route ? refs.browse.click() : landmark.spellTarget ? activateSpellTarget(landmark.spellTarget) : landmark.interaction === "action" ? activateAction(primaryAction(landmark)) : choose(landmark.id));
       refs.markers.append(button);
     }
     sizeArtwork();
@@ -468,9 +479,13 @@ const ExpeditionScene = (() => {
       const landmark = landmarks.find(l => l.id === button.dataset.landmark);
       if (landmark.route) { text(button.querySelector("small"), "Inspect routes"); continue; }
       if (landmark.interaction === "action") {
+        if (landmark.spellTarget) {
+          updateSpellTargetButton(button, landmark.spellTarget);
+          continue;
+        }
         const id = primaryAction(landmark);
         const complete = id === "exploreLocation" && getExpeditionLocation(e.currentLocation).explored;
-        button.hidden = !getAction(id)?.unlocked && !complete;
+        button.hidden = complete || !getAction(id)?.unlocked;
         button.classList.toggle("is-complete", complete || !!landmark.complete?.());
         updateDirectButton(button, id, complete);
         continue;
@@ -511,11 +526,11 @@ const ExpeditionScene = (() => {
       filterRoutes(false);
       if (chosen.id === "scree" && isManaSenseTargetVisible("stoneSense") && getSpell("manaSense").unlocked) info = "Stone Sense: " + (hasStoneSenseActive() ? "active" : "inactive") + " · Ore find chance " + Math.round(getFoothillScreeOreFindChance() * 100) + "%.";
       if (chosen.id === "scree") info = "Per gathering cycle: " + getGatherStoneAmount() + " Stone." + (info ? " " + info : "");
-      if (chosen.id === "mine" && getExpeditionLocation(e.currentLocation).explored) info = "Per mining cycle: " + getMineResourceAmount("stone") + " Stone or " + getMineResourceAmount("iron") + " Iron, when the required pick is equipped and your pack has room.";
+      if (chosen.id === "mine" && getExpeditionLocation(e.currentLocation).explored) info = "Per mining cycle: " + getMineResourceAmount("stone") + " Stone or " + getMineResourceAmount("ore") + " Iron Ore, when the required pick is equipped and your pack has room.";
       if (chosen.id === "smelter" && getResourceCraft("iron").button?.style.display !== "none") {
         const produces = getActiveCraftContext(getResourceCraft("iron"))?.storageProduces;
         if (produces) info = "Per smelting cycle: " + Object.entries(produces).map(([id, amount]) => amount + " " + getResource(id).label).join(", ") + " added to the stores here.";
-        info += " Pack: " + (e.carriedItems.wood || 0) + " Wood, " + (e.carriedItems.imbuedWood || 0) + " Imbued Wood, " + (e.carriedItems.ore || 0) + " Ore. Store Fuel and Store Ore require supplies in your pack.";
+        info += " Pack: " + (e.carriedItems.ore || 0) + " Ore. Store Ore requires supplies in your pack. Processing uses the shared station fuel.";
       }
       if (!getExpeditionLocation(e.currentLocation).explored && chosen.id === "scree") info += (info ? " " : "") + "Investigate the rocky slope to unlock gathering.";
       if (chosen.investigation && getExpeditionLocation(e.currentLocation).explored) info = "Investigation complete.";

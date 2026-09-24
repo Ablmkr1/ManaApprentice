@@ -231,12 +231,20 @@ const tests = String.raw`
   assert(gameState.brokenWardenDefeated && gameState.wardenCoreRecovered && !gameState.tierFourCompleted, 'Load restores the western finale state without skipping gate activation');
   resetCombatEncounter();
   gameState.expedition.dungeon = { active: true, dungeonId: 'arcaneArchiveDepths', nodeId: 'deepRepository' };
-  getCurrentDungeonNode().explored = false;
-  assert(!canChallengeBrokenWarden(), 'Boss gate rejects unexplored final room');
-  getCurrentDungeonNode().explored = true;
+  gameState.expedition.active = true;
+  gameState.expedition.currentLocation = 'arcaneArchive';
+  getExpeditionLocation('arcaneArchive').explored = true;
+  gameState.northernDisturbance.resolved = true;
+  gameState.regionalProgress.east.disturbanceResolved = true;
+  gameState.regionalProgress.south.disturbanceResolved = true;
+  assert(!canChallengeBrokenWarden(), 'Boss encounter is absent from the old dungeon room');
+  gameState.expedition.dungeon.active = false;
+  gameState.regionalProgress.south.disturbanceResolved = false;
+  assert(!canChallengeBrokenWarden(), 'Two regional victories do not unlock the boss');
+  gameState.regionalProgress.south.disturbanceResolved = true;
   rank(-1);
-  assert(canChallengeBrokenWarden(), 'Existing completed repository save gains gate with no new spell lock');
-  assert(startBrokenWardenCombat(), 'Final western gate starts repeat boss');
+  assert(canChallengeBrokenWarden(), 'Three saved regional victories unlock the boss at the archive');
+  assert(startBrokenWardenCombat(), 'Archive encounter starts repeat boss');
 
   setup('minorEarthElemental');
   getGearUpgrade('steelStaff').purchased = true;

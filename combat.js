@@ -216,11 +216,17 @@ function startTestCombat() {
   return startCombatEncounter("minorEarthElemental", { reward: null });
 }
 
-// Final existing western room; no equipment/spell prerequisite or self-reward gate.
+function areRegionalWardensDefeated() {
+  return !!gameState.northernDisturbance?.resolved &&
+    !!gameState.regionalProgress?.east?.disturbanceResolved &&
+    !!gameState.regionalProgress?.south?.disturbanceResolved;
+}
+
 function canChallengeBrokenWarden() {
-  const dungeon = gameState.expedition.dungeon;
-  return !!dungeon?.active && dungeon.dungeonId === "arcaneArchiveDepths" &&
-    dungeon.nodeId === "deepRepository" && !!getCurrentDungeonNode()?.explored &&
+  const archive = getExpeditionLocation("arcaneArchive");
+  return areRegionalWardensDefeated() && !!gameState.expedition.active &&
+    gameState.expedition.currentLocation === "arcaneArchive" && !!archive?.explored &&
+    !gameState.expedition.dungeon?.active &&
     !isActivityActive() && !isCombatActive() && !gameState.combat.resolved;
 }
 
@@ -229,7 +235,7 @@ function startBrokenWardenCombat() {
   return startCombatEncounter("brokenWarden", {
     storyEncounter: !gameState.brokenWardenDefeated,
     reward: {},
-    startMessage: "The repository's ancient guardian wakes. Break its shell, destroy its repair sigils, and strike the exposed core.",
+    startMessage: "The archive's ancient guardian wakes at the entrance. Break its shell, destroy its repair sigils, and strike the exposed core.",
   });
 }
 

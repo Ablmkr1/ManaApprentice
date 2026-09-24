@@ -5158,7 +5158,9 @@ button:disabled,
     z-index: 30;
     grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
     gap: 6px;
     padding: 7px;
     border: 1px solid var(--shell-border);
@@ -5560,3 +5562,37 @@ button:disabled,
     transition-duration: 0.001ms !important;
   }
 }
+
+/* Character: a full-size home for the apprentice's loadout. */
+.character-panel { gap: 16px; }
+.character-intro { margin: 0; color: #6b5c46; line-height: 1.6; }
+.character-panel > h3 { margin: 0; font-size: 18px; }
+#characterView .character-equipment { flex-direction: row; flex-wrap: wrap; align-items: start; gap: 20px; }
+#characterView #gearSlotsGroup { flex: 1 1 320px; padding: 16px; border: 1px solid #d8ccb8; border-radius: 12px; background: radial-gradient(ellipse at center, #fff9eb, #ecdfc7); }
+#characterView .paper-doll { width: min(100%, 340px); height: 310px; transform: none; margin: 0 auto; }
+#characterView .paper-doll-silhouette { top: 8px; width: 202px; height: 290px; }
+#characterView .paper-doll-item { width: 56px; height: 56px; font-size: 28px; }
+#characterView .paper-doll-item > .equipment-item-icon { width: 44px; height: 44px; }
+#characterView .slot-chest { top: 60px; left: calc(50% - 28px); }
+#characterView .slot-legs { top: 148px; left: calc(50% - 28px); }
+#characterView .slot-feet { top: 240px; left: calc(50% - 28px); }
+#characterView .slot-pack { top: 60px; left: 8px; }
+#characterView .slot-water { top: 60px; right: 8px; }
+#characterView .slot-leftRing, #characterView .slot-ring { top: 150px; left: 8px; }
+#characterView .slot-rightRing { top: 150px; right: 8px; }
+#characterView .slot-belt { top: 240px; right: 8px; }
+#characterView #toolSlotsGroup { flex: 1 1 220px; }
+#characterView .tool-icon-row { gap: 10px; }
+#characterView .tool-icon-item { width: 128px; min-height: 88px; padding: 10px 6px; gap: 6px; }
+#characterView .tool-item-icon { width: 42px; height: 42px; flex-shrink: 0; }
+#characterView .tool-item-effect { font-size: 13px; line-height: 1.35; }
+#characterView .equipment-detail { flex: 1 0 100%; box-sizing: border-box; min-width: 0; padding: 16px; font-size: 15px; line-height: 1.6; border-radius: 10px; }
+#characterView .ring-choice-btn { min-height: 44px; padding: 8px 12px; font-size: 13px; }
+#characterView #tonicSlotsGroup { flex: 1 0 100%; }
+#characterView .packing-section { padding-top: 16px; border-top: 1px solid #d8ccb8; }
+@media (max-width: 560px) {
+  #characterView #gearSlotsGroup { padding: 8px; }
+  #characterView .tool-icon-item { width: calc(50% - 5px); }
+}
+
+.main-view-tab[data-main-view-tab="character"]::before { content: "♙"; }

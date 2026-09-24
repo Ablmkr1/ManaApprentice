@@ -1156,8 +1156,30 @@ function getLocationLabel(locationName) {
   return location.label;
 }
 
+function renderBrokenWardenEncounter() {
+  const container = document.getElementById("brokenWardenEncounter");
+  if (!container) return;
+  container.replaceChildren();
+  if (!canChallengeBrokenWarden()) {
+    hideElement(container);
+    return;
+  }
+
+  const heading = document.createElement("h3");
+  heading.textContent = "Broken Warden";
+  container.appendChild(heading);
+  container.appendChild(createUiActionButton({
+    label: gameState.brokenWardenDefeated ? "Challenge Broken Warden Again" : "Challenge Broken Warden",
+    detail: "Regional capstone · Recall available",
+    dataset: { locationAction: "challengeBrokenWarden" },
+    onClick: startBrokenWardenCombat,
+  }));
+  showElement(container, "flex");
+}
+
 function updatePlacePanel() {
   const expedition = gameState.expedition;
+  renderBrokenWardenEncounter();
   updateLocationStorageUI(null);
   renderTowerNodePanel(null);
   renderLocationTravelActions(null);
@@ -2746,18 +2768,6 @@ function renderDungeonActions(node) {
   if (!ui.dungeonActions) return;
 
   ui.dungeonActions.innerHTML = "";
-
-  if (typeof canChallengeBrokenWarden === "function" && canChallengeBrokenWarden()) {
-    showElement(ui.dungeonActions, "flex");
-    const challenge = createUiActionButton({
-      label: gameState.brokenWardenDefeated ? "Challenge Broken Warden Again" : "Challenge Broken Warden",
-      detail: "Tier 4 capstone · Recall available",
-      dataset: { dungeonAction: "challengeBrokenWarden" },
-    });
-    challenge.addEventListener("click", startBrokenWardenCombat);
-    ui.dungeonActions.appendChild(challenge);
-    return;
-  }
 
   if (node && hasDungeonPendingCarriedRewards(node)) {
     showElement(ui.dungeonActions, "flex");

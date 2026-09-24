@@ -70,7 +70,7 @@ const HOME_AREA_DEFINITIONS = {
   processing: {
     title: "Processing Station",
     description: "Tan leather, smelt iron, and prepare the practical mixtures currently available at camp.",
-    nodeIds: ["craftingSection"],
+    nodeIds: ["processingFuelSection", "craftingSection"],
     workPanel: "crafting",
   },
   meditation: {
@@ -185,6 +185,15 @@ function selectHomeArea(areaName, options = {}) {
   if (areaName) mountHomeArea(areaName);
 }
 
+function isCraftVisibleInCurrentHomeArea(craft, areaName = selectedHomeArea) {
+  if (!craft || !craft.campHomeArea || typeof isCampCraftingContext !== "function" || !isCampCraftingContext()) return true;
+  if (!["workspot", "workbench", "processing"].includes(areaName)) return true;
+
+  return areaName === "processing"
+    ? craft.campHomeArea === "processing"
+    : craft.campHomeArea !== "processing";
+}
+
 function mountHomeArea(areaName) {
   const definition = HOME_AREA_DEFINITIONS[areaName];
   const panel = document.getElementById("homeAreaPanel");
@@ -236,6 +245,9 @@ function mountHomeArea(areaName) {
   if (definition.workPanel && typeof showWorkPanel === "function") {
     showWorkPanel(definition.workPanel, { userSelected: true });
   }
+  if (typeof updateCraftingUIForCurrentContext === "function") updateCraftingUIForCurrentContext();
+  if (areaName === "processing") updateProcessingFuelDisplay();
+  if (typeof syncContextualActionPlacement === "function") syncContextualActionPlacement();
 
   if (areaName === "workspot" && !isHomeWorkSpotDeclared()) {
     const declareButton = typeof createUiActionButton === "function"
@@ -259,6 +271,12 @@ function mountHomeArea(areaName) {
   requestAnimationFrame(positionHomeOverlay);
 }
 
+function updateProcessingFuelDisplay() {
+  const display = document.getElementById("processingFuelAmount");
+  if (!display || typeof getResource !== "function") return;
+  display.textContent = "Fuel: " + formatResourceAmountForDisplay(getResource("fuel").value);
+}
+
 function positionHomeOverlay() {
   const panel = document.getElementById("homeAreaPanel");
   const scene = document.getElementById("homeScene");
@@ -278,6 +296,9 @@ function positionHomeOverlay() {
 }
 
 function getHomeAreaCopy(areaName, definition) {
+  if (areaName === "study" && typeof hasPurchasedCampUpgrade === "function" && hasPurchasedCampUpgrade("researchBench")) {
+    return { title: "Research Bench", description: definition.description };
+  }
   if (areaName === "opening" && gameState.discoveredClearing) {
     return {
       title: "The Clearing",
@@ -360,10 +381,11 @@ function updateHomeAreaAvailability() {
   const workSpotDeclared = isHomeWorkSpotDeclared();
   const established = sceneState === "established-camp";
   const workbenchBuilt = typeof hasPurchasedCampUpgrade === "function" && hasPurchasedCampUpgrade("workbench");
+  const researchBenchBuilt = typeof hasPurchasedCampUpgrade === "function" && hasPurchasedCampUpgrade("researchBench");
   const smallFireBuilt = typeof hasPurchasedCampUpgrade === "function" && hasPurchasedCampUpgrade("smallFire");
   const shelterBuilt = typeof hasPurchasedCampUpgrade === "function" && hasPurchasedCampUpgrade("crudeLeanTo");
   const showResources = sceneState !== "fogged" && !established;
-  const signature = [sceneState, exploreStep, gameState.discoveredDeadfall, gameState.discoveredBerryBush, gameState.discoveredStream, workSpotDeclared, smallFireBuilt, shelterBuilt].join("|");
+  const signature = [sceneState, exploreStep, gameState.discoveredDeadfall, gameState.discoveredBerryBush, gameState.discoveredStream, workSpotDeclared, workbenchBuilt, researchBenchBuilt, smallFireBuilt, shelterBuilt].join("|");
   const sceneChanged = signature !== homeSceneSignature;
   homeSceneSignature = signature;
 
@@ -381,7 +403,12 @@ function updateHomeAreaAvailability() {
   setHomeAreaVisible("campfire", smallFireBuilt);
   setHomeAreaVisible("shelter", shelterBuilt);
   setHomeAreaVisible("study", established && typeof isResearchSpotPurchased === "function" && isResearchSpotPurchased());
-  setHomeAreaVisible("processing", established && typeof hasPurchasedCampUpgrade === "function" && hasPurchasedCampUpgrade("campAlchemyStation"));
+  const processingBuilt = typeof hasPurchasedCampUpgrade === "function" && (
+    hasPurchasedCampUpgrade("campTannery") ||
+    hasPurchasedCampUpgrade("campSmelter") ||
+    hasPurchasedCampUpgrade("campAlchemyStation")
+  );
+  setHomeAreaVisible("processing", established && processingBuilt);
   setHomeAreaVisible("meditation", established && typeof hasPurchasedCampUpgrade === "function" && (hasPurchasedCampUpgrade("meditationSpot") || hasPurchasedCampUpgrade("attunedMeditationSpot")));
   // A completed structure always has a place in Home. Its contents may still be
   // empty until the player discovers the relevant skill or resource systems.
@@ -419,7 +446,7 @@ function updateHomeAreaAvailability() {
   } else if (selectedHomeArea && selectedHomeArea !== "opening") {
     const selectedButton = document.querySelector('[data-home-area="' + selectedHomeArea + '"]');
     if (!selectedButton || selectedButton.hidden) selectHomeArea(null);
-    else if (sceneChanged && (HOME_AREA_DEFINITIONS[selectedHomeArea].objectName || selectedHomeArea === "workspot")) mountHomeArea(selectedHomeArea);
+    else if (sceneChanged && (HOME_AREA_DEFINITIONS[selectedHomeArea].objectName || selectedHomeArea === "workspot" || selectedHomeArea === "study")) mountHomeArea(selectedHomeArea);
   }
 }
 
@@ -434,22 +461,22 @@ function getHomeAttentionState() {
   return gameState.homeAttention;
 }
 
-function getAvailableHomeCraftKeys(craftType, definitions) {
+function getAvailableHomeCraftKeys(craftType, definitions, areaName) {
   if (!definitions || typeof isCraftAvailable !== "function") return [];
 
   return Object.keys(definitions).filter(function (craftId) {
-    return isCraftAvailable(craftType, craftId);
+    return isCraftAvailable(craftType, craftId) && isCraftVisibleInCurrentHomeArea(definitions[craftId], areaName);
   }).map(function (craftId) {
     return craftType + ":" + craftId;
   });
 }
 
-function getHomeAttentionKeys(category) {
+function getHomeAttentionKeys(category, areaName) {
   if (category === "crafting") {
     return []
-      .concat(getAvailableHomeCraftKeys("campUpgrade", typeof getCampUpgradeDefinitions === "function" ? getCampUpgradeDefinitions() : null))
-      .concat(getAvailableHomeCraftKeys("gearUpgrade", typeof getGearUpgradeDefinitions === "function" ? getGearUpgradeDefinitions() : null))
-      .concat(getAvailableHomeCraftKeys("resourceCraft", typeof getResourceCraftDefinitions === "function" ? getResourceCraftDefinitions() : null));
+      .concat(getAvailableHomeCraftKeys("campUpgrade", typeof getCampUpgradeDefinitions === "function" ? getCampUpgradeDefinitions() : null, areaName))
+      .concat(getAvailableHomeCraftKeys("gearUpgrade", typeof getGearUpgradeDefinitions === "function" ? getGearUpgradeDefinitions() : null, areaName))
+      .concat(getAvailableHomeCraftKeys("resourceCraft", typeof getResourceCraftDefinitions === "function" ? getResourceCraftDefinitions() : null, areaName));
   }
 
   if (category === "research") {
@@ -465,7 +492,7 @@ function getHomeAttentionKeys(category) {
 }
 
 function getHomeAttentionCategory(areaName) {
-  if (areaName === "workspot" || areaName === "workbench") return "crafting";
+  if (areaName === "workspot" || areaName === "workbench" || areaName === "processing") return "crafting";
   if (areaName === "study") return "research";
   if (areaName === "training") return "training";
   return null;
@@ -486,9 +513,9 @@ function setHomeAttentionIndicator(areaName, category, keys) {
 }
 
 function updateHomeAttentionIndicators() {
-  const craftingKeys = getHomeAttentionKeys("crafting");
-  setHomeAttentionIndicator("workspot", "crafting", craftingKeys);
-  setHomeAttentionIndicator("workbench", "crafting", craftingKeys);
+  setHomeAttentionIndicator("workspot", "crafting", getHomeAttentionKeys("crafting", "workspot"));
+  setHomeAttentionIndicator("workbench", "crafting", getHomeAttentionKeys("crafting", "workbench"));
+  setHomeAttentionIndicator("processing", "crafting", getHomeAttentionKeys("crafting", "processing"));
   setHomeAttentionIndicator("study", "research", getHomeAttentionKeys("research"));
   setHomeAttentionIndicator("training", "training", getHomeAttentionKeys("training"));
 }
@@ -499,7 +526,7 @@ function markHomeAreaAttentionSeen(areaName) {
 
   const state = getHomeAttentionState();
   const previous = new Set(state.seen[category]);
-  const keys = getHomeAttentionKeys(category);
+  const keys = getHomeAttentionKeys(category, areaName);
   keys.forEach(function (key) { previous.add(key); });
   if (previous.size === state.seen[category].length) return;
 
@@ -592,6 +619,12 @@ function updateHomeCampStructureVisuals() {
   const campfire = document.querySelector('[data-home-area="campfire"]');
   const shelter = document.querySelector('[data-home-area="shelter"]');
   const meditation = document.querySelector('[data-home-area="meditation"]');
+  const study = document.querySelector('[data-home-area="study"]');
+
+  if (study) {
+    const benchBuilt = typeof hasPurchasedCampUpgrade === "function" && hasPurchasedCampUpgrade("researchBench");
+    setHomeStructureStage(study, benchBuilt ? "research-bench" : "research-spot", benchBuilt ? "Research Bench" : "Research Spot");
+  }
 
   if (campfire) {
     const stoneFireBuilt = typeof hasPurchasedCampUpgrade === "function" && hasPurchasedCampUpgrade("stoneFirePit");

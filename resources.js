@@ -25,12 +25,30 @@ function discoverResource(resourceName) {
   if (typeof checkResearchDiscoveries === "function") checkResearchDiscoveries();
 }
 
+function getDefaultResourceStorageCap() {
+  return getCampUpgrade("storageCache")?.purchased
+    ? DEFAULT_RESOURCE_STORAGE_CAPS.afterCache
+    : DEFAULT_RESOURCE_STORAGE_CAPS.beforeCache;
+}
+
+function syncDefaultResourceStorageCaps() {
+  const capacity = getDefaultResourceStorageCap();
+  for (const [resourceName, resource] of Object.entries(getResourceDefinitions())) {
+    if (!resource.usesDefaultStorageCap) continue;
+    resource.maxValue = capacity;
+    updateResource(resourceName);
+  }
+}
+
 // Add Resource Function
 function addResource(resourceName, amount) {
   const resource = getResource(resourceName);
 
-  resource.value = roundResourceAmount(resource.value + amount);
-  resource.value = Math.min(resource.value, resource.maxValue);
+  const nextValue = roundResourceAmount(resource.value + amount);
+  // Legacy saves can contain stock above the new pre-cache cap. Keep it until spent.
+  resource.value = amount > 0
+    ? Math.max(resource.value, Math.min(nextValue, resource.maxValue))
+    : Math.min(nextValue, resource.maxValue);
 
   if (amount > 0) discoverResource(resourceName);
   updateResource(resourceName);

@@ -329,24 +329,6 @@ function hookActionCompletions() {
     packExpeditionItem("packImbuedWood", 1, { prepaidAmount: 1 });
   };
 
-  getAction("storeWood").onComplete = function () {
-    const location = getExpeditionLocation(gameState.expedition.currentLocation);
-    const woodAmount = gameState.expedition.carriedItems.wood || 0;
-    const imbuedWoodAmount = gameState.expedition.carriedItems.imbuedWood || 0;
-    const fuelAmount = woodAmount + imbuedWoodAmount * 4;
-
-    if (!location || !location.storage) return;
-    if (fuelAmount <= 0) return;
-    if (woodAmount > 0 && !removeCarriedItem("wood", woodAmount)) return;
-    if (imbuedWoodAmount > 0 && !removeCarriedItem("imbuedWood", imbuedWoodAmount)) return;
-
-    location.storage.fuel = (location.storage.fuel || 0) + fuelAmount;
-    unlockResource("fuel");
-    addStoryEntry("You add " + formatCarryAmount(fuelAmount) + " fuel to the stored stockpile.");
-    updateLocationActions();
-    updatePlacePanel();
-  };
-
   getAction("packOre").onComplete = function () {
     packExpeditionItem("packOre", 1, { prepaidAmount: 1 });
   };
@@ -389,12 +371,12 @@ function hookActionCompletions() {
   };
 
   getAction("mineIron").onComplete = function () {
-    const ironAmount = getMineResourceAmount("iron");
+    const oreAmount = getMineResourceAmount("ore");
 
-    if (addCarriedItem("iron", ironAmount)) {
-      addStoryEntry("You mine iron from the vein.");
+    if (addCarriedItem("ore", oreAmount)) {
+      addStoryEntry("You mine iron ore from the vein.");
     } else {
-      addStoryEntry("The iron is too heavy to carry more.");
+      addStoryEntry("The iron ore is too heavy to carry more.");
     }
   };
 
@@ -442,12 +424,10 @@ function hookActionCompletions() {
       addStoryEntry("You reduce two tonic bases into a stronger, concentrated base.");
     } else if (context.mode === "location") {
       const storage = context.storage;
-      const fuelCost = typeof getImbueWorkshopFuelCost === "function" ? getImbueWorkshopFuelCost("alchemy", 5) : 5;
 
-      if (!storage || storage.staminaTonicBase < 2 || (storage.fuel || 0) < fuelCost) return;
+      if (!storage || storage.staminaTonicBase < 2) return;
 
       storage.staminaTonicBase -= 2;
-      storage.fuel -= fuelCost;
       storage.concentratedTonicBase = (storage.concentratedTonicBase || 0) + 1;
       unlockResource("concentratedTonicBase");
       addStoryEntry("You reduce two stored tonic bases into one stronger base at the alchemist's bench.");
@@ -470,12 +450,10 @@ function hookActionCompletions() {
       addStoryEntry("You reduce two mana tonic bases into a stronger, concentrated mana base.");
     } else if (context.mode === "location") {
       const storage = context.storage;
-      const fuelCost = typeof getImbueWorkshopFuelCost === "function" ? getImbueWorkshopFuelCost("alchemy", 5) : 5;
 
-      if (!storage || storage.manaTonicBase < 2 || (storage.fuel || 0) < fuelCost) return;
+      if (!storage || storage.manaTonicBase < 2) return;
 
       storage.manaTonicBase -= 2;
-      storage.fuel -= fuelCost;
       storage.concentratedManaTonicBase = (storage.concentratedManaTonicBase || 0) + 1;
       unlockResource("concentratedManaTonicBase");
       addStoryEntry("You reduce two stored mana tonic bases into one stronger mana base at the alchemist's bench.");
@@ -613,6 +591,11 @@ function getConcentrateTonicBaseActionCost() {
     return { staminaTonicBase: 2, ...(fuel > 0 ? { fuel } : {}) };
   }
 
+  if (context && context.mode === "location") {
+    const fuel = typeof getImbueWorkshopFuelCost === "function" ? getImbueWorkshopFuelCost("alchemy", 5) : 5;
+    return fuel > 0 ? { fuel } : {};
+  }
+
   return {};
 }
 
@@ -622,6 +605,11 @@ function getConcentrateManaTonicBaseActionCost() {
   if (context && context.mode === "camp") {
     const fuel = typeof getImbueWorkshopFuelCost === "function" ? getImbueWorkshopFuelCost("alchemy", 5) : 5;
     return { manaTonicBase: 2, ...(fuel > 0 ? { fuel } : {}) };
+  }
+
+  if (context && context.mode === "location") {
+    const fuel = typeof getImbueWorkshopFuelCost === "function" ? getImbueWorkshopFuelCost("alchemy", 5) : 5;
+    return fuel > 0 ? { fuel } : {};
   }
 
   return {};
@@ -641,7 +629,7 @@ function canUseConcentrateTonicBaseAction() {
   const currentOutput = storage.concentratedTonicBase || 0;
   const fuelCost = typeof getImbueWorkshopFuelCost === "function" ? getImbueWorkshopFuelCost("alchemy", 5) : 5;
 
-  return storage.staminaTonicBase >= 2 && (storage.fuel || 0) >= fuelCost && currentOutput < output.maxValue;
+  return storage.staminaTonicBase >= 2 && canAffordCost({ fuel: fuelCost }) && currentOutput < output.maxValue;
 }
 
 function canUseConcentrateManaTonicBaseAction() {
@@ -661,7 +649,7 @@ function canUseConcentrateManaTonicBaseAction() {
   const currentOutput = storage.concentratedManaTonicBase || 0;
   const fuelCost = typeof getImbueWorkshopFuelCost === "function" ? getImbueWorkshopFuelCost("alchemy", 5) : 5;
 
-  return storage.manaTonicBase >= 2 && (storage.fuel || 0) >= fuelCost && currentOutput < output.maxValue;
+  return storage.manaTonicBase >= 2 && canAffordCost({ fuel: fuelCost }) && currentOutput < output.maxValue;
 }
 
 // Get Explore Function
@@ -752,7 +740,7 @@ function getAutoActionCarryAmount(actionName) {
   }
 
   if (actionName === "mineIron") {
-    return getMineResourceAmount("iron");
+    return getMineResourceAmount("ore");
   }
 
   if (actionName === "gatherFiber") {
@@ -882,6 +870,7 @@ function startActionExecution(actionName) {
   const action = getAction(actionName);
 
   if (!action || !action.unlocked || action.running || isActivityActive() || (typeof isCombatActive === "function" && isCombatActive())) return;
+  if (actionName === "practiceManaCycling" && !canPracticeManaCycling()) return;
 
   if (isAutoAction(actionName) && shouldStopAutoAction(actionName)) {
     stopAutoAction();
