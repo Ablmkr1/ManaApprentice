@@ -182,6 +182,10 @@ function hookDomToUI() {
   ui.advancedRecallCloseBtn = document.getElementById("advancedRecallCloseBtn");
   ui.northernDisturbancePopup = document.getElementById("northernDisturbancePopup");
   ui.northernDisturbanceContinueBtn = document.getElementById("northernDisturbanceContinueBtn");
+  ui.storyPopup = document.getElementById("storyPopup");
+  ui.storyPopupTitle = document.getElementById("storyPopupTitle");
+  ui.storyPopupBody = document.getElementById("storyPopupBody");
+  ui.storyPopupContinueBtn = document.getElementById("storyPopupContinueBtn");
   ui.dungeonActions = document.getElementById("dungeonActions");
   ui.nailsAmount = document.getElementById("nailsAmount");
   ui.automationTabBtn = document.getElementById("automationTabBtn");
@@ -202,6 +206,15 @@ function hookDomToUI() {
   ui.magicProgressSection = document.getElementById("magicProgressSection");
   ui.spellProgressList = document.getElementById("spellProgressList");
   ui.towerStatusPanel = document.getElementById("towerStatusPanel");
+  ui.towerHomeKicker = document.getElementById("towerHomeKicker");
+  ui.towerHomeTitle = document.getElementById("towerHomeTitle");
+  ui.towerHomeDescription = document.getElementById("towerHomeDescription");
+  ui.towerGroundsBtn = document.getElementById("towerGroundsBtn");
+  ui.towerExpeditionBtn = document.getElementById("towerExpeditionBtn");
+  ui.towerRoomNav = document.getElementById("towerRoomNav");
+  ui.towerRoomNavButtons = Array.from(document.querySelectorAll("[data-tower-destination]"));
+  ui.towerEstablishedPopup = document.getElementById("towerEstablishedPopup");
+  ui.towerEstablishedContinueBtn = document.getElementById("towerEstablishedContinueBtn");
   ui.appShell = document.getElementById("appShell");
   ui.topBar = document.querySelector(".top-bar");
   ui.gameShell = document.querySelector(".game-shell");
@@ -238,7 +251,8 @@ function hookDomToUI() {
   if (ui.inventorySummary) {
     ui.inventorySummary.addEventListener("click", function () {
       setMainView("home", { userSelected: true });
-      if (typeof selectHomeArea === "function") selectHomeArea("storage");
+      if (hasRelocatedToTower()) selectTowerEntity("basement");
+      else if (typeof selectHomeArea === "function") selectHomeArea("storage");
       if (ui.campResourcesSection) {
         ui.campResourcesSection.open = true;
         ui.inventorySummary.setAttribute("aria-expanded", "true");
@@ -261,9 +275,14 @@ function enhanceGameShell() {
   enhanceWorkTabSemantics();
   enhancePopupSemantics();
   hookSettingsDrawer();
+  hookTowerHomeNavigation();
 
   if (ui.storyPreviewSelect && ui.storyPreviewBtn) {
     ui.storyPreviewBtn.addEventListener("click", openSelectedStoryPreview);
+  }
+  if (ui.storyPopupContinueBtn && !ui.storyPopupContinueBtn.dataset.hooked) {
+    ui.storyPopupContinueBtn.addEventListener("click", closeStoryPopup);
+    ui.storyPopupContinueBtn.dataset.hooked = "true";
   }
 
   document.addEventListener("keydown", handleGlobalUiKeydown);
@@ -536,6 +555,7 @@ function closeSettingsDrawer() {
   ui.gameShell.removeAttribute("inert");
   activeUiModal = null;
   restoreUiModalFocus();
+  if (typeof processStoryPopupQueue === "function") processStoryPopupQueue();
 }
 
 function enhancePopupSemantics() {
@@ -571,6 +591,7 @@ function enhancePopupSemantics() {
 
     const observer = new MutationObserver(function () {
       syncPopupModalState(popup);
+      if (!isPopupVisible(popup) && typeof processStoryPopupQueue === "function") processStoryPopupQueue();
     });
     observer.observe(popup, { attributes: true, attributeFilter: ["style", "class", "hidden"] });
   });
@@ -578,7 +599,12 @@ function enhancePopupSemantics() {
 
 function openSelectedStoryPreview() {
   if (document.documentElement.dataset.debugUi !== "true") return;
-  const popup = ui.storyPreviewSelect ? document.getElementById(ui.storyPreviewSelect.value) : null;
+  const selection = ui.storyPreviewSelect ? ui.storyPreviewSelect.value : "";
+  if (selection.startsWith("story:")) {
+    previewStoryPopup(selection.slice(6));
+    return;
+  }
+  const popup = document.getElementById(selection);
 
   if (!popup || document.documentElement.dataset.debugUi !== "true") return;
 
@@ -728,11 +754,13 @@ function getUiLocationLabel() {
   }
 
   if (gameState.expedition && gameState.expedition.active) return "Expedition Trail";
-  if (gameState.discoveredClearing || gameState.hasCamp || gameState.phase === "clearing" || gameState.phase === "expedition") return "Camp Clearing";
+  if (gameState.discoveredClearing || gameState.hasCamp || gameState.phase === "clearing" || gameState.phase === "expedition") return hasRelocatedToTower() ? "Tower Home" : "Camp Clearing";
   return "Unknown Woods";
 }
 
 function getUiViewCopy(viewName) {
+  if (hasRelocatedToTower() && viewName === "home") return { eyebrow: "Tower Grounds", title: "The grounds around your home.", description: "Gather supplies or follow the trails." };
+  if (hasRelocatedToTower() && viewName === "tower") return { eyebrow: "Home · Tower", title: "Your permanent home.", description: "The Tower Heart powers your workshops." };
   const location = getUiLocationLabel();
   const copies = {
     home: {
@@ -1377,6 +1405,8 @@ function hookMainViewTabs() {
 }
 
 function setMainView(viewName, options = {}) {
+  if (viewName === "grounds") { viewName = "home"; options = { ...options, towerGrounds: true }; }
+  if (viewName === "home" && !options.towerGrounds) viewName = getHomeDestination();
   if (!MAIN_VIEW_NAMES.includes(viewName)) return;
 
   const canEnterTowerFromHome = viewName === "tower" && options.homeTowerEntry &&
@@ -1388,7 +1418,9 @@ function setMainView(viewName, options = {}) {
   const targetView = isMainViewAvailable(viewName) || hasTransientAccess ? viewName : getDefaultMainView();
   if (targetView !== "tower") homeTowerViewEntryActive = false;
 
+  const viewChanged = currentMainView !== targetView;
   currentMainView = targetView;
+  if (typeof restoreTowerHomeNodes === "function" && targetView !== "tower") restoreTowerHomeNodes();
 
   if (options.userSelected) {
     mainViewUserSelected = true;
@@ -1398,7 +1430,141 @@ function setMainView(viewName, options = {}) {
   if (homeTowerViewEntryActive && ui.towerPanel) showElement(ui.towerPanel, "flex");
 
   updateMainViewTabStates();
+  if (viewChanged && targetView === "tower" && typeof renderTowerDetailPanel === "function") renderTowerDetailPanel();
+  if (typeof syncTowerHomePanels === "function") syncTowerHomePanels();
   if (targetView === "expedition" && options.userSelected && typeof ExpeditionMap !== "undefined") ExpeditionMap.open();
+}
+
+function ensureStoryPopupState() {
+  if (!gameState.storyPopupsSeen || typeof gameState.storyPopupsSeen !== "object" || Array.isArray(gameState.storyPopupsSeen)) {
+    gameState.storyPopupsSeen = {};
+  }
+  if (!Array.isArray(gameState.storyPopupQueue)) gameState.storyPopupQueue = [];
+  gameState.storyPopupQueue = [...new Set(gameState.storyPopupQueue.filter(function (storyId) {
+    return !!getStoryPopupDefinition(storyId);
+  }))];
+}
+
+function getStoryPopupOrder(storyId) {
+  return getStoryPopupDefinition(storyId)?.order || Number.MAX_SAFE_INTEGER;
+}
+
+function isStoryPopupBlocked() {
+  if (!ui.storyPopup || !ui.storyPopupBody || !ui.storyPopupTitle || !ui.storyPopupContinueBtn) return true;
+  if (ui.settingsOverlay && !ui.settingsOverlay.hidden) return true;
+  if (gameState.combat && (gameState.combat.active || gameState.combat.resolved)) return true;
+  return Array.from(document.querySelectorAll(".popup")).some(function (popup) {
+    return popup !== ui.storyPopup && isPopupVisible(popup);
+  });
+}
+
+function renderStoryPopup(storyId) {
+  const story = getStoryPopupDefinition(storyId);
+  if (!story || !ui.storyPopup) return false;
+  ui.storyPopup.dataset.storyId = storyId;
+  safeSetText(ui.storyPopupTitle, story.title);
+  ui.storyPopupBody.replaceChildren();
+  story.paragraphs.forEach(function (text) {
+    const paragraph = document.createElement("p");
+    paragraph.textContent = text;
+    ui.storyPopupBody.appendChild(paragraph);
+  });
+  if (Array.isArray(story.endingStatus) && story.endingStatus.length) {
+    const status = document.createElement("section");
+    status.className = "story-popup-ending";
+    status.setAttribute("aria-label", "Chapter ending status");
+    story.endingStatus.forEach(function (text) {
+      const paragraph = document.createElement("p");
+      paragraph.textContent = text;
+      status.appendChild(paragraph);
+    });
+    ui.storyPopupBody.appendChild(status);
+  }
+  safeSetText(ui.storyPopupContinueBtn, story.continueLabel || "Continue");
+  return true;
+}
+
+function triggerStoryPopup(storyId) {
+  const story = getStoryPopupDefinition(storyId);
+  if (!story) {
+    console.warn("Unknown story popup:", storyId);
+    return false;
+  }
+  ensureStoryPopupState();
+  if (gameState.storyPopupsSeen[storyId] || gameState.storyPopupQueue.includes(storyId) || ui.storyPopup?.dataset.storyId === storyId && isPopupVisible(ui.storyPopup)) return false;
+  gameState.storyPopupsSeen[storyId] = true;
+  gameState.storyPopupQueue.push(storyId);
+  gameState.storyPopupQueue.sort(function (a, b) { return getStoryPopupOrder(a) - getStoryPopupOrder(b); });
+  addJournalEntry(storyId);
+  processStoryPopupQueue();
+  if (typeof trySaveGame === "function") trySaveGame();
+  return true;
+}
+
+function processStoryPopupQueue() {
+  ensureStoryPopupState();
+  if (!ui.storyPopup || isPopupVisible(ui.storyPopup) || isStoryPopupBlocked()) return false;
+  const storyId = gameState.storyPopupQueue[0];
+  if (!storyId) return false;
+  if (!renderStoryPopup(storyId)) {
+    gameState.storyPopupQueue.shift();
+    return processStoryPopupQueue();
+  }
+  ui.storyPopup.style.display = "flex";
+  requestAnimationFrame(function () {
+    if (isPopupVisible(ui.storyPopup)) ui.storyPopupTitle.focus();
+  });
+  return true;
+}
+
+function closeStoryPopup() {
+  if (!ui.storyPopup || ui.storyPopup.dataset.uiPreview === "true") return;
+  ensureStoryPopupState();
+  const storyId = ui.storyPopup.dataset.storyId;
+  if (storyId) {
+    const index = gameState.storyPopupQueue.indexOf(storyId);
+    if (index >= 0) gameState.storyPopupQueue.splice(index, 1);
+  }
+  delete ui.storyPopup.dataset.storyId;
+  ui.storyPopup.style.display = "none";
+  if (typeof trySaveGame === "function") trySaveGame();
+  processStoryPopupQueue();
+}
+
+function previewStoryPopup(storyId) {
+  if (!renderStoryPopup(storyId) || !ui.storyPopup) return false;
+  ui.storyPopup.dataset.uiPreview = "true";
+  ui.storyPopup.style.display = "flex";
+  return true;
+}
+
+function hookTowerHomeNavigation() {
+  if (ui.towerGroundsBtn && !ui.towerGroundsBtn.dataset.hooked) {
+    ui.towerGroundsBtn.addEventListener("click", function () {
+      setMainView("grounds", { userSelected: true });
+    });
+    ui.towerGroundsBtn.dataset.hooked = "true";
+  }
+  if (ui.towerExpeditionBtn && !ui.towerExpeditionBtn.dataset.hooked) {
+    ui.towerExpeditionBtn.addEventListener("click", function () {
+      setMainView("expedition", { userSelected: true });
+    });
+    ui.towerExpeditionBtn.dataset.hooked = "true";
+  }
+  ui.towerRoomNavButtons.forEach(function (button) {
+    if (button.dataset.hooked) return;
+    button.addEventListener("click", function () {
+      const destination = button.dataset.towerDestination;
+      if (destination && typeof selectTowerEntity === "function") selectTowerEntity(destination);
+    });
+    button.dataset.hooked = "true";
+  });
+  if (ui.towerEstablishedContinueBtn && !ui.towerEstablishedContinueBtn.dataset.hooked) {
+    ui.towerEstablishedContinueBtn.addEventListener("click", function () {
+      ui.towerEstablishedPopup.style.display = "none";
+    });
+    ui.towerEstablishedContinueBtn.dataset.hooked = "true";
+  }
 }
 
 function syncMainViewAvailability() {
@@ -1411,7 +1577,7 @@ function syncMainViewAvailability() {
   const hasTransientAccess = currentMainView === "tower" && homeTowerViewEntryActive;
   const shouldUseDefault = !currentMainView || (!isMainViewAvailable(currentMainView) && !hasTransientAccess) || (!mainViewUserSelected && currentMainView !== defaultView);
 
-  setMainView(shouldUseDefault ? defaultView : currentMainView);
+  setMainView(shouldUseDefault ? defaultView : currentMainView, { towerGrounds: !shouldUseDefault && currentMainView === "home" && hasRelocatedToTower() });
 }
 
 function syncContextPanelVisibility() {
@@ -1441,8 +1607,10 @@ function updateMainViewTabStates() {
 
   ui.mainViewButtons.forEach(function (button) {
     const viewName = button.dataset.mainViewTab;
-    const available = isMainViewAvailable(viewName);
-    const isActive = viewName === currentMainView;
+    const available = isMainViewAvailable(viewName) && !(viewName === "tower" && hasRelocatedToTower());
+    const isActive = available && (viewName === "home" ? getHomeDestination() === currentMainView : viewName === currentMainView);
+
+    if (viewName === "home") button.textContent = hasRelocatedToTower() ? "Tower Home" : "Home";
 
     button.style.display = available ? "flex" : "none";
     button.classList.toggle("active", isActive);
@@ -1464,6 +1632,90 @@ function updateMainViewTabStates() {
 
   updateShellContext();
   updatePrimaryActionEmphasis();
+  updateTowerHomeUI();
+}
+
+function updateTowerHomeUI() {
+  const relocated = hasRelocatedToTower();
+  document.body.classList.toggle("tower-home-established", relocated);
+  if (ui.towerHomeKicker) ui.towerHomeKicker.textContent = relocated ? "Home · Restored tower" : "Tower reconstruction";
+  if (ui.towerHomeTitle) ui.towerHomeTitle.textContent = relocated ? "Tower Home" : "The Tower";
+  if (ui.towerHomeDescription) ui.towerHomeDescription.textContent = relocated
+    ? "Your rooms, storage, preparations, and the steady power of the Tower Heart are gathered here."
+    : "Restore the buried structure and make each room functional.";
+  if (ui.towerGroundsBtn) ui.towerGroundsBtn.hidden = !relocated;
+  if (ui.towerExpeditionBtn) ui.towerExpeditionBtn.hidden = !relocated || !isMainViewAvailable("expedition");
+  updateTowerRoomNavigation();
+  const panel = document.getElementById("towerMoveInObjective");
+  if (!panel) return;
+  panel.hidden = !isTowerMoveInRevealed();
+  if (panel.hidden) return;
+  const requirements = getTowerMoveInRequirements();
+  const signature = JSON.stringify([requirements.map(item => item.complete), isCampCraftingContext(), isActivityActive()]);
+  if (panel.dataset.signature === signature) return;
+  panel.dataset.signature = signature;
+  panel.replaceChildren();
+  const heading = document.createElement("h3"); heading.textContent = "Establish the Tower as Your Home";
+  const note = document.createElement("p"); note.textContent = "Make the Tower your permanent home. The Heart will power all furnace and alchemy work without fuel or upkeep. Advanced room upgrades are not required.";
+  panel.append(heading, note);
+  const list = document.createElement("ul");
+  requirements.forEach(item => {
+    const row = document.createElement("li");
+    if (item.complete) row.textContent = "✓ " + item.label;
+    else {
+      const link = document.createElement("button"); link.type = "button"; link.textContent = item.label;
+      link.onclick = () => {
+        setMainView("tower", { userSelected: true });
+        let target = item.target;
+        if (!isTowerSelectionVisible(target)) {
+          const room = target.startsWith("room:") && getTowerRoomDefinition(target.slice(5));
+          target = room && isTowerSelectionVisible("floor:" + room.floor) ? "floor:" + room.floor : "heart";
+        }
+        selectTowerEntity(target);
+      };
+      row.appendChild(link);
+    }
+    list.appendChild(row);
+  });
+  panel.appendChild(list);
+  const button = createUiActionButton({ label: "Move Into the Tower", detail: "5 seconds · No material cost", progress: false, onClick: startTowerMoveIn });
+  button.disabled = !canMoveIntoTower() || isActivityActive();
+  panel.appendChild(button);
+}
+
+function updateTowerRoomNavigation() {
+  if (!ui.towerRoomNav) return;
+  const relocated = hasRelocatedToTower();
+  ui.towerRoomNav.hidden = !relocated;
+  if (!relocated) return;
+
+  ui.towerRoomNavButtons.forEach(function (button) {
+    const destination = button.dataset.towerDestination;
+    const visible = typeof isTowerSelectionVisible === "function" && isTowerSelectionVisible(destination);
+    const selected = !!gameState.tower && gameState.tower.selectedId === destination;
+    const roomId = destination && destination.startsWith("room:") ? destination.slice(5) : null;
+    const attention = roomId && typeof getTowerRoomAttentionCount === "function" ? getTowerRoomAttentionCount(roomId) : 0;
+    const baseLabel = button.dataset.baseLabel || button.textContent.trim();
+
+    button.dataset.baseLabel = baseLabel;
+    button.hidden = !visible;
+    button.classList.toggle("is-selected", selected);
+    button.classList.toggle("has-tower-attention", attention > 0);
+    button.setAttribute("aria-pressed", String(selected));
+    button.setAttribute("aria-label", baseLabel + (attention > 0 ? ", new activity available" : ""));
+  });
+}
+
+function showTowerEstablishedPresentation() {
+  if (!gameState.towerHome || gameState.towerHome.establishmentPresented) return;
+  gameState.towerHome.establishmentPresented = true;
+  if (typeof showMajorSystemUnlockEvent === "function") {
+    showMajorSystemUnlockEvent({
+      title: "Tower Established",
+      description: "Your tower is now Home. The Tower Heart powers production; fuel is no longer required.",
+    });
+  }
+  if (typeof triggerStoryPopup === "function") triggerStoryPopup("homeAtLast");
 }
 
 function getDefaultMainView() {
@@ -1471,7 +1723,7 @@ function getDefaultMainView() {
     return "expedition";
   }
 
-  return "home";
+  return getHomeDestination();
 }
 
 function isMainViewAvailable(viewName) {
@@ -1636,6 +1888,7 @@ function updateResource(resourceName) {
   const resource = getResource(resourceName);
 
   if (!resource) return;
+  if (resourceName === "fuel" && hasRelocatedToTower()) { hideElement(resource.display); return; }
   if (resourceName === "fuel" && typeof updateProcessingFuelDisplay === "function") updateProcessingFuelDisplay();
 
   if (UI_VITAL_RESOURCE_NAMES.includes(resourceName) && resource.display && resource.display.dataset.vitalEnhanced === "true") {
@@ -1734,6 +1987,9 @@ function updateAllActionButtons() {
   updatePrimaryActionEmphasis();
   updateShellContext();
   updateCampWorkVisibility();
+  if (typeof updateHomeOpeningActionHotspots === "function") updateHomeOpeningActionHotspots();
+  if (typeof updateHomeOpeningResourceHotspots === "function") updateHomeOpeningResourceHotspots();
+  if (typeof updateHomeConstructionHotspots === "function") updateHomeConstructionHotspots();
   if (typeof refreshProductionSpellOptions === "function") refreshProductionSpellOptions();
 }
 
@@ -1749,6 +2005,7 @@ function updateLocationPrimaryActionsVisibility() {
 //UI Unlock Resource and Panels
 function unlockResource(resourceName) {
   discoverResource(resourceName);
+  if (resourceName === "fuel" && hasRelocatedToTower()) { hideElement(resourceElements[resourceName]); return; }
   const resource = getResource(resourceName);
   const resourceElement = resourceElements[resourceName];
 
@@ -1853,7 +2110,8 @@ function updateInventorySummary() {
     safeSetText(ui.inventorySummary, summary);
   }
 
-  ui.inventorySummary.title = "Open storage";
+  ui.inventorySummary.title = hasRelocatedToTower() ? "Open Tower Storage" : "Open Home Storage";
+  ui.inventorySummary.setAttribute("aria-label", ui.inventorySummary.title);
   showElement(ui.inventorySummary, "inline-flex");
 }
 
@@ -2292,12 +2550,13 @@ function isCampMeditationContext() {
   return (
     !gameState.expedition.active &&
     !gameState.expedition.currentLocation &&
-    (hasPurchasedCampUpgrade("meditationSpot") || hasPurchasedCampUpgrade("attunedMeditationSpot"))
+    (hasHomeStation("meditationSpot") || hasPurchasedCampUpgrade("attunedMeditationSpot") || hasPurchasedCampUpgrade("greaterMeditationSpot"))
   );
 }
 
 function isActionContextAvailable(actionName) {
   const locationName = gameState.expedition.currentLocation;
+  if (["gatherWood", "gatherFood"].includes(actionName)) return isCampCraftingContext();
 
   if (actionName === "catchBreath") {
     return gameState.phase === "lost" && !gameState.discoveredClearing;
@@ -2362,6 +2621,11 @@ function isActionContextAvailable(actionName) {
   if (actionName === "storeOre") {
     const location = getExpeditionLocation(locationName);
     return !!location && !!location.storage && location.storage.ore !== undefined && gameState.expedition.carriedItems.ore > 0;
+  }
+
+  if (actionName === "storeFuel") {
+    const carriedItems = gameState.expedition.carriedItems;
+    return locationName === "minersCamp" && ((carriedItems.wood || 0) > 0 || (carriedItems.imbuedWood || 0) > 0);
   }
 
   if (actionName === "takeIron") {
@@ -2437,11 +2701,11 @@ function isActionContextAvailable(actionName) {
   }
 
   if (actionName === "addWoodToFuel") {
-    return !gameState.expedition.active && !gameState.expedition.currentLocation && getResource("wood").value > 0;
+    return !hasRelocatedToTower() && !gameState.expedition.active && !gameState.expedition.currentLocation && getResource("wood").value > 0;
   }
 
   if (actionName === "addImbuedWoodToFuel") {
-    return !gameState.expedition.active && !gameState.expedition.currentLocation && getResource("imbuedWood").value > 0;
+    return !hasRelocatedToTower() && !gameState.expedition.active && !gameState.expedition.currentLocation && getResource("imbuedWood").value > 0;
   }
 
   if (actionName === "practiceManaCycling") {
@@ -2635,6 +2899,7 @@ function prepareCraftButton(button) {
 }
 
 function updateCurrentGoalUI() {
+  updateTowerHomeUI();
   const goal = getGoal(gameState.currentGoalId);
 
   if (!goal) {
@@ -2767,6 +3032,7 @@ function getCurrentActivitySummaryText() {
   if (activity.kind === "towerNodeThreadSense") return "Sensing node thread";
   if (activity.kind === "rest") return "Resting";
   if (activity.kind === "study") return "Studying for Focus";
+  if (activity.kind === "towerMoveIn") return "Moving Into the Tower";
   if (activity.kind === "equipment") return "Equipment · " + activity.id;
   if (activity.kind === "towerBatch") return "Batch crafting · " + activity.context.quantity;
 
@@ -3060,7 +3326,7 @@ function updateReturnToCampButtonLabel() {
   if (!action || !action.button) return;
 
   setUiActionButtonLabel(action.button, {
-    label: gameState.recallUnlocked ? "Recall" : "Return to Camp",
+    label: gameState.recallUnlocked ? "Recall to " + getHomeDestinationLabel() : "Return to " + getHomeDestinationLabel(),
     cost: getUiActionCostText("returnToCamp"),
   });
 }

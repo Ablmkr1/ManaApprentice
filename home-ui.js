@@ -98,11 +98,25 @@ const HOME_AREA_DEFINITIONS = {
   },
 };
 
+const HOME_OPENING_RESOURCE_ACTIONS = {
+  wood: "gatherWood",
+  food: "gatherFood",
+};
+
+const HOME_OPENING_CONSTRUCTION = {
+  campfire: "smallFire",
+  shelter: "crudeLeanTo",
+};
+
 let selectedHomeArea = null;
 let homeUiHooked = false;
 let homeTowerSignature = "";
 let homeSceneSignature = "";
 const homeNodeAnchors = new Map();
+
+function isTowerHomeRelocated() {
+  return typeof hasRelocatedToTower === "function" && hasRelocatedToTower();
+}
 
 function hookHomeUI() {
   if (homeUiHooked) return;
@@ -112,9 +126,30 @@ function hookHomeUI() {
   if (!scene || !closeButton) return;
 
   homeUiHooked = true;
+  scene.querySelectorAll("[data-home-direct-action]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      activateHomeAction(button.dataset.homeDirectAction);
+    });
+  });
   scene.querySelectorAll("[data-home-area]").forEach(function (button) {
     button.addEventListener("click", function () {
-      const definition = HOME_AREA_DEFINITIONS[button.dataset.homeArea];
+      const areaName = button.dataset.homeArea;
+      const definition = HOME_AREA_DEFINITIONS[areaName];
+      if (isHomeOpeningSequence()) {
+        if (areaName === "water" && gameState.discoveredStream) return;
+        if (HOME_OPENING_RESOURCE_ACTIONS[areaName] || areaName === "water") {
+          activateHomeOpeningResource(areaName);
+          return;
+        }
+        if (areaName === "workspot" && areHomeResourcesDiscovered() && !isHomeWorkSpotDeclared()) {
+          declareHomeWorkSpot();
+          return;
+        }
+        if (HOME_OPENING_CONSTRUCTION[areaName] && !hasPurchasedCampUpgrade(HOME_OPENING_CONSTRUCTION[areaName])) {
+          activateHomeConstruction(areaName);
+          return;
+        }
+      }
       if (definition && definition.destination) {
         activateHomeDestination(definition.destination);
         return;
@@ -134,6 +169,45 @@ function hookHomeUI() {
   window.addEventListener("resize", positionHomeOverlay);
 
   updateHomeAreaAvailability();
+}
+
+function isHomeOpeningSequence() {
+  return !isHomeCampEstablished() && !isTowerHomeRelocated();
+}
+
+function activateHomeAction(actionName) {
+  if (actionName === "rest" && typeof ui !== "undefined" && ui.restBtn) {
+    if (typeof updateRestButton === "function") updateRestButton();
+    if (!ui.restBtn.disabled) ui.restBtn.click();
+    return;
+  }
+  if (typeof getAction !== "function") return;
+  const action = getAction(actionName);
+  if (!action || !action.unlocked || !action.button) return;
+  if (typeof updateActionButton === "function") updateActionButton(actionName);
+  if (!action.button.disabled) action.button.click();
+}
+
+function activateHomeOpeningResource(areaName) {
+  const definition = HOME_AREA_DEFINITIONS[areaName];
+  if (!definition || !definition.objectName) return;
+
+  if (gameState[definition.discoveryFlag]) {
+    activateHomeAction(HOME_OPENING_RESOURCE_ACTIONS[areaName]);
+    return;
+  }
+
+  if (typeof startLocationObjectExploration === "function") {
+    startLocationObjectExploration(definition.objectName);
+  }
+}
+
+function activateHomeConstruction(areaName) {
+  const upgradeName = HOME_OPENING_CONSTRUCTION[areaName];
+  const upgrade = typeof getCampUpgrade === "function" ? getCampUpgrade(upgradeName) : null;
+  if (!upgrade || !upgrade.unlocked || upgrade.purchased || !upgrade.button) return;
+  if (typeof updateCraftingButtons === "function") updateCraftingButtons();
+  if (!upgrade.button.disabled) upgrade.button.click();
 }
 
 function activateHomeDirectAction(actionName) {
@@ -174,6 +248,7 @@ function syncHomeView(isActive) {
 }
 
 function selectHomeArea(areaName, options = {}) {
+  if (isTowerHomeRelocated() && ![null, "wood", "food", "water", "tower", "trail"].includes(areaName)) areaName = null;
   if (areaName !== null && !HOME_AREA_DEFINITIONS[areaName]) return;
 
   if (options.userSelected) markHomeAreaAttentionSeen(areaName);
@@ -186,6 +261,7 @@ function selectHomeArea(areaName, options = {}) {
 }
 
 function isCraftVisibleInCurrentHomeArea(craft, areaName = selectedHomeArea) {
+  if (typeof currentMainView !== "undefined" && currentMainView === "tower") return true;
   if (!craft || !craft.campHomeArea || typeof isCampCraftingContext !== "function" || !isCampCraftingContext()) return true;
   if (!["workspot", "workbench", "processing"].includes(areaName)) return true;
 
@@ -375,6 +451,7 @@ function updateHomeAreaSelection() {
 }
 
 function updateHomeAreaAvailability() {
+  const relocated = typeof hasRelocatedToTower === "function" && hasRelocatedToTower();
   const sceneState = getHomeSceneState();
   const exploreStep = getHomeExploreStep();
   const resourcesDiscovered = areHomeResourcesDiscovered();
@@ -384,24 +461,25 @@ function updateHomeAreaAvailability() {
   const researchBenchBuilt = typeof hasPurchasedCampUpgrade === "function" && hasPurchasedCampUpgrade("researchBench");
   const smallFireBuilt = typeof hasPurchasedCampUpgrade === "function" && hasPurchasedCampUpgrade("smallFire");
   const shelterBuilt = typeof hasPurchasedCampUpgrade === "function" && hasPurchasedCampUpgrade("crudeLeanTo");
-  const showResources = sceneState !== "fogged" && !established;
+  const showResources = relocated || (sceneState !== "fogged" && !established);
   const signature = [sceneState, exploreStep, gameState.discoveredDeadfall, gameState.discoveredBerryBush, gameState.discoveredStream, workSpotDeclared, workbenchBuilt, researchBenchBuilt, smallFireBuilt, shelterBuilt].join("|");
   const sceneChanged = signature !== homeSceneSignature;
   homeSceneSignature = signature;
 
   updateHomeScenePresentation(sceneState, exploreStep);
+  if (typeof updateHomeOpeningActionHotspots === "function") updateHomeOpeningActionHotspots(sceneState);
   setHomeAreaVisible("wood", showResources);
   setHomeAreaVisible("food", showResources);
   setHomeAreaVisible("water", showResources);
   updateHomeResourceMarker("wood", gameState.discoveredDeadfall, "Gather firewood");
   updateHomeResourceMarker("food", gameState.discoveredBerryBush, "Gather berries");
-  updateHomeResourceMarker("water", gameState.discoveredStream, "Fresh water found");
+  updateHomeResourceMarker("water", gameState.discoveredStream, "");
 
-  const showPrimitiveWorkSpot = resourcesDiscovered && !established;
+  const showPrimitiveWorkSpot = resourcesDiscovered && !established && !workSpotDeclared;
   setHomeAreaVisible("workspot", showPrimitiveWorkSpot || (established && hasVisibleHomeWork() && !workbenchBuilt));
   setHomeAreaVisible("workbench", established && hasVisibleHomeWork() && workbenchBuilt);
-  setHomeAreaVisible("campfire", smallFireBuilt);
-  setHomeAreaVisible("shelter", shelterBuilt);
+  setHomeAreaVisible("campfire", sceneState === "primitive-camp" || smallFireBuilt);
+  setHomeAreaVisible("shelter", sceneState === "primitive-camp" || shelterBuilt);
   setHomeAreaVisible("study", established && typeof isResearchSpotPurchased === "function" && isResearchSpotPurchased());
   const processingBuilt = typeof hasPurchasedCampUpgrade === "function" && (
     hasPurchasedCampUpgrade("campTannery") ||
@@ -409,7 +487,11 @@ function updateHomeAreaAvailability() {
     hasPurchasedCampUpgrade("campAlchemyStation")
   );
   setHomeAreaVisible("processing", established && processingBuilt);
-  setHomeAreaVisible("meditation", established && typeof hasPurchasedCampUpgrade === "function" && (hasPurchasedCampUpgrade("meditationSpot") || hasPurchasedCampUpgrade("attunedMeditationSpot")));
+  setHomeAreaVisible("meditation", established && typeof hasPurchasedCampUpgrade === "function" && (
+    hasPurchasedCampUpgrade("meditationSpot") ||
+    hasPurchasedCampUpgrade("attunedMeditationSpot") ||
+    hasPurchasedCampUpgrade("greaterMeditationSpot")
+  ));
   // A completed structure always has a place in Home. Its contents may still be
   // empty until the player discovers the relevant skill or resource systems.
   setHomeAreaVisible("training", established && typeof hasPurchasedCampUpgrade === "function" && hasPurchasedCampUpgrade("practiceCircle"));
@@ -435,9 +517,7 @@ function updateHomeAreaAvailability() {
   updateHomeTowerVisibility();
   updateHomeTrailVisibility();
 
-  if (!established && !selectedHomeArea) {
-    selectHomeArea("opening");
-  } else if (established && selectedHomeArea === "opening") {
+  if (established && selectedHomeArea === "opening") {
     selectHomeArea(null);
   }
 
@@ -448,6 +528,119 @@ function updateHomeAreaAvailability() {
     if (!selectedButton || selectedButton.hidden) selectHomeArea(null);
     else if (sceneChanged && (HOME_AREA_DEFINITIONS[selectedHomeArea].objectName || selectedHomeArea === "workspot" || selectedHomeArea === "study")) mountHomeArea(selectedHomeArea);
   }
+}
+
+function updateHomeOpeningActionHotspots(sceneState = getHomeSceneState()) {
+  document.querySelectorAll("[data-home-direct-action]").forEach(function (button) {
+    const isRestSpot = button.classList.contains("home-place-catch-breath");
+    const visible = sceneState === "fogged" || (isRestSpot && isHomeOpeningSequence() && !hasPurchasedCampUpgrade("crudeLeanTo"));
+    button.hidden = !visible;
+    if (!visible) return;
+    if (isRestSpot && sceneState !== "fogged") {
+      button.dataset.homeDirectAction = "rest";
+      updateHomeRestHotspot(button);
+      return;
+    }
+    if (isRestSpot) button.dataset.homeDirectAction = "catchBreath";
+    const actionName = button.dataset.homeDirectAction;
+    if (typeof getAction !== "function") return;
+    updateHomeActionHotspot(button, actionName);
+  });
+}
+
+function updateHomeRestHotspot(button) {
+  const source = typeof ui !== "undefined" ? ui.restBtn : null;
+  const running = typeof isActivityActive === "function" && isActivityActive() && gameState.activity.kind === "rest";
+  const name = button.querySelector(".home-place-label strong");
+  const hint = button.querySelector(".home-place-label small");
+  const fill = button.querySelector(".progressFill");
+  if (typeof updateRestButton === "function") updateRestButton();
+  if (name) name.textContent = "Rest in Clearing";
+  if (hint) hint.textContent = running ? "Recovering energy" : "Recover your strength";
+  if (fill) fill.style.width = source?.querySelector(".progressFill")?.style.width || "0%";
+  button.disabled = !source || source.disabled;
+  button.dataset.uiState = running ? "running" : button.disabled ? "blocked" : "ready";
+  button.setAttribute("aria-label", "Rest in Clearing");
+}
+
+function updateHomeActionHotspot(button, actionName) {
+  const action = getAction(actionName);
+  const source = action && action.button;
+  const availability = typeof getUiActionAvailability === "function"
+    ? getUiActionAvailability(actionName)
+    : { state: source && source.disabled ? "blocked" : "ready", reason: "" };
+  const label = source?.querySelector(".ui-action-label")?.textContent || action?.label || actionName;
+  const cost = source?.querySelector(".ui-action-cost")?.textContent || "";
+  const detail = source?.querySelector(".ui-action-detail")?.textContent || "";
+  const name = button.querySelector(".home-place-label strong");
+  const hint = button.querySelector(".home-place-label small");
+  const fill = button.querySelector(".progressFill");
+
+  if (name) name.textContent = label;
+  if (hint) hint.textContent = [cost, detail, availability.reason].filter(Boolean).join(" · ") || (actionName === "catchBreath" ? "Recover your strength" : "Push into the mist");
+  if (fill) fill.style.width = action?.progressBar?.style.width || "0%";
+  button.disabled = !action?.unlocked || !source || source.disabled;
+  button.dataset.uiState = availability.state;
+  button.setAttribute("aria-label", label + (availability.reason ? ", " + availability.reason : ""));
+}
+
+function updateHomeOpeningResourceHotspots() {
+  if (!isHomeOpeningSequence()) return;
+  Object.keys(HOME_OPENING_RESOURCE_ACTIONS).forEach(function (areaName) {
+    const definition = HOME_AREA_DEFINITIONS[areaName];
+    const button = document.querySelector('[data-home-area="' + areaName + '"]');
+    if (!definition || !button || button.hidden) return;
+
+    const discovered = !!gameState[definition.discoveryFlag];
+    if (discovered) {
+      updateHomeActionHotspot(button, HOME_OPENING_RESOURCE_ACTIONS[areaName]);
+      button.removeAttribute("aria-controls");
+      button.removeAttribute("aria-expanded");
+      return;
+    }
+
+    const object = typeof getLocationObject === "function" ? getLocationObject("clearing", definition.objectName) : null;
+    const cost = object && typeof getLocationObjectCost === "function" ? getLocationObjectCost(object) : {};
+    const canAfford = typeof canAffordCost !== "function" || canAffordCost(cost);
+    const isCurrent = typeof isActivityActive === "function" && isActivityActive() && gameState.activity.kind === "locationObject" && gameState.activity.context?.objectName === definition.objectName;
+    const name = button.querySelector(".home-place-label strong");
+    const hint = button.querySelector(".home-place-label small");
+    const fill = button.querySelector(".progressFill");
+    button.disabled = !object || (!isCurrent && ((typeof isActivityActive === "function" && isActivityActive()) || !canAfford));
+    button.dataset.uiState = isCurrent ? "running" : button.disabled ? "blocked" : "ready";
+    if (name && object) name.textContent = object.label;
+    if (hint && object) hint.textContent = [object.label, typeof formatCost === "function" ? formatCost(cost) : ""].filter(Boolean).join(" · ");
+    if (fill) fill.style.width = isCurrent && gameState.activity.duration ? Math.min(100, Math.max(0, (getGameTime() - gameState.activity.startTime) / (gameState.activity.duration * 10))) + "%" : "0%";
+    button.setAttribute("aria-label", object ? object.label : definition.title);
+    button.removeAttribute("aria-controls");
+    button.removeAttribute("aria-expanded");
+  });
+}
+
+function updateHomeConstructionHotspots() {
+  if (!isHomeOpeningSequence()) return;
+  Object.keys(HOME_OPENING_CONSTRUCTION).forEach(function (areaName) {
+    const upgradeName = HOME_OPENING_CONSTRUCTION[areaName];
+    const upgrade = typeof getCampUpgrade === "function" ? getCampUpgrade(upgradeName) : null;
+    const button = document.querySelector('[data-home-area="' + areaName + '"]');
+    if (!upgrade || !button || upgrade.purchased || button.hidden) return;
+    const source = upgrade.button;
+    const name = button.querySelector(".home-place-label strong");
+    const hint = button.querySelector(".home-place-label small");
+    const fill = button.querySelector(".progressFill");
+    const label = upgrade.displayName || upgrade.label;
+    const cost = source?.querySelector(".ui-action-cost")?.textContent || (typeof formatCost === "function" ? formatCost(upgrade.cost) : "");
+    const running = typeof isActivityActive === "function" && isActivityActive() && gameState.activity.kind === "craft" && gameState.activity.type === "campUpgrade" && gameState.activity.id === upgradeName;
+    if (name) name.textContent = label;
+    if (hint) hint.textContent = ["Build here", cost].filter(Boolean).join(" · ");
+    if (fill) fill.style.width = source?.querySelector(".progressFill")?.style.width || "0%";
+    button.classList.add("is-construction-site");
+    button.disabled = !running && (!upgrade.unlocked || !source || source.disabled);
+    button.dataset.uiState = running ? "running" : button.disabled ? "blocked" : "ready";
+    button.setAttribute("aria-label", "Build " + label + (cost ? ", " + cost : ""));
+    button.removeAttribute("aria-controls");
+    button.removeAttribute("aria-expanded");
+  });
 }
 
 function getHomeAttentionState() {
@@ -491,6 +684,26 @@ function getHomeAttentionKeys(category, areaName) {
   return [];
 }
 
+function getTowerRoomAttentionCount(roomId) {
+  if (roomId !== "library") return 0;
+  const state = getHomeAttentionState();
+  const research = getHomeAttentionKeys("research").filter(function (key) { return !state.seen.research.includes(key); });
+  const training = getHomeAttentionKeys("training").filter(function (key) { return !state.seen.training.includes(key); });
+  return research.length + training.length;
+}
+
+function markTowerRoomAttentionSeen(roomId) {
+  if (roomId !== "library") return;
+  const state = getHomeAttentionState();
+  ["research", "training"].forEach(function (category) {
+    const seen = new Set(state.seen[category]);
+    getHomeAttentionKeys(category).forEach(function (key) { seen.add(key); });
+    state.seen[category] = [...seen];
+  });
+  updateHomeAttentionIndicators();
+  if (typeof trySaveGame === "function") trySaveGame();
+}
+
 function getHomeAttentionCategory(areaName) {
   if (areaName === "workspot" || areaName === "workbench" || areaName === "processing") return "crafting";
   if (areaName === "study") return "research";
@@ -518,6 +731,7 @@ function updateHomeAttentionIndicators() {
   setHomeAttentionIndicator("processing", "crafting", getHomeAttentionKeys("crafting", "processing"));
   setHomeAttentionIndicator("study", "research", getHomeAttentionKeys("research"));
   setHomeAttentionIndicator("training", "training", getHomeAttentionKeys("training"));
+  if (typeof updateTowerRoomNavigation === "function") updateTowerRoomNavigation();
 }
 
 function markHomeAreaAttentionSeen(areaName) {
@@ -560,6 +774,7 @@ function isHomeCampEstablished() {
 }
 
 function getHomeSceneState() {
+  if (isTowerHomeRelocated()) return "tower-grounds";
   if (isHomeCampEstablished()) return "established-camp";
   if (!gameState.discoveredClearing) return "fogged";
   if (!areHomeResourcesDiscovered()) return "clearing";
@@ -579,6 +794,7 @@ function updateHomeScenePresentation(sceneState, exploreStep) {
     "workspot-available": ["Home · Revealed clearing", "The Clearing", "The essentials are close at hand. Choose an open place to establish a primitive work area."],
     "primitive-camp": ["Home · Primitive camp", "The Clearing", "Build a Small Fire and Crude Lean-To here. Each completed structure takes its place in the clearing."],
     "established-camp": ["Home · Clearing exterior", "The Clearing", "The fire and lean-to have made this a camp. Practice Circle and Storage Cache plans are now ready to build; each will appear here when finished."],
+    "tower-grounds": ["Home exterior", "Tower Grounds", "Gather outdoor supplies, check the trails and traps, or return inside your tower."],
   }[sceneState];
 
   if (scene) {
@@ -590,14 +806,31 @@ function updateHomeScenePresentation(sceneState, exploreStep) {
   if (kicker) kicker.textContent = copy[0];
   if (title) title.textContent = copy[1];
   if (description) description.textContent = copy[2];
+  if (isTowerHomeRelocated() && scene) scene.setAttribute("aria-label", "Interactive Tower Grounds");
+  const closeButton = document.getElementById("homeAreaCloseBtn");
+  if (closeButton) {
+    closeButton.textContent = isTowerHomeRelocated() ? "Return to grounds" : "Return to clearing";
+    closeButton.setAttribute("aria-label", closeButton.textContent);
+  }
 }
 
 function updateHomeResourceMarker(areaName, discovered, discoveredHint) {
   const marker = document.querySelector('[data-home-area="' + areaName + '"]');
   if (!marker) return;
   const hint = marker.querySelector(".home-place-label small");
+  const label = marker.querySelector(".home-place-label strong");
   marker.classList.toggle("has-new-system", !discovered);
   marker.classList.toggle("is-discovered", discovered);
+  if (areaName === "water" && discovered) {
+    if (label) label.textContent = "Water";
+    if (hint) hint.textContent = "";
+    marker.disabled = true;
+    marker.removeAttribute("aria-controls");
+    marker.removeAttribute("aria-expanded");
+    marker.setAttribute("aria-label", "Water");
+    return;
+  }
+  marker.disabled = false;
   if (hint && discovered) hint.textContent = discoveredHint;
   marker.setAttribute("aria-label", (marker.querySelector("strong")?.textContent || areaName) + (discovered ? ", discovered" : ", new discovery"));
 }
@@ -611,7 +844,7 @@ function declareHomeWorkSpot() {
   if (typeof addStoryEntry === "function") addStoryEntry("You clear a central patch of ground and declare it your work spot. Here, you can begin shaping the clearing into a camp.");
   if (typeof updatePlacePanel === "function") updatePlacePanel();
   updateHomeAreaAvailability();
-  mountHomeArea("workspot");
+  selectHomeArea(null);
   if (typeof trySaveGame === "function") trySaveGame();
 }
 
@@ -627,12 +860,15 @@ function updateHomeCampStructureVisuals() {
   }
 
   if (campfire) {
+    const smallFireBuilt = typeof hasPurchasedCampUpgrade === "function" && hasPurchasedCampUpgrade("smallFire");
     const stoneFireBuilt = typeof hasPurchasedCampUpgrade === "function" && hasPurchasedCampUpgrade("stoneFirePit");
-    setHomeStructureStage(campfire, stoneFireBuilt ? "stone-fire-pit" : "small-fire", stoneFireBuilt ? "Stone Fire Pit" : "Small Fire");
+    campfire.classList.toggle("is-construction-site", !smallFireBuilt);
+    setHomeStructureStage(campfire, !smallFireBuilt ? "fire-site" : stoneFireBuilt ? "stone-fire-pit" : "small-fire", !smallFireBuilt ? "Small Fire" : stoneFireBuilt ? "Stone Fire Pit" : "Small Fire");
   }
 
   if (shelter) {
-    let stage = "crude-lean-to";
+    const crudeShelterBuilt = typeof hasPurchasedCampUpgrade === "function" && hasPurchasedCampUpgrade("crudeLeanTo");
+    let stage = crudeShelterBuilt ? "crude-lean-to" : "shelter-site";
     let label = "Crude Lean-To";
 
     if (typeof hasPurchasedCampUpgrade === "function") {
@@ -649,18 +885,25 @@ function updateHomeCampStructureVisuals() {
     }
 
     setHomeStructureStage(shelter, stage, label);
+    shelter.classList.toggle("is-construction-site", !crudeShelterBuilt);
     const shelterHint = shelter.querySelector(".home-place-label small");
-    if (shelterHint) shelterHint.textContent = stage === "small-hut" ? "Rest in the hut" : "Rest beneath the shelter";
-    shelter.setAttribute("aria-label", "Rest at " + label);
+    if (shelterHint) shelterHint.textContent = !crudeShelterBuilt ? "Build here" : stage === "small-hut" ? "Rest in the hut" : "Rest beneath the shelter";
+    shelter.setAttribute("aria-label", crudeShelterBuilt ? "Rest at " + label : "Build " + label);
   }
 
   if (meditation) {
-    const attuned = typeof hasPurchasedCampUpgrade === "function" && hasPurchasedCampUpgrade("attunedMeditationSpot");
-    const stage = attuned ? "attuned-meditation-spot" : "meditation-spot";
-    const label = attuned ? "Attuned Meditation Spot" : "Meditation Spot";
+    const greater = typeof hasPurchasedCampUpgrade === "function" && hasPurchasedCampUpgrade("greaterMeditationSpot");
+    const improved = typeof hasPurchasedCampUpgrade === "function" && hasPurchasedCampUpgrade("attunedMeditationSpot");
+    const stage = greater ? "greater-meditation-spot" : improved ? "improved-meditation-spot" : "meditation-spot";
+    const label = greater ? "Greater Meditation Spot" : improved ? "Improved Meditation Spot" : "Meditation Spot";
     setHomeStructureStage(meditation, stage, label);
+    const meditationHint = meditation.querySelector(".home-place-label small");
+    if (meditationHint) meditationHint.textContent = greater ? "Restore 50% more mana" : improved ? "Restore 25% more mana" : "Meditate and restore mana";
     meditation.setAttribute("aria-label", "Meditate at " + label);
   }
+
+  updateHomeOpeningResourceHotspots();
+  updateHomeConstructionHotspots();
 }
 
 function setHomeStructureStage(button, stage, label) {
@@ -670,6 +913,7 @@ function setHomeStructureStage(button, stage, label) {
 }
 
 function isHomeTowerDiscovered() {
+  if (isTowerHomeRelocated()) return true;
   return !!(gameState.magic && gameState.magic.sensedReveals && gameState.magic.sensedReveals.campFoundation);
 }
 
@@ -700,6 +944,9 @@ function updateHomeTowerVisibility() {
     towerButton.hidden = !towerDiscovered;
     towerButton.disabled = !towerDiscovered;
     if (typeof updateSystemNewIndicator === "function") updateSystemNewIndicator(towerButton, "tower");
+    const towerHint = typeof towerButton.querySelector === "function" ? towerButton.querySelector(".home-place-label small") : null;
+    if (towerHint && isTowerHomeRelocated()) towerHint.textContent = "Enter your home";
+    if (typeof towerButton.setAttribute === "function") towerButton.setAttribute("aria-label", isTowerHomeRelocated() ? "Enter Tower Home" : "Enter the Tower");
   }
   if (scene) scene.classList.toggle("has-built-tower", towerBuilt);
 }
@@ -717,6 +964,7 @@ function isHomeNodeAvailable(nodeOrId) {
 }
 
 function setHomeAreaVisible(areaName, visible) {
+  if (isTowerHomeRelocated() && !["wood", "food", "water", "tower", "trail"].includes(areaName)) visible = false;
   const button = document.querySelector('[data-home-area="' + areaName + '"]');
   if (button) button.hidden = !visible;
 }
@@ -742,7 +990,7 @@ function renderHomeTowerPlaceholder() {
     : [];
   const signature = JSON.stringify([caption.title, caption.status, progress]);
 
-  if (status) status.textContent = caption.status || "Tower work remains separate";
+  if (status) status.textContent = isTowerHomeRelocated() ? "Enter Tower" : caption.status || "Tower work remains separate";
   if (signature === homeTowerSignature) return;
   homeTowerSignature = signature;
 

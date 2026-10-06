@@ -135,7 +135,7 @@ const ExpeditionScene = (() => {
       artwork: "assets/expedition/miners-camp.webp",
       description: "A cold stream passes an abandoned worksite beneath the ridge.",
       landmarks: [
-        { id: "smelter", title: "Smelter & stores", description: "The old furnace and ore crates share a sheltered work area.", x: 28, y: 46, actions: ["storeOre", "takeIron"], sections: ["locationStorageSection", "expeditionLocationObjectActionsSlot", "locationSpellActions", "craftingSpellActions"], crafts: true },
+        { id: "smelter", title: "Smelter & stores", description: "The old furnace and ore crates share a sheltered work area.", x: 28, y: 46, actions: ["storeOre", "storeFuel", "takeIron"], sections: ["locationStorageSection", "expeditionLocationObjectActionsSlot", "locationSpellActions", "craftingSpellActions"], crafts: true },
         { id: "survey", title: "Abandoned worksite", description: "Investigate the stream and the remains of the miners’ shelter.", x: 75, y: 54, actions: ["exploreLocation"], investigation: true },
         { id: "node", title: "Northern Node", description: "Inspect the northern anchor and its available local functions.", x: 72, y: 30, actions: [], sections: ["towerNodePanel", "locationContextualActions", "locationSpellActions", "craftingSpellActions"], gated: "node" },
       ],
@@ -379,21 +379,29 @@ const ExpeditionScene = (() => {
     }
     refs.markers.replaceChildren();
     for (const landmark of landmarks) {
+      const directDestination = !!landmark.directDestination;
       const button = document.createElement("button");
       button.type = "button";
       button.className = "expedition-landmark";
       button.dataset.landmark = landmark.id;
       button.style.setProperty("--x", landmark.x + "%");
       button.style.setProperty("--y", landmark.y + "%");
-      button.setAttribute("aria-controls", landmark.route ? "regionalMapSection" : "expeditionDetail");
-      button.setAttribute("aria-label", landmark.route ? "Inspect routes from this location" : "Inspect " + landmark.title);
+      if (!directDestination) button.setAttribute("aria-controls", landmark.route ? "regionalMapSection" : "expeditionDetail");
+      button.setAttribute("aria-label", directDestination ? "Travel to " + landmark.title + ", " + landmark.travelDistance : landmark.route ? "Inspect routes from this location" : "Inspect " + landmark.title);
       const label = document.createElement("strong"), state = document.createElement("small");
       label.textContent = landmark.title;
       const caption = document.createElement("span");
       caption.className = "expedition-landmark-label";
       caption.append(label, state);
       button.append(caption);
-      button.addEventListener("click", () => landmark.route ? refs.browse.click() : landmark.spellTarget ? activateSpellTarget(landmark.spellTarget) : landmark.interaction === "action" ? activateAction(primaryAction(landmark)) : choose(landmark.id));
+      button.addEventListener("click", () => {
+        if (directDestination) {
+          const source = ui.destinationActions.querySelector('[data-expedition-destination="' + landmark.id + '"]');
+          if (source && !source.disabled) source.click();
+          return;
+        }
+        landmark.route ? refs.browse.click() : landmark.spellTarget ? activateSpellTarget(landmark.spellTarget) : landmark.interaction === "action" ? activateAction(primaryAction(landmark)) : choose(landmark.id);
+      });
       refs.markers.append(button);
     }
     sizeArtwork();
@@ -466,7 +474,7 @@ const ExpeditionScene = (() => {
     if (map && west) text(byId("expeditionSceneCaption"), "West · Known places — select a landmark to inspect its route.");
     if (map && east) text(byId("expeditionSceneCaption"), "East · Known places — select a landmark to inspect its route.");
     if (map && outskirts) text(byId("expeditionSceneCaption"), "Outskirts · Known places — select a landmark to inspect its route.");
-    const landmarks = map ? getRegionKnownLocations(regionId).filter(id => mapPositions[id]).map(id => ({ id, title: getLocationLabel(id) + (id === "roadsideRuin" && getCampUpgrade("manaCondenser").purchased ? " · Mana Condenser" : ""), x: mapPositions[id][0], y: mapPositions[id][1] })) : [...scene.landmarks.filter(landmarkVisible), { ...routeLandmark, x: e.currentLocation === "foothillScree" ? 60 : 40 }];
+    const landmarks = map ? getRegionKnownLocations(regionId).filter(id => mapPositions[id]).map(id => ({ id, title: getLocationLabel(id) + (id === "roadsideRuin" && getCampUpgrade("manaCondenser").purchased ? " · Mana Condenser" : ""), x: mapPositions[id][0], y: mapPositions[id][1], directDestination: ["mysteriousPlants", "strangeTrails", "creepyCave"].includes(id), travelDistance: formatDistance(getLocationTravelDistance(getExpeditionLocation(id)))})) : [...scene.landmarks.filter(landmarkVisible), { ...routeLandmark, x: e.currentLocation === "foothillScree" ? 60 : 40 }];
     const key = (map ? regionId : e.currentLocation) + ":" + landmarks.map(l => l.id).join(",");
     if (surfaceKey !== key) {
       if (!landmarks.some(l => l.id === selected)) selected = null;
@@ -488,6 +496,14 @@ const ExpeditionScene = (() => {
         button.hidden = complete || !getAction(id)?.unlocked;
         button.classList.toggle("is-complete", complete || !!landmark.complete?.());
         updateDirectButton(button, id, complete);
+        continue;
+      }
+      if (map && landmark.directDestination) {
+        text(button.querySelector("strong"), landmark.title);
+        text(button.querySelector("small"), "Travel to " + landmark.title + " · " + landmark.travelDistance);
+        button.setAttribute("aria-label", "Travel to " + landmark.title + ", " + landmark.travelDistance);
+        button.removeAttribute("aria-expanded");
+        button.removeAttribute("aria-pressed");
         continue;
       }
       const isSelected = selected === landmark.id;
@@ -530,7 +546,7 @@ const ExpeditionScene = (() => {
       if (chosen.id === "smelter" && getResourceCraft("iron").button?.style.display !== "none") {
         const produces = getActiveCraftContext(getResourceCraft("iron"))?.storageProduces;
         if (produces) info = "Per smelting cycle: " + Object.entries(produces).map(([id, amount]) => amount + " " + getResource(id).label).join(", ") + " added to the stores here.";
-        info += " Pack: " + (e.carriedItems.ore || 0) + " Ore. Store Ore requires supplies in your pack. Processing uses the shared station fuel.";
+        info += " Pack: " + (e.carriedItems.ore || 0) + " Ore. Store Ore requires supplies in your pack. " + (hasRelocatedToTower() ? "The Tower Heart powers this station without fuel." : "Processing uses fuel stored here.");
       }
       if (!getExpeditionLocation(e.currentLocation).explored && chosen.id === "scree") info += (info ? " " : "") + "Investigate the rocky slope to unlock gathering.";
       if (chosen.investigation && getExpeditionLocation(e.currentLocation).explored) info = "Investigation complete.";

@@ -1,5 +1,5 @@
 const SAVE_KEY = "manaApprenticeSaveV1";
-const SAVE_VERSION = 43;
+const SAVE_VERSION = 46;
 let saveSuppressed = false;
 
 function createSaveData() {
@@ -367,10 +367,135 @@ function migrateSaveData(saveData) {
   if (version <= 40) migrateV40SaveDataToV41(normalizedSaveData);
   if (version <= 41) migrateV41SaveDataToV42(normalizedSaveData);
   if (version <= 42) migrateV42SaveDataToV43(normalizedSaveData);
+  if (version <= 43) migrateV43SaveDataToV44(normalizedSaveData);
+  if (version <= 44) migrateV44SaveDataToV45(normalizedSaveData);
+  if (version <= 45) migrateV45SaveDataToV46(normalizedSaveData);
   if (normalizedSaveData.resources.mana) normalizedSaveData.resources.mana.perSecond = 0;
   normalizedSaveData.version = SAVE_VERSION;
 
   return normalizedSaveData;
+}
+
+function migrateV45SaveDataToV46(saveData) {
+  const state = ensureObject(saveData.gameState);
+  const resources = ensureObject(saveData.resources);
+  const research = ensureObject(saveData.research);
+  const upgrades = ensureObject(saveData.campUpgrades);
+  const actions = ensureObject(saveData.actions);
+  const base = ensureObject(upgrades.meditationSpot);
+  const improved = ensureObject(upgrades.attunedMeditationSpot);
+  const greater = ensureObject(upgrades.greaterMeditationSpot);
+  const hadLegacyImproved = !!improved.purchased;
+  const hadLegacyImprovedUnlock = hadLegacyImproved || !!improved.unlocked || !!research.attunedMeditation?.completed;
+  const hasMana = !!state.magicUnlocked || !!resources.mana?.visible || !!resources.mana?.discovered;
+
+  if (hasMana && !base.purchased) base.unlocked = true;
+
+  if (research.meditation?.completed && !improved.purchased) {
+    improved.unlocked = true;
+  }
+
+  // The old late-game upgraded spot maps to the new Greater tier. Its legacy
+  // unlock also proves the player met the base ownership and skill gates, so
+  // preserve that path without making them rebuild the new intermediate tier.
+  if (hadLegacyImprovedUnlock) {
+    base.purchased = true;
+    base.unlocked = false;
+    improved.purchased = true;
+    improved.unlocked = false;
+    greater.purchased = hadLegacyImproved;
+    greater.unlocked = !hadLegacyImproved;
+  }
+
+  if (base.purchased || improved.purchased || greater.purchased) {
+    const meditate = ensureObject(actions.meditate);
+    meditate.unlocked = true;
+    actions.meditate = meditate;
+  }
+
+  upgrades.meditationSpot = base;
+  upgrades.attunedMeditationSpot = improved;
+  upgrades.greaterMeditationSpot = greater;
+  saveData.actions = actions;
+  saveData.campUpgrades = upgrades;
+}
+
+function migrateV44SaveDataToV45(saveData) {
+  const state = ensureObject(saveData.gameState);
+  const seen = ensureObject(state.storyPopupsSeen);
+  const projects = ensureObject(state.projects);
+  const nodes = ensureObject(state.towerNodes);
+  const research = ensureObject(saveData.research);
+  const upgrades = ensureObject(saveData.campUpgrades);
+  const elementals = ensureObject(state.elementals);
+  const earth = ensureObject(elementals.earth);
+  const assignments = ensureObject(earth.assignments);
+  const nodeAssignments = ensureObject(assignments.nodes);
+  const hasAssignedElemental = (Number(assignments.tower) || 0) > 0 || Object.values(nodeAssignments).some(function (jobs) {
+    return Object.values(ensureObject(jobs)).some(function (count) { return (Number(count) || 0) > 0; });
+  });
+  const completed = {
+    fourRoads: !!state.oldMapFound,
+    moreThanARefuge: !!upgrades.framedShelter?.purchased && !!upgrades.workbench?.purchased,
+    familiarQuestion: !!state.archiveDoorOpened,
+    plansBeneathTheDust: !!state.partialTowerPlansFound,
+    heartRemembers: !!projects.towerFoundation?.completed || !!state.personalWardUnlocked,
+    firstConnection: !!nodes.north?.built,
+    handsOfStone: !!state.elementalUsefulCycleCompleted || hasAssignedElemental,
+    fourAnchorsOneHeart: ["north", "east", "south", "west"].every(function (nodeName) { return !!nodes[nodeName]?.built; }),
+    lastWarden: !!state.brokenWardenEncountered || !!state.brokenWardenDefeated,
+    beyondTheFourRoads: !!state.brokenWardenDefeated || !!state.wardenCoreRecovered,
+    towerBuiltToReach: !!research.longRangeNetwork?.completed,
+    homeAtLast: !!state.towerHome?.relocated,
+    answerBeyondTheWoods: !!state.tierFourCompleted || !!projects.towerRoomLongRangeGate?.completed,
+  };
+  const journal = ensureObject(state.journal);
+  if (!Array.isArray(journal.entries)) journal.entries = [];
+  Object.keys(completed).forEach(function (storyId) {
+    if (!completed[storyId]) return;
+    seen[storyId] = true;
+    if (!journal.entries.includes(storyId)) journal.entries.push(storyId);
+  });
+  state.storyPopupsSeen = seen;
+  state.storyPopupQueue = [];
+  state.elementalUsefulCycleCompleted = !!state.elementalUsefulCycleCompleted || hasAssignedElemental;
+  state.brokenWardenEncountered = !!state.brokenWardenEncountered || !!state.brokenWardenDefeated;
+  if (completed.heartRemembers) state.personalWardPopupShown = true;
+  if (completed.homeAtLast) state.towerHome.establishmentPresented = true;
+  state.journal = journal;
+}
+
+function migrateV43SaveDataToV44(saveData) {
+  const state = saveData.gameState;
+  const imbuement = state.magic?.imbuement || {};
+  state.towerHome = { relocated: false, legacyFuelNoticeShown: false, establishmentPresented: false, ...(state.towerHome || {}) };
+  if (!state.towerHome.legacyFuelNoticeShown && (imbuement.furnaceTier >= 2 || imbuement.alchemyTier >= 2)) state.towerHome.legacyFuelNoticePending = true;
+  // Do not carry obsolete paid spellwork across the migration. Its exact old
+  // recipe is refunded before the activity is canceled.
+  const obsoleteTarget = state.activity?.context?.targetId;
+  if (state.activity?.kind === "spell" && obsoleteTarget?.match(/^rankTwoArcane(Furnace|Alchemy)$/)) {
+    const refund = obsoleteTarget === "rankTwoArcaneFurnace"
+      ? { stone: 120, iron: 50, manaCrystal: 10, earthElementalCore: 1, mana: 20 }
+      : { herb: 100, glimmerleaf: 20, naturalEssence: 2, manaCrystal: 10, mana: 20 };
+    Object.entries(refund).forEach(function ([resourceName, amount]) {
+      const resource = saveData.resources?.[resourceName];
+      if (!resource) return;
+      resource.value = roundResourceAmount(Math.min(Number(resource.maxValue) || Infinity, (Number(resource.value) || 0) + amount));
+    });
+    state.activity = { active: false };
+  }
+  if (state.activity?.kind === "towerMoveIn" ||
+    (state.activity?.kind === "projectWork" && state.activity.id === "towerRoomLongRangeGate" && !state.towerHome.relocated)) {
+    state.activity = { active: false };
+  }
+}
+
+function reportLegacyTowerFuelChange() {
+  const home = gameState.towerHome;
+  if (!home?.legacyFuelNoticePending || home.legacyFuelNoticeShown) return;
+  home.legacyFuelNoticePending = false;
+  home.legacyFuelNoticeShown = true;
+  addStoryEntry("Your recorded Arcane Furnace or Arcane Alchemy imbuement is preserved. Before moving into the Tower, it now reduces fuel costs by 50%. Establish the Tower as your home to power all furnace and alchemy production through the Heart, with no fuel or upkeep.");
 }
 
 function migrateV42SaveDataToV43(saveData) {
@@ -578,6 +703,12 @@ function normalizeSaveData(saveData) {
   saveData.gameState.regionalProgress = ensureObject(saveData.gameState.regionalProgress);
   saveData.gameState.magic = ensureObject(saveData.gameState.magic);
   saveData.gameState.systemUnlocks = ensureObject(saveData.gameState.systemUnlocks);
+  saveData.gameState.storyPopupsSeen = ensureObject(saveData.gameState.storyPopupsSeen);
+  saveData.gameState.storyPopupQueue = Array.isArray(saveData.gameState.storyPopupQueue)
+    ? [...new Set(saveData.gameState.storyPopupQueue.filter(function (storyId) { return typeof storyId === "string" && !!getStoryPopupDefinition(storyId); }))]
+    : [];
+  saveData.gameState.elementalUsefulCycleCompleted = !!saveData.gameState.elementalUsefulCycleCompleted;
+  saveData.gameState.brokenWardenEncountered = !!saveData.gameState.brokenWardenEncountered;
   saveData.gameState.magic.sensedReveals = ensureObject(saveData.gameState.magic.sensedReveals);
   saveData.gameState.magic.spellProgress = ensureObject(saveData.gameState.magic.spellProgress);
   saveData.gameState.magic.spellProgress.manaSense = normalizeSavedSpellProgress(saveData.gameState.magic.spellProgress.manaSense);
@@ -1221,6 +1352,10 @@ function normalizeSavedFuelLocationStorage(savedLocations) {
     if (!location || typeof location !== "object") return;
 
     const storage = ensureObject(location.storage);
+    if (locationName === "minersCamp") {
+      delete storage.food;
+      if (!Number.isFinite(storage.fuel)) storage.fuel = 0;
+    }
     if (!["fuel", "wood", "imbuedWood"].some(function (name) { return Object.prototype.hasOwnProperty.call(storage, name); })) return;
     const fuel = Number.isFinite(storage.fuel) ? storage.fuel : 0;
     const woodFuel = Number.isFinite(storage.wood) ? storage.wood : 0;
@@ -1541,6 +1676,11 @@ function applyResourceSaveData(savedResources) {
 
 function applyGameStateSaveData(savedGameState) {
   if (!savedGameState) return;
+  gameState.towerHome = { relocated: false, legacyFuelNoticeShown: false, establishmentPresented: false, ...ensureObject(savedGameState.towerHome) };
+  gameState.storyPopupsSeen = structuredClone(ensureObject(savedGameState.storyPopupsSeen));
+  gameState.storyPopupQueue = Array.isArray(savedGameState.storyPopupQueue) ? [...savedGameState.storyPopupQueue] : [];
+  gameState.elementalUsefulCycleCompleted = !!savedGameState.elementalUsefulCycleCompleted;
+  gameState.brokenWardenEncountered = !!savedGameState.brokenWardenEncountered;
   gameState.equipment = normalizeEquipmentCollection(savedGameState.equipment ? structuredClone(savedGameState.equipment) : newEquipmentCollection());
   // Timed jobs do not advance offline; unpaid equipment reservations are canceled.
   gameState.equipment.pending = null;
@@ -1907,6 +2047,7 @@ function refreshGameUIAfterLoad() {
   hideElement(ui.personalWardPopup);
   hideElement(ui.advancedRecallPopup);
   hideElement(ui.northernDisturbancePopup);
+  hideElement(ui.storyPopup);
 
   const resourceDefinitions = getResourceDefinitions();
 
@@ -1964,9 +2105,8 @@ function refreshGameUIAfterLoad() {
   updatePlacePanel();
   syncMainViewAvailability();
 
-  if (gameState.personalWardUnlocked && !gameState.personalWardPopupShown && typeof showPersonalWardPopup === "function") {
-    showPersonalWardPopup();
-  }
+  if (gameState.expedition.currentLocation === "arcaneArchive" && typeof checkLastWardenStory === "function") checkLastWardenStory();
+  if (typeof processStoryPopupQueue === "function") processStoryPopupQueue();
 }
 
 function loadGame() {
@@ -2016,6 +2156,7 @@ function loadGame() {
   repairWesternCondenserSave(saveData);
   applyGolemOfflineProgress(saveData);
   refreshGameUIAfterLoad();
+  reportLegacyTowerFuelChange();
   trySaveGame(); // Commit deliveries and the new timestamp before another reload.
 
   return true;

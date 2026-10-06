@@ -243,7 +243,6 @@ function grantWardenCore(announce = true) {
   if (!alreadyRecovered) {
     addJournalEntry("wardenCoreRecovered");
     if (announce) {
-      addStoryEntry("You recover the Warden Core. Its dense arcane lattice echoes the four regional nodes, then reaches past them into the unknown.");
       if (typeof showMajorSystemUnlockEvent === "function") {
         showMajorSystemUnlockEvent({ title: "WARDEN CORE RECOVERED", description: "A unique progression item. It cannot be lost or duplicated." });
       }
@@ -251,6 +250,59 @@ function grantWardenCore(announce = true) {
   }
 
   return !alreadyRecovered;
+}
+
+function hasRelocatedToTower() { return gameState.towerHome?.relocated === true; }
+function getHomeDestination() { return hasRelocatedToTower() ? "tower" : "home"; }
+function getHomeDestinationLabel() { return hasRelocatedToTower() ? "Tower" : "Camp"; }
+
+function isTowerMoveInRevealed() {
+  const network = getResearch("longRangeNetwork");
+  return !hasRelocatedToTower() && (!!getProjectState("towerRoomLongRangeGate")?.completed ||
+    (gameState.wardenCoreRecovered && !!(network?.unlocked || network?.completed)));
+}
+
+function getTowerMoveInRequirements() {
+  return [
+    { label: "Restored Tower Heart", target: "heart", complete: !!getProjectState("towerFoundation")?.completed },
+    { label: "Completed basement", target: "basement", complete: !!getProjectState("towerBasement")?.completed },
+    ...["bedroom", "workshop", "forge", "library", "alchemyRoom", "enchantingStudy"].map(id => ({
+      label: "Functional " + getTowerRoomDefinition(id).name, target: "room:" + id, complete: isTowerRoomCompleted(id),
+    })),
+  ];
+}
+
+function canMoveIntoTower() {
+  return isTowerMoveInRevealed() && isCampCraftingContext() && getTowerMoveInRequirements().every(item => item.complete);
+}
+
+function startTowerMoveIn() {
+  if (!canMoveIntoTower() || isActivityActive()) return false;
+  return startActivity({ kind: "towerMoveIn", duration: 5, label: "Move Into the Tower" });
+}
+
+function completeTowerMoveIn() {
+  if (!canMoveIntoTower() || isActivityActive()) return false;
+  gameState.towerHome = { ...(gameState.towerHome || {}), relocated: true };
+  // Ownership and all earned camp benefits stay intact; only their controls retire.
+  setCampActionsAvailable(true);
+  updateCraftingUIForCurrentContext();
+  updateAllResources();
+  updateCurrentGoalUI();
+  if (typeof setMainView === "function") setMainView(getHomeDestination(), { userSelected: true });
+  if (typeof showTowerEstablishedPresentation === "function") showTowerEstablishedPresentation();
+  trySaveGame();
+  return true;
+}
+
+function isObsoleteCampPurchase(upgrade) {
+  // Meditation upgrades transfer into the Tower bedroom rather than becoming obsolete structures.
+  return hasRelocatedToTower() && !!upgrade && !upgrade.requiredLocation &&
+    ![getCampUpgrade("attunedMeditationSpot"), getCampUpgrade("greaterMeditationSpot")].includes(upgrade);
+}
+
+function isGateActivationBlockedByHome(projectName) {
+  return projectName === "towerRoomLongRangeGate" && isLongRangeGateBuilt() && !getProjectState(projectName)?.completed && !hasRelocatedToTower();
 }
 
 function isLongRangeGateBuilt() {
@@ -284,17 +336,7 @@ function completeTierFourFinale(showPresentation = true) {
   addJournalEntry("firstExternalTerritoryDetected");
 
   if (!wasComplete && showPresentation) {
-    [
-      "Mana surges through the Tower Heart.",
-      "North. East. South. West. The four regional nodes answer.",
-      "For a moment, the Home Territory network feels complete.",
-      "Then another signal appears, far beyond the known regions.",
-      "LONG-RANGE TRANSIT NETWORK DETECTED — Known external destinations: 1 — Unknown Territory.",
-    ].forEach(addStoryEntry);
-    if (typeof showMajorSystemUnlockEvent === "function") {
-      showMajorSystemUnlockEvent({ title: "TIER IV COMPLETE", description: "The Long-Range Gate is active." });
-      showMajorSystemUnlockEvent({ title: "Tier V — Rediscovery", description: "New objective: Travel to the first external Territory." });
-    }
+    if (typeof triggerStoryPopup === "function") triggerStoryPopup("answerBeyondTheWoods");
   }
 
   updateCurrentGoalUI();
@@ -326,7 +368,6 @@ function syncTierFourFinaleProgression() {
 
 function unlockPersonalWard(showPopup = true) {
   const ward = getResource("ward");
-  const wasUnlocked = !!gameState.personalWardUnlocked;
 
   gameState.personalWardUnlocked = true;
   unlockSpell("ward");
@@ -336,15 +377,6 @@ function unlockPersonalWard(showPopup = true) {
     syncWardResourceState();
     unlockResource("ward");
     updateResource("ward");
-  }
-
-  if (!wasUnlocked) {
-    addStoryEntry("The foundation's ward pattern answers your mana. You remember how to hold a personal ward around yourself.");
-    addJournalEntry("personalWardRemembered");
-  }
-
-  if (showPopup && !gameState.personalWardPopupShown && typeof showPersonalWardPopup === "function") {
-    showPersonalWardPopup();
   }
 
   updateEquipmentSlotUI();
@@ -1392,6 +1424,11 @@ function processBoundEarthElementalAutomation(deltaSeconds) {
     }
   }
 
+  if (delivered && !gameState.elementalUsefulCycleCompleted) {
+    gameState.elementalUsefulCycleCompleted = true;
+    if (typeof triggerStoryPopup === "function") triggerStoryPopup("handsOfStone");
+  }
+
   const signature = getBoundEarthElementalAutomationSignature();
   if (delivered || signature !== lastBoundEarthAutomationUiSignature) {
     lastBoundEarthAutomationUiSignature = signature;
@@ -1572,6 +1609,13 @@ function unlockFlag(flagName) {
 
   gameState[flagName] = true;
 
+  const storyForFlag = {
+    oldMapFound: "fourRoads",
+    archiveDoorOpened: "familiarQuestion",
+    partialTowerPlansFound: "plansBeneathTheDust",
+  }[flagName];
+  if (storyForFlag && typeof triggerStoryPopup === "function") triggerStoryPopup(storyForFlag);
+
   if (flagName === "discoveredStream" || flagName === "discoveredBerryBush") {
     checkClearingComplete();
   }
@@ -1692,11 +1736,12 @@ function completeResearch(researchName, costAlreadyPaid = false) {
   research.completed = true;
   research.unlocked = false;
 
-  if (research.story) {
+  if (research.story && researchName !== "longRangeNetwork") {
     addStoryEntry(research.story);
   }
 
   applyResearchUnlocks(researchName);
+  if (researchName === "longRangeNetwork" && typeof triggerStoryPopup === "function") triggerStoryPopup("towerBuiltToReach");
   checkResearchDiscoveries();
   recordDeepThought(research.deepThought || 1, research.label);
 
@@ -1879,7 +1924,7 @@ function hasRequiredResearchCampUpgrades(requiredUpgrades) {
   for (let i = 0; i < requiredUpgrades.length; i++) {
     const upgrade = getCampUpgrade(requiredUpgrades[i]);
 
-    if (!upgrade || !upgrade.purchased) {
+    if (!upgrade || (!upgrade.purchased && !hasHomeStation(requiredUpgrades[i]))) {
       return false;
     }
   }
@@ -1946,6 +1991,7 @@ function updateCampUpgradeUI(upgradeName) {
     ui.locationPrimaryActions.appendChild(upgrade.button);
   }
   updateCampUpgradeDisplay(upgrade);
+  if (isObsoleteCampPurchase(upgrade) && upgrade.button) upgrade.button.style.display = "none";
 
   if (upgrade && upgrade.button && upgrade.unlocked && !upgrade.purchased) {
     updateCraftButtonLabel("campUpgrade", upgradeName);
@@ -2000,6 +2046,8 @@ function hookGearUpgradesToUI() {
 }
 
 function getBasicCraftButtonName(craft) {
+  if (hasRelocatedToTower() && craft === getCampUpgrade("attunedMeditationSpot")) return "Improve Bedroom Meditation";
+  if (hasRelocatedToTower() && craft === getCampUpgrade("greaterMeditationSpot")) return "Create Greater Bedroom Meditation";
   return craft.label;
 }
 
@@ -2010,11 +2058,19 @@ function isCampCraftingContext() {
 }
 
 function isCampEquipmentCraftContextAvailable(craft) {
-  return !!craft && !!craft.campUpgradeRequired && isCampCraftingContext() && hasPurchasedCampUpgrade(craft.campUpgradeRequired);
+  return !!craft && !!craft.campUpgradeRequired && isCampCraftingContext() && hasHomeStation(craft.campUpgradeRequired);
+}
+
+// Capability is separate from camp ownership. Never grant home access while away.
+function hasHomeStation(station) {
+  if (!isCampCraftingContext()) return false;
+  if (hasRelocatedToTower() && station === "framedShelter") return isTowerRoomCompleted("bedroom");
+  const rooms = { workbench: "workshop", campTannery: "workshop", campSmelter: "forge", campAlchemyStation: "alchemyRoom", researchSpot: "library", researchBench: "library", meditationSpot: "bedroom" };
+  return hasPurchasedCampUpgrade(station) || !!(rooms[station] && isTowerRoomCompleted(rooms[station]));
 }
 
 function isCraftCampUpgradeRequirementMet(craft) {
-  return !craft || !craft.requiresCampUpgrade || hasPurchasedCampUpgrade(craft.requiresCampUpgrade);
+  return !craft || !craft.requiresCampUpgrade || hasHomeStation(craft.requiresCampUpgrade);
 }
 
 function getCraftCampUpgradeRequirementReason(craft) {
@@ -2026,6 +2082,7 @@ function getCraftCampUpgradeRequirementReason(craft) {
 
 function getActiveCraftContext(craft) {
   if (craft?.retired) return null;
+  if (Object.values(getCampUpgradeDefinitions()).includes(craft) && isObsoleteCampPurchase(craft)) return null;
   if (!craft) return null;
   const towerStation = craft.imbueInfrastructure === "furnace" ? "forge" : craft.imbueInfrastructure === "alchemy" ? "alchemyRoom" : null;
   if (towerStation && isCampCraftingContext() && isTowerRoomCompleted(towerStation) && gameState.tower?.selectedId === "room:" + towerStation) {
@@ -2067,8 +2124,9 @@ function getActiveCraftContext(craft) {
   }
 
   const storageCost = craft.storageCost ? getImbueAdjustedCraftCost(craft, craft.storageCost) : null;
-  const fuelCost = storageCost?.fuel || 0;
-  if (storageCost) delete storageCost.fuel;
+  const usesLocalFuel = requiredLocation === "minersCamp";
+  const fuelCost = usesLocalFuel ? 0 : storageCost?.fuel || 0;
+  if (storageCost && !usesLocalFuel) delete storageCost.fuel;
 
   return {
     mode: requiredLocation === "camp" ? "camp" : "location",
@@ -2094,7 +2152,7 @@ function isResourceCraftUnlockedForContext(craft, context) {
   if (!context) return false;
   if (craft.unlocked) return true;
 
-  return context.mode === "campEquipment";
+  return context.mode === "campEquipment" || (context.mode === "towerRoom" && !!craft.campUpgradeRequired && hasHomeStation(craft.campUpgradeRequired));
 }
 
 function getBasicCraftButtonCost(craft, craftType, craftId) {
@@ -2175,7 +2233,7 @@ function formatFilteredCost(cost, shouldIncludeResource) {
 
 function setCampActionsAvailable(available) {
   if (available) {
-    const fuelStructureBuilt = hasPurchasedCampUpgrade("campAlchemyStation") || hasPurchasedCampUpgrade("campSmelter");
+    const fuelStructureBuilt = !hasRelocatedToTower() && (hasHomeStation("campAlchemyStation") || hasHomeStation("campSmelter"));
 
     if (gameState.discoveredDeadfall) {
       unlockAction("gatherWood");
@@ -2199,10 +2257,6 @@ function setCampActionsAvailable(available) {
       unlockAction("gatherFood");
     }
 
-    if (gameState.discoveredStream) {
-      unlockAction("gatherWater");
-    }
-
     if (!gameState.discoveredClearing) {
       unlockAction("explore");
     } else {
@@ -2213,11 +2267,11 @@ function setCampActionsAvailable(available) {
       unlockAction("recover");
     }
 
-    if (hasPurchasedCampUpgrade("meditationSpot")) {
+    if (hasHomeStation("meditationSpot")) {
       unlockAction("meditate");
     }
 
-    if (hasPurchasedCampUpgrade("campAlchemyStation")) {
+    if (hasHomeStation("campAlchemyStation")) {
       unlockAction("concentrateTonicBase");
       unlockAction("concentrateManaTonicBase");
     } else {
@@ -2231,7 +2285,6 @@ function setCampActionsAvailable(available) {
     lockAction("addWoodToFuel");
     lockAction("addImbuedWoodToFuel");
     lockAction("gatherFood");
-    lockAction("gatherWater");
     lockAction("explore");
     lockAction("recover");
     lockAction("meditate");
@@ -2262,6 +2315,9 @@ function completeCampUpgrade(upgradeName) {
   upgrade.purchased = true;
   upgrade.unlocked = false;
   upgrade.onComplete();
+  if (getCampUpgrade("framedShelter")?.purchased && getCampUpgrade("workbench")?.purchased) {
+    if (typeof triggerStoryPopup === "function") triggerStoryPopup("moreThanARefuge");
+  }
   if (upgradeName === "storageCache") {
     syncDefaultResourceStorageCaps();
     applyBasementStorageUpgrade();
@@ -2445,6 +2501,7 @@ function syncContextualActionPlacement() {
       target.appendChild(button);
     }
   });
+  syncTowerHomePanels();
 }
 
 function renderContextualLocationSpellActions() {
@@ -2517,6 +2574,7 @@ function renderContextualCraftingSpellActions() {
 
     for (let targetName in definitions) {
       const definition = getProductionSpellDefinition(spellName, targetName);
+      if (!isTowerHomeMagicVisible(definition)) continue;
       const visiblePermanentImbue = spellName === "imbue" && definition && definition.permanentImbue && isImbueRankTwoTargetVisible(targetName);
       if (!isProductionSpellTargetAvailable(spellName, targetName) && !visiblePermanentImbue && !(spellName === "imbue" && definition && definition.toolCharge && isCampCraftingContext())) continue;
       if (typeof isCraftVisibleInCurrentHomeArea === "function" && !isCraftVisibleInCurrentHomeArea(definition)) continue;
@@ -2564,6 +2622,11 @@ function renderContextualCraftingSpellActions() {
 // location craft buttons, this moves the existing UI instead of creating a
 // second set of controls, so its state and casting behavior stay identical.
 function syncContextualCraftingSpellPlacement(container) {
+  const towerTarget = getTowerHomePanelTarget("craftingSpellActions");
+  if (towerTarget) {
+    mountTowerHomeNode(container, towerTarget);
+    return;
+  }
   const atLocation = !!gameState.expedition.currentLocation;
 
   if (atLocation && ui.locationSpellActions) {
@@ -3208,6 +3271,7 @@ function isManaSenseTargetVisible(targetName) {
   if (!definition) return false;
   if (getManaSenseLevel() < (definition.requiredManaSenseLevel || 0)) return false;
   if (definition.requiredLocation && gameState.expedition.currentLocation !== definition.requiredLocation) return false;
+  if (targetName === "sensePrey" && !getExpeditionLocation("stagRuns")?.explored) return false;
 
   return true;
 }
@@ -4213,7 +4277,7 @@ function addStorageProduces(produces) {
 }
 
 function isResearchSpotPurchased() {
-  return hasPurchasedCampUpgrade("researchSpot");
+  return hasHomeStation("researchSpot");
 }
 
 function updateSteelworkingSectionVisibility() {
@@ -4475,6 +4539,7 @@ function getProjectWorkRemaining(projectName) {
 }
 
 function canWorkOnProject(projectName, mode = PROJECT_WORK_MODE_ENERGY) {
+  if (isGateActivationBlockedByHome(projectName)) return false;
   const state = getProjectState(projectName);
   const level = getProjectCurrentLevel(projectName);
   const normalizedMode = getNormalizedProjectWorkMode(projectName, mode);
@@ -4529,6 +4594,7 @@ function startProjectWork(projectName, mode = PROJECT_WORK_MODE_ENERGY) {
 }
 
 function completeProjectWork(projectName, mode = PROJECT_WORK_MODE_ENERGY) {
+  if (isGateActivationBlockedByHome(projectName)) return;
   const definition = getProjectDefinition(projectName);
   const state = getProjectState(projectName);
   const level = getProjectCurrentLevel(projectName);
@@ -4790,8 +4856,13 @@ function completeTowerNodeImbue(nodeName) {
   if (getTowerNodeImbueRemaining(nodeName) <= 0) {
     state.built = true;
     state.imbueProgress = definition.imbueRequired || state.imbueProgress;
-    addStoryEntry(definition.builtStory || "The northern node locks into the Heart's rhythm. The path to Miners' Camp can now be crossed in a single mana jump.");
+    if (nodeName === "north") {
+      if (typeof triggerStoryPopup === "function") triggerStoryPopup("firstConnection");
+    } else {
+      addStoryEntry(definition.builtStory || "The northern node locks into the Heart's rhythm. The path to Miners' Camp can now be crossed in a single mana jump.");
+    }
     addJournalEntry(definition.builtJournal || "northernTowerNodeBuilt");
+    if (areAllRegionalTowerNodesBuilt() && typeof triggerStoryPopup === "function") triggerStoryPopup("fourAnchorsOneHeart");
     updateDestinationActions();
     refreshBoundEarthElementalUI();
     updateCurrentGoalUI();
@@ -4800,6 +4871,12 @@ function completeTowerNodeImbue(nodeName) {
 
   updateTowerNodePanel();
   updateAllActionButtons();
+}
+
+function areAllRegionalTowerNodesBuilt() {
+  return ["north", "east", "south", "west"].every(function (nodeName) {
+    return !!getTowerNodeState(nodeName)?.built;
+  });
 }
 
 function getTowerNodeImbueButton(nodeName) {
@@ -4965,7 +5042,6 @@ function triggerRegionalProgression() {
   activateTowerNode("west", false);
 
   if (!wasUnlocked) {
-    addStoryEntry("The Northern Node steadies, and disturbances answer in the east and south. A western anchor also stirs at the Arcane Archive.");
     addJournalEntry("easternDisturbanceDiscovered");
     addJournalEntry("southernDisturbanceDiscovered");
   }
@@ -5925,6 +6001,7 @@ function updateTowerNodeDepositButtonStates(nodeName) {
 }
 
 function checkProjectLevelCompletion(projectName) {
+  if (isGateActivationBlockedByHome(projectName)) return false;
   const state = getProjectState(projectName);
 
   if (!state || state.completed || !isProjectLevelComplete(projectName)) return false;
@@ -5976,7 +6053,7 @@ function advanceProjectLevel(projectName) {
 }
 
 function completeProject(projectName, definition) {
-  if (definition.completedStory) {
+  if (definition.completedStory && projectName !== "towerFoundation") {
     addStoryEntry(definition.completedStory);
   }
 
@@ -6086,9 +6163,11 @@ function renderTowerStatusPanel() {
   const nextProject = getNextAvailableTowerProject();
 
   renderUiContextPanel(ui.towerStatusPanel, {
-    title: "Wizard Tower",
-    status: completedRooms === rooms.length ? "First expansion complete" : nextProject ? "Construction ready" : "Rebuilding",
-    body: basementComplete
+    title: hasRelocatedToTower() ? "Tower Home" : "Wizard Tower",
+    status: hasRelocatedToTower() ? "Permanent home" : completedRooms === rooms.length ? "First expansion complete" : nextProject ? "Construction ready" : "Rebuilding",
+    body: hasRelocatedToTower()
+      ? "The restored Heart powers your home. Select a room to work, recover, research, or prepare your next expedition."
+      : basementComplete
       ? "The restored Heart anchors a permanent tower. Select any available floor or room to inspect and construct it."
       : "The Tower Heart remains below camp while you restore the structure around it.",
     meta: [
@@ -6208,9 +6287,13 @@ function selectTowerEntity(selectedId) {
   if (!isTowerSelectionVisible(selectedId)) return;
 
   gameState.tower.selectedId = selectedId;
+  if (typeof markTowerRoomAttentionSeen === "function" && selectedId.startsWith("room:")) {
+    markTowerRoomAttentionSeen(selectedId.slice(5));
+  }
   renderTowerStructure();
   renderTowerDetailPanel();
   updateProjectButtons();
+  if (typeof updateTowerRoomNavigation === "function") updateTowerRoomNavigation();
   trySaveGame();
 }
 
@@ -6245,6 +6328,11 @@ function makeTowerSvgZone(group, selectedId, label, stateName) {
   group.setAttribute("aria-pressed", String(gameState.tower.selectedId === selectedId));
 
   if (gameState.tower.selectedId === selectedId) group.classList.add("is-selected");
+  if (selectedId.startsWith("room:") && typeof getTowerRoomAttentionCount === "function") {
+    const attention = getTowerRoomAttentionCount(selectedId.slice(5));
+    group.classList.toggle("has-tower-attention", attention > 0);
+    if (attention > 0) group.setAttribute("aria-label", label + ". " + getTowerStateLabel(stateName) + ". New activity available.");
+  }
 
   const activate = function (event) {
     event.stopPropagation();
@@ -6511,6 +6599,7 @@ function createTowerEarlyStageVisual() {
 }
 
 function getTowerVisualCaption() {
+  if (hasRelocatedToTower()) return { title: "Your Tower", status: "Permanent Home" };
   const current = getVisibleTowerProjectEntry();
   if (!current) return { title: "The Tower Site", status: "Undiscovered" };
 
@@ -6707,11 +6796,13 @@ function getTowerPrerequisiteText(entity) {
 function renderTowerDetailPanel() {
   if (!ui.projectList) return;
 
+  restoreTowerHomeNodes();
   ui.projectList.innerHTML = "";
   const selected = getTowerSelectedEntity();
 
   if (selected.type === "heart") {
     renderTowerHeartDetail(ui.projectList);
+    appendTowerHomePanel(ui.projectList, "heart");
     return;
   }
 
@@ -6755,6 +6846,10 @@ function renderTowerDetailPanel() {
   }
 
   appendTowerProjectControls(ui.projectList, entity.projectId);
+  if (isGateActivationBlockedByHome(entity.projectId)) {
+    const note = document.createElement("p"); note.textContent = "Move Into the Tower before activating the Long-Range Gate. Follow the home checklist above.";
+    ui.projectList.appendChild(note);
+  }
 
   if (selected.type === "room" && entity.capstone && state.completed) {
     const territories = getTerritoryProgress();
@@ -6773,6 +6868,7 @@ function renderTowerDetailPanel() {
     ui.projectList.appendChild(network);
   } else if (selected.type === "room" && !entity.capstone && isTowerRoomCompleted(selected.id)) {
     appendTowerEquipmentActions(ui.projectList, selected.id);
+    appendTowerHomePanel(ui.projectList, selected.id);
     const elemental = getBoundEarthElementalState();
     if (selected.id === "workshop" && elemental.capabilities.equipmentUnlocked) {
       ui.projectList.appendChild(createElementalCapabilityCraftingPanel("equipment"));
@@ -6784,6 +6880,117 @@ function renderTowerDetailPanel() {
       ui.projectList.appendChild(createTowerForgeSteelPanel());
     }
   }
+}
+
+// Move live controls, preserving listeners, progress, selection and their original homes.
+const towerHomeNodes = new Map();
+function restoreTowerHomeNodes() {
+  towerHomeNodes.forEach(function (saved, node) {
+    if (saved.anchor.parentNode) saved.anchor.parentNode.insertBefore(node, saved.anchor);
+    saved.anchor.remove();
+    if (["researchPanel", "campResourcesSection"].includes(node.id)) {
+      node.style.display = saved.display;
+      if (saved.ariaHidden === null) node.removeAttribute("aria-hidden");
+      else node.setAttribute("aria-hidden", saved.ariaHidden);
+    }
+  });
+  towerHomeNodes.clear();
+}
+
+function towerHomeNodeIds(id) {
+  if (id === "basement") return ["campResourcesSection", "packingSection", getAction("travel")?.button].filter(Boolean);
+  if (id === "library") return ["researchPanel", "trainingSection"];
+  if (id === "bedroom") return [
+    getAction("meditate")?.button,
+    getAction("recover")?.button,
+    getCampUpgrade("attunedMeditationSpot")?.button,
+    getCampUpgrade("greaterMeditationSpot")?.button,
+  ].filter(Boolean);
+  if (id === "workshop") return ["craftingSpellActions", ...Object.keys(getGearUpgradeDefinitions()).filter(name => !isWearableGear(name)).map(name => getGearUpgrade(name).button).filter(Boolean)];
+  if (id === "forge") return ["processingFuelSection", "craftingSpellActions"];
+  if (id === "alchemyRoom") return ["processingFuelSection", "craftingSpellActions", getAction("concentrateTonicBase")?.button, getAction("concentrateManaTonicBase")?.button].filter(Boolean);
+  if (id === "heart") return ["craftingSpellActions"];
+  return [];
+}
+
+function getTowerHomePanelTarget(nodeId) {
+  if (typeof currentMainView === "undefined" || currentMainView !== "tower" || !isCampCraftingContext()) return null;
+  const panel = document.getElementById("towerHomeFunctions");
+  return panel && towerHomeNodeIds(panel.dataset.room).some(node => typeof node === "string" ? node === nodeId : node.id === nodeId) ? panel : null;
+}
+
+function mountTowerHomeNode(node, panel) {
+  if (!towerHomeNodes.has(node)) {
+    const anchor = document.createComment("tower-return");
+    node.parentNode.insertBefore(anchor, node);
+    towerHomeNodes.set(node, { anchor, display: node.style.display, ariaHidden: node.getAttribute("aria-hidden") });
+  }
+  if (node.parentNode !== panel) panel.appendChild(node);
+  if (node.tagName === "DETAILS") node.open = true;
+}
+
+function syncTowerHomePanels() {
+  if (typeof currentMainView === "undefined") return;
+  const panel = document.getElementById("towerHomeFunctions");
+  const preparing = panel?.dataset.room === "basement" && gameState.expedition.active && !gameState.expedition.currentLocation && gameState.expedition.distance === 0 && !isTravelActivityActive();
+  if (currentMainView !== "tower" || (!isCampCraftingContext() && !preparing)) { restoreTowerHomeNodes(); return; }
+  if (!panel) return;
+  towerHomeNodeIds(panel.dataset.room).forEach(function (id) {
+    const node = typeof id === "string" ? document.getElementById(id) : id;
+    if (!node || !node.parentNode) return;
+    mountTowerHomeNode(node, panel);
+    if (["researchPanel", "campResourcesSection"].includes(node.id)) {
+      node.style.display = "block";
+      node.setAttribute("aria-hidden", "false");
+    }
+    if (node.id === "campResourcesSection") {
+      const summary = node.querySelector("summary");
+      if (summary) summary.textContent = hasRelocatedToTower() ? "Tower Storage" : "Home Storage";
+    }
+  });
+  if (typeof updateProcessingFuelDisplay === "function") updateProcessingFuelDisplay();
+}
+
+function appendTowerHomePanel(container, id) {
+  const panel = document.createElement("section");
+  panel.id = "towerHomeFunctions";
+  panel.dataset.room = id;
+  panel.className = "tower-stage-details";
+  const heading = document.createElement("h4");
+  heading.textContent = id === "library" ? "Research · Skills, training & breakthroughs" : id === "basement" ? "Tower Storage & expedition packing" : "Home actions";
+  panel.appendChild(heading);
+  if (hasRelocatedToTower() && ["forge", "alchemyRoom"].includes(id)) {
+    const power = document.createElement("p");
+    power.className = "tower-heart-power-note";
+    power.textContent = "Powered by the Tower Heart · No fuel required";
+    panel.appendChild(power);
+  }
+  container.appendChild(panel);
+  if (id === "basement" || id === "heart") {
+    panel.appendChild(createUiActionButton({ label: "Prepare / depart on expedition", progress: false, onClick: function () { setMainView("expedition", { userSelected: true }); } }));
+  }
+  if (id === "basement") {
+    panel.appendChild(createUiActionButton({ label: "Prepare and pack here", progress: false, onClick: function () {
+      if (!isCampCraftingContext() || isActivityActive()) return;
+      prepareOpenExpedition();
+      setMainView("tower", { userSelected: true });
+      renderTowerDetailPanel();
+    } }));
+  }
+  syncTowerHomePanels();
+  if (typeof currentMainView !== "undefined" && currentMainView === "tower") {
+    if (id === "library") updateResearchHistoryUI();
+    if (["heart", "workshop", "forge", "alchemyRoom"].includes(id)) renderContextualCraftingSpellActions();
+  }
+}
+
+function isTowerHomeMagicVisible(definition) {
+  if (typeof currentMainView === "undefined" || currentMainView !== "tower") return true;
+  const action = definition.permanentAction;
+  const room = action?.type === "matrix" ? "heart" : action?.type === "node" ? null
+    : action?.type === "workshop" ? (action.system === "furnace" ? "forge" : "alchemyRoom")
+    : definition.campUpgradeRequired === "campAlchemyStation" ? "alchemyRoom" : "workshop";
+  return gameState.tower.selectedId === (room === "heart" ? "heart" : "room:" + room);
 }
 
 function renderTowerBasementDetail(container) {
@@ -6800,10 +7007,11 @@ function renderTowerBasementDetail(container) {
     const storage = document.createElement("div");
     storage.className = "tower-effect-callout";
     storage.innerHTML =
-      "<strong>Basement storage</strong><span>Applicable stored resources hold at least " +
+      "<strong>Tower Storage</strong><span>Applicable stored resources hold at least " +
       formatTrainingNumber(getTowerStorageConfig().basementMinimumCapacity) +
       " each.</span>";
     container.appendChild(storage);
+    appendTowerHomePanel(container, "basement");
   } else {
     appendTowerProjectControls(container, "towerBasement");
   }
@@ -7829,13 +8037,19 @@ function createResearchListItem(entry) {
 
   const status = document.createElement("span");
   status.classList.add("research-status");
-  status.textContent = getResearchStatusLabel(entry.status);
+  const unseen = entry.status === "available" && typeof getHomeAttentionState === "function" && !getHomeAttentionState().seen.research.includes(key);
+  status.textContent = (unseen ? "New · " : "") + getResearchStatusLabel(entry.status);
 
   button.appendChild(title);
   button.appendChild(status);
 
   button.addEventListener("click", function () {
     gameState.selectedResearchEntry = key;
+    if (unseen) {
+      getHomeAttentionState().seen.research.push(key);
+      if (typeof updateHomeAttentionIndicators === "function") updateHomeAttentionIndicators();
+      if (typeof trySaveGame === "function") trySaveGame();
+    }
     updateResearchHistoryUI();
     focusResearchDetailsOnMobile();
   });
@@ -8723,7 +8937,7 @@ function getImbueRankTwoRewardText(level = getImbueRankTwoLevel()) {
     5: "Expanded Control Matrix I",
     6: "Greater Ringcraft and Expanded Control Matrix II",
     7: "Node Imbuement and Expanded Control Matrix III",
-    8: "Arcane Furnace / Alchemy and Expanded Control Matrix IV",
+    8: "Expanded Control Matrix IV",
     9: "Regional Imbuement and Expanded Control Matrix V",
     10: "Master Control Matrix",
   };
@@ -8817,10 +9031,11 @@ function getImbueWorkshopTier(system) {
   return system === "furnace" ? state.furnaceTier : system === "alchemy" ? state.alchemyTier : 0;
 }
 
-function getImbueWorkshopFuelCost(system, baseFuel) {
+function getImbueWorkshopFuelCost(system, baseFuel, reductionAlreadyApplied = false) {
   const amount = Math.max(0, Number(baseFuel) || 0);
+  if (hasRelocatedToTower()) return 0;
+  if (reductionAlreadyApplied) return amount;
   const tier = getImbueWorkshopTier(system);
-  if (tier >= 2) return 0;
   if (tier >= 1) return roundResourceAmount(amount * (1 - getImbueRankTwoConfig().bonuses.workshopFuelReduction));
   return amount;
 }
@@ -8863,12 +9078,14 @@ function isImbueRankTwoTargetUnlocked(targetName) {
 
 function isImbueRankTwoTargetVisible(targetName) {
   const definition = getImbueDefinition(targetName);
+  if (hasRelocatedToTower() && definition?.permanentAction?.type === "workshop") return false;
   if (!definition || !definition.permanentImbue || !isCampCraftingContext() || !isImbueRankTwoTargetUnlocked(targetName)) return false;
   if (definition.permanentAction && definition.permanentAction.type === "matrix" && definition.permanentAction.stage !== ensureImbueRankTwoState().controlMatrixStage + 1) return false;
   return !isImbueRankTwoTargetComplete(definition.permanentAction);
 }
 
 function canApplyImbueRankTwoTarget(action) {
+  if (action?.type === "workshop" && (action.tier > 1 || hasRelocatedToTower())) return false;
   const state = ensureImbueRankTwoState();
   if (!action || ["ring", "equipment", "backpack"].includes(action.type) || state.rank < 2 || isImbueRankTwoTargetComplete(action)) return false;
   if (action.type === "component") return true;
@@ -8876,7 +9093,7 @@ function canApplyImbueRankTwoTarget(action) {
   if (action.type === "backpack") return !!getPurchasedEquipmentForSlot("gear", "pack", false);
   if (action.type === "workshop") {
     if (action.tier > 1 && getImbueWorkshopTier(action.system) !== action.tier - 1) return false;
-    return action.system === "furnace" ? hasPurchasedCampUpgrade("campSmelter") : hasPurchasedCampUpgrade("campAlchemyStation");
+    return action.system === "furnace" ? hasHomeStation("campSmelter") : hasHomeStation("campAlchemyStation");
   }
   if (action.type === "matrix") return !!getProjectState("towerFoundation")?.completed && state.controlMatrixStage === action.stage - 1;
   if (action.type === "node") return !!getTowerNodeState(action.node)?.built;
@@ -8925,9 +9142,7 @@ function completeImbueRankTwoTarget(action) {
   } else if (action.type === "workshop") {
     if (action.system === "furnace") state.furnaceTier = action.tier;
     else state.alchemyTier = action.tier;
-    story = action.tier >= 2
-      ? "The " + action.system + " takes on a self-sustaining arcane heat and no longer needs fuel."
-      : "A permanent ember-pattern settles through the " + action.system + ", cutting its fuel use in half.";
+    story = "A permanent ember-pattern settles through the " + action.system + ", cutting its fuel use in half.";
   } else if (action.type === "matrix") {
     const matrix = getImbueRankTwoConfig().controlMatrix[action.stage];
     state.controlMatrixStage = action.stage;
@@ -10204,8 +10419,8 @@ function createImbueExperienceEntry() {
   detail.className = "training-detail";
 
   if (rankTwo) {
-    const furnaceText = imbuement.furnaceTier >= 2 ? "fuel-free Furnace" : imbuement.furnaceTier >= 1 ? "half-fuel Furnace" : "standard Furnace";
-    const alchemyText = imbuement.alchemyTier >= 2 ? "fuel-free Alchemy" : imbuement.alchemyTier >= 1 ? "half-fuel Alchemy" : "standard Alchemy";
+    const furnaceText = hasRelocatedToTower() ? "Heart-powered Furnace" : imbuement.furnaceTier >= 1 ? "half-fuel Furnace" : "standard Furnace";
+    const alchemyText = hasRelocatedToTower() ? "Heart-powered Alchemy" : imbuement.alchemyTier >= 1 ? "half-fuel Alchemy" : "standard Alchemy";
     detail.textContent = "Current: " + getImbueRankTwoRewardText(rankTwoLevel) +
       (rankTwoLevel < 10 ? ". Next: " + getImbueRankTwoRewardText(rankTwoLevel + 1) : "") +
       ". Workshop: " + furnaceText + ", " + alchemyText + ". Control Matrix stage " + imbuement.controlMatrixStage + ".";
@@ -10516,8 +10731,7 @@ function finalizeProductionSpellTargetContext(spellName, definition, targetConte
 function getCampEquipmentProductionSpellTargetContext(definition) {
   if (!definition || !definition.campUpgradeRequired) return null;
   if (!isCampCraftingContext()) return null;
-  const towerAlchemy = definition.campUpgradeRequired === "campAlchemyStation" && isTowerRoomCompleted("alchemyRoom") && gameState.tower?.selectedId === "room:alchemyRoom";
-  if (!hasPurchasedCampUpgrade(definition.campUpgradeRequired) && !towerAlchemy) return null;
+  if (!hasHomeStation(definition.campUpgradeRequired)) return null;
 
   return {
     mode: "campEquipment",

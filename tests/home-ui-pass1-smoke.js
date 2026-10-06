@@ -27,7 +27,7 @@ assert(/homeTowerViewEntryActive[\s\S]*options\.homeTowerEntry[\s\S]*sensedRevea
 assert(/const MAIN_VIEW_NAMES = \["home", "camp"/.test(ui), "Home is registered with the existing tab controller");
 assert(/viewName === "home"\) return isHomeUnlocked\(\)/.test(ui), "Home availability uses the main-view route");
 assert(/function isHomeUnlocked\(\) \{\s*return true;\s*\}/.test(ui), "Home is available from the beginning");
-assert(/function getDefaultMainView\(\)[\s\S]*return "home"/.test(ui), "Home is the default view while the player is at the clearing");
+assert(/function getDefaultMainView\(\)[\s\S]*return getHomeDestination\(\)/.test(ui), "Default view uses the authoritative home destination");
 assert(/function areHomeResourcesDiscovered\(\)[\s\S]*discoveredDeadfall[\s\S]*discoveredBerryBush[\s\S]*discoveredStream/.test(home), "The resource-discovery gate reuses all three canonical flags");
 assert(/function isHomeCampEstablished\(\)[\s\S]*hasPurchasedCampUpgrade\("smallFire"\)[\s\S]*hasPurchasedCampUpgrade\("crudeLeanTo"\)/.test(home), "Established camp derives from the two founding structures");
 assert(/home:\s*{[\s\S]*title: "Home Established"[\s\S]*The clearing is beginning to feel like a place you can return to\./.test(ui), "Home uses the existing one-time system notification framework");
@@ -61,8 +61,8 @@ assert(/hasPurchasedCampUpgrade\("stoneFirePit"\)[\s\S]*stone-fire-pit[\s\S]*sma
 assert(/hasPurchasedCampUpgrade\("smallHut"\)[\s\S]*hasPurchasedCampUpgrade\("framedShelter"\)[\s\S]*hasPurchasedCampUpgrade\("lessCrudeShelter"\)/.test(home), "Shelter artwork follows every purchased shelter tier");
 assert(/station-campfire-small\.png[\s\S]*station-campfire\.png/.test(css), "Campfire visual stages use separate environmental assets");
 assert(/station-shelter-less-crude\.png[\s\S]*station-shelter-framed\.png[\s\S]*station-shelter-hut\.png/.test(css), "Shelter visual stages use separate environmental assets");
-assert(/hasPurchasedCampUpgrade\("attunedMeditationSpot"\)[\s\S]*attuned-meditation-spot/.test(home), "Meditation artwork follows its attuned upgrade");
-assert(/station-meditation\.png[\s\S]*station-meditation-attuned\.png/.test(css), "Meditation stages use separate environmental assets");
+assert(/hasPurchasedCampUpgrade\("greaterMeditationSpot"\)[\s\S]*greater-meditation-spot[\s\S]*improved-meditation-spot/.test(home), "Meditation artwork follows Improved and Greater upgrades");
+assert(/station-meditation\.png[\s\S]*station-meditation-attuned\.png[\s\S]*station-meditation-greater\.png/.test(css), "All three meditation stages use separate environmental assets");
 assert(/towerFloor1[\s\S]*completed[\s\S]*has-built-tower/.test(home), "Above-ground Tower artwork still waits for a completed floor");
 assert(/workPanel: "research"/.test(home) && /isResearchSpotPurchased/.test(home), "Research reuses its work panel and unlock gate");
 assert(/data-home-area="workspot"[\s\S]*#workTabs[\s\S]*data-home-area="study"[\s\S]*#workTabs/.test(css), "Workspot and Research Spot suppress the shared work sub-tabs in Home");

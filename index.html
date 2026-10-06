@@ -74,6 +74,8 @@
             </div>
           </section>
 
+          <section id="towerMoveInObjective" class="current-goal-section ui-context-panel" hidden></section>
+
         <section id="combatPanel" class="combat-panel" style="display: none" aria-label="Wizard duel">
           <header class="duel-heading"><span class="combat-kicker">Encounter</span><span id="combatRegion"></span></header>
           <div id="combatScene" class="combat-scene">
@@ -164,20 +166,39 @@
               <div class="home-clearing-layout">
                 <div id="homeScene" class="home-scene" aria-label="Interactive camp clearing">
                   <div class="home-scene-haze" aria-hidden="true"></div>
+                  <div class="home-camp-traces" aria-hidden="true">
+                    <span class="home-camp-trace home-camp-trace-fire"></span>
+                    <span class="home-camp-trace home-camp-trace-shelter"></span>
+                  </div>
+
+                  <button class="home-place home-place-opening home-place-catch-breath" type="button" data-home-direct-action="catchBreath" aria-label="Catch Breath" hidden>
+                    <span class="home-opening-mark" aria-hidden="true"></span>
+                    <span class="home-place-label"><strong>Catch Breath</strong><small>Recover your strength</small></span>
+                    <span class="home-hotspot-progress" aria-hidden="true"><span class="progressFill"></span></span>
+                  </button>
+
+                  <button class="home-place home-place-opening home-place-explore" type="button" data-home-direct-action="explore" aria-label="Explore the misty tree line" hidden>
+                    <span class="home-opening-mark" aria-hidden="true"></span>
+                    <span class="home-place-label"><strong>Explore</strong><small>Push into the mist · 5 Energy</small></span>
+                    <span class="home-hotspot-progress" aria-hidden="true"><span class="progressFill"></span></span>
+                  </button>
 
                   <button class="home-place home-place-resource home-place-wood" type="button" data-home-area="wood" aria-controls="homeAreaPanel" aria-expanded="false" hidden>
                     <span class="home-resource-icon" aria-hidden="true"><i></i><i></i><i></i></span>
                     <span class="home-place-label"><strong>Wood</strong><small>Search the deadfall</small></span>
+                    <span class="home-hotspot-progress" aria-hidden="true"><span class="progressFill"></span></span>
                   </button>
 
                   <button class="home-place home-place-resource home-place-food" type="button" data-home-area="food" aria-controls="homeAreaPanel" aria-expanded="false" hidden>
                     <span class="home-resource-icon" aria-hidden="true"><i></i><i></i><i></i></span>
                     <span class="home-place-label"><strong>Food</strong><small>Inspect the brush</small></span>
+                    <span class="home-hotspot-progress" aria-hidden="true"><span class="progressFill"></span></span>
                   </button>
 
                   <button class="home-place home-place-resource home-place-water" type="button" data-home-area="water" aria-controls="homeAreaPanel" aria-expanded="false" hidden>
                     <span class="home-resource-icon" aria-hidden="true"><i></i><i></i><i></i></span>
-                    <span class="home-place-label"><strong>Stream</strong><small>Follow the water</small></span>
+                    <span class="home-place-label"><strong>Water</strong><small>Follow the water</small></span>
+                    <span class="home-hotspot-progress" aria-hidden="true"><span class="progressFill"></span></span>
                   </button>
 
                   <button class="home-place home-place-tower" type="button" data-home-area="tower" aria-controls="towerView" aria-label="Enter the Tower" hidden disabled>
@@ -193,6 +214,7 @@
                   <button class="home-place home-place-fire" type="button" data-home-area="campfire" aria-controls="homeAreaPanel" aria-expanded="false">
                     <span class="home-place-art" aria-hidden="true"></span>
                     <span class="home-place-label"><strong>Campfire</strong><small>Recover, gather, and tend camp</small></span>
+                    <span class="home-hotspot-progress" aria-hidden="true"><span class="progressFill"></span></span>
                   </button>
 
                   <button class="home-place home-place-workspot" type="button" data-home-area="workspot" aria-controls="homeAreaPanel" aria-expanded="false">
@@ -208,6 +230,7 @@
                   <button class="home-place home-place-shelter" type="button" data-home-area="shelter" aria-label="Rest at Shelter" hidden>
                     <span class="home-place-art" aria-hidden="true"></span>
                     <span class="home-place-label"><strong>Shelter</strong><small>Rest beneath the lean-to</small></span>
+                    <span class="home-hotspot-progress" aria-hidden="true"><span class="progressFill"></span></span>
                   </button>
 
                   <button class="home-place home-place-study" type="button" data-home-area="study" aria-controls="homeAreaPanel" aria-expanded="false" hidden>
@@ -296,10 +319,6 @@
                     <span>Gather Food</span>
                   </button>
 
-                  <!--<button id="gatherWaterBtn" class="action-btn" data-action="gatherWater" style="display: none">
-                    <div class="progressFill"></div>
-                    <span>Gather Water</span>
-                  </button>-->
                 </div>
               </div>
 
@@ -364,6 +383,7 @@
                     <button id="researchSpotBtn" style="display: none"></button>
                     <button id="meditationSpotBtn" style="display: none"></button>
                     <button id="attunedMeditationSpotBtn" style="display: none"></button>
+                    <button id="greaterMeditationSpotBtn" style="display: none"></button>
                     <!-- RETIRED: Tower Heart workers replace standalone automation. <button id="lumberMillBtn" style="display: none"></button> -->
                     <!-- RETIRED: Tower Heart workers replace standalone automation. <button id="foragingLureBtn" style="display: none"></button> -->
                     <button id="researchBenchBtn" style="display: none"></button>
@@ -717,6 +737,11 @@
                   <span>Store Ore</span>
                 </button>
 
+                <button class="action-btn" data-action="storeFuel" style="display: none">
+                  <div class="progressFill"></div>
+                  <span>Store All Fuel Wood</span>
+                </button>
+
                 <button class="action-btn" data-action="storeHerb" style="display: none">
                   <div class="progressFill"></div>
                   <span>Store Herb</span>
@@ -842,7 +867,29 @@
 
           <div id="towerView" class="main-view-panel" data-main-view-panel="tower">
             <section id="towerPanel" class="context-section" style="display: none">
-              <h2>Tower</h2>
+              <header class="tower-home-heading">
+                <div>
+                  <span id="towerHomeKicker" class="section-kicker">Tower reconstruction</span>
+                  <h2 id="towerHomeTitle">The Tower</h2>
+                  <p id="towerHomeDescription">Restore the buried structure and make each room functional.</p>
+                </div>
+                <div class="tower-home-destinations">
+                  <button id="towerGroundsBtn" type="button" hidden>Visit Tower Grounds</button>
+                  <button id="towerExpeditionBtn" type="button" hidden>Prepare Expedition</button>
+                </div>
+              </header>
+
+              <nav id="towerRoomNav" class="tower-room-nav" aria-label="Tower rooms" hidden>
+                <button type="button" data-tower-destination="heart">Tower Heart</button>
+                <button type="button" data-tower-destination="basement">Basement</button>
+                <button type="button" data-tower-destination="room:bedroom">Bedroom</button>
+                <button type="button" data-tower-destination="room:library">Library</button>
+                <button type="button" data-tower-destination="room:workshop">Workshop</button>
+                <button type="button" data-tower-destination="room:forge">Forge</button>
+                <button type="button" data-tower-destination="room:alchemyRoom">Alchemy Room</button>
+                <button type="button" data-tower-destination="room:enchantingStudy">Enchanting Study</button>
+                <button type="button" data-tower-destination="room:longRangeGate">Gate</button>
+              </nav>
 
               <div class="tower-workspace">
                 <section class="tower-cross-section-panel" aria-label="Interactive Tower illustration">
@@ -932,6 +979,19 @@
                 <option value="personalWardPopup">Personal Ward</option>
                 <option value="advancedRecallPopup">Advanced Recall</option>
                 <option value="northernDisturbancePopup">Northern Disturbance</option>
+                <option value="story:fourRoads">Four Roads</option>
+                <option value="story:moreThanARefuge">More Than a Refuge</option>
+                <option value="story:familiarQuestion">A Familiar Question</option>
+                <option value="story:plansBeneathTheDust">Plans Beneath the Dust</option>
+                <option value="story:heartRemembers">The Heart Remembers</option>
+                <option value="story:firstConnection">The First Connection</option>
+                <option value="story:handsOfStone">Hands of Stone</option>
+                <option value="story:fourAnchorsOneHeart">Four Anchors, One Heart</option>
+                <option value="story:lastWarden">The Last Warden</option>
+                <option value="story:beyondTheFourRoads">Beyond the Four Roads</option>
+                <option value="story:towerBuiltToReach">A Tower Built to Reach</option>
+                <option value="story:homeAtLast">Home, at Last</option>
+                <option value="story:answerBeyondTheWoods">An Answer Beyond the Woods</option>
               </select>
               <button id="storyPreviewBtn" type="button">Review selected dialog</button>
             </div>
@@ -969,6 +1029,16 @@
         </p>
 
         <button id="campEstablishedContinueBtn">Continue</button>
+      </div>
+    </div>
+
+    <div id="towerEstablishedPopup" class="popup" style="display: none">
+      <div class="popup-content">
+        <h2>Tower Established</h2>
+        <p>You carry your bedding, tools, and research indoors. The camp served its purpose; its cleared ground and cold fire ring remain outside as quiet traces of the life you built there.</p>
+        <p>The Tower Heart sends steady heat through the forge and alchemy equipment. From this secure home, you can prepare for expeditions beyond the territory.</p>
+        <p><strong>Your tower is now Home. The Tower Heart powers production; fuel is no longer required.</strong></p>
+        <button id="towerEstablishedContinueBtn">Enter Your New Home</button>
       </div>
     </div>
 
@@ -1083,6 +1153,14 @@
       </div>
     </div>
 
+    <div id="storyPopup" class="popup" style="display: none">
+      <div class="popup-content story-popup-content">
+        <h2 id="storyPopupTitle" tabindex="-1"></h2>
+        <div id="storyPopupBody" class="story-popup-body"></div>
+        <button id="storyPopupContinueBtn" type="button">Continue</button>
+      </div>
+    </div>
+
     <script src="state.js?v=20260922-progression"></script>
     <script src="expeditionData.js?v=20260830"></script>
     <script src="content.js?v=20260922-progression"></script>
@@ -1090,15 +1168,15 @@
     <script src="ui.js?v=20260922-progression"></script>
     <script src="resources.js?v=20260922-progression"></script>
     <script src="skills.js?v=20260922-progression"></script>
-    <script src="camp.js?v=20260922-progression"></script>
+    <script src="camp.js?v=20260929-sense-prey-after-explore"></script>
     <script src="equipment.js?v=20260915-craft-refresh"></script>
     <script src="tower-visual-system.js?v=20260903-unified-tower-r1"></script>
-    <script src="home-ui.js?v=20260915-camp-attention"></script>
+    <script src="home-ui.js?v=20260929-hide-clearing-rest"></script>
     <script src="expedition.js?v=20260911-overhaul"></script>
     <script src="dungeon-scene.js?v=20260915-direct"></script>
     <script src="expedition-map-config.js?v=20260915"></script>
     <script src="expedition-map.js?v=20260915-found-map-gate"></script>
-    <script src="expedition-scene.js?v=20260922-progression"></script>
+    <script src="expedition-scene.js?v=20260929-direct-outskirts-routes"></script>
     <script src="actions.js?v=20260922-progression"></script>
     <script src="combat.js?v=20260911-overhaul"></script>
     <script src="combat-scene.js?v=20260910"></script>

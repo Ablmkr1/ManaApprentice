@@ -13,6 +13,13 @@ function setCurrentLocation(locationName) {
   updateLocationActions();
   updateCraftingUIForCurrentContext();
   updatePlacePanel();
+  if (locationName === "arcaneArchive") checkLastWardenStory();
+}
+
+function checkLastWardenStory() {
+  const archive = getExpeditionLocation("arcaneArchive");
+  if (!areRegionalWardensDefeated() || !archive?.explored || gameState.expedition.dungeon?.active || gameState.brokenWardenDefeated) return false;
+  return typeof triggerStoryPopup === "function" ? triggerStoryPopup("lastWarden") : false;
 }
 
 function clearCurrentLocation() {
@@ -169,6 +176,10 @@ function spendCurrentLocationLooseStone(amount) {
 }
 
 function isLocationActionAvailable(actionName, locationName, location) {
+  if (actionName === "storeFuel") {
+    return locationName === "minersCamp" && !!location?.storage;
+  }
+
   if (actionName === "investigateNorthernDisturbance") {
     return canInvestigateNorthernDisturbance();
   }
@@ -798,9 +809,9 @@ function beginReturnToCamp(reason) {
 
   if (!awakened) {
     if (reason === "exhausted") {
-      addStoryEntry("Your strength gives out. You pluck the faint thread leading back to camp and the camp appears.");
+      addStoryEntry("Your strength gives out. You follow the faint thread home to the " + getHomeDestinationLabel() + ".");
     } else {
-      addStoryEntry("You pluck the faint thread leading back to camp and the camp appears.");
+      addStoryEntry("You follow the faint thread home to the " + getHomeDestinationLabel() + ".");
     }
   }
 

@@ -267,6 +267,12 @@
   pointer-events: none;
 }
 
+.tower-unified-room.has-tower-attention .tower-unified-room-mana-pin {
+  fill: #f2bf55;
+  stroke: #75551f;
+  filter: drop-shadow(0 0 4px rgba(242, 191, 85, 0.8));
+}
+
 .tower-unified-plaque { fill: #161410; stroke: #050504; stroke-width: 1; pointer-events: none; }
 .tower-unified-plaque-label {
   fill: #fff8e8;

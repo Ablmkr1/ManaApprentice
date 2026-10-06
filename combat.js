@@ -232,6 +232,7 @@ function canChallengeBrokenWarden() {
 
 function startBrokenWardenCombat() {
   if (!canChallengeBrokenWarden()) return false;
+  gameState.brokenWardenEncountered = true;
   return startCombatEncounter("brokenWarden", {
     storyEncounter: !gameState.brokenWardenDefeated,
     reward: {},
@@ -651,9 +652,9 @@ function resolveCombatVictory() {
     if (!gameState.brokenWardenDefeated) {
       gameState.brokenWardenDefeated = true;
       if (typeof updateTierFourFinaleObjective === "function") updateTierFourFinaleObjective();
-      addStoryEntry("The Broken Warden falls. Within its remains, the Warden Core preserves routes that reach beyond the four roads of the Home Territory.");
     }
     if (typeof grantWardenCore === "function") grantWardenCore(true);
+    if (typeof triggerStoryPopup === "function") triggerStoryPopup("beyondTheFourRoads");
     if (typeof checkResearchDiscoveries === "function") checkResearchDiscoveries();
     gameState.combat.resultMessage = gameState.tierFourCompleted
       ? "Victory — Broken Warden defeated. The Long-Range Gate remains active."
@@ -697,7 +698,7 @@ function resolveCombatDefeat() {
   gameState.combat.nextAttackTime = gameState.combat.nextAbilityTime = null;
   gameState.combat.cast = null;
   gameState.combat.resolved = true;
-  gameState.combat.resultMessage = "Your Ward broke. The tower connection recalled you to camp.";
+  gameState.combat.resultMessage = "Your Ward broke. The tower connection recalled you to the " + getHomeDestinationLabel() + ".";
 
   // This is the established return-to-camp path; it also handles active travel.
   beginReturnToCamp("wardBroken");
@@ -724,7 +725,7 @@ function endCombatForRecall() {
   gameState.combat.nextAttackTime = gameState.combat.nextAbilityTime = null;
   gameState.combat.cast = null;
   gameState.combat.resolved = true;
-  gameState.combat.resultMessage = "The encounter ended as you recalled to camp.";
+  gameState.combat.resultMessage = "The encounter ended as you recalled to the " + getHomeDestinationLabel() + ".";
   renderCombatUI();
 }
 
@@ -750,6 +751,7 @@ function closeCombatEncounter() {
   if (isCombatActive()) return false;
 
   resetCombatEncounter();
+  if (typeof processStoryPopupQueue === "function") processStoryPopupQueue();
   return true;
 }
 

@@ -59,7 +59,7 @@ const ExpeditionMap = (() => {
   }
   function render() {
     const e = gameState.expedition;
-    dialog.querySelector(".world-map-current").textContent = "Current location: " + (e.currentLocation ? getLocationLabel(e.currentLocation) : e.active ? getPreparedExpeditionTitle() : "Outskirts camp") + (isTravelActivityActive() ? " · Traveling" : "");
+    dialog.querySelector(".world-map-current").textContent = "Current location: " + (e.currentLocation ? getLocationLabel(e.currentLocation) : e.active ? getPreparedExpeditionTitle() : getHomeDestinationLabel()) + (isTravelActivityActive() ? " · Traveling" : "");
     const layer = geography.querySelector(".map-overlays");
     const focusKey = document.activeElement?.dataset.overlay || document.activeElement?.dataset.region;
     layer.replaceChildren();
@@ -104,7 +104,7 @@ const ExpeditionMap = (() => {
     root.classList.toggle("is-world-map", visible); dialog.hidden = !visible; opener.hidden = blocked || !unlocked;
     if (!visible) return;
     const e = gameState.expedition;
-    const next = JSON.stringify([e.currentLocation, e.active, e.regionId, isActivityActive(), config.centerVariant(), config.regions.map(r => getRegionState(r.id).unlocked), config.overlays.filter(o => o.displayCondition()).map(o => [o.id, config.label(o), config.asset(o)]), isTravelActivityActive()]);
+    const next = JSON.stringify([getHomeDestination(), e.currentLocation, e.active, e.regionId, isActivityActive(), config.centerVariant(), config.regions.map(r => getRegionState(r.id).unlocked), config.overlays.filter(o => o.displayCondition()).map(o => [o.id, config.label(o), config.asset(o)]), isTravelActivityActive()]);
     if (next !== signature) { signature = next; render(); }
   }
   function detail() {
@@ -112,7 +112,7 @@ const ExpeditionMap = (() => {
     panel.hidden = !selected;
     if (!selected) return;
     const e = gameState.expedition, { region, id, camp } = selected;
-    panel.append(element("h3", selected.overlay ? config.label(config.overlays.find(o => o.id === selected.overlay)) : camp ? "Outskirts camp" : id ? getLocationLabel(id) : config.regions.find(r => r.id === region).label));
+    panel.append(element("h3", camp && hasRelocatedToTower() ? "Tower Home" : selected.overlay ? config.label(config.overlays.find(o => o.id === selected.overlay)) : camp ? "Outskirts camp" : id ? getLocationLabel(id) : config.regions.find(r => r.id === region).label));
     const explain = message => panel.append(element("p", message));
     if (!camp && !id) {
       if (!getRegionState(region).unlocked) {
@@ -123,7 +123,7 @@ const ExpeditionMap = (() => {
       explain(known.length ? "Known highlights: " + known.join(" · ") : "The route is open. Its landmarks remain unexplored.");
       if (isActivityActive() && !e.active) { explain("Finish the current activity before preparing another route."); return; }
       if (e.active && region !== e.regionId) {
-        explain("Return to camp before preparing a different regional route.");
+        explain("Return to the " + getHomeDestinationLabel() + " before preparing a different regional route.");
         return;
       }
       const enter = element("button", "Enter " + config.regions.find(r => r.id === region).label);
@@ -152,8 +152,12 @@ const ExpeditionMap = (() => {
       if (!e.active) {
         explain("You are here.");
         const tower = selected.overlay === "foundation" || selected.overlay?.startsWith("tower-");
-        const home = element("button", tower ? "Inspect tower site" : "Visit camp"); home.type = "button";
-        home.onclick = () => setMainView(tower ? "tower" : "home", { userSelected: true, homeTowerEntry: tower }); panel.append(home);
+        const home = element("button", hasRelocatedToTower() ? "Return Home to Tower" : tower ? "Inspect tower site" : "Visit camp"); home.type = "button";
+        home.onclick = () => setMainView(hasRelocatedToTower() ? getHomeDestination() : tower ? "tower" : "home", { userSelected: true, homeTowerEntry: tower }); panel.append(home);
+        if (hasRelocatedToTower()) {
+          const grounds = element("button", "Visit Tower Grounds"); grounds.type = "button";
+          grounds.onclick = () => setMainView("grounds", { userSelected: true }); panel.append(grounds);
+        }
       }
       else action(null, () => getAction("returnToCamp").button, getUiActionAvailability("returnToCamp").reason);
       return;
@@ -165,7 +169,7 @@ const ExpeditionMap = (() => {
       return;
     }
     if (e.active && (!e.currentLocation || region !== e.regionId || !id)) {
-      explain("Return to Camp before preparing a different regional route. Known places in your current region can be reached from its location scenes."); return;
+      explain("Return to " + getHomeDestinationLabel() + " before preparing a different regional route. Known places in your current region can be reached from its location scenes."); return;
     }
     explain("Travel distance: " + formatDistance(e.currentLocation ? getLocationToLocationTravelDistance(getExpeditionLocation(e.currentLocation), getExpeditionLocation(id)) : getLocationTravelDistance(getExpeditionLocation(id))));
     if (entrance(id)) explain(entrance(id).label + " entrance · Travel here to inspect it.");

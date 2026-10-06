@@ -577,7 +577,7 @@ function towerBatchPlan(type, id, quantity) {
   if (!(type === "brew" ? [1, 2, 3] : [1, 5, 10]).includes(quantity) || !isCampCraftingContext()) return null;
   let def, context, duration;
   if (type === "brew") {
-    if (!isTowerRoomUpgraded("alchemyRoom") || gameState.tower?.selectedId !== "room:alchemyRoom") return null;
+    if (!isTowerRoomCompleted("alchemyRoom") || (quantity > 1 && !isTowerRoomUpgraded("alchemyRoom")) || gameState.tower?.selectedId !== "room:alchemyRoom") return null;
     def = getImbueDefinition(id);
     if (!def?.producesConsumable || !["improvedStaminaTonic", "majorManaTonic"].includes(def.producesConsumable.resource)) return null;
     context = getProductionSpellTargetContext("imbue", id);
@@ -604,11 +604,17 @@ function startTowerBatch(type, id, quantity) {
   if (equipmentChangeReason()) return false;
   const plan = towerBatchPlan(type, id, quantity);
   if (!plan?.fits || !canAffordCost(plan.cost)) return false;
-  return startActivity({ kind: "towerBatch", id, duration: plan.duration, context: { type, id, quantity } });
+  return startActivity({ kind: "towerBatch", id, duration: plan.duration, context: { type, id, quantity, plan } });
 }
 function completeTowerBatch(context) {
-  const plan = towerBatchPlan(context.type, context.id, context.quantity);
-  if (!plan?.fits || !canAffordCost(plan.cost)) return false;
+  const plan = context.plan || towerBatchPlan(context.type, context.id, context.quantity);
+  if (plan?.cost?.fuel) {
+    plan.cost = { ...plan.cost, fuel: getImbueWorkshopFuelCost(getResourceCraft(context.id)?.imbueInfrastructure, plan.cost.fuel, true) };
+    if (!plan.cost.fuel) delete plan.cost.fuel;
+  }
+  if (!plan || !isCampCraftingContext() || !canAffordCost(plan.cost)) return false;
+  const fits = plan.consumable ? hasConsumableSpace(plan.output.resource, plan.output.amount) : getResource(plan.output.resource).value + plan.output.amount <= getResource(plan.output.resource).maxValue;
+  if (!fits) return false;
   if (!spendCost(plan.cost)) return false;
   if (plan.consumable) for (let i = 0; i < plan.output.amount; i++) addConsumableToSlot(plan.output.resource);
   else addResource(plan.output.resource, plan.output.amount);
@@ -617,7 +623,7 @@ function completeTowerBatch(context) {
 }
 function appendTowerBatchRecipes(container, roomId) {
   if (!["forge", "workshop", "alchemyRoom"].includes(roomId)) return;
-  const recipes = Object.entries(getResourceCraftDefinitions()).filter(([id, def]) => id !== "steel" && (def.imbueInfrastructure === "alchemy" ? roomId === "alchemyRoom" : def.imbueInfrastructure === "furnace" ? roomId === "forge" : roomId === "workshop") && (def.unlocked || getActiveCraftContext(def)?.mode === "towerRoom"));
+  const recipes = Object.entries(getResourceCraftDefinitions()).filter(([id, def]) => id !== "steel" && !def.retired && (def.imbueInfrastructure === "alchemy" ? roomId === "alchemyRoom" : def.imbueInfrastructure === "furnace" ? roomId === "forge" : roomId === "workshop") && isResourceCraftUnlockedForContext(def, getActiveCraftContext(def)));
   for (const [id, def] of recipes) appendTowerBatchRow(container, "resource", id, def.label, roomId);
   if (roomId === "alchemyRoom") for (const id of ["improvedStaminaTonic", "majorManaTonic"]) {
     const target = Object.entries(getImbueDefinitions()).find(([, d]) => d.producesConsumable?.resource === id);

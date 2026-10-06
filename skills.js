@@ -262,7 +262,7 @@ function isHeartRestoredForRankTwoSkills() {
 
 function getRankTwoPromotionStory(skillName) {
   if (skillName === "meditation") {
-    return "The attuned meditation spot steadies around the restored Heart. Meditation opens into a deeper rhythm.";
+    return "The greater meditation spot steadies around the restored Heart. Meditation opens into a deeper rhythm.";
   }
 
   if (skillName === "manaCycling") {
@@ -321,6 +321,10 @@ function hasAttunedMeditationSpot() {
   return typeof hasPurchasedCampUpgrade === "function" && hasPurchasedCampUpgrade("attunedMeditationSpot");
 }
 
+function hasGreaterMeditationSpot() {
+  return typeof hasPurchasedCampUpgrade === "function" && hasPurchasedCampUpgrade("greaterMeditationSpot");
+}
+
 function checkRank2SkillUnlocks() {
   ensureSkillsState();
 
@@ -330,7 +334,7 @@ function checkRank2SkillUnlocks() {
     promoteSkillToRank("manaCycling", RANK_TWO_SKILL_RANK);
   }
 
-  if (hasAttunedMeditationSpot() && isSkillRankMax("meditation", DEFAULT_SKILL_RANK)) {
+  if (hasGreaterMeditationSpot() && isSkillRankMax("meditation", DEFAULT_SKILL_RANK)) {
     promoteSkillToRank("meditation", RANK_TWO_SKILL_RANK);
   }
 
@@ -666,7 +670,16 @@ function getCurrentSkillLevelDefinition(skillName) {
 function getMeditationManaRestoreAmount() {
   const levelDefinition = getCurrentSkillLevelDefinition("meditation");
 
-  return (levelDefinition && Number.isFinite(levelDefinition.manaRestore) ? levelDefinition.manaRestore : 1) * getEquippedPermanentImbueEffectMultiplier("meditationMultiplier");
+  return (levelDefinition && Number.isFinite(levelDefinition.manaRestore) ? levelDefinition.manaRestore : 1) *
+    getMeditationSpotManaMultiplier() *
+    getEquippedPermanentImbueEffectMultiplier("meditationMultiplier");
+}
+
+function getMeditationSpotManaMultiplier() {
+  if (typeof hasPurchasedCampUpgrade !== "function") return 1;
+  if (hasPurchasedCampUpgrade("greaterMeditationSpot")) return 1.5;
+  if (hasPurchasedCampUpgrade("attunedMeditationSpot")) return 1.25;
+  return 1;
 }
 
 function getMeditationManaRestoreForLevel(levelDefinition) {
@@ -1064,7 +1077,7 @@ function getResearchCost(researchName) {
   const research = getResearch(researchName);
   const cost = { ...((research && research.cost) || {}) };
 
-  if (typeof hasPurchasedCampUpgrade === "function" && hasPurchasedCampUpgrade("researchBench") && cost.focus) {
+  if (typeof hasHomeStation === "function" && hasHomeStation("researchBench") && cost.focus) {
     cost.focus = Math.max(1, cost.focus - 1);
   }
 
@@ -1075,7 +1088,7 @@ function getResearchDuration(researchName) {
   const research = getResearch(researchName);
   let duration = research ? research.duration || 1 : 1;
 
-  if (typeof hasPurchasedCampUpgrade === "function" && hasPurchasedCampUpgrade("researchBench")) {
+  if (typeof hasHomeStation === "function" && hasHomeStation("researchBench")) {
     duration *= 0.75;
   }
 

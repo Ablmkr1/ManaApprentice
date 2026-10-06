@@ -543,24 +543,6 @@ const actions = {
     onComplete: function () {},
   },
 
-  gatherWater: {
-    label: "Gather Water",
-    duration: 1,
-    cost: {
-      energy: 2,
-    },
-    unlocked: false,
-    running: false,
-    auto: { resource: "water", resumeAfterRest: true },
-
-    button: null,
-    progressBar: null,
-    metaProgressBar: null,
-
-    onStart: function () {},
-    onComplete: function () {},
-  },
-
   travel: {
     label: "Travel",
     duration: 1,
@@ -832,6 +814,19 @@ const actions = {
 
   storePelt: {
     label: "Store Pelt",
+    duration: 0,
+    cost: {},
+    unlocked: false,
+    running: false,
+    button: null,
+    progressBar: null,
+    metaProgressBar: null,
+    onStart: function () {},
+    onComplete: function () {},
+  },
+
+  storeFuel: {
+    label: "Store All Fuel Wood",
     duration: 0,
     cost: {},
     unlocked: false,
@@ -1292,7 +1287,7 @@ const skillDefinitions = {
   meditation: {
     label: "Meditation",
     progressLabel: "Successful meditations",
-    rank2ProgressLabel: "Attuned meditations",
+    rank2ProgressLabel: "Greater meditations",
     capacityLabel: "Meditate speed",
     capacitySuffix: "% faster",
     ranks: [
@@ -1346,6 +1341,11 @@ const skillDefinitions = {
 
 //State Engine
 const gameState = {
+  towerHome: { relocated: false, legacyFuelNoticeShown: false, establishmentPresented: false },
+  storyPopupsSeen: {},
+  storyPopupQueue: [],
+  elementalUsefulCycleCompleted: false,
+  brokenWardenEncountered: false,
   phase: "lost",
 
   autoAction: {

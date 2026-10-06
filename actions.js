@@ -44,10 +44,6 @@ function hookActionCompletions() {
     addStoryEntry("The imbued wood settles into the fuel stockpile with a steady magical heat.");
   };
 
-  getAction("gatherWater").onComplete = function () {
-    addResource("water", getResource("water").perClick);
-  };
-
   getAction("exploreLocation").onComplete = function () {
     exploreCurrentLocation();
   };
@@ -347,15 +343,42 @@ function hookActionCompletions() {
     updatePlacePanel();
   };
 
+  getAction("storeFuel").onComplete = function () {
+    const location = getExpeditionLocation(gameState.expedition.currentLocation);
+    const carriedItems = gameState.expedition.carriedItems;
+
+    if (!location || location !== getExpeditionLocation("minersCamp") || !location.storage) return;
+
+    const woodAmount = carriedItems.wood || 0;
+    const imbuedWoodAmount = carriedItems.imbuedWood || 0;
+    const woodToStore = woodAmount;
+    const imbuedWoodToStore = imbuedWoodAmount;
+    const fuelAdded = woodToStore + imbuedWoodToStore * 4;
+
+    if (fuelAdded <= 0) return;
+    if (woodToStore > 0) removeCarriedItem("wood", woodToStore);
+    if (imbuedWoodToStore > 0) removeCarriedItem("imbuedWood", imbuedWoodToStore);
+
+    location.storage.fuel = (location.storage.fuel || 0) + fuelAdded;
+
+    const stored = [];
+    if (woodToStore > 0) stored.push(formatCarryAmount(woodToStore) + " wood");
+    if (imbuedWoodToStore > 0) stored.push(formatCarryAmount(imbuedWoodToStore) + " imbued wood");
+    addStoryEntry("You add " + stored.join(" and ") + " to the miners' camp fuel stores (" + formatResourceAmountForDisplay(fuelAdded) + " fuel).");
+    updateLocationActions();
+    updatePlacePanel();
+  };
+
   getAction("takeIron").onComplete = function () {
     const location = getExpeditionLocation(gameState.expedition.currentLocation);
 
     if (!location || !location.storage || location.storage.iron <= 0) return;
-    const ironAmount = Math.min(location.storage.iron, 1 + (typeof getActiveAttunementEffectTotal === "function" ? getActiveAttunementEffectTotal("manualIronFlat") : 0));
-    if (!addCarriedItem("iron", ironAmount)) return;
+    const ironAmount = addCarriedItemUpToCapacity("iron", location.storage.iron);
+
+    if (ironAmount <= 0) return;
 
     location.storage.iron = Math.max(0, location.storage.iron - ironAmount);
-    addStoryEntry("You pack iron.");
+    addStoryEntry("You pack " + formatCarryAmount(ironAmount) + " iron.");
     updateLocationActions();
     updatePlacePanel();
   };
@@ -540,7 +563,7 @@ function hookActionCompletions() {
 }
 
 function getConcentrateTonicBaseActionContext() {
-  if (isCampCraftingContext() && hasPurchasedCampUpgrade("campAlchemyStation")) {
+  if (hasHomeStation("campAlchemyStation")) {
     return {
       mode: "camp",
       storage: null,
@@ -562,7 +585,7 @@ function getConcentrateTonicBaseActionContext() {
 }
 
 function getConcentrateManaTonicBaseActionContext() {
-  if (isCampCraftingContext() && hasPurchasedCampUpgrade("campAlchemyStation")) {
+  if (hasHomeStation("campAlchemyStation")) {
     return {
       mode: "camp",
       storage: null,
@@ -1136,6 +1159,11 @@ function processActivityTick() {
 
 function completeActivity() {
   const activity = gameState.activity;
+  if (activity.kind === "towerMoveIn") {
+    resetActivity();
+    completeTowerMoveIn();
+    return;
+  }
   // Worker output may fill storage while a paid manual crystal is in flight.
   // Keep that work pending until a whole crystal fits instead of losing it.
   if (isWesternCondenserActivity(activity) && activity.context?.targetId === "manaCrystal" && !canReceiveProductionProduces({resource: "manaCrystal", amount: 1})) {

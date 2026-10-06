@@ -84,9 +84,9 @@ const tests = `
   completeImbueRankTwoTarget(getImbueDefinition("rankTwoImbuedAlchemy").permanentAction);
   assert(getImbueWorkshopFuelCost("furnace", 5) === 2.5, "Emberbound Furnace halves fuel use");
   assert(getImbueWorkshopFuelCost("alchemy", 3) === 1.5, "Imbued Alchemy halves fuel use");
-  completeImbueRankTwoTarget(getImbueDefinition("rankTwoArcaneFurnace").permanentAction);
-  completeImbueRankTwoTarget(getImbueDefinition("rankTwoArcaneAlchemy").permanentAction);
-  assert(getImbueWorkshopFuelCost("furnace", 5) === 0 && getImbueWorkshopFuelCost("alchemy", 5) === 0, "Arcane workshop upgrades remove fuel use");
+  assert(!getImbueDefinition("rankTwoArcaneFurnace") && !getImbueDefinition("rankTwoArcaneAlchemy"), "Fuel-free imbuement purchases are retired");
+  imbuement.furnaceTier = imbuement.alchemyTier = 2;
+  assert(getImbueWorkshopFuelCost("furnace", 5) === 2.5 && getImbueWorkshopFuelCost("alchemy", 5) === 2.5, "Legacy workshop tiers retain half-fuel benefit before relocation");
 
   assert(!canApplyImbueRankTwoTarget(getImbueDefinition("rankTwoMatrix_2").permanentAction), "Matrix II is blocked before Matrix I");
   [6, 7, 8, 9, 10, 12].forEach(function (capacity, index) {

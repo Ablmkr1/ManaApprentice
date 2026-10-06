@@ -62,7 +62,9 @@ const tests = String.raw`
   roundTrip();
   assert(isLongRangeGateBuilt() && !gameState.tierFourCompleted, "inactive gate state survives reload without completing Tier 4");
 
-  assert(startProjectWork("towerRoomLongRangeGate") === undefined && gameState.activity.active, "activation starts through the existing Tower project activity system");
+  assert(!canWorkOnProject("towerRoomLongRangeGate"), "activation waits for relocation, while construction and research proceed");
+  gameState.towerHome.relocated = true;
+  assert(startProjectWork("towerRoomLongRangeGate") === undefined && gameState.activity.active, "activation starts through the existing Tower project activity system after relocation");
   testGameTime += 12000;
   processActivityTick();
   assert(getProjectState("towerRoomLongRangeGate").completed, "activation completes the Long-Range Gate project");

@@ -135,6 +135,7 @@ const DEV_T4_CAMP_UPGRADES = [
   "researchSpot",
   "researchBench",
   "meditationSpot",
+  "attunedMeditationSpot",
   "lumberMill",
   "foragingLure",
   "campTannery",
@@ -548,6 +549,11 @@ function resetDevTierProgressFlags() {
     east: { disturbanceTriggered: false, disturbanceResolved: false, capabilityDiscovered: false },
     south: { disturbanceTriggered: false, disturbanceResolved: false, capabilityDiscovered: false },
   };
+
+  gameState.storyPopupsSeen = {};
+  gameState.storyPopupQueue = [];
+  gameState.elementalUsefulCycleCompleted = false;
+  gameState.brokenWardenEncountered = false;
 
   gameState.elementals = {
     earth: getDefaultBoundEarthElementalState(),
@@ -1602,6 +1608,7 @@ function finalizeDevTierJump(tier) {
 function hideDevTierPopups() {
   hideElement(ui.introPopup);
   hideElement(ui.campEstablishedPopup);
+  hideElement(ui.towerEstablishedPopup);
   hideElement(ui.outskirtsCompletePopup);
   hideElement(ui.recallAwakenedPopup);
   hideElement(ui.torchSparkPopup);
@@ -1610,6 +1617,7 @@ function hideDevTierPopups() {
   hideElement(ui.personalWardPopup);
   hideElement(ui.advancedRecallPopup);
   hideElement(ui.northernDisturbancePopup);
+  hideElement(ui.storyPopup);
 }
 
 // Rest Button Text Toggle

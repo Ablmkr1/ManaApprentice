@@ -10,6 +10,7 @@ const gameDefinitions = {
   researchDefinitions,
   resourceCrafts: resourceCrafts,
   goalDefinitions,
+  storyPopupDefinitions,
   journalDefinitions,
   regionDefinitions,
   consumables,
@@ -131,7 +132,16 @@ function getJournalDefinitions() {
 }
 
 function getJournalEntryDefinition(entryId) {
-  return getJournalDefinitions()[entryId];
+  const story = getStoryPopupDefinition(entryId);
+  return getJournalDefinitions()[entryId] || (story ? { title: story.journalTitle, text: story.journalText } : undefined);
+}
+
+function getStoryPopupDefinitions() {
+  return gameDefinitions.storyPopupDefinitions;
+}
+
+function getStoryPopupDefinition(storyId) {
+  return getStoryPopupDefinitions()[storyId];
 }
 
 function getRegionDefinitions() {

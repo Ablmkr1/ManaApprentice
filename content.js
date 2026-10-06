@@ -182,6 +182,7 @@ const expeditionLocations = {
             unlocks: [
               { type: "flag", id: "magicUnlocked" },
               { type: "resource", id: "mana" },
+              { type: "campUpgrade", id: "meditationSpot" },
               { type: "journal", id: "manaAwakened" },
               { type: "spell", id: "manaSense" },
             ],
@@ -407,7 +408,7 @@ const expeditionLocations = {
     exploredLabel: "Restored Miners' Camp",
     distance: 135,
     storage: {
-      food: 0,
+      fuel: 0,
       ore: 0,
       iron: 0,
     },
@@ -424,7 +425,7 @@ const expeditionLocations = {
       discovered: "An old miners' camp sits beside a mountain stream. The place looks abandoned, but useful.",
       explored: "The miners' camp has water, storage, and the remains of a smelter. It could become the northern workshop.",
     },
-    availableActions: ["storeOre", "takeIron"],
+    availableActions: ["storeOre", "storeFuel", "takeIron"],
     explorableObjects: {
       studySmelterHeat: {
         label: "Strike the Anvil",
@@ -2138,7 +2139,7 @@ const researchDefinitions = {
   },
 
   meditation: {
-    label: "Meditation",
+    label: "Improved Meditation",
     category: "Magic",
     duration: 8,
     deepThought: 4,
@@ -2154,10 +2155,10 @@ const researchDefinitions = {
         manaCrystal: 1,
       },
     },
-    discoveryStory: "The mana crystal keeps a quiet pressure in your thoughts. There may be a way to recover mana without returning underground.",
+    discoveryStory: "The ordered crystal facets in the Roadside Ruin suggest a way to strengthen the meditation pattern you already use.",
     story:
-      "The crystal hums with the same quiet pressure as the cave runes. With the right place prepared, you could recover mana without returning underground.",
-    unlocks: [{ type: "campUpgrade", id: "meditationSpot" }],
+      "You adapt the Roadside Ruin's patient crystal pattern to your meditation spot, making its flow steadier and more efficient.",
+    unlocks: [{ type: "campUpgrade", id: "attunedMeditationSpot" }],
   },
 
   manaCycling: {
@@ -2456,7 +2457,7 @@ const researchDefinitions = {
 
   attunedMeditation: {
     requiresDiscoveredResources: ["manaCrystal","chargedCrystal"],
-    label: "Attuned Meditation",
+    label: "Greater Meditation",
     category: "Magic",
     duration: 10,
     deepThought: 6,
@@ -2470,16 +2471,16 @@ const researchDefinitions = {
     },
     requires: {
       flags: ["towerConstructionUnlocked"],
-      campUpgradesPurchased: ["meditationSpot"],
+      campUpgradesPurchased: ["attunedMeditationSpot"],
       skills: {
         meditation: { rank: 1, level: 5 },
       },
     },
     discoveryStory:
-      "The restored Heart changes the quiet around your meditation spot. With enough work, the place could be tuned to answer that deeper pulse.",
+      "The restored Heart changes the quiet around your improved meditation spot. With enough work, the pattern could be opened to a deeper pulse.",
     story:
-      "You trace the Heart's rhythm through the meditation pattern. The old quiet can become an attuned practice instead of simple recovery.",
-    unlocks: [{ type: "campUpgrade", id: "attunedMeditationSpot" }],
+      "You trace the Heart's rhythm through the improved pattern. It can become a greater practice instead of simple recovery.",
+    unlocks: [{ type: "campUpgrade", id: "greaterMeditationSpot" }],
   },
 
   westernTowerNode: {
@@ -2853,14 +2854,13 @@ const towerRoomDefinitions = {
       workDuration: 12,
       materials: {},
       description: "Synchronize the Northern, Eastern, Southern, and Western nodes with the greater network.",
-      completionStory: "The final alignment settles into place. The Long-Range Gate is active.",
     },
   },
 };
 
 const TOWER_ROOM_STAGES = {
   bedroom: { name: "Restorative Chambers", baselineEffect: { type: "restEnergyMultiplier", value: 1.25, label: "+25% Bedroom rest Energy" }, upgrade: "Completed 10-second Bedroom rests restore 20 Mana alongside Energy and existing Ward recovery.", mana: 20, seconds: 10 },
-  forge: { name: "Arcane Forge (Room)", baselineEffect: { type: "ironSmeltingDurationMultiplier", value: 0.75, label: "Tower Iron smelting duration ×0.75" }, upgrade: "Reveals Steelworking research (also requires Arcane Force Rank II). Separate from the Arcane Furnace fuel imbuement." },
+  forge: { name: "Arcane Forge (Room)", baselineEffect: { type: "ironSmeltingDurationMultiplier", value: 0.75, label: "Tower Iron smelting duration ×0.75" }, upgrade: "Reveals Steelworking research (also requires Arcane Force Rank II)." },
   workshop: { name: "Master Workshop", baselineEffect: { type: "craftDurationMultiplier", value: 0.85, label: "Ordinary crafting duration ×0.85; excludes smelting, alchemy and enchanting" }, upgrade: "Batch ordinary recipes; salvage unequipped unenchanted gear for 50% mundane materials." },
   alchemyRoom: { name: "Grand Alchemy Laboratory", baselineEffect: { type: "herbGatherFlat", value: 1, label: "+1 manual Herb; Tower brewing duration ×0.75; batch brewing" }, upgrade: "Batch access to the existing strongest tonics with their independent Imbue requirements; no increase to tonic strength." },
   library: { name: "Arcane Library", baselineEffect: { type: "researchDurationMultiplier", value: 0.85, label: "Research duration ×0.85; Study restores 2 Focus per 3-second cycle for 5 Energy" }, upgrade: "Study restores 4 Focus per 3-second cycle for 5 Energy.", focus: 2, upgradedFocus: 4, seconds: 3, energy: 5 },
@@ -2880,7 +2880,6 @@ function createTowerExpansionProjectDefinitions() {
       project.levels.push({ ...room.activation, onComplete: room.activation.onComplete });
       project.completedLabel = room.name + " Active";
       project.completedDescription = room.description + " The greater network is synchronized and one external destination is known.";
-      project.completedStory = "The Long-Range Gate answers a signal beyond the Home Territory.";
       project.visualStages = [
         { title: "Unbuilt", description: room.description, aria: room.name + " is not yet built." },
         { title: "Inactive", description: "The gate stands complete, waiting to be synchronized with the four regional nodes.", aria: room.name + " is built but inactive." },
@@ -3092,10 +3091,10 @@ const projectDefinitions = {
           chargedCrystal: 8,
         },
         description: "The Heart needs its mana crystals seated before you can imbue the full charge that wakes the old channels.",
-        completionStory:
-          "One by one, charged crystals seat into the Heart. The foundation lights from edge to center, remembering the tower it was meant to hold.",
         onComplete: function () {
-          unlockPersonalWard(true);
+          unlockPersonalWard(false);
+          gameState.personalWardPopupShown = true;
+          if (typeof triggerStoryPopup === "function") triggerStoryPopup("heartRemembers");
         },
       },
     ],
@@ -3500,7 +3499,7 @@ const campUpgrades = {
     campSlotRank: 1,
     duration: 3,
     cost: {
-      wood: 5,
+      wood: 3,
       energy: 10,
     },
     unlocked: false,
@@ -3521,7 +3520,7 @@ const campUpgrades = {
     campSlotRank: 1,
     duration: 4,
     cost: {
-      wood: 10,
+      wood: 5,
       energy: 8,
     },
     unlocked: false,
@@ -3722,7 +3721,6 @@ const campUpgrades = {
     duration: 10,
     cost: {
       stone: 8,
-      manaCrystal: 4,
       focus: 1,
       energy: 10,
     },
@@ -3736,12 +3734,36 @@ const campUpgrades = {
   },
 
   attunedMeditationSpot: {
-    label: "Attuned Meditation Spot",
-    displayName: "Attuned Meditation Spot",
+    // The saved ID is retained for compatibility with the former Attuned tier.
+    label: "Improved Meditation Spot",
+    displayName: "Improved Meditation Spot",
     campSlot: "meditation",
     campSlotLabel: "Meditation",
     campSlotOrder: 5,
     campSlotRank: 2,
+    duration: 10,
+    cost: {
+      stone: 16,
+      manaCrystal: 4,
+      focus: 2,
+      energy: 30,
+    },
+    unlocked: false,
+    purchased: false,
+    button: null,
+    display: null,
+    onComplete() {
+      unlockAction("meditate");
+    },
+  },
+
+  greaterMeditationSpot: {
+    label: "Greater Meditation Spot",
+    displayName: "Greater Meditation Spot",
+    campSlot: "meditation",
+    campSlotLabel: "Meditation",
+    campSlotOrder: 5,
+    campSlotRank: 3,
     duration: 12,
     cost: {
       stone: 80,
@@ -5235,8 +5257,6 @@ const imbueRankTwoConfig = {
     imbuedAlchemy: { cost: { herb: 30, glimmerleaf: 8, manaCrystal: 4, mana: 20 } },
     greaterRingOfMana: { cost: { ironRing: 1, manaCrystal: 5, chargedCrystal: 2, mana: 20 } },
     greaterRingOfWarding: { cost: { ironRing: 1, manaCrystal: 4, earthElementalCore: 1, stone: 20, mana: 20 } },
-    arcaneFurnace: { cost: { stone: 120, iron: 50, manaCrystal: 10, earthElementalCore: 1, mana: 20 } },
-    arcaneAlchemy: { cost: { herb: 100, glimmerleaf: 20, naturalEssence: 2, manaCrystal: 10, mana: 20 } },
   },
   equipmentEnchantments: {
     swiftstep: {
@@ -5421,21 +5441,6 @@ function createImbueRankTwoTargetDefinitions() {
       { type: "node", node: nodeName }
     );
   });
-
-  targets.rankTwoArcaneFurnace = createImbueRankTwoTargetDefinition(
-    "Arcane Furnace",
-    "Upgrade the Emberbound Furnace so Furnace recipes require no fuel.",
-    8,
-    config.recipes.arcaneFurnace.cost,
-    { type: "workshop", system: "furnace", tier: 2 }
-  );
-  targets.rankTwoArcaneAlchemy = createImbueRankTwoTargetDefinition(
-    "Arcane Alchemy",
-    "Upgrade Imbued Alchemy so Alchemy recipes require no fuel.",
-    8,
-    config.recipes.arcaneAlchemy.cost,
-    { type: "workshop", system: "alchemy", tier: 2 }
-  );
 
   return targets;
 }
@@ -6072,6 +6077,179 @@ const goalDefinitions = {
         isComplete: function () { return !!gameState.world?.territories?.unknownTerritory1?.visited; },
       },
     ],
+  },
+};
+
+const storyPopupDefinitions = {
+  fourRoads: {
+    id: "fourRoads",
+    once: true,
+    order: 1,
+    title: "Four Roads",
+    paragraphs: [
+      "You spread the brittle map across a flat stone. Four routes lead away from the woods you know, each marked with places someone thought worth remembering.",
+      "A mine. A cabin. A hut. Ruins farther west.",
+      "You trace the paths back toward the clearing. Whoever drew this map knew the land well enough to travel between these places.",
+      "Perhaps something of them remains. Perhaps they knew a way out.",
+    ],
+    continueLabel: "Continue",
+    journalTitle: "Four Roads",
+    journalText: "You spread the brittle map across a flat stone. Four routes lead away from the woods you know, each marked with places someone thought worth remembering.\n\nA mine. A cabin. A hut. Ruins farther west.\n\nYou trace the paths back toward the clearing. Whoever drew this map knew the land well enough to travel between these places.\n\nPerhaps something of them remains. Perhaps they knew a way out.",
+  },
+  moreThanARefuge: {
+    id: "moreThanARefuge", once: true, order: 2, title: "More Than a Refuge",
+    paragraphs: [
+      "Rain taps against the shelter while you put your tools away. The roof holds. Your supplies are dry, and there is enough wood for the fire.",
+      "For once, nothing needs your attention immediately.",
+      "You sit at the workbench and consider tomorrow. There are places to explore, things to make, questions you have barely begun to ask.",
+      "You realize you are making plans for days you now expect to survive.",
+    ],
+    continueLabel: "Continue", journalTitle: "More Than a Refuge",
+    journalText: "Rain taps against the shelter while you put your tools away. The roof holds. Your supplies are dry, and there is enough wood for the fire.\n\nFor once, nothing needs your attention immediately.\n\nYou sit at the workbench and consider tomorrow. There are places to explore, things to make, questions you have barely begun to ask.\n\nYou realize you are making plans for days you now expect to survive.",
+  },
+  familiarQuestion: {
+    id: "familiarQuestion", once: true, order: 3, title: "A Familiar Question",
+    paragraphs: [
+      "The final ring turns beneath your hands. Four patterns settle together, and the stone door opens into darkness.",
+      "You linger at the threshold.",
+      "There was a moment, just before the seal released, when you knew how it would feel. Your hand was already moving toward the next pattern before you had decided what to do.",
+      "You try to catch the thought behind that certainty.",
+      "It is gone. The door remains open.",
+    ],
+    continueLabel: "Continue", journalTitle: "A Familiar Question",
+    journalText: "The final ring turns beneath your hands. Four patterns settle together, and the stone door opens into darkness.\n\nYou linger at the threshold.\n\nThere was a moment, just before the seal released, when you knew how it would feel. Your hand was already moving toward the next pattern before you had decided what to do.\n\nYou try to catch the thought behind that certainty.\n\nIt is gone. The door remains open.",
+  },
+  plansBeneathTheDust: {
+    id: "plansBeneathTheDust", once: true, order: 4, title: "Plans Beneath the Dust",
+    paragraphs: [
+      "You carefully lift the surviving plans from beneath the dust. They show the lower courses of a tower, built around a chamber threaded with channels for mana.",
+      "A small drawing beside the foundation catches your attention: a bend in a stream, a slope, the outline of a clearing.",
+      "Your clearing.",
+      "Most of the upper plans are missing, but enough remains to investigate what lies beneath your camp.",
+      "You roll the pages carefully. You have something to look for when you return.",
+    ],
+    continueLabel: "Continue", journalTitle: "Plans Beneath the Dust",
+    journalText: "You carefully lift the surviving plans from beneath the dust. They show the lower courses of a tower, built around a chamber threaded with channels for mana.\n\nA small drawing beside the foundation catches your attention: a bend in a stream, a slope, the outline of a clearing.\n\nYour clearing.\n\nMost of the upper plans are missing, but enough remains to investigate what lies beneath your camp.\n\nYou roll the pages carefully. You have something to look for when you return.",
+  },
+  heartRemembers: {
+    id: "heartRemembers", once: true, order: 5, title: "The Heart Remembers",
+    paragraphs: [
+      "Your mana enters the final crystal.",
+      "Light spreads through the plinth and into the old channels. Beneath your feet, the foundation answers with a low, steady hum.",
+      "Then you feel it: the thread that has carried you safely back through the forest. You follow it downward, into the Heart.",
+      "It was here all along.",
+      "As you reach toward it, the channels brighten before your hand touches the stone. A pattern rises through your awareness, and your mana follows with an ease you cannot explain.",
+      "A ward settles around you.",
+      "You stand within its protection, one hand resting on the warm plinth. You remember how to do this.",
+      "You wish you could remember when.",
+    ],
+    continueLabel: "Continue", journalTitle: "The Heart Remembers",
+    journalText: "Your mana enters the final crystal.\n\nLight spreads through the plinth and into the old channels. Beneath your feet, the foundation answers with a low, steady hum.\n\nThen you feel it: the thread that has carried you safely back through the forest. You follow it downward, into the Heart.\n\nIt was here all along.\n\nAs you reach toward it, the channels brighten before your hand touches the stone. A pattern rises through your awareness, and your mana follows with an ease you cannot explain.\n\nA ward settles around you.\n\nYou stand within its protection, one hand resting on the warm plinth. You remember how to do this.\n\nYou wish you could remember when.",
+  },
+  firstConnection: {
+    id: "firstConnection", once: true, order: 6, title: "The First Connection",
+    paragraphs: [
+      "The Northern Node catches the Heart’s rhythm.",
+      "For a moment, you can feel both places at once: the stone beneath your hands and the chamber beneath the clearing. The distance between them seems thin enough to step across.",
+      "Farther away, other patterns stir.",
+      "Something shifts in the eastern woods. Another disturbance answers from the south. To the west, a faint anchor becomes perceptible at the Archive.",
+      "You hold the connection steady.",
+      "The tower’s reach once extended across these lands. It can do so again.",
+    ],
+    continueLabel: "Continue", journalTitle: "The First Connection",
+    journalText: "The Northern Node catches the Heart’s rhythm.\n\nFor a moment, you can feel both places at once: the stone beneath your hands and the chamber beneath the clearing. The distance between them seems thin enough to step across.\n\nFarther away, other patterns stir.\n\nSomething shifts in the eastern woods. Another disturbance answers from the south. To the west, a faint anchor becomes perceptible at the Archive.\n\nYou hold the connection steady.\n\nThe tower’s reach once extended across these lands. It can do so again.",
+  },
+  handsOfStone: {
+    id: "handsOfStone", once: true, order: 7, title: "Hands of Stone",
+    paragraphs: [
+      "The elemental finishes its task and pauses, awaiting your next instruction.",
+      "You inspect the results. Work that would have taken your own time and strength is done. Through the Heart, you can still feel the patient presence of the thing you bound.",
+      "You give it another task.",
+      "Stone shifts, and it sets to work.",
+      "For a while, you simply watch. Then you turn to the workbench, where an unfinished project has been waiting for you.",
+    ],
+    continueLabel: "Continue", journalTitle: "Hands of Stone",
+    journalText: "The elemental finishes its task and pauses, awaiting your next instruction.\n\nYou inspect the results. Work that would have taken your own time and strength is done. Through the Heart, you can still feel the patient presence of the thing you bound.\n\nYou give it another task.\n\nStone shifts, and it sets to work.\n\nFor a while, you simply watch. Then you turn to the workbench, where an unfinished project has been waiting for you.",
+  },
+  fourAnchorsOneHeart: {
+    id: "fourAnchorsOneHeart", once: true, order: 8, title: "Four Anchors, One Heart",
+    paragraphs: [
+      "The last node settles into place.",
+      "North. East. South. West.",
+      "You follow each connection back to the Heart. The mine, the hunting grounds, the overgrown fields, the western ruins—all lie within your reach now.",
+      "As you study the whole, the arrangement begins to make sense. Different resources. Different kinds of work. Paths returning to the same center.",
+      "Someone chose these places with care.",
+      "You find yourself anticipating how the connections should fit together. That familiarity stays with you long after you withdraw your senses.",
+    ],
+    continueLabel: "Continue", journalTitle: "Four Anchors, One Heart",
+    journalText: "The last node settles into place.\n\nNorth. East. South. West.\n\nYou follow each connection back to the Heart. The mine, the hunting grounds, the overgrown fields, the western ruins—all lie within your reach now.\n\nAs you study the whole, the arrangement begins to make sense. Different resources. Different kinds of work. Paths returning to the same center.\n\nSomeone chose these places with care.\n\nYou find yourself anticipating how the connections should fit together. That familiarity stays with you long after you withdraw your senses.",
+  },
+  lastWarden: {
+    id: "lastWarden", once: true, order: 9, title: "The Last Warden",
+    paragraphs: [
+      "Stone scrapes against stone near the Archive entrance.",
+      "A towering construct pulls itself upright. One arm hangs crookedly, and light leaks through fractures in its body. The markings across its chest resemble channels you have repaired beneath the tower.",
+      "Its head turns toward you.",
+      "A broken pulse tears through its frame, and the construct raises its remaining arm.",
+      "Whatever it once guarded is gone, but the core that drives it will definitely be useful.",
+    ],
+    continueLabel: "Continue", journalTitle: "The Last Warden",
+    journalText: "Stone scrapes against stone near the Archive entrance.\n\nA towering construct pulls itself upright. One arm hangs crookedly, and light leaks through fractures in its body. The markings across its chest resemble channels you have repaired beneath the tower.\n\nIts head turns toward you.\n\nA broken pulse tears through its frame, and the construct raises its remaining arm.\n\nWhatever it once guarded is gone, but the core that drives it will definitely be useful.",
+  },
+  beyondTheFourRoads: {
+    id: "beyondTheFourRoads", once: true, order: 10, title: "Beyond the Four Roads",
+    paragraphs: [
+      "The Warden falls, its failing light retreating into a dense core beneath the shattered chest.",
+      "You kneel beside it. Even now, the core holds its shape, preserving a web of intricate connections.",
+      "You recognize patterns like those linking the regional nodes. But there are others folded deeper inside—longer, stranger routes that slip beyond your ability to follow.",
+      "You look toward the four roads you have come to know.",
+      "There were more.",
+      "You carefully lift the core from the wreckage. At the tower, you may be able to understand where they led.",
+    ],
+    continueLabel: "Continue", journalTitle: "Beyond the Four Roads",
+    journalText: "The Warden falls, its failing light retreating into a dense core beneath the shattered chest.\n\nYou kneel beside it. Even now, the core holds its shape, preserving a web of intricate connections.\n\nYou recognize patterns like those linking the regional nodes. But there are others folded deeper inside—longer, stranger routes that slip beyond your ability to follow.\n\nYou look toward the four roads you have come to know.\n\nThere were more.\n\nYou carefully lift the core from the wreckage. At the tower, you may be able to understand where they led.",
+  },
+  towerBuiltToReach: {
+    id: "towerBuiltToReach", once: true, order: 11, title: "A Tower Built to Reach",
+    paragraphs: [
+      "Under the Heart’s steady light, the Warden Core finally yields a pattern you can understand.",
+      "The regional nodes are part of a much larger network. Beyond them lie routes designed to cross distances you cannot yet measure.",
+      "You compare the pattern with the surviving tower plans. Channels that once seemed unfinished now have a purpose. They lead upward, toward a chamber the tower no longer has.",
+      "A gate belonged there.",
+      "You begin sketching what must be rebuilt. Somewhere beyond these woods, another end of the connection may still remain.",
+    ],
+    continueLabel: "Continue", journalTitle: "A Tower Built to Reach",
+    journalText: "Under the Heart’s steady light, the Warden Core finally yields a pattern you can understand.\n\nThe regional nodes are part of a much larger network. Beyond them lie routes designed to cross distances you cannot yet measure.\n\nYou compare the pattern with the surviving tower plans. Channels that once seemed unfinished now have a purpose. They lead upward, toward a chamber the tower no longer has.\n\nA gate belonged there.\n\nYou begin sketching what must be rebuilt. Somewhere beyond these woods, another end of the connection may still remain.",
+  },
+  homeAtLast: {
+    id: "homeAtLast", once: true, order: 12, title: "Home, at Last",
+    paragraphs: [
+      "You carry the last of your belongings inside.",
+      "Below, the Heart supplies a steady flow of power. Heat gathers where it is needed, and the workshops hold their rhythm without another armful of fuel.",
+      "From the doorway, you look back across the grounds. The shelter is still there. So is the place where you huddled beside your first small fire, too tired to wonder whether you would ever leave these woods.",
+      "You had so little then.",
+      "Tonight, there is a bed upstairs and a roof of fitted stone. Your tools have places. Your work can wait until morning.",
+      "You close the door and go inside.",
+    ],
+    continueLabel: "Continue", journalTitle: "Home, at Last",
+    journalText: "You carry the last of your belongings inside.\n\nBelow, the Heart supplies a steady flow of power. Heat gathers where it is needed, and the workshops hold their rhythm without another armful of fuel.\n\nFrom the doorway, you look back across the grounds. The shelter is still there. So is the place where you huddled beside your first small fire, too tired to wonder whether you would ever leave these woods.\n\nYou had so little then.\n\nTonight, there is a bed upstairs and a roof of fitted stone. Your tools have places. Your work can wait until morning.\n\nYou close the door and go inside.",
+  },
+  answerBeyondTheWoods: {
+    id: "answerBeyondTheWoods", once: true, order: 13, title: "An Answer Beyond the Woods",
+    paragraphs: [
+      "You set the final alignment.",
+      "Mana rises from the Heart through the tower. North, east, south, and west, the regional nodes answer in turn.",
+      "The gate fills with light.",
+      "You reach along the new connection, farther than any familiar path. For several breaths, you feel nothing at all.",
+      "Then something answers.",
+      "A distant anchor catches your signal. The connection holds, and the light within the gate settles into an open passage.",
+      "You step back and look around the chamber you built. Beneath it are warm rooms, working hands of stone, and a Heart whose rhythm you know.",
+      "You woke in these woods with nothing. Now you have somewhere to return to.",
+      "Beyond the gate, the first unknown territory waits.",
+    ],
+    endingStatus: ["Tier IV Complete", "Tier V — Rediscovery", "New objective: Travel to the first external territory."],
+    continueLabel: "Continue", journalTitle: "An Answer Beyond the Woods",
+    journalText: "You set the final alignment.\n\nMana rises from the Heart through the tower. North, east, south, and west, the regional nodes answer in turn.\n\nThe gate fills with light.\n\nYou reach along the new connection, farther than any familiar path. For several breaths, you feel nothing at all.\n\nThen something answers.\n\nA distant anchor catches your signal. The connection holds, and the light within the gate settles into an open passage.\n\nYou step back and look around the chamber you built. Beneath it are warm rooms, working hands of stone, and a Heart whose rhythm you know.\n\nYou woke in these woods with nothing. Now you have somewhere to return to.\n\nBeyond the gate, the first unknown territory waits.\n\nTier IV Complete\n\nTier V — Rediscovery\n\nNew objective: Travel to the first external territory.",
   },
 };
 

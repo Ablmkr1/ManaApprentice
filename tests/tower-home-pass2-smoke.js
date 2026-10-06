@@ -1,0 +1,98 @@
+require('./overhaul-harness')(`
+  setCampActionsAvailable = function() {};
+  assert(getHomeDestination() === 'home' && !isTowerMoveInRevealed(), 'Early home is camp without move-in');
+  assert(getImbueWorkshopFuelCost('furnace', 5) === 5, 'Normal fuel costs');
+  const imbue = ensureImbueRankTwoState();
+  imbue.furnaceTier = 1; imbue.alchemyTier = 1;
+  assert(getImbueWorkshopFuelCost('furnace', 5) === 2.5 && getImbueWorkshopFuelCost('alchemy', 3) === 1.5, 'Half-fuel reductions retained');
+  for (const tiers of [[2,0],[0,2],[2,2]]) {
+    const legacy = createSaveData(); legacy.version = 43;
+    delete legacy.gameState.towerHome;
+    Object.assign(legacy.gameState.magic.imbuement, { furnaceTier: tiers[0], alchemyTier: tiers[1] });
+    const migrated = migrateSaveData(structuredClone(legacy));
+    assert(migrated.version === SAVE_VERSION && !migrated.gameState.towerHome.relocated, 'Migration does not move player automatically');
+    assert(migrated.gameState.magic.imbuement.furnaceTier === tiers[0] && migrated.gameState.magic.imbuement.alchemyTier === tiers[1], 'Legacy ownership retained');
+    assert(migrated.gameState.towerHome.legacyFuelNoticePending, 'Legacy notice scheduled');
+    assert(JSON.stringify(migrateSaveData(structuredClone(migrated))) === JSON.stringify(migrated), 'Migration idempotent');
+    assert(JSON.stringify(migrated.resources) === JSON.stringify(legacy.resources), 'Migration keeps resources');
+    applyGameStateSaveData(migrated.gameState);
+    let notices = 0; addStoryEntry = () => notices++;
+    reportLegacyTowerFuelChange(); reportLegacyTowerFuelChange();
+    const saved = createSaveData(); applyGameStateSaveData(saved.gameState); reportLegacyTowerFuelChange();
+    assert(notices === 1, 'Legacy explanation shown once across reload');
+  }
+  const paidLegacy = createSaveData(); paidLegacy.version = 43;
+  delete paidLegacy.gameState.towerHome;
+  paidLegacy.gameState.activity = { active:true, kind:'spell', id:'imbue', context:{ targetId:'rankTwoArcaneFurnace' } };
+  const refundBefore = paidLegacy.resources.stone.value;
+  paidLegacy.resources.stone.maxValue = 10000;
+  const refunded = migrateSaveData(paidLegacy);
+  assert(!refunded.gameState.activity.active && refunded.resources.stone.value === refundBefore + 120, 'Obsolete active fuel imbuement is canceled and refunded');
+  gameState.phase = 'expedition'; gameState.expedition.active = false; gameState.expedition.currentLocation = null;
+  gameState.wardenCoreRecovered = true; getResearch('longRangeNetwork').unlocked = true;
+  gameState.currentGoalId = 'researchLongRangeNetwork';
+  assert(isTowerMoveInRevealed() && !canMoveIntoTower(), 'Eligible objective reveals without granting rooms');
+  getProjectState('towerFoundation').completed = true; getProjectState('towerBasement').completed = true;
+  ['bedroom','workshop','forge','library','alchemyRoom','enchantingStudy'].forEach(id => room(id, 1));
+  assert(canMoveIntoTower(), 'All functional stages qualify');
+  gameState.expedition.active = true; assert(!canMoveIntoTower(), 'Away blocks move-in'); gameState.expedition.active = false;
+  startActivity({kind:'rest', duration:1}); assert(!startTowerMoveIn(), 'Active work blocks relocation'); resetActivity();
+  const earth = getBoundEarthElementalState(); earth.owned = 1;
+  gameState.discoveredBerryBush = true; getExpeditionLocation('mysteriousPlants').explored = true;
+  earth.assignments.nodes.local = { food:1 };
+  getBoundEarthElementalCycle('local','food').remaining = 12.5;
+  const elementalBefore = JSON.stringify(gameState.elementals);
+  getCampUpgrade('warmCot').purchased = true; getCampUpgrade('smallHut').purchased = true; getCampUpgrade('stoneFirePit').purchased = true;
+  const recoveryBefore = [getEnergyRecoveryPerSecond(), getRecoverFocusAmount(), getFireRecoveryDurationMultiplier(), getResearchDuration('steelworking')].join();
+  const resourcesBefore = JSON.stringify(createResourceSaveData());
+  let stories = 0; addStoryEntry = () => stories++;
+  let homeStories = 0; triggerStoryPopup = id => { if (id === 'homeAtLast') homeStories++; };
+  showTowerEstablishedPresentation = () => triggerStoryPopup('homeAtLast');
+  assert(startTowerMoveIn() && gameState.activity.duration === 5, 'Short move-in starts without payment');
+  assert(JSON.stringify(createResourceSaveData()) === resourcesBefore, 'Move-in charges no resources');
+  completeActivity();
+  assert(hasRelocatedToTower() && getHomeDestination() === 'tower', 'Move-in commits home destination');
+  assert(gameState.currentGoalId === 'researchLongRangeNetwork', 'Move-in keeps other progression objective');
+  assert(JSON.stringify(gameState.elementals) === elementalBefore, 'Move-in keeps workers');
+  assert([getEnergyRecoveryPerSecond(), getRecoverFocusAmount(), getFireRecoveryDurationMultiplier(), getResearchDuration('steelworking')].join() === recoveryBefore, 'Recovery and research benefits do not change or stack on relocation');
+  assert(!completeTowerMoveIn() && stories === 0 && homeStories === 1, 'Move-in and story are one-time');
+  const save = createSaveData(); applyGameStateSaveData(save.gameState);
+  assert(hasRelocatedToTower(), 'Relocation persists');
+  assert(isObsoleteCampPurchase(getCampUpgrade('campSmelter')), 'Obsolete construction retires');
+  assert(!isObsoleteCampPurchase(getCampUpgrade('manaCondenserFrame')), 'Regional condenser remains buildable');
+  assert(!isObsoleteCampPurchase(getCampUpgrade('attunedMeditationSpot')), 'Meditation progression remains attainable in Bedroom');
+  assert(!isObsoleteCampPurchase(getCampUpgrade('greaterMeditationSpot')), 'Greater Meditation progression remains attainable in Bedroom');
+  funds(); getResource('fuel').value = 0;
+  for (const [roomId, recipe] of [['forge','iron'],['alchemyRoom','staminaTonic'],['alchemyRoom','manaTonicBase']]) {
+    gameState.tower.selectedId = 'room:' + roomId;
+    const craft = getResourceCraft(recipe), output = craft.campProduces.resource;
+    getResource(output).value = 0;
+    const context = getActiveCraftContext(craft);
+    assert(!('fuel' in context.cost) && canAffordCost(context.cost), recipe + ' single has no fuel requirement');
+    assert(startTowerBatch('resource', recipe, 1), recipe + ' batch starts at zero fuel');
+    const paid = structuredClone(gameState.activity.context); resetActivity();
+    assert(completeTowerBatch(paid) && getResource(output).value > 0 && getResource('fuel').value === 0, recipe + ' batch completes at zero fuel');
+  }
+  assert(!getConcentrateTonicBaseActionCost().fuel && !getConcentrateManaTonicBaseActionCost().fuel, 'Concentration uses no fuel');
+  const tonic = getProductionSpellTargetContext('imbue', 'manaTonic');
+  assert(tonic.cost.mana === 8 && tonic.cost.manaTonicBase === 1, 'Existing brewing mana and material costs retained');
+  const manaBefore = getResource('mana').value;
+  assert(spendCost(tonic.cost) && getResource('mana').value === manaBefore - 8, 'Mana remains charged');
+  for (const [location, recipe] of [['minersCamp','iron'],['alchemistsHut','staminaTonic'],['alchemistsHut','manaTonicBase']]) {
+    gameState.expedition.active = true; gameState.expedition.currentLocation = location; getExpeditionLocation(location).explored = true;
+    const context = getActiveCraftContext(getResourceCraft(recipe));
+    assert(context && !context.cost.fuel && !context.storageCost.fuel, 'Regional ' + recipe + ' uses Heart power');
+    assert(!hasHomeStation('workbench'), 'Regional visit does not enable home station');
+  }
+  gameState.expedition.active = false; gameState.expedition.currentLocation = null;
+  const legacyComplete = createSaveData(); legacyComplete.version = 43; delete legacyComplete.gameState.towerHome;
+  Object.assign(legacyComplete.gameState, { brokenWardenDefeated:true, tierFourCompleted:true, tierFiveUnlocked:true });
+  legacyComplete.gameState.projects.towerRoomLongRangeGate = {unlocked:true,level:2,completed:true,work:0,deposits:{}};
+  legacyComplete.gameState.projects.towerRoomBedroom = {unlocked:true,level:0,completed:false,work:0,deposits:{}};
+  const migratedComplete = migrateSaveData(legacyComplete); applyGameStateSaveData(migratedComplete.gameState);
+  syncTierFourFinaleProgression();
+  assert(gameState.tierFourCompleted && getProjectState('towerRoomLongRangeGate').completed, 'Completed finale remains active');
+  assert(isTowerMoveInRevealed() && !canMoveIntoTower() && !isTowerRoomCompleted('bedroom'), 'Completed save receives checklist without free rooms');
+  console.log(JSON.stringify({passed}));
+`);
+
